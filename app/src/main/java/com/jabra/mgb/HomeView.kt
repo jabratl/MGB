@@ -13,7 +13,6 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
-import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 /**
@@ -44,7 +43,7 @@ class HomeView(
         setBackgroundColor(context.getColor(R.color.mg_bg))
         isClickable = true // swallow touches: the blank WebView below must not get them
         content.orientation = LinearLayout.VERTICAL
-        content.setPadding(dp(12), dp(28), dp(12), dp(24))
+        content.setPadding(dp(16), dp(24), dp(16), dp(24))
         val sv = ScrollView(context)
         sv.isFillViewport = true
         sv.addView(content, LayoutParams(MATCH, WRAP))
@@ -56,23 +55,26 @@ class HomeView(
 
     override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) {
         super.onSizeChanged(w, h, ow, oh)
-        val c = (w / dp(96)).coerceIn(3, 8)
+        val c = (w / dp(84)).coerceIn(4, 8) // S22
         if (c != cols) rebuild()
     }
 
     private fun rebuild() {
         val w = width
         if (w <= 0) return
-        cols = (w / dp(96)).coerceIn(3, 8)
+        cols = (w / dp(84)).coerceIn(4, 8) // S22
         content.removeAllViews()
 
+        // S22: wordmark instead of a heading, pushed down to about 1/5 of the height
         content.addView(TextView(context).apply {
-            text = "Speed dial"
+            text = "MGB"
             setTextColor(context.getColor(R.color.mg_text))
-            textSize = 22f
+            textSize = 46f
+            letterSpacing = 0.06f
+            gravity = Gravity.CENTER
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setPadding(dp(8), 0, dp(8), dp(16))
-        })
+            setPadding(0, (this@HomeView.height * 0.14f).toInt(), 0, dp(56))
+        }, LinearLayout.LayoutParams(MATCH, WRAP))
 
         val cells = ArrayList<View>()
         for (b in Bookmarks.bookmarks()) cells.add(tile(b.title, b.url))
@@ -90,33 +92,17 @@ class HomeView(
             content.addView(row)
             i += cols
         }
-
-        val links = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(0, dp(24), 0, 0)
-        }
-        links.addView(linkButton("Bookmarks") { onBookmarks() })
-        links.addView(linkButton("History") { onHistory() })
-        content.addView(links, LinearLayout.LayoutParams(MATCH, WRAP))
     }
-
-    private fun linkButton(label: String, click: () -> Unit): MaterialButton =
-        MaterialButton(context, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            text = label
-            isAllCaps = false
-            setOnClickListener { click() }
-            layoutParams = LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(6); marginEnd = dp(6) }
-        }
 
     private fun circle(color: Int, letter: String, letterColor: Int): TextView = TextView(context).apply {
         text = letter
         gravity = Gravity.CENTER
         setTextColor(letterColor)
-        textSize = 22f
+        textSize = 24f
         setTypeface(typeface, android.graphics.Typeface.BOLD)
-        background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(color) }
-        layoutParams = LinearLayout.LayoutParams(dp(52), dp(52))
+        // S22: rounded square tile (neutral fill), the colour goes to the letter
+        background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = dp(18).toFloat(); setColor(color) }
+        layoutParams = LinearLayout.LayoutParams(dp(60), dp(60))
     }
 
     private fun cell(icon: View, label: String): LinearLayout = LinearLayout(context).apply {
@@ -141,7 +127,7 @@ class HomeView(
         val name = title.ifBlank { Util.host(url) }
         val letter = name.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "?"
         val color = Color.parseColor(PALETTE[(Util.host(url).hashCode() and 0x7fffffff) % PALETTE.size])
-        val c = cell(circle(color, letter, Color.WHITE), name)
+        val c = cell(circle(context.getColor(R.color.mg_surface_variant), letter, color), name)
         c.setOnClickListener { onOpen(url) }
         c.setOnLongClickListener {
             MaterialAlertDialogBuilder(context)
@@ -159,7 +145,7 @@ class HomeView(
     }
 
     private fun addTile(): View {
-        val c = cell(circle(context.getColor(R.color.mg_surface_variant), "+", context.getColor(R.color.mg_text)), "Add")
+        val c = cell(circle(context.getColor(R.color.mg_surface_variant), "+", context.getColor(R.color.mg_text_dim)), "Add")
         c.setOnClickListener { askAdd() }
         return c
     }

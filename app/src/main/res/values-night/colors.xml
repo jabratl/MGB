@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- MGB design tokens: DARK -->
-    <color name="mg_bg">#0F1115</color>
-    <color name="mg_surface">#181B21</color>
-    <color name="mg_surface_variant">#242932</color>
-    <color name="mg_primary">#6FA0FF</color>
-    <color name="mg_on_primary">#0B1A33</color>
+    <color name="mg_bg">#0A0C10</color>
+    <color name="mg_surface">#14171C</color>
+    <color name="mg_surface_variant">#1F232A</color>
+    <color name="mg_primary">#F2708A</color>
+    <color name="mg_on_primary">#3A0A15</color>
     <color name="mg_text">#ECEFF4</color>
-    <color name="mg_text_dim">#A0A8B6</color>
-    <color name="mg_outline">#343B47</color>
+    <color name="mg_text_dim">#98A0AE</color>
+    <color name="mg_outline">#2A2F38</color>
     <color name="mg_error">#FF7B72</color>
     <color name="mg_success">#4CD08A</color>
 

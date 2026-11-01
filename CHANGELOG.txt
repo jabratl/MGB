@@ -1,3 +1,9 @@
+MGB 0.0.24 (S22)
+- New minimal look: address bar is a floating pill at the bottom (home, address, tabs, menu). Back / forward / reload moved into the menu.
+- 3-dot menu is now a bottom sheet: 4 quick tiles (Bookmarks, History, Downloads, Grabber), icon row (back, forward, bookmark, reload / stop), then the text rows. Same actions as before.
+- Home: "MGB" wordmark + 4-column rounded tiles (letter icons). Bookmarks / History buttons removed from home (they are in the menu).
+- Colours: calmer dark greys, rose accent.
+
 MGB 0.0.23 (S21)
 - Long press on a link: Open in new tab, Copy link, Share link. Long press on an image: Open image in new tab, Copy image address, Download image.
 - Menu: Find in page (type to highlight, arrows for previous / next) and Share page.

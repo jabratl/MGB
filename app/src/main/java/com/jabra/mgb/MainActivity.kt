@@ -8,7 +8,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
-import androidx.appcompat.widget.PopupMenu // FIX: AppCompat popup, themed by the app theme
+import android.view.WindowManager
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
@@ -20,9 +20,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     private lateinit var tabs: TabManager
     private lateinit var urlBar: EditText
-    private lateinit var btnBack: TextView
-    private lateinit var btnFwd: TextView
-    private lateinit var btnReload: TextView
+    private lateinit var btnHome: TextView // S22
     private lateinit var btnTabs: MaterialButton
     private lateinit var progress: LinearProgressIndicator
     private lateinit var backCb: OnBackPressedCallback
@@ -34,14 +32,13 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         AdBlock.init(this) // S19
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE) // S22: bottom bar rides above the keyboard
         lastNight = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         CrashLog.install(this) // FIX: save crash trace for the next start
         BrowserExtras.init(this) // S14: file chooser + permission launchers (before STARTED)
 
         urlBar = findViewById(R.id.url_bar)
-        btnBack = findViewById(R.id.btn_back)
-        btnFwd = findViewById(R.id.btn_fwd)
-        btnReload = findViewById(R.id.btn_reload)
+        btnHome = findViewById(R.id.btn_home)
         btnTabs = findViewById(R.id.btn_tabs)
         progress = findViewById(R.id.progress)
         EngineHost.start(this) // S6: background.js engine (hidden WebView)
@@ -49,74 +46,9 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         TabsApi.attach(tabs)
         floating = FloatingDl(this, findViewById<FrameLayout>(R.id.web_container).parent as FrameLayout, tabs) // S11
 
-        btnBack.setOnClickListener { tabs.active?.web?.let { if (it.canGoBack()) it.goBack() } }
-        btnFwd.setOnClickListener { tabs.active?.web?.let { if (it.canGoForward()) it.goForward() } }
-        btnReload.setOnClickListener {
-            tabs.active?.let {
-                if (it.loading) {
-                    it.web.stopLoading()
-                    it.progress = 100
-                    onPageInfo(it)
-                } else it.web.reload()
-            }
-        }
+        btnHome.setOnClickListener { if (tabs.active?.home != true) tabs.newTab(TabManager.HOME_PAGE) } // S22
         btnTabs.setOnClickListener { tabs.showSwitcher() }
-        findViewById<TextView>(R.id.btn_menu).setOnClickListener { anchor ->
-            val m = PopupMenu(this, anchor)
-            val cur = tabs.active // S13
-            val canMark = cur != null && !cur.home && !cur.isExt && cur.url.startsWith("http")
-            val marked = cur != null && canMark && Bookmarks.isBookmarked(cur.url)
-            // S10b: extension windows (V77 popup, queue, history, options)
-            m.menu.add(0, 4, 6, "Media Grabber")
-            m.menu.add(0, 5, 7, "Queue")
-            m.menu.add(0, 8, 7, "Downloads") // S12
-            m.menu.add(0, 6, 8, "History")
-            m.menu.add(0, 7, 9, "Settings")
-            m.menu.add(0, 9, 9, if (marked) "Remove bookmark" else "Add bookmark").isEnabled = canMark // S13
-            m.menu.add(0, 10, 9, "Bookmarks") // S13
-            m.menu.add(0, 11, 9, "Browsing history") // S13
-            m.menu.add(0, 12, 9, if (cur?.desktop == true) "Mobile site" else "Desktop site") // S14
-                .isEnabled = cur != null && !cur.home && !cur.isExt
-            m.menu.add(0, 16, 9, "Find in page").isEnabled = canMark // S21
-            m.menu.add(0, 17, 9, "Share page").isEnabled = canMark // S21
-            m.menu.add(0, 13, 10, if (AdBlock.enabled) "Ad blocker: ON (${AdBlock.blocked} blocked)" else "Ad blocker: OFF") // S19
-            m.menu.add(0, 14, 10, "Theme: ${UiMode.label(this)}") // S20
-            m.menu.add(0, 15, 10, if (UiMode.darkPages(this)) "Dark pages: ON" else "Dark pages: OFF") // S20
-            m.menu.add(0, 1, 10, "Check for updates")
-            m.menu.add(0, 2, 11, "MGB ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})").isEnabled = false
-            m.menu.add(0, 3, 12, "Engine status")
-            m.setOnMenuItemClickListener {
-                when (it.itemId) {
-                    1 -> { UpdateManager.check(this, false); true }
-                    3 -> { EngineHost.showStatus(this); true }
-                    4 -> { openExt("popup.html"); true }
-                    5 -> { openExt("queue.html"); true }
-                    6 -> { openExt("history.html"); true }
-                    7 -> { openExt("options.html"); true }
-                    8 -> { DownloadsScreen.open(this); true }
-                    9 -> { toggleBookmark(); true } // S13
-                    10 -> { BookmarksScreen.open(this, BookmarksScreen.Mode.BOOKMARKS, tabs); true } // S13
-                    11 -> { BookmarksScreen.open(this, BookmarksScreen.Mode.HISTORY, tabs); true } // S13
-                    12 -> { tabs.active?.let { tabs.setDesktop(it, !it.desktop) }; true } // S14
-                    13 -> { // S19
-                        Util.toast(this, if (AdBlock.toggle()) "Ad blocker ON (reload the page)" else "Ad blocker OFF (reload the page)")
-                        true
-                    }
-                    14 -> { UiMode.pick(this); true } // S20
-                    16 -> { FindBar.open(this, tabs.active?.web); true } // S21
-                    17 -> { tabs.active?.let { if (it.url.startsWith("http")) tabs.shareText(it.url) }; true } // S21
-                    15 -> { // S20
-                        val on = !UiMode.darkPages(this)
-                        UiMode.setDarkPages(this, on)
-                        tabs.applyDarkPages()
-                        Util.toast(this, if (on) "Dark pages ON (reload the page)" else "Dark pages OFF (reload the page)")
-                        true
-                    }
-                    else -> false
-                }
-            }
-            m.show()
-        }
+        findViewById<TextView>(R.id.btn_menu).setOnClickListener { showMenu() } // S22
 
         urlBar.setOnEditorActionListener { _, actionId, event ->
             val go = actionId == EditorInfo.IME_ACTION_GO ||
@@ -151,6 +83,60 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         if (!tabs.restoreSession()) tabs.newTab(TabManager.HOME_PAGE) // S13
         UpdateManager.autoCheck(this)
         CrashLog.showLast(this) // FIX
+    }
+
+    /** S22: reload, or stop when the page is still loading (was the top bar button). */
+    private fun reloadOrStop() {
+        tabs.active?.let {
+            if (it.loading) {
+                it.web.stopLoading()
+                it.progress = 100
+                onPageInfo(it)
+            } else it.web.reload()
+        }
+    }
+
+    /** S22: the 3-dot menu as a bottom sheet (MenuSheet). Same actions as the old PopupMenu, same ids/handlers. */
+    private fun showMenu() {
+        val cur = tabs.active
+        val web = cur?.web
+        val canMark = cur != null && !cur.home && !cur.isExt && cur.url.startsWith("http")
+        val marked = cur != null && canMark && Bookmarks.isBookmarked(cur.url)
+        val quick = listOf(
+            MenuSheet.Quick("★", "Bookmarks") { BookmarksScreen.open(this, BookmarksScreen.Mode.BOOKMARKS, tabs) },
+            MenuSheet.Quick("↺", "History") { BookmarksScreen.open(this, BookmarksScreen.Mode.HISTORY, tabs) },
+            MenuSheet.Quick("↓", "Downloads") { DownloadsScreen.open(this) },
+            MenuSheet.Quick("▶", "Grabber") { openExt("popup.html") }
+        )
+        val acts = listOf(
+            MenuSheet.Act("‹", web?.canGoBack() == true) { web?.goBack() },
+            MenuSheet.Act("›", web?.canGoForward() == true) { web?.goForward() },
+            MenuSheet.Act(if (marked) "★" else "☆", canMark) { toggleBookmark() },
+            MenuSheet.Act(if (cur?.loading == true) "×" else "↻", cur != null) { reloadOrStop() }
+        )
+        val items = listOf(
+            MenuSheet.Item("Queue") { openExt("queue.html") },
+            MenuSheet.Item("Download history") { openExt("history.html") },
+            MenuSheet.Item("Find in page", canMark) { FindBar.open(this, tabs.active?.web) },
+            MenuSheet.Item("Share page", canMark) { tabs.active?.let { if (it.url.startsWith("http")) tabs.shareText(it.url) } },
+            MenuSheet.Item(if (cur?.desktop == true) "Mobile site" else "Desktop site", cur != null && !cur.home && !cur.isExt) {
+                tabs.active?.let { tabs.setDesktop(it, !it.desktop) }
+            },
+            MenuSheet.Item(if (AdBlock.enabled) "Ad blocker: ON (${AdBlock.blocked} blocked)" else "Ad blocker: OFF") { // S19
+                Util.toast(this, if (AdBlock.toggle()) "Ad blocker ON (reload the page)" else "Ad blocker OFF (reload the page)")
+            },
+            MenuSheet.Item("Theme: ${UiMode.label(this)}") { UiMode.pick(this) }, // S20
+            MenuSheet.Item(if (UiMode.darkPages(this)) "Dark pages: ON" else "Dark pages: OFF") { // S20
+                val on = !UiMode.darkPages(this)
+                UiMode.setDarkPages(this, on)
+                tabs.applyDarkPages()
+                Util.toast(this, if (on) "Dark pages ON (reload the page)" else "Dark pages OFF (reload the page)")
+            },
+            MenuSheet.Item("Settings") { openExt("options.html") },
+            MenuSheet.Item("Check for updates") { UpdateManager.check(this, false) },
+            MenuSheet.Item("Engine status") { EngineHost.showStatus(this) }
+        )
+        MenuSheet.show(this, quick, acts, items, "MGB ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
     }
 
     private fun openExt(page: String) {
@@ -200,10 +186,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     }
 
     private fun refreshAll(tab: TabManager.Tab?) {
-        btnBack.alpha = if (tab?.web?.canGoBack() == true) 1f else 0.35f
-        btnFwd.alpha = if (tab?.web?.canGoForward() == true) 1f else 0.35f
         val loading = tab?.loading == true
-        btnReload.text = if (loading) "×" else "↻"
         if (loading) {
             progress.visibility = android.view.View.VISIBLE
             progress.progress = tab!!.progress

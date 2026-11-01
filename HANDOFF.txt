@@ -1,10 +1,10 @@
-MGB HANDOFF for a new chat - after S16 + S18-S21 (bookmark import/export, ad blocker, night/day, page tools), app version 0.0.23
+MGB HANDOFF for a new chat - after S16 + S18-S22 (bookmark import/export, ad blocker, night/day, page tools, minimal UI), app version 0.0.24
 (Paste this whole text as the first message of the new chat, then attach the files listed at the bottom.)
 
 PROJECT: MGB = Media Grabber Browser. Android app, WebView browser + a chrome.* shim that runs my Chrome extension "media-grabber V77" (v2.79.2, MV3) unchanged. Package com.jabra.mgb. kt/ = app/src/main/java/com/jabra/mgb/. Built by GitHub Actions to an APK Release.
 Language: I write Bangla/English mixed. Answer in short plain English, final reply under 10 lines.
 
-DONE: S0-S16 (versions: S8=0.0.9, S9=0.0.10, S10=0.0.11, S10b=0.0.12, S11+S12=0.0.13, S13=0.0.14, S14=0.0.15, S14b=0.0.20; 0.0.16-0.0.19 were fixes, S16=0.0.21, S18+S19+S20=0.0.22, S21=0.0.23).
+DONE: S0-S16 (versions: S8=0.0.9, S9=0.0.10, S10=0.0.11, S10b=0.0.12, S11+S12=0.0.13, S13=0.0.14, S14=0.0.15, S14b=0.0.20; 0.0.16-0.0.19 were fixes, S16=0.0.21, S18+S19+S20=0.0.22, S21=0.0.23, S22=0.0.24).
 NOT DONE: S17. (S18=bookmark import/export, S19=ad blocker, S20=night/day were added by the user after the plan table.)
 
 ======== WORKFLOW RULES (always keep) ========
@@ -63,6 +63,10 @@ My standing prompt rules (apply every step):
 - DownloadsApi.startPlain(url, ua, contentDisposition, mime, referer, srcWebView): plain link download (http/https/data/blob), saved to Downloads/<name>, headers Referer + User-Agent + Cookie. Item creation moved to a private newItem() (same code the downloads.download handler used).
 - MainActivity menu S14: "Desktop site" / "Mobile site" toggle.
 
+- S22 minimal UI (0.0.24, user wants a Quetta-like but own, minimalistic browser; screenshots were of Quetta: bottom pill bar, bottom-sheet menu, tile home, Favorites screen with top segmented icons): activity_main.xml = web area + bottom_bar pill (btn_home, url_bar, btn_tabs, btn_menu); ids btn_back/btn_fwd/btn_reload/top_bar are GONE (MainActivity no longer uses them). bg_bar_pill.xml new (bg_url_bar.xml is now unused, can be deleted). MenuSheet.kt (new) = BottomSheetDialog built in code: Quick tiles, Act icon row, Item text rows. MainActivity.showMenu() builds the lists (old PopupMenu ids/handlers kept as lambdas), reloadOrStop(), btn_home = new home tab unless the active tab is already home. window softInputMode ADJUST_RESIZE set in code (manifest untouched). HomeView: "MGB" wordmark, 4+ columns, 60dp rounded-square tiles, no Bookmarks/History buttons (constructor params onBookmarks/onHistory still exist, unused). colors.xml / values-night: new greys + rose accent (mg_primary).
+- S22 NOT tested (not compiled, not rendered): build (MenuSheet uses BottomSheetDialog.behavior), bar above keyboard, bar at 360/1280px dark+light, sheet scrolls on small screens, glyph icons (⌂ ★ ☆ ↺ ↓ ▶ ‹ › ↻ ×) render on the phone, FloatingDl button not hidden behind the bar, home tiles at 360px, back from URL focus.
+- S22 NEXT ideas (not done): one Library screen with top segmented icons (Favorites / History / Downloads) like Quetta instead of 3 dialogs; bookmark folders + search field in Bookmarks; edit (pencil) mode on home; real favicons on tiles; vector icons instead of glyphs; hide bottom bar on scroll; private tab.
+
 ======== NOT TESTED ON DEVICE (all of S6-S21) ========
 S21 not tested: long press menu on a link, a linked image, a plain image, on text (must still select text); data: image download; Find bar keyboard + highlight + count, bar does not block page touch, closes on tab switch; Share page. Known gaps S21: no private / incognito tab, no per-site text zoom, no pull to refresh, no Copy page link in menu (use share), find bar is a Dialog (not in the layout).
 S18-S20 not tested: build itself (androidx.activity CreateDocument(String) needs activity 1.7+, comes with appcompat 1.7.0; WebSettingsCompat.setAlgorithmicDarkeningAllowed needs webkit 1.7+, project has 1.11.0); export file opens in a desktop browser, import of a Chrome / Firefox bookmark file, Import refreshes the list; ad blocker really blocks (blocked count rises), sites still work, video sites still play, V77 stream detection still sees media (Sniffer is skipped only for blocked hosts), ON/OFF switch; Theme dialog recreates the Activity and tabs come back, theme survives restart, System mode follows the phone; Dark pages darkens pages only when the app is dark and after reload; menu with 15 rows scrolls on a small screen (360px, not rendered).
@@ -82,7 +86,7 @@ S21 (DONE 0.0.23) long press link/image menu, find in page, share page
 S18 (DONE 0.0.22) bookmark import/export; S19 (DONE 0.0.22) ad blocker; S20 (DONE 0.0.22) night/day theme + dark pages
 S17 Final check 360/410/1280px, light + dark, changelog
 
-======== NEXT: S17 (final check) ========
+======== NEXT: S17 (final check) or S23 (Library screen, see S22 NEXT ideas) ========
 S17 Final check 360/410/1280px, light + dark, changelog. Review what S6-S16 left untested (list above), fix only what the user reports from real use.
 
 FILES TO ATTACH in the new chat (from the 0.0.21 repo): app/build.gradle.kts, HANDOFF.txt, CHANGELOG.txt, plus the files the user reports a problem in (ask).
