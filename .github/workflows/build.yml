@@ -4,11 +4,50 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
+concurrency:
+  group: mgb-build
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Apply uploaded zip(s)
+        run: |
+          shopt -s nullglob
+          LIST=$(for Z in *.zip; do echo "$(echo "$Z" | grep -oP '_v\K[0-9_]+(?=\.zip)' || echo 0) $Z"; done | sort -V | cut -d' ' -f2-)
+          if [ -n "$LIST" ]; then
+            while IFS= read -r Z; do
+              echo "Applying $Z"
+              rm -rf _tmp; mkdir _tmp
+              unzip -oq "$Z" -d _tmp
+              SRC=_tmp
+              if [ "$(ls -A _tmp | wc -l)" = "1" ] && [ -d "_tmp/$(ls -A _tmp)" ]; then SRC="_tmp/$(ls -A _tmp)"; fi
+              rm -rf "$SRC/.github"
+              if [ -f "$SRC/DELETE.txt" ]; then
+                while IFS= read -r P; do
+                  P="${P%$'\r'}"
+                  case "$P" in ""|\#*|/*|*..*|.git*) continue;; esac
+                  rm -rf -- "./$P"
+                done < "$SRC/DELETE.txt"
+                rm -f "$SRC/DELETE.txt"
+              fi
+              cp -a "$SRC"/. .
+              rm -f "$Z"
+            done <<< "$LIST"
+            rm -rf _tmp
+            git config user.name "mgb-bot"
+            git config user.email "mgb-bot@users.noreply.github.com"
+            git add -A
+            git commit -m "Apply uploaded zip" || echo "nothing to commit"
+            git push
+          else
+            echo "No zip to apply"
+          fi
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -25,6 +64,7 @@ jobs:
             echo "KEYSTORE_PATH=$RUNNER_TEMP/mgb.jks" >> "$GITHUB_ENV"
             echo "TASK=assembleRelease" >> "$GITHUB_ENV"
           else
+            echo "No keystore secret: building DEBUG apk"
             echo "TASK=assembleDebug" >> "$GITHUB_ENV"
           fi
       - name: Build
@@ -37,3 +77,17 @@ jobs:
         with:
           name: MGB-apk
           path: app/build/outputs/apk/**/*.apk
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER=$(grep -oP 'appVersionName = "\K[^"]+' app/build.gradle.kts)
+          TAG="v${VER}-b${GITHUB_RUN_NUMBER}"
+          APK=$(ls app/build/outputs/apk/*/*.apk | head -n1)
+          cp "$APK" "MGB-${TAG}.apk"
+          awk 'NR==1{next} /^[[:space:]]*$/{exit} {print}' CHANGELOG.txt > notes.txt || true
+          [ -s notes.txt ] || echo "Build ${GITHUB_RUN_NUMBER}" > notes.txt
+          gh release create "$TAG" "MGB-${TAG}.apk" \
+            --title "MGB ${VER} (build ${GITHUB_RUN_NUMBER})" \
+            --notes-file notes.txt \
+            --target "$(git rev-parse HEAD)"
