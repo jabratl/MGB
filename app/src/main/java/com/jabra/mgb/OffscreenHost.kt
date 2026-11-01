@@ -197,8 +197,9 @@ object OffscreenHost {
         all.firstOrNull { EngineHost.isEngine(it.web) }
             ?.let { add("BACKGROUND", ContentInjector.EXT_BASE + "_engine.html", -1, -1, it) }
         for (x in all) {
-            if (!x.isMainFrame || x.tabId <= 0 || EngineHost.isEngine(x.web) || x.web === ow) continue
-            add("TAB", TabsApi.senderOf(x).optString("url"), x.tabId, 0, x)
+            if (!x.isMainFrame || EngineHost.isEngine(x.web) || x.web === ow) continue
+            if (ExtScreen.isScreen(x.web)) add("POPUP", ExtScreen.urlOf(x.web), -1, 0, x) // S10 window
+            else if (x.tabId > 0) add("TAB", TabsApi.senderOf(x).optString("url"), x.tabId, 0, x)
         }
         return out
     }

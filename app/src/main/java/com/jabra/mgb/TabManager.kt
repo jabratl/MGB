@@ -68,6 +68,9 @@ class TabManager(
         private set
     val count: Int get() = tabs.size
 
+    /** The browser Activity (S10: extension windows are shown over it). */
+    fun host(): Context = ctx
+
     fun all(): List<Tab> = tabs.toList()
     fun byId(id: Int): Tab? = tabs.firstOrNull { it.id == id }
 
@@ -126,6 +129,7 @@ class TabManager(
     }
 
     fun destroyAll() {
+        ExtScreen.closeAll() // S10
         for (t in tabs) {
             TabsApi.onRemoved(t) // S6
             container.removeView(t.web)

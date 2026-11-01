@@ -147,6 +147,9 @@ object TabsApi {
         else if (SCHEME.containsMatchIn(u)) u
         else ContentInjector.EXT_BASE + u.trimStart('/')
 
+    /** S10: a link opened from an extension window becomes a normal tab. */
+    fun openTab(url: String) = ui { tm?.newTab(url, 0, true) }
+
     // ---------- events (called by TabManager) ----------
 
     private fun emitTabs(event: String, vararg args: Any?) {
@@ -223,8 +226,17 @@ object TabsApi {
             if (m == null) { c.fail("No browser window"); return@handle }
             val o = c.args.optJSONObject(0) ?: JSONObject()
             val opener = if (o.has("openerTabId")) o.optInt("openerTabId") else maxOf(c.ctx.tabId, 0)
-            val t = m.newTab(fullUrl(o.optString("url", "")), opener, o.optBoolean("active", true))
-            if (t == null) c.fail("Too many tabs") else c.ok(tabJson(t))
+            val u = fullUrl(o.optString("url", ""))
+            // S10: popup / queue / manga / history / options open as a full-screen window, not as a tab
+            if (ExtScreen.isScreenUrl(u) && ExtScreen.open(m.host(), u)) {
+                c.ok(JSONObject().put("id", -1).put("windowId", 1).put("index", 0).put("active", true).put("url", u).put("status", "complete"))
+                return@handle
+            }
+            val t = m.newTab(u, opener, o.optBoolean("active", true))
+            if (t == null) c.fail("Too many tabs") else {
+                if (o.optBoolean("active", true)) ExtScreen.closeAll() // a new tab must not stay hidden behind a window
+                c.ok(tabJson(t))
+            }
         }
 
         handle("tabs.update") { c ->
@@ -268,7 +280,9 @@ object TabsApi {
         }
 
         handle("runtime.openOptionsPage") { c ->
-            tm?.newTab(ContentInjector.EXT_BASE + "options.html", 0, true)
+            val u = ContentInjector.EXT_BASE + "options.html"
+            val m = tm
+            if (m != null && !ExtScreen.open(m.host(), u)) m.newTab(u, 0, true) // S10: window, tab as fallback
             c.ok(null)
         }
         // runtime.getContexts + offscreen.*: OffscreenHost (S9)

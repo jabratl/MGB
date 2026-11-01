@@ -1,0 +1,208 @@
+package com.jabra.mgb
+
+import android.annotation.SuppressLint
+import android.app.Activity
+import android.app.Dialog
+import android.content.Context
+import android.graphics.drawable.ColorDrawable
+import android.os.Bundle
+import android.util.Log
+import android.view.Gravity
+import android.view.ViewGroup
+import android.view.WindowManager
+import android.webkit.ConsoleMessage
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.FrameLayout
+import android.widget.TextView
+import com.google.android.material.progressindicator.LinearProgressIndicator
+
+/**
+ * S10: V77 popup, queue, manga, history and options pages as full-screen windows (title bar, back, reload, close)
+ * instead of browser tabs. One window at a time, shown over the browser (a Dialog, so no manifest entry is needed).
+ *  - same chrome shim as every extension page (ContentInjector.attachExt), served by EngineHost.ext()
+ *  - remote files go through EngineHost.proxyFor (CORS-free, header rules), like the engine and the S9 hidden document
+ *  - no tab id (like a Chrome popup): tabs.query still sees the real browser tab, so popup.js works on the active page
+ *  - TabsApi sends tabs.create / runtime.openOptionsPage for these pages here; any other page or website link
+ *    opened from a window becomes a normal tab and the window closes.
+ *  - used by: TabsApi, OffscreenHost (getContexts lists it as POPUP), TabManager (closeAll on destroy)
+ */
+object ExtScreen {
+    private const val TAG = "MGB.screen"
+    private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
+
+    private val PAGES = mapOf(
+        "popup.html" to "Media Grabber",
+        "queue.html" to "Queue",
+        "manga.html" to "Manga",
+        "history.html" to "History",
+        "options.html" to "Settings"
+    )
+
+    private var current: Screen? = null
+
+    /** "queue.html" for https://appassets.androidplatform.net/ext/queue.html?x=1, null for any other url. */
+    fun pageOf(url: String): String? {
+        if (!url.startsWith(ContentInjector.EXT_BASE)) return null
+        val p = url.removePrefix(ContentInjector.EXT_BASE).substringBefore('?').substringBefore('#')
+        return if (p in PAGES) p else null
+    }
+
+    fun isScreenUrl(url: String): Boolean = pageOf(url) != null
+
+    /** Main thread. host must be the browser Activity. false = could not open (caller falls back to a tab). */
+    fun open(host: Context, url: String): Boolean {
+        val act = host as? Activity ?: return false
+        if (act.isFinishing || act.isDestroyed) return false
+        val page = pageOf(url) ?: return false
+        closeAll()
+        return try {
+            val s = Screen(act, url, page, PAGES[page] ?: "")
+            current = s
+            s.show()
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "open failed", e)
+            current = null
+            false
+        }
+    }
+
+    fun closeAll() {
+        val s = current ?: return
+        current = null
+        try { s.dismiss() } catch (_: Exception) { }
+    }
+
+    fun isScreen(w: WebView): Boolean = current?.web === w
+
+    /** Url the window shows now ("" if w is not a window WebView). */
+    fun urlOf(w: WebView): String = if (current?.web === w) (w.url ?: "") else ""
+
+    fun status(): String = "\nExtension window: " + (current?.let { it.web?.url?.substringAfterLast('/') } ?: "none")
+
+    private class Screen(
+        private val act: Activity,
+        private val startUrl: String,
+        private val page: String,
+        private val fallbackTitle: String
+    ) : Dialog(act, com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar) {
+        var web: WebView? = null
+        private var box: FrameLayout? = null
+        private var titleView: TextView? = null
+        private var bar: LinearProgressIndicator? = null
+
+        init {
+            setOnDismissListener { cleanup() }
+        }
+
+        @SuppressLint("SetJavaScriptEnabled")
+        override fun onCreate(savedInstanceState: Bundle?) {
+            super.onCreate(savedInstanceState)
+            setContentView(R.layout.screen_ext_page)
+            window?.let {
+                it.setLayout(MATCH, MATCH)
+                it.setBackgroundDrawable(ColorDrawable(act.getColor(R.color.mg_bg)))
+                it.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            }
+            val container = findViewById<FrameLayout>(R.id.xs_container)
+            box = container
+            titleView = findViewById<TextView>(R.id.xs_title).also { it.text = fallbackTitle }
+            bar = findViewById(R.id.xs_progress)
+            findViewById<TextView>(R.id.xs_back).setOnClickListener { goBackOrClose() }
+            findViewById<TextView>(R.id.xs_reload).setOnClickListener { web?.reload() }
+            findViewById<TextView>(R.id.xs_close).setOnClickListener { dismiss() }
+
+            // the popup is a narrow page: keep it centered on tablets / wide screens
+            if (page == "popup.html") {
+                val lp = container.layoutParams as FrameLayout.LayoutParams
+                lp.width = minOf(act.resources.displayMetrics.widthPixels, Util.dp(act, 480))
+                lp.gravity = Gravity.CENTER_HORIZONTAL
+                container.layoutParams = lp
+            }
+
+            val w = WebView(act)
+            web = w
+            w.settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                allowFileAccess = false
+                allowContentAccess = false
+                mediaPlaybackRequiresUserGesture = false
+            }
+            w.webChromeClient = object : WebChromeClient() {
+                override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                    val b = bar ?: return
+                    b.progress = newProgress
+                    b.visibility = if (newProgress in 1..99) android.view.View.VISIBLE else android.view.View.GONE
+                }
+
+                override fun onReceivedTitle(view: WebView?, title: String?) {
+                    if (!title.isNullOrBlank() && !title.contains("androidplatform")) titleView?.text = title
+                }
+
+                override fun onConsoleMessage(m: ConsoleMessage): Boolean {
+                    val line = "ui: ${m.message()}  (${m.sourceId()?.substringAfterLast('/')}:${m.lineNumber()})"
+                    EngineHost.addLog(line)
+                    Log.d(TAG, line.take(500))
+                    return true
+                }
+
+                override fun onCloseWindow(window: WebView?) { dismiss() } // window.close() in a page
+            }
+            w.webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                    EngineHost.ext(request.url)?.let { return it }
+                    return EngineHost.proxyFor(request, -1)
+                }
+
+                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                    if (!request.isForMainFrame) return false
+                    val u = request.url.toString()
+                    if (u.startsWith(ContentInjector.EXT_BASE)) {
+                        if (isScreenUrl(u)) return false // another window page: stay here
+                        leaveFor(u) // downloader.html, player.html ...: normal tab
+                        return true
+                    }
+                    when (request.url.scheme?.lowercase()) {
+                        "http", "https" -> { leaveFor(u); return true }
+                        "blob", "data", "about" -> return false
+                    }
+                    return true // anything else is ignored
+                }
+            }
+            ContentInjector.attachExt(act, w) // window.chrome + bridge (before the first load)
+            container.addView(w, FrameLayout.LayoutParams(MATCH, MATCH))
+            w.loadUrl(startUrl)
+        }
+
+        private fun leaveFor(url: String) {
+            TabsApi.openTab(url)
+            dismiss()
+        }
+
+        private fun goBackOrClose() {
+            val w = web
+            if (w != null && w.canGoBack()) w.goBack() else dismiss()
+        }
+
+        @Suppress("OVERRIDE_DEPRECATION")
+        override fun onBackPressed() { goBackOrClose() }
+
+        private fun cleanup() {
+            val w = web ?: return
+            web = null
+            if (current === this) current = null
+            ChromeBridge.unbind(w)
+            try { w.stopLoading() } catch (_: Exception) { }
+            w.webChromeClient = null
+            val c = box
+            c?.removeView(w)
+            val destroy = Runnable { try { w.destroy() } catch (e: Exception) { Log.e(TAG, "destroy", e) } }
+            if (c != null) c.post(destroy) else destroy.run()
+        }
+    }
+}

@@ -1,5 +1,5 @@
-MGB handoff after S9 (offscreen host), version 0.0.10
-Done: S0-S9, S15. NOT done: S10-S14, S16, S17. App version 0.0.10. Source ext: media-grabber V77 (v2.79.2) in assets/ext (unchanged).
+MGB handoff after S10 (extension screens), version 0.0.11
+Done: S0-S10, S15. NOT done: S11-S14, S16, S17. App version 0.0.11. Source ext: media-grabber V77 (v2.79.2) in assets/ext (unchanged).
 
 WORKFLOW RULE (always keep): the user only uploads a zip to the repo root. GitHub does everything: unzip -> commit -> build -> Release (APK attached).
 - Zip = whole project or only changed files, with or without a top folder; name must end _vX_Y_Z.zip (applied in version order).
@@ -7,15 +7,17 @@ WORKFLOW RULE (always keep): the user only uploads a zip to the repo root. GitHu
 - .github/ inside a zip is ignored. If a step needs a workflow change (S16), give the full new build.yml to paste by hand, and say so first.
 - Future code must be built so no manual file edits are needed. Extra manifest entries go to app/src/extra/AndroidManifest.xml (merged into debug+release), never the main manifest.
 
-Changed in S9:
-- NEW kt/OffscreenHost.kt: object. offscreen.createDocument (one hidden WebView on EXT_BASE+url, resolves on page load, 20s timeout, second call = "Only a single offscreen document may be created."), closeDocument ("No current offscreen document." when none), hasDocument, runtime.getContexts (OFFSCREEN_DOCUMENT, BACKGROUND, TAB; contextTypes/documentUrls/tabIds filters). Network = EngineHost.proxyFor(req, -1). Status() line for Engine status.
-- ContentInjector.kt: attachExt(ctx, web, offscreen = false); offscreen = true appends a script that deletes every chrome.* except runtime, like a real Chrome offscreen document, so V77 offscreen-shim.js builds storage/downloads/dnr via off-rpc and background keeps its offDl bookkeeping (V77 untouched).
-- TabsApi.kt: removed the runtime.getContexts [] stub (2 lines).
-- EngineHost.kt: OffscreenHost.init(app) in start(); status() adds OffscreenHost.status().
-- build.gradle.kts: version 0.0.10.
+Changed in S10 (pair with S9: hidden document = background work, ExtScreen = the pages that show it):
+- NEW kt/ExtScreen.kt: object. pageOf/isScreenUrl (popup, queue, manga, history, options), open(hostActivity, url), closeAll(), isScreen(web), urlOf(web). One full-screen Dialog (no manifest entry needed) with a WebView on the ext origin: attachExt shim, EngineHost.ext + proxyFor(req, -1), no tab id (like a Chrome popup, tabs.query still sees the real active tab). Main-frame link to a website or to a non-window ext page -> TabsApi.openTab + close. Popup width capped at 480dp. Deliberately NOT an Activity: app/src/extra/AndroidManifest.xml was not attached, a zip copy would overwrite it.
+- NEW res/layout/screen_ext_page.xml: top bar (xs_back, xs_title, xs_reload, xs_close), xs_container, xs_progress. Only existing colors (mg_bg, mg_text, mg_outline, mg_primary, mg_surface_variant).
+- TabsApi.kt: tabs.create to a window page -> ExtScreen (returns a tab-like object with id -1); a normal active tab closes any window; runtime.openOptionsPage -> window (tab fallback); openTab(url).
+- TabManager.kt: host() returns the Activity; destroyAll() calls ExtScreen.closeAll().
+- OffscreenHost.kt: getContexts lists the open window as POPUP (TAB only for real tabs).
+- build.gradle.kts: version 0.0.11.
 
-Checks done: braces/parens balanced, no nested comment openers, no JS changed (V77 assets untouched). Kotlin NOT compiled (no SDK): CI is the test. DownloadsApi.kt was not in the attachments: not read, not changed.
-NOT tested (needs device): build; Engine status shows "Offscreen document: running" after a stream download starts; offhost.js receives off-start (iframe offscreen.html loads, Engine log shows "offscreen: document loaded"); off-rpc downloads: background calls chrome.downloads.download with a blob: url created in the HIDDEN WebView while DownloadsApi reads blobs "from the owning page" (calling ctx = engine): if the blob read fails, fix in DownloadsApi (read the blob from the OffscreenHost web); mux.min.js load in the iframe; hidden WebView timers may be throttled with the screen off (no window attached; onResume/resumeTimers only); the 60s watchdog in background.js falls back to a downloader tab if no progress.
-Known gaps: scripting.executeScript/registerContentScripts not implemented; popup/queue/options UI as real pages (S10); notification has no pause/cancel (S12); engine WebView background throttling not handled; ext-tab POST not proxied; S7/S8 untested items still apply.
+Checks done: braces/parens balanced, no nested comment openers, layout XML parses, ids unique, every R.id used exists. No JS changed. Kotlin NOT compiled (no SDK); layout NOT rendered (no Android in the sandbox): 360/1280px and dark/light still to be looked at on device.
+NOT tested (needs device): build; Dialog with Theme.Material3.DayNight.NoActionBar really fills the screen; V77 popup/queue/history pages load and talk to the engine (runtime.sendMessage, storage); manga.html opens from a content-script open-manga; options opens from openOptionsPage; page dark mode follows the app; file inputs inside a window (import/export) do nothing yet (S14 file chooser); keyboard resize in options.
+NO ENTRY POINT YET from the browser menu: MainActivity.kt was not attached. Until it is wired, windows open only when V77 asks (open options, open manga, links inside a window).
+Known gaps: scripting.executeScript/registerContentScripts not implemented; notification has no pause/cancel (S12); engine WebView + hidden document may be throttled in background; ext-tab POST not proxied; S7/S8/S9 untested items still apply.
 
-Next: S10 (pair E, second half). Goal: kt/ExtPageActivity.kt + res/layout/activity_ext_page.xml = popup, queue, manga, history, options as proper screens (one activity, WebView on the ext origin with chrome shim via ContentInjector.attachExt, network via EngineHost.proxyFor, menu entries in MainActivity). Attach for S10: kt/MainActivity.kt, kt/TabManager.kt, kt/ContentInjector.kt, kt/OffscreenHost.kt (this zip), res/layout/activity_main.xml, AndroidManifest.xml (or app/src/extra).
+Next: S10b (tiny, finish pair E) then S11. S10b goal: add menu rows "Media Grabber", "Queue", "History", "Settings" to the browser menu = ExtScreen.open(activity, EXT_BASE + "popup.html" / "queue.html" / "history.html" / "options.html"), close the window on activity destroy (already done via destroyAll). Attach: kt/MainActivity.kt (+ menu layout if the menu is a layout). If you prefer to continue to S11 first, attach MainActivity.kt there too: S11 also needs it.
