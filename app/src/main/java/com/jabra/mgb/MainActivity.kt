@@ -117,6 +117,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Act(if (cur?.loading == true) R.drawable.ic_close else R.drawable.ic_reload, cur != null) { reloadOrStop() }
         )
         val items = listOf(
+            MenuSheet.Item("New private tab") { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) }, // S26
             MenuSheet.Item("Queue") { openExt("queue.html") },
             MenuSheet.Item("Download history") { openExt("history.html") },
             MenuSheet.Item("Find in page", canMark) { FindBar.open(this, tabs.active?.web) },
@@ -193,6 +194,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             progress.visibility = android.view.View.VISIBLE
             progress.progress = tab!!.progress
         } else progress.visibility = android.view.View.GONE
+        btnTabs.setTextColor(getColor(if (tab?.priv == true) R.color.mg_primary else R.color.mg_text)) // S26
         refreshUrlField()
     }
 

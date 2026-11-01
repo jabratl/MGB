@@ -30,6 +30,9 @@ import android.widget.TextView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.webkit.ProfileStore
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import org.json.JSONArray
@@ -63,6 +66,8 @@ class TabManager(
         var home: Boolean = false
         /** S14: desktop user agent + wide viewport (not saved in the session). */
         var desktop: Boolean = false
+        /** S26: private tab: own WebView profile (cookies / storage), no history, not saved in the session. */
+        var priv: Boolean = false
         val loading: Boolean get() = progress < 100
         /** Extension page (downloader.html, player.html ...) served by EngineHost. */
         val isExt: Boolean get() = url.startsWith(ContentInjector.EXT_ORIGIN)
@@ -70,6 +75,7 @@ class TabManager(
 
     companion object {
         const val HOME = "https://www.google.com"
+        const val PRIVATE_PROFILE = "mgb_private" // S26
         /** S13: marker url of a speed-dial tab (never loaded into the WebView). */
         const val HOME_PAGE = "about:home"
         const val MAX_TABS = 30
@@ -105,13 +111,17 @@ class TabManager(
 
     // ---------- tabs ----------
 
-    fun newTab(url: String?, openerId: Int = 0, select: Boolean = true): Tab? {
+    fun newTab(url: String?, openerId: Int = 0, select: Boolean = true, priv: Boolean = false): Tab? {
         if (tabs.size >= MAX_TABS) {
             Util.toast(ctx, "Too many tabs")
             return null
         }
-        val web = createWebView()
+        // S26: a tab opened from a private tab stays private
+        val isPriv = priv || (openerId != 0 && tabs.any { it.id == openerId && it.priv })
+        if (isPriv && tabs.none { it.priv }) purgePrivate() // drop data left from an earlier run
+        val web = createWebView(isPriv)
         val tab = Tab(nextId++, web, openerId)
+        tab.priv = isPriv
         web.webViewClient = client(tab)
         web.webChromeClient = chrome(tab)
         web.setOnLongClickListener(longPress(tab)) // S21
@@ -154,7 +164,10 @@ class TabManager(
         tab.web.stopLoading()
         ChromeBridge.unbind(tab.web)
         tab.web.webChromeClient = null
-        container.post { tab.web.destroy() }
+        container.post {
+            tab.web.destroy()
+            if (tab.priv && tabs.none { it.priv }) purgePrivate() // S26: last private tab closed = wipe its data
+        }
         if (wasActive) {
             val next = tabs.firstOrNull { it.id == tab.openerId }
                 ?: tabs.getOrNull(minOf(idx, tabs.size - 1))
@@ -185,6 +198,7 @@ class TabManager(
         val arr = JSONArray()
         var activeIdx = 0
         for (t in tabs) {
+            if (t.priv) continue // S26: private tabs are never saved
             val u = if (t.home) HOME_PAGE else (t.web.url ?: t.url)
             if (u.isBlank() || u == "about:blank" || u.startsWith(ContentInjector.EXT_ORIGIN)) continue
             if (t === active) activeIdx = arr.length()
@@ -219,8 +233,22 @@ class TabManager(
     // ---------- WebView ----------
 
     @SuppressLint("SetJavaScriptEnabled")
-    private fun createWebView(): WebView {
+    /** S26: delete the private WebView profile (cookies, storage, cache). No-op when multi profile is not supported. */
+    private fun purgePrivate() {
+        try {
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
+                ProfileStore.getInstance().deleteProfile(PRIVATE_PROFILE)
+            }
+        } catch (e: Exception) { /* profile still in use or missing: ignore */ }
+    }
+
+    private fun createWebView(priv: Boolean = false): WebView {
         val w = WebView(ctx)
+        if (priv) { // S26: must happen before settings / first load
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
+                try { WebViewCompat.setProfile(w, PRIVATE_PROFILE) } catch (e: Exception) { Util.toast(ctx, "Private tab: cookies are shared with normal tabs") }
+            } else Util.toast(ctx, "Private tab: this WebView shares cookies with normal tabs")
+        }
         w.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -289,7 +317,7 @@ class TabManager(
             tab.progress = 100
             if (tab.desktop && !tab.isExt) view?.evaluateJavascript(BrowserExtras.DESKTOP_JS, null) // S14
             // S13: browsing history (web pages only, not extension pages)
-            if (!tab.isExt && (tab.url.startsWith("http://") || tab.url.startsWith("https://")))
+            if (!tab.isExt && !tab.priv && (tab.url.startsWith("http://") || tab.url.startsWith("https://")))
                 Bookmarks.addHistory(view?.title ?: tab.title, tab.url)
             TabsApi.onUpdated(tab, JSONObject().put("status", "complete")) // S6
             listener.onPageInfo(tab)
@@ -502,12 +530,14 @@ class TabManager(
             hv = HomeView(
                 ctx,
                 onOpen = { openUrl(it) },
-                onOpenNew = { newTab(it) },
+                onOpenNew = { newTab(it, 0, true, active?.priv == true) }, // S26
                 onBookmarks = { (ctx as? android.app.Activity)?.let { BookmarksScreen.open(it, BookmarksScreen.Mode.BOOKMARKS, this) } },
                 onHistory = { (ctx as? android.app.Activity)?.let { BookmarksScreen.open(it, BookmarksScreen.Mode.HISTORY, this) } }
             )
             homeView = hv
         }
+        hv.priv = a.priv // S26
+        hv.showTop()
         container.addView(hv, FrameLayout.LayoutParams(MATCH, MATCH))
         hv.refresh()
     }
@@ -554,7 +584,7 @@ class TabManager(
     }
 
     private fun titleOf(t: Tab): String =
-        if (t.home) "Home" else t.title.ifBlank { Util.host(t.url) }.ifBlank { "New tab" }
+        if (t.home) (if (t.priv) "Private home" else "Home") else t.title.ifBlank { Util.host(t.url) }.ifBlank { "New tab" }
 
     private fun row(t: Tab, dlg: BottomSheetDialog, onChanged: () -> Unit): View {
         val row = LinearLayout(ctx).apply {
@@ -582,7 +612,7 @@ class TabManager(
             ellipsize = TextUtils.TruncateAt.END
         })
         col.addView(TextView(ctx).apply {
-            text = if (t.home) "Speed dial" else Util.host(t.url) // S13
+            text = (if (t.priv) "Private · " else "") + (if (t.home) "Speed dial" else Util.host(t.url)) // S13, S26
             setTextColor(ctx.getColor(R.color.mg_text_dim))
             textSize = 12f
             maxLines = 1

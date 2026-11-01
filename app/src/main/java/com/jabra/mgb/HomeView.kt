@@ -35,6 +35,9 @@ class HomeView(
     private val pencil = ImageView(ctx)
     private var cols = 0
     private var editing = false
+    private var folder: String? = null // S26: folder open on the home screen (null = top level)
+    /** S26: private tab: small "Private tab" note under the wordmark. */
+    var priv = false
 
     private companion object {
         const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
@@ -68,6 +71,9 @@ class HomeView(
     /** Rebuild the tiles from the current bookmarks (width 0 = not laid out yet, onSizeChanged does it). */
     fun refresh() = rebuild()
 
+    /** S26: back to the top level (called when the home tab is shown). */
+    fun showTop() { folder = null }
+
     override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) {
         super.onSizeChanged(w, h, ow, oh)
         val c = (w / dp(84)).coerceIn(4, 8)
@@ -80,19 +86,59 @@ class HomeView(
         cols = (w / dp(84)).coerceIn(4, 8)
         content.removeAllViews()
 
-        content.addView(TextView(context).apply {
-            text = "MGB"
-            setTextColor(context.getColor(R.color.mg_text))
-            textSize = 34f
-            letterSpacing = 0.32f
-            gravity = Gravity.CENTER
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            setPadding(0, (this@HomeView.height * 0.14f).toInt(), 0, dp(52))
-        }, LinearLayout.LayoutParams(MATCH, WRAP))
+        val f0 = folder
+        if (f0 != null && !Bookmarks.folders().contains(f0)) folder = null
+        val cur = folder
+        if (cur == null) {
+            content.addView(TextView(context).apply {
+                text = "MGB"
+                setTextColor(context.getColor(R.color.mg_text))
+                textSize = 34f
+                letterSpacing = 0.32f
+                gravity = Gravity.CENTER
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                setPadding(0, (this@HomeView.height * 0.14f).toInt(), 0, if (priv) dp(8) else dp(52))
+            }, LinearLayout.LayoutParams(MATCH, WRAP))
+            if (priv) content.addView(TextView(context).apply {
+                text = "Private tab"
+                setTextColor(context.getColor(R.color.mg_primary))
+                textSize = 13f
+                gravity = Gravity.CENTER
+                setPadding(0, 0, 0, dp(44))
+            }, LinearLayout.LayoutParams(MATCH, WRAP))
+        } else {
+            val head = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(24), 0, dp(24))
+            }
+            head.addView(ImageView(context).apply {
+                setImageResource(R.drawable.ic_back)
+                setColorFilter(context.getColor(R.color.mg_text))
+                setPadding(dp(10), dp(10), dp(10), dp(10))
+                contentDescription = "Back"
+                setOnClickListener { folder = null; rebuild() }
+            }, LinearLayout.LayoutParams(dp(44), dp(44)))
+            head.addView(TextView(context).apply {
+                text = cur
+                setTextColor(context.getColor(R.color.mg_text))
+                textSize = 20f
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            }, LinearLayout.LayoutParams(0, WRAP, 1f).apply { marginStart = dp(8); marginEnd = dp(48) })
+            content.addView(head, LinearLayout.LayoutParams(MATCH, WRAP))
+        }
 
         val cells = ArrayList<View>()
-        for (b in Bookmarks.bookmarks()) cells.add(tile(b.title, b.url))
+        if (cur == null) {
+            for (n in Bookmarks.folders()) cells.add(folderTile(n))
+            for (b in Bookmarks.bookmarks()) if (b.folder.isEmpty()) cells.add(tile(b.title, b.url))
+        } else {
+            for (b in Bookmarks.bookmarks()) if (b.folder == cur) cells.add(tile(b.title, b.url))
+        }
         if (!editing) cells.add(addTile())
+        else if (cur == null) cells.add(newFolderTile())
         var i = 0
         while (i < cells.size) {
             val row = LinearLayout(context).apply {
@@ -155,34 +201,80 @@ class HomeView(
         val letter = name.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "?"
         val box = FrameLayout(context)
         box.addView(letterBox(letter), FrameLayout.LayoutParams(dp(56), dp(56), Gravity.CENTER))
-        if (editing) { // S24: remove badge
-            box.addView(ImageView(context).apply {
-                setImageResource(R.drawable.ic_close)
-                setColorFilter(context.getColor(R.color.mg_on_primary))
-                setPadding(dp(4), dp(4), dp(4), dp(4))
-                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(context.getColor(R.color.mg_primary)) }
-                setOnClickListener {
-                    Bookmarks.removeBookmark(url)
-                    refresh()
-                }
-            }, FrameLayout.LayoutParams(dp(22), dp(22), Gravity.TOP or Gravity.END))
-        }
+        if (editing) addBadge(box) { Bookmarks.removeBookmark(url); refresh() } // S24
         val c = cell(box, name)
         box.layoutParams = LinearLayout.LayoutParams(dp(64), dp(60))
         c.setOnClickListener { if (!editing) onOpen(url) }
         c.setOnLongClickListener {
+            val labels = ArrayList<String>()
+            val acts = ArrayList<() -> Unit>()
+            labels.add("Open in new tab"); acts.add { onOpenNew(url) }
+            if (folder != null) {
+                labels.add("Move out of folder"); acts.add { Bookmarks.setFolder(url, ""); refresh() }
+            } else if (Bookmarks.folders().isNotEmpty()) {
+                labels.add("Move to folder"); acts.add { askMove(url) }
+            }
+            labels.add("Remove"); acts.add { Bookmarks.removeBookmark(url); refresh() }
             MaterialAlertDialogBuilder(context)
                 .setTitle(name)
-                .setItems(arrayOf("Open in new tab", "Remove")) { _, which ->
-                    if (which == 0) onOpenNew(url) else {
-                        Bookmarks.removeBookmark(url)
-                        refresh()
-                    }
-                }
+                .setItems(labels.toTypedArray()) { _, which -> acts[which]() }
                 .show()
             true
         }
         return c
+    }
+
+    private fun addBadge(box: FrameLayout, onTap: () -> Unit) {
+        box.addView(ImageView(context).apply {
+            setImageResource(R.drawable.ic_close)
+            setColorFilter(context.getColor(R.color.mg_on_primary))
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(context.getColor(R.color.mg_primary)) }
+            setOnClickListener { onTap() }
+        }, FrameLayout.LayoutParams(dp(22), dp(22), Gravity.TOP or Gravity.END))
+    }
+
+    /** S26: folder tile (opens the folder here). Edit mode: badge deletes the folder, its bookmarks go back to the top level. */
+    private fun folderTile(name: String): View {
+        val box = FrameLayout(context)
+        val inner = FrameLayout(context).apply {
+            background = squircle(context.getColor(R.color.mg_surface), context.getColor(R.color.mg_outline), false)
+            addView(ImageView(context).apply {
+                setImageResource(R.drawable.ic_folder)
+                setColorFilter(context.getColor(R.color.mg_text_dim))
+            }, LayoutParams(dp(26), dp(26), Gravity.CENTER))
+        }
+        box.addView(inner, FrameLayout.LayoutParams(dp(56), dp(56), Gravity.CENTER))
+        if (editing) addBadge(box) { Bookmarks.removeFolder(name); refresh() }
+        val c = cell(box, name)
+        box.layoutParams = LinearLayout.LayoutParams(dp(64), dp(60))
+        c.setOnClickListener { if (!editing) { folder = name; rebuild() } }
+        return c
+    }
+
+    private fun newFolderTile(): View {
+        val b = addBox()
+        val c = cell(b, "Folder")
+        b.layoutParams = LinearLayout.LayoutParams(dp(56), dp(56))
+        c.setOnClickListener {
+            val et = EditText(context).apply { hint = "Folder name"; setSingleLine(); inputType = InputType.TYPE_CLASS_TEXT }
+            val box = LinearLayout(context).apply { setPadding(dp(24), dp(8), dp(24), 0); addView(et, LinearLayout.LayoutParams(MATCH, WRAP)) }
+            MaterialAlertDialogBuilder(context)
+                .setTitle("New folder")
+                .setView(box)
+                .setPositiveButton("Create") { _, _ -> Bookmarks.addFolder(et.text.toString()); refresh() }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+        return c
+    }
+
+    private fun askMove(url: String) {
+        val names = Bookmarks.folders().toTypedArray()
+        MaterialAlertDialogBuilder(context)
+            .setTitle("Move to folder")
+            .setItems(names) { _, which -> Bookmarks.setFolder(url, names[which]); refresh() }
+            .show()
     }
 
     private fun addTile(): View {
@@ -214,6 +306,7 @@ class HomeView(
                 if (!u.startsWith("http", true)) Util.toast(context, "Enter a web address")
                 else {
                     Bookmarks.addBookmark(name.text.toString().trim(), u)
+                    folder?.let { Bookmarks.setFolder(u, it) } // S26: add inside the open folder
                     refresh()
                 }
             }

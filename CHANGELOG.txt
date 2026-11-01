@@ -1,3 +1,7 @@
+MGB 0.0.29 (S26: home folders + private tab)
+- Home screen shows folders: folder tile opens the folder in place (back arrow in the header); Add inside a folder adds there; long press a tile = Move to folder / Move out of folder; edit mode (pencil): folder badge deletes the folder (bookmarks go back to the top level) and a "Folder" tile creates one.
+- Private tab (menu: New private tab): own WebView profile (cookies / storage separate from normal tabs), no browsing history, not saved in the session, tabs opened from it stay private. Last private tab closed = profile deleted. Tab count turns rose while a private tab is active. Needs a WebView with multi-profile support (else a toast says cookies are shared).
+
 MGB 0.0.28 (S25 fix)
 - Build fix: the S24 files were missing in the repo (vector icons ic_*.xml, activity_main / screen_ext_page / screen_downloads layouts, HomeView, MenuSheet, ExtScreen), so the build failed with "Unresolved reference: ic_back ...". This zip adds them again. No other change.
 
