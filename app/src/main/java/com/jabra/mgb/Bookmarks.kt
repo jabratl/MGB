@@ -85,6 +85,66 @@ object Bookmarks {
         if (bm.removeAll { it.url == url }) saveAsync(F_BM, bm)
     }
 
+    // ---------- S18: import / export ----------
+
+    private fun esc(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+
+    private fun unesc(s: String) = s.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"")
+        .replace("&#39;", "'").replace("&#x27;", "'").replace("&amp;", "&")
+
+    private val A_TAG = Regex("<a\\s[^>]*?href\\s*=\\s*([\"'])(.*?)\\1[^>]*>(.*?)</a>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+    private val ANY_TAG = Regex("<[^>]*>")
+
+    /** Standard browser bookmark file (Netscape HTML): opens in Chrome, Firefox, Edge ... */
+    @Synchronized
+    fun exportHtml(): String {
+        val sb = StringBuilder()
+        sb.append("<!DOCTYPE NETSCAPE-Bookmark-file-1>\n")
+        sb.append("<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n")
+        sb.append("<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks</H1>\n<DL><p>\n")
+        for (x in bm) {
+            sb.append("    <DT><A HREF=\"").append(esc(x.url)).append("\" ADD_DATE=\"").append(x.time / 1000).append("\">")
+                .append(esc(x.title.ifBlank { x.url })).append("</A>\n")
+        }
+        sb.append("</DL><p>\n")
+        return sb.toString()
+    }
+
+    /**
+     * Reads a browser bookmark HTML file, or a JSON list (own mgb_bookmarks.json style: t/u or title/url).
+     * Only http(s) links, duplicates skipped, max 2000 bookmarks. Returns how many were added.
+     */
+    @Synchronized
+    fun importText(text: String): Int {
+        val found = ArrayList<Pair<String, String>>()
+        val t = text.trimStart('\uFEFF', ' ', '\n', '\r', '\t')
+        if (t.startsWith("[") || t.startsWith("{")) {
+            val arr = try { if (t.startsWith("[")) JSONArray(t) else JSONObject(t).optJSONArray("bookmarks") } catch (e: Exception) { null }
+            if (arr != null) {
+                for (i in 0 until arr.length()) {
+                    val o = arr.optJSONObject(i) ?: continue
+                    val u = o.optString("u", o.optString("url"))
+                    if (u.isNotEmpty()) found.add(Pair(o.optString("t", o.optString("title")), u))
+                }
+            }
+        } else {
+            for (m in A_TAG.findAll(text)) {
+                found.add(Pair(unesc(m.groupValues[3].replace(ANY_TAG, "").trim()), unesc(m.groupValues[2].trim())))
+            }
+        }
+        var n = 0
+        val now = System.currentTimeMillis()
+        for ((title, u) in found) {
+            if (bm.size >= 2000) break
+            if (!(u.startsWith("http://") || u.startsWith("https://"))) continue
+            if (bm.any { it.url == u }) continue
+            bm.add(Item(title.ifBlank { Util.host(u) }, u, now))
+            n++
+        }
+        if (n > 0) saveAsync(F_BM, bm)
+        return n
+    }
+
     // ---------- history ----------
 
     @Synchronized fun history(): List<Item> = hist.toList()

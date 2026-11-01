@@ -30,6 +30,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     private var lastNight = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        UiMode.apply(this) // S20: saved theme (System / Light / Dark), before the Activity is created
+        AdBlock.init(this) // S19
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         lastNight = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
@@ -75,6 +77,9 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             m.menu.add(0, 11, 9, "Browsing history") // S13
             m.menu.add(0, 12, 9, if (cur?.desktop == true) "Mobile site" else "Desktop site") // S14
                 .isEnabled = cur != null && !cur.home && !cur.isExt
+            m.menu.add(0, 13, 10, if (AdBlock.enabled) "Ad blocker: ON (${AdBlock.blocked} blocked)" else "Ad blocker: OFF") // S19
+            m.menu.add(0, 14, 10, "Theme: ${UiMode.label(this)}") // S20
+            m.menu.add(0, 15, 10, if (UiMode.darkPages(this)) "Dark pages: ON" else "Dark pages: OFF") // S20
             m.menu.add(0, 1, 10, "Check for updates")
             m.menu.add(0, 2, 11, "MGB ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})").isEnabled = false
             m.menu.add(0, 3, 12, "Engine status")
@@ -91,6 +96,18 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                     10 -> { BookmarksScreen.open(this, BookmarksScreen.Mode.BOOKMARKS, tabs); true } // S13
                     11 -> { BookmarksScreen.open(this, BookmarksScreen.Mode.HISTORY, tabs); true } // S13
                     12 -> { tabs.active?.let { tabs.setDesktop(it, !it.desktop) }; true } // S14
+                    13 -> { // S19
+                        Util.toast(this, if (AdBlock.toggle()) "Ad blocker ON (reload the page)" else "Ad blocker OFF (reload the page)")
+                        true
+                    }
+                    14 -> { UiMode.pick(this); true } // S20
+                    15 -> { // S20
+                        val on = !UiMode.darkPages(this)
+                        UiMode.setDarkPages(this, on)
+                        tabs.applyDarkPages()
+                        Util.toast(this, if (on) "Dark pages ON (reload the page)" else "Dark pages OFF (reload the page)")
+                        true
+                    }
                     else -> false
                 }
             }

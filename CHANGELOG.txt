@@ -1,3 +1,8 @@
+MGB 0.0.22 (S18 + S19 + S20)
+- Bookmarks: Import and Export buttons at the top of the Bookmarks screen. Export saves a standard browser bookmark file (HTML); Import reads such a file from Chrome, Firefox or Edge (or an MGB JSON list) and skips what you already have.
+- Ad blocker (menu): blocks ads, pop-up networks and trackers inside web pages. On by default, ON/OFF in the menu with a count of blocked requests. Reload the page after changing it.
+- Night / day (menu): Theme System, Light or Dark (remembered). Dark pages: darkens web pages that have no dark style, when the app is dark (reload the page).
+
 MGB 0.0.21 (S16)
 - Extension update without a new APK: when a new release changes only the extension files (Media Grabber popup, queue, downloader ...), Check for updates offers a small download of just those files. After it, close MGB and open it again.
 - If the app itself changed, you still get the normal APK update. A newer APK always replaces the downloaded extension files.

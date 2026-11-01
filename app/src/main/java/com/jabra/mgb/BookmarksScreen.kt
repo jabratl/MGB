@@ -125,6 +125,20 @@ object BookmarksScreen {
                 setTypeface(typeface, android.graphics.Typeface.BOLD)
                 setPadding(dp(8), 0, 0, 0)
             }, LinearLayout.LayoutParams(0, WRAP, 1f))
+            if (mode == Mode.BOOKMARKS) { // S18
+                for (label in arrayOf("Import", "Export")) {
+                    h.addView(TextView(act).apply {
+                        text = label
+                        gravity = Gravity.CENTER
+                        textSize = 15f
+                        setTextColor(act.getColor(R.color.mg_primary))
+                        setPadding(dp(10), 0, dp(10), 0)
+                        setOnClickListener {
+                            if (label == "Import") BrowserExtras.importBookmarks { render() } else BrowserExtras.exportBookmarks()
+                        }
+                    }, LinearLayout.LayoutParams(WRAP, dp(48)))
+                }
+            }
             if (mode == Mode.HISTORY) {
                 h.addView(TextView(act).apply {
                     text = "Clear"

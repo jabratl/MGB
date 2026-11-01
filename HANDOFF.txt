@@ -1,11 +1,11 @@
-MGB HANDOFF for a new chat - after S16 (pair H done), app version 0.0.21 (S16: ext hot update)
+MGB HANDOFF for a new chat - after S16 + S18/S19/S20 (bookmark import/export, ad blocker, night/day), app version 0.0.22
 (Paste this whole text as the first message of the new chat, then attach the files listed at the bottom.)
 
 PROJECT: MGB = Media Grabber Browser. Android app, WebView browser + a chrome.* shim that runs my Chrome extension "media-grabber V77" (v2.79.2, MV3) unchanged. Package com.jabra.mgb. kt/ = app/src/main/java/com/jabra/mgb/. Built by GitHub Actions to an APK Release.
 Language: I write Bangla/English mixed. Answer in short plain English, final reply under 10 lines.
 
-DONE: S0-S16 (versions: S8=0.0.9, S9=0.0.10, S10=0.0.11, S10b=0.0.12, S11+S12=0.0.13, S13=0.0.14, S14=0.0.15, S14b=0.0.20; 0.0.16-0.0.19 were fixes, S16=0.0.21).
-NOT DONE: S17.
+DONE: S0-S16 (versions: S8=0.0.9, S9=0.0.10, S10=0.0.11, S10b=0.0.12, S11+S12=0.0.13, S13=0.0.14, S14=0.0.15, S14b=0.0.20; 0.0.16-0.0.19 were fixes, S16=0.0.21, S18+S19+S20=0.0.22).
+NOT DONE: S17. (S18=bookmark import/export, S19=ad blocker, S20=night/day were added by the user after the plan table.)
 
 ======== WORKFLOW RULES (always keep) ========
 - I only upload a zip to the repo root. GitHub does everything: unzip -> commit -> build -> Release (APK attached).
@@ -43,10 +43,14 @@ My standing prompt rules (apply every step):
 - Other files that exist (never touched here, not attached): MainActivity.kt, UpdateManager.kt, Util.kt, res (colors mg_bg, mg_text, mg_text_dim, mg_outline, mg_primary, mg_surface_variant; layouts activity_main.xml, sheet_tabs.xml; drawable bg_url_bar).
 - V77 messages used from native: get-state, start-job, job-pause (on), job-cancel, job-remove, jobs-clear, plus the CONTENT_MSG list in TabsApi for page frames.
 - CHANGELOG.txt is the only changelog again (0.0.20 merged the S13-S19 entries; CHANGELOG_NEW.txt is deleted by DELETE.txt in the 0.0.20 zip).
-- LESSON: Menu.add(group, id, order, title): order must be >= 0 (a negative order crashed the 3-dot menu 0.0.12-0.0.18). Menu order values now run 6..12.
+- LESSON: Menu.add(group, id, order, title): order must be >= 0 (a negative order crashed the 3-dot menu 0.0.12-0.0.18). Menu order values now run 6..12; ids 13-15 (ad blocker, theme, dark pages) use order 10.
 - app/src/extra/AndroidManifest.xml is now known (S14b patched it): INTERNET, FOREGROUND_SERVICE(+DATA_SYNC), POST_NOTIFICATIONS, WRITE_EXTERNAL_STORAGE<=28, CAMERA, RECORD_AUDIO, MODIFY_AUDIO_SETTINGS, ACCESS_FINE/COARSE_LOCATION, DownloadService, MgbFileProvider (xml/mgb_dl_paths). Attach it again when it must change.
 
 - ExtUpdater (S16, ExtUpdater.kt): hot update of the ext bundle (assets/ext) without an APK. CI (build.yml, pasted by hand) computes MGB_NATIVE_HASH = fingerprint of everything except assets/ext (and the appVersionName line) -> BuildConfig.NATIVE_HASH, and attaches MGB-ext-b<run>-n<hash>.zip (ext files + _bundle.json {build,native}) to every release. UpdateManager.check: ext zip with SAME hash and build > max(VERSION_CODE, hot build) = ext-only dialog (reuses dialog_update layout); different hash and newer APK = normal APK dialog. Zip is checked (zip-slip, size, _bundle.json, manifest, background/shared/sites + content scripts), unpacked to filesDir/ext_hot/b<run>, prefs mgb_ext.dir; used from the NEXT start only (dialog asks to close MGB). ContentInjector.read and EngineHost.page ask ExtUpdater first (readText / open), then the built-in assets. Hot dir is dropped at start if build <= VERSION_CODE or hash differs. Manual check with nothing newer + hot active offers Reset to built-in. No hash/sha256 check of the zip itself (HTTPS + GitHub only).
+
+- S18 Bookmarks import/export: Bookmarks.exportHtml() (Netscape HTML) / importText(text) (HTML links or JSON list t/u or title/url, http(s) only, no duplicates, max 2000). BrowserExtras.exportBookmarks() (CreateDocument launcher) / importBookmarks(cb) (OpenDocument launcher, file max 5 MB) registered in BrowserExtras.init AFTER the file chooser + permission launchers. BookmarksScreen header: Import / Export (bookmarks mode only).
+- S19 AdBlock.kt: built-in host list (about 170 ad / pop-up / tracker domains, sub-domains match). TabManager.shouldInterceptRequest (web tab, not main frame, not same site as tab.url) -> AdBlock.emptyResponse() before Sniffer.onRequest. On/off saved in prefs mgb_adblock (default ON), counter per run. Menu id 13. Tag managers and Google IMA video SDK are NOT in the list on purpose.
+- S20 UiMode.kt: Theme System/Light/Dark saved in prefs mgb_ui, UiMode.apply(this) first line of MainActivity.onCreate (AppCompatDelegate.setDefaultNightMode), pick(act) = dialog + recreate(). Dark pages = WebSettingsCompat.setAlgorithmicDarkeningAllowed per tab WebView (not for extension pages; TabManager.newTab + applyDarkPages()), default OFF. Menu ids 14 (Theme), 15 (Dark pages). colors.xml / themes.xml were NOT changed (Theme.MGB is already DayNight; the attached colors.xml holds the dark tokens only).
 
 - Bookmarks (S13, Bookmarks.kt): bookmarks (= speed dial tiles, seeded Google/YouTube/Wikipedia/GitHub on first run) + browsing history (max 500) as JSON in filesDir (mgb_bookmarks.json, mgb_history.json). API: init, bookmarks(), isBookmarked, addBookmark, removeBookmark, history(), addHistory, removeHistory(time,url), clearHistory.
 - HomeView (S13): native speed dial built in code, shown by TabManager.syncHome() over the blank WebView of a "home" tab (Tab.home, url TabManager.HOME_PAGE = about:home, never loaded). Tap = openUrl, long press = new tab / remove, "+" = add. Buttons Bookmarks / History.
@@ -58,7 +62,9 @@ My standing prompt rules (apply every step):
 - DownloadsApi.startPlain(url, ua, contentDisposition, mime, referer, srcWebView): plain link download (http/https/data/blob), saved to Downloads/<name>, headers Referer + User-Agent + Cookie. Item creation moved to a private newItem() (same code the downloads.download handler used).
 - MainActivity menu S14: "Desktop site" / "Mobile site" toggle.
 
-======== NOT TESTED ON DEVICE (all of S6-S16) ========
+======== NOT TESTED ON DEVICE (all of S6-S20) ========
+S18-S20 not tested: build itself (androidx.activity CreateDocument(String) needs activity 1.7+, comes with appcompat 1.7.0; WebSettingsCompat.setAlgorithmicDarkeningAllowed needs webkit 1.7+, project has 1.11.0); export file opens in a desktop browser, import of a Chrome / Firefox bookmark file, Import refreshes the list; ad blocker really blocks (blocked count rises), sites still work, video sites still play, V77 stream detection still sees media (Sniffer is skipped only for blocked hosts), ON/OFF switch; Theme dialog recreates the Activity and tabs come back, theme survives restart, System mode follows the phone; Dark pages darkens pages only when the app is dark and after reload; menu with 15 rows scrolls on a small screen (360px, not rendered).
+Known gaps S18-S20: ad blocker has no cosmetic (hide element) filtering, no per-site allow list, no user list / update; import has no folders (flat list); export is bookmarks only (no history); Dark pages does not touch extension windows.
 S16 not tested: CI step "Native fingerprint" + ext zip in the release (path assumed app/src/main/assets/ext); first S16 APK must be installed by hand, the ext-only path only works from the NEXT release on; BuildConfig.NATIVE_HASH matches the hash in the zip name; ext-only dialog + download + unpack; hot files really served after restart (engine page, popup, content scripts, runtime.getManifest); Reset; auto drop after an APK update. Other Kotlin files that read assets/ext directly (OffscreenHost, TabManager, TabsApi ... not checked) would still use the built-in files: grep "ext/" in assets.open calls if a hot update seems half applied.
 build itself; engine runs background.js (Engine status: running + Background script started); shim forwards downloads.*; blob download from downloader.html and from the hidden document (blob made in the hidden WebView, downloads.download called from the engine: if reading fails, fix in DownloadsApi); sniffer finds streams in V77; header rules reach real downloads; <video> in player.html through proxyFor; hidden document timers when the screen is off; ExtScreen Dialog fills the screen and V77 pages work in it (popup, queue, history, options, manga); FloatingDl button/badge/sheet and start-job; DownloadsScreen with real mgJobs/mgHist fields (read from V77 source, not seen live); Open/Show via EngineHost.eval.
 S13 not tested: speed dial shows on new tab / startup / after closing the last tab, and hides on first navigation; tiles wrap at 360px and 1280px, dark + light (not rendered); add / long-press remove dialogs; bookmark toggle in the menu; history list, long press, Clear; home tab survives app restart and dark/light recreate (saved as about:home); extension tabs.query sees url about:home on a home tab.
@@ -70,6 +76,7 @@ Known gaps: scripting.executeScript / registerContentScripts not implemented (sh
 S13 Home (speed dial), bookmarks, history: kt/Bookmarks.kt, kt/HomeFragment.kt (or a home view for new tabs), res/layout/fragment_home.xml
 S14 Extras: kt/BrowserExtras.kt = desktop mode, fullscreen video, file chooser (also for extension windows), permissions (camera/mic/location), browser downloads of normal links; MainActivity patch
 S16 (DONE 0.0.21) Hot update of the ext JS bundle: kt/ExtUpdater.kt + build.yml patch (pasted by hand)
+S18 (DONE 0.0.22) bookmark import/export; S19 (DONE 0.0.22) ad blocker; S20 (DONE 0.0.22) night/day theme + dark pages
 S17 Final check 360/410/1280px, light + dark, changelog
 
 ======== NEXT: S17 (final check) ========
@@ -78,3 +85,5 @@ S17 Final check 360/410/1280px, light + dark, changelog. Review what S6-S16 left
 FILES TO ATTACH in the new chat (from the 0.0.21 repo): app/build.gradle.kts, HANDOFF.txt, CHANGELOG.txt, plus the files the user reports a problem in (ask).
 
 LESSON (S16): the user's uploads can be stale copies (CHANGELOG.txt / HANDOFF.txt attached were 0.0.13 / 0.0.19). Check the top line of each against the version first. Uploads may be renamed (build_gradle.kts = app/build.gradle.kts).
+
+LESSON (S18-S20): the attached build_gradle.kts was the OLD 0.0.20 file (no nativeHash / NATIVE_HASH lines): shipping it would break the build (ExtUpdater needs BuildConfig.NATIVE_HASH). Always check that app/build.gradle.kts contains NATIVE_HASH before bumping the version; the attached CHANGELOG / HANDOFF were current (0.0.21).

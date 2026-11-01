@@ -97,6 +97,12 @@ class TabManager(
     fun all(): List<Tab> = tabs.toList()
     fun byId(id: Int): Tab? = tabs.firstOrNull { it.id == id }
 
+    /** S20: Dark pages switch changed (takes effect on the next page load). */
+    fun applyDarkPages() {
+        val on = UiMode.darkPages(ctx)
+        for (t in tabs) UiMode.applyPage(t.web, on && !t.isExt)
+    }
+
     // ---------- tabs ----------
 
     fun newTab(url: String?, openerId: Int = 0, select: Boolean = true): Tab? {
@@ -111,6 +117,7 @@ class TabManager(
         tabs.add(tab)
         ChromeBridge.bindTab(web, tab.id)
         if (url != null) tab.url = url
+        UiMode.applyPage(web, UiMode.darkPages(ctx) && !tab.isExt) // S20
         if (url == HOME_PAGE) tab.home = true // S13: speed dial, nothing to load
         TabsApi.onCreated(tab) // S6
         if (select) switchTo(tab)
@@ -260,6 +267,7 @@ class TabManager(
             if (!r.url.toString().startsWith(ContentInjector.EXT_ORIGIN)) {
                 // S8: extension page -> network goes through the engine proxy (CORS + header rules); web page -> sniff
                 if (tab.isExt) return EngineHost.proxyFor(r, tab.id)
+                if (AdBlock.shouldBlock(r, tab.url)) return AdBlock.emptyResponse() // S19
                 Sniffer.onRequest(tab, r)
                 return null
             }

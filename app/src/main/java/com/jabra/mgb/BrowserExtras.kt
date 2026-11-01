@@ -32,6 +32,9 @@ object BrowserExtras {
     private var pendingFile: ValueCallback<Array<Uri>>? = null
     private var pendingPerm: ((Map<String, Boolean>) -> Unit)? = null
     private var dUa: String? = null
+    private var exportLauncher: ActivityResultLauncher<String>? = null // S18
+    private var importLauncher: ActivityResultLauncher<Array<String>>? = null // S18
+    private var pendingImport: ((Int) -> Unit)? = null // S18
 
     /** Remembered Allow / Block answers for this run: "origin|kinds" -> answer. */
     private val decided = HashMap<String, Boolean>()
@@ -57,6 +60,62 @@ object BrowserExtras {
             pendingPerm = null
             f?.invoke(m)
         }
+        // S18: bookmark export / import (system file picker). Registered after the two above (their keys stay the same).
+        exportLauncher = a.registerForActivityResult(ActivityResultContracts.CreateDocument("text/html")) { uri ->
+            if (uri != null) writeBookmarks(a, uri)
+        }
+        importLauncher = a.registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            val cb = pendingImport
+            pendingImport = null
+            if (uri != null) readBookmarks(a, uri, cb)
+        }
+    }
+
+    // ---------- S18: bookmarks import / export ----------
+
+    fun exportBookmarks() {
+        val l = exportLauncher
+        val a = act
+        if (l == null || a == null) return
+        try { l.launch("mgb-bookmarks.html") } catch (e: Exception) { Util.toast(a, "No file picker found") }
+    }
+
+    /** onDone(added) runs on the main thread after the file was read. */
+    fun importBookmarks(onDone: ((Int) -> Unit)?) {
+        val l = importLauncher
+        val a = act
+        if (l == null || a == null) return
+        pendingImport = onDone
+        try { l.launch(arrayOf("*/*")) } catch (e: Exception) { pendingImport = null; Util.toast(a, "No file picker found") }
+    }
+
+    private fun writeBookmarks(a: ComponentActivity, uri: Uri) {
+        val text = Bookmarks.exportHtml()
+        val n = Bookmarks.bookmarks().size
+        Thread {
+            val ok = try {
+                a.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray(Charsets.UTF_8)) } != null
+            } catch (e: Exception) { false }
+            a.runOnUiThread { Util.toast(a, if (ok) "Exported $n bookmarks" else "Export failed") }
+        }.start()
+    }
+
+    private fun readBookmarks(a: ComponentActivity, uri: Uri, cb: ((Int) -> Unit)?) {
+        Thread {
+            var added = -1
+            try {
+                val bytes = a.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                if (bytes != null && bytes.size <= 5 * 1024 * 1024) added = Bookmarks.importText(String(bytes, Charsets.UTF_8))
+            } catch (e: Exception) { added = -1 }
+            a.runOnUiThread {
+                Util.toast(a, when {
+                    added < 0 -> "Could not read this file"
+                    added == 0 -> "No new bookmarks found in this file"
+                    else -> "Imported $added bookmarks"
+                })
+                if (added >= 0) cb?.invoke(added)
+            }
+        }.start()
     }
 
     // ---------- file chooser ----------
