@@ -15,6 +15,7 @@ import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -24,6 +25,7 @@ import android.widget.TextView
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * S3: owns all tabs (one WebView each), the tab switcher sheet, popup (window.open) handling
@@ -47,6 +49,8 @@ class TabManager(
         /** Restored tabs are loaded lazily, the first time they are selected. */
         var pending: String? = null
         val loading: Boolean get() = progress < 100
+        /** Extension page (downloader.html, player.html ...) served by EngineHost. */
+        val isExt: Boolean get() = url.startsWith(ContentInjector.EXT_ORIGIN)
     }
 
     companion object {
@@ -55,14 +59,17 @@ class TabManager(
         private const val PREFS = "mgb_session"
         private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
+        private var nextId = 1 // never reused while the app runs (the engine keys its state by tab id)
     }
 
     private val tabs = ArrayList<Tab>()
-    private var nextId = 1
 
     var active: Tab? = null
         private set
     val count: Int get() = tabs.size
+
+    fun all(): List<Tab> = tabs.toList()
+    fun byId(id: Int): Tab? = tabs.firstOrNull { it.id == id }
 
     // ---------- tabs ----------
 
@@ -78,6 +85,7 @@ class TabManager(
         tabs.add(tab)
         ChromeBridge.bindTab(web, tab.id)
         if (url != null) tab.url = url
+        TabsApi.onCreated(tab) // S6
         if (select) switchTo(tab)
         if (url != null) web.loadUrl(url)
         listener.onTabsChanged()
@@ -90,6 +98,7 @@ class TabManager(
         active = tab
         container.addView(tab.web, FrameLayout.LayoutParams(MATCH, MATCH))
         tab.web.requestFocus()
+        TabsApi.onActivated(tab) // S6
         tab.pending?.let { tab.pending = null; tab.web.loadUrl(it) }
         listener.onActiveChanged(tab)
     }
@@ -99,6 +108,7 @@ class TabManager(
         if (idx < 0) return
         val wasActive = active === tab
         tabs.removeAt(idx)
+        TabsApi.onRemoved(tab) // S6
         if (wasActive) {
             container.removeView(tab.web)
             active = null
@@ -117,6 +127,7 @@ class TabManager(
 
     fun destroyAll() {
         for (t in tabs) {
+            TabsApi.onRemoved(t) // S6
             container.removeView(t.web)
             ChromeBridge.unbind(t.web)
             t.web.destroy()
@@ -132,7 +143,7 @@ class TabManager(
         var activeIdx = 0
         for (t in tabs) {
             val u = t.web.url ?: t.url
-            if (u.isBlank() || u == "about:blank") continue
+            if (u.isBlank() || u == "about:blank" || u.startsWith(ContentInjector.EXT_ORIGIN)) continue
             if (t === active) activeIdx = arr.length()
             arr.put(u)
         }
@@ -189,6 +200,8 @@ class TabManager(
     private fun client(tab: Tab) = object : WebViewClient() {
         override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
             val u = request?.url ?: return false
+            // S6: a web page may not navigate to the extension origin (only our own code opens those)
+            if (u.toString().startsWith(ContentInjector.EXT_ORIGIN) && !tab.isExt) return true
             when (u.scheme?.lowercase()) {
                 null, "http", "https", "about", "data", "blob", "file", "javascript" -> return false
             }
@@ -196,15 +209,25 @@ class TabManager(
             return true
         }
 
+        // S6: extension pages (https://appassets.androidplatform.net/ext/...) are served from assets
+        override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+            val r = request ?: return null
+            if (!r.url.toString().startsWith(ContentInjector.EXT_ORIGIN)) return null
+            if (!r.isForMainFrame && !tab.isExt) return null
+            return EngineHost.ext(r.url)
+        }
+
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
             tab.url = url ?: tab.url
             tab.progress = 0
+            TabsApi.onUpdated(tab, JSONObject().put("status", "loading").put("url", tab.url)) // S6
             listener.onPageInfo(tab)
         }
 
         override fun onPageFinished(view: WebView?, url: String?) {
             tab.url = url ?: tab.url
             tab.progress = 100
+            TabsApi.onUpdated(tab, JSONObject().put("status", "complete")) // S6
             listener.onPageInfo(tab)
         }
 
@@ -222,6 +245,7 @@ class TabManager(
 
         override fun onReceivedTitle(view: WebView?, title: String?) {
             tab.title = title ?: ""
+            TabsApi.onUpdated(tab, JSONObject().put("title", tab.title)) // S6
             listener.onPageInfo(tab)
         }
 

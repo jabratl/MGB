@@ -1,27 +1,31 @@
-MGB handoff after pair C (S4+S5) + S15 (updater, done early at user request)
-Done: S0-S5, S15. NOT done: S6-S14, S16, S17. App version 0.0.5. Source ext: media-grabber V77 (v2.79.2) is in assets/ext (unchanged).
+MGB handoff after S6 (engine host + tabs/message routing)
+Done: S0-S6, S15. NOT done: S7-S14, S16, S17. App version 0.0.6. Source ext: media-grabber V77 (v2.79.2) in assets/ext (unchanged).
 
 WORKFLOW RULE (always keep): the user only uploads a zip to the repo root. GitHub does everything: unzip -> commit -> build -> Release (APK attached).
 - Zip = whole project or only changed files, with or without a top folder; name must end _vX_Y_Z.zip (applied in version order).
 - To delete a file: put DELETE.txt (one path per line) in the zip root.
-- .github/ inside a zip is ignored (token cannot edit workflows). If a step needs a workflow change (S15, S16), give the user the full new build.yml to paste by hand, and say so first.
-- Future code (updater, ext hot update, etc.) must be built so no manual file edits are needed.
+- .github/ inside a zip is ignored (token cannot edit workflows). If a step needs a workflow change (S16), give the user the full new build.yml to paste by hand, and say so first.
+- Future code must be built so no manual file edits are needed.
 
-Changed in this pair:
-- assets/shim/chrome-shim.js: chrome.* in JS. content kind = runtime+storage only; ext kind = + tabs, downloads, DNR, scripting, sidePanel, action, notifications, contextMenus, alarms, windows, permissions, offscreen, commands, webRequest (all forwarded to Kotlin as "ns.method", events as "ns.onX").
-- kt/ChromeBridge.kt: WebMessageListener "MGBBridge" + token check; registry on(api){call->call.ok/fail} / onSync(api){value}; emit(event,args,filter); request(ctx,msg,sender,cb) = runtime.onMessage to one frame; bindTab(web,tabId); contexts(); storage Areas (local/sync in filesDir, session in memory) + storageSet(). Unknown api -> error "Not implemented: x".
-- kt/ContentInjector.kt: reads assets/ext/manifest.json content_scripts -> document-start scripts (match patterns -> origin rules, run_at, all_frames, world MAIN vs private scope with chrome passed as parameter). attach(ctx, web) for tabs, attachExt(ctx, web) for extension pages/engine (origin https://appassets.androidplatform.net, defines window.chrome). EXT_BASE = that origin + /ext/ (chrome.runtime.getURL).
-- kt/TabManager.kt: 4 one-line hooks (attach, bindTab, unbind x2).
-- ext/: V77 as is. app/build.gradle.kts: version.
+Changed in S6:
+- NEW kt/EngineHost.kt: object. start(ctx) (called first in MainActivity.onCreate) = ContentInjector.init + TabsApi.init + WebViewAssetLoader (/ext/ -> assets/ext) + hidden WebView on EXT_ORIGIN loading generated /ext/_engine.html (shared.js, sites.js, importScripts = no-op, background.js as plain <script>s). attachExt gives it window.chrome.
+  proxy(): every http(s) GET/HEAD request of the ENGINE goes through HttpURLConnection (manual redirects, cookies from CookieManager, strips Origin/X-Requested-With/ext Referer) and gets CORS headers. OPTIONS answered 204. POST bodies are NOT available there (shouldInterceptRequest has no body) -> POST falls back to normal WebView (CORS applies). Hook for S8: EngineHost.requestModifier = { conn, req -> ... } (set headers/referer).
+  ext(uri): used by TabManager so extension pages can open as tabs. status()/showStatus(): menu "Engine status" (log ring buffer of engine console + proxy errors, Copy button).
+- NEW kt/TabsApi.kt: object. attach(TabManager). Handlers: runtime.sendMessage (to EXT frames that called event.add runtime.onMessage; first non-empty reply wins; CONTENT senders limited to CONTENT_MSG list = types content.js sends), tabs.sendMessage (frames of a tab, frameId 0 = main), tabs.get/getCurrent/query/create/update/remove/reload, runtime.openOptionsPage (opens options.html as a tab until S10), runtime.getContexts (returns [] until S9 replaces it), windows.create/get/getCurrent/update, alarms.* (Handler-based, persisted in prefs mgb_engine, only fire while the process lives), event.add (tracks listeners per frame), no-op/true stubs: action.*, sidePanel.*, contextMenus.*, notifications.*, commands.getAll, permissions.*.
+  Tab events (called from TabManager hooks): onCreated/onActivated/onRemoved/onUpdated {status loading+url | complete | title}. runtime.onInstalled (install/update by ext version in prefs) + onStartup are emitted to the engine ~300ms after its page loaded (waits until background.js registered onStartup, up to 6s, logs if not).
+  senderOf(): sender.tab for frames in a tab, sender.url (EXT_BASE... for ext frames: background.js uses startsWith(getURL(''))), frameId.
+- TabManager: nextId is now static (ids never reused), all()/byId(), Tab.isExt, TabsApi hooks, shouldInterceptRequest serves ext URLs only for main-frame loads or when the tab is already an ext page; shouldOverrideUrlLoading blocks web pages navigating to EXT_ORIGIN; saveSession skips ext tabs.
+- ContentInjector: EXT_ID public; page content scripts return early if location.origin == EXT_ORIGIN; attach() also injects the ext script (window.chrome) for EXT_ORIGIN frames in tabs.
+- MainActivity: EngineHost.start, TabsApi.attach (null in onDestroy), menu item "Engine status".
+- shim unchanged.
 
-Checks: node --check on shim and on all 4 generated content scripts + ext script; node test of shim against a mock native (storage, onChanged, sendMessage, lastError, runtime.onMessage sync/async/promise/none, content kind has no tabs/downloads). XML/Kotlin braces balanced. Kotlin NOT compiled (no SDK): CI is the test.
-NOT tested (needs real device): scripts actually running in WebView (check logcat tag MGB.inject / MGB.shim), content.js pill/overlay showing on a video page, iframes, WebView version support (DOCUMENT_START_SCRIPT), run_at idle timing.
-Known limits: page JS in the same frame can read replies/broadcasts sent to that frame (WebView has no isolated world); content kind is restricted to storage.local/sync + runtime.sendMessage; S6 must validate message types from content senders (ctx.kind == CONTENT) before acting. about:blank/data: iframes do not get scripts (no origin match).
-Next: S6 (alone) = EngineHost.kt (hidden WebView loads background.js via a generated page on EXT_ORIGIN; needs WebViewAssetLoader mapping /ext/ -> assets/ext, attachExt) + TabsApi.kt (tabs.* handlers, runtime.sendMessage routing background <-> content frames via ChromeBridge.request/emit, tabs.sendMessage, onUpdated/onRemoved/onActivated events from TabManager, runtime.onInstalled/onStartup). background.js is a service worker using importScripts: run it in a normal page via <script> tags, shim importScripts.
+Checks done: node --check on background/shared/sites; node vm test: shared.js + sites.js + no-op importScripts + background.js load as plain page scripts with a mock chrome (no exception, listeners registered); Kotlin braces balanced. Kotlin NOT compiled (no SDK): CI is the test.
+NOT tested (needs device): engine page actually loads and background.js runs in WebView (check menu > Engine status: "running" + "Background script: started"), proxy fetches, detached hidden WebViews keep running timers/JS, ext tabs (downloader.html) loading, tab events reaching background.
 
-S15 (updater) details:
-- kt/UpdateManager.kt: check(activity, silent), autoCheck(activity). Latest release tag "v<ver>-b<run>"; run number == versionCode (set from GITHUB_RUN_NUMBER). Newer if run > BuildConfig.VERSION_CODE. APK asset downloaded to cacheDir/updates (.part then rename), installed via FileProvider + system installer (asks "install unknown apps" once).
-- app/build.gradle.kts: buildConfigField GH_REPO from env GITHUB_REPOSITORY (empty on local builds). No workflow change was needed.
-- res: layout/dialog_update.xml, xml/file_paths.xml; manifest: REQUEST_INSTALL_PACKAGES + FileProvider; activity_main.xml: btn_menu (⋮); MainActivity: PopupMenu (Check for updates, version line) + autoCheck. S14 can add more items to that menu.
-- Needs: public repo; releases always signed with the SAME key (secrets set), otherwise Android refuses the update.
-- NOT tested: everything (no device). Compile via CI only.
+Known gaps / next:
+- scripting.executeScript / registerContentScripts / unregisterContentScripts: NOT implemented (shim JSON-serialises args, so `func` is lost). background.js uses them as FALLBACK for page fetches (fetchText has tabs.sendMessage first), captureTracksFn, forcePlay, and registerContentScripts for the "MediaSource off" site list. Needs a shim patch (send func.toString()) + a way to run code in a tab frame (CSP/eval risk). Plan as a small extra step (S6b) or inside S8.
+- tabs.captureVisibleTab / tabs.executeScript: Not implemented (fine).
+- notifications.create is a no-op stub (a real notification can be added in S7 with the download notification).
+- downloads.* S7, declarativeNetRequest + webRequest S8, offscreen.* + runtime.getContexts S9, popup/queue/options pages UI S10 (until then pages open as normal tabs via tabs.create).
+- Engine WebView is detached (not in the window). If JS timers stall in the background on some phones, S7 should run a foreground service or attach a 1px view.
+- Next: S7 + S8 (pair D): native downloader + chrome.downloads shim; sniffer + header modes (use EngineHost.requestModifier for engine requests; WebView request sniffing in TabManager client).

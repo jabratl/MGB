@@ -1,3 +1,10 @@
+MGB 0.0.6 (S6)
+- Engine: V77 background.js now runs in a hidden WebView (EngineHost). Its network requests are done natively, so CORS never blocks them.
+- Messages: runtime.sendMessage / tabs.sendMessage route between the engine, extension pages and page frames (TabsApi).
+- tabs.* (get, query, create, update, remove, reload, getCurrent) + onCreated/onUpdated/onActivated/onRemoved; windows.*, alarms.*; runtime.onInstalled/onStartup; cosmetic APIs (badge, context menu...) are accepted and ignored.
+- Extension pages can open as tabs (https://appassets.androidplatform.net/ext/...), web pages cannot navigate there.
+- Menu (⋮) > Engine status: shows whether background.js started + last log lines, with a Copy button.
+
 MGB 0.0.5 (S15)
 - In-app update: menu (⋮) > Check for updates, plus a silent check on start (every 12h). Reads the latest GitHub Release, downloads the APK with progress, opens the system installer.
 - Needs a public repo; first install of this version must be done by hand once.

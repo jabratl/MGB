@@ -20,7 +20,7 @@ import java.security.SecureRandom
 object ContentInjector {
     const val EXT_ORIGIN = "https://appassets.androidplatform.net"
     const val EXT_BASE = "$EXT_ORIGIN/ext/"
-    private const val EXT_ID = "mgbextensionidmgbextensionid0"
+    const val EXT_ID = "mgbextensionidmgbextensionid0"
     private const val TAG = "MGB.inject"
 
     lateinit var token: String
@@ -83,6 +83,8 @@ object ContentInjector {
     private fun wrap(src: String, main: Boolean, runAt: String, allFrames: Boolean, cfgJson: String): String {
         val sb = StringBuilder("(function(){try{\n")
         if (!allFrames) sb.append("if(window.top!==window)return;\n")
+        // S6: never run page scripts inside extension pages that are open as tabs
+        sb.append("if(location.origin==='").append(EXT_ORIGIN).append("')return;\n")
         if (main) {
             sb.append("var __run=function(){try{\n").append(src).append("\n}catch(e){}};\n")
         } else {
@@ -131,6 +133,8 @@ object ContentInjector {
         try {
             ChromeBridge.install(web, setOf("*"))
             for (e in entries) WebViewCompat.addDocumentStartJavaScript(web, e.script, e.origins)
+            // S6: extension pages opened as tabs (tabs.create) get window.chrome too
+            WebViewCompat.addDocumentStartJavaScript(web, extScript, setOf(EXT_ORIGIN))
         } catch (e: Exception) {
             Log.e(TAG, "attach failed", e)
         }

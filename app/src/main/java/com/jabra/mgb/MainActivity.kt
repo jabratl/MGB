@@ -39,7 +39,9 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         btnReload = findViewById(R.id.btn_reload)
         btnTabs = findViewById(R.id.btn_tabs)
         progress = findViewById(R.id.progress)
+        EngineHost.start(this) // S6: background.js engine (hidden WebView)
         tabs = TabManager(this, findViewById<FrameLayout>(R.id.web_container), this)
+        TabsApi.attach(tabs)
 
         btnBack.setOnClickListener { tabs.active?.web?.let { if (it.canGoBack()) it.goBack() } }
         btnFwd.setOnClickListener { tabs.active?.web?.let { if (it.canGoForward()) it.goForward() } }
@@ -57,8 +59,13 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             val m = PopupMenu(this, anchor)
             m.menu.add(0, 1, 0, "Check for updates")
             m.menu.add(0, 2, 1, "MGB ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})").isEnabled = false
+            m.menu.add(0, 3, 2, "Engine status")
             m.setOnMenuItemClickListener {
-                if (it.itemId == 1) { UpdateManager.check(this, false); true } else false
+                when (it.itemId) {
+                    1 -> { UpdateManager.check(this, false); true }
+                    3 -> { EngineHost.showStatus(this); true }
+                    else -> false
+                }
             }
             m.show()
         }
@@ -163,6 +170,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     override fun onDestroy() {
         tabs.destroyAll()
+        TabsApi.attach(null)
         super.onDestroy()
     }
 
