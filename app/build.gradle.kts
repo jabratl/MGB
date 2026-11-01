@@ -3,7 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-val appVersionName = "0.0.1"
+val appVersionName = "0.0.3"
 // CI sets GITHUB_RUN_NUMBER, so every build has a higher versionCode (needed for updates)
 val appVersionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
 

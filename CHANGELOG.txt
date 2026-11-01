@@ -1,3 +1,11 @@
+MGB 0.0.3 (CI)
+- CI: upload a zip -> GitHub unpacks it, builds, and publishes the APK as a Release (tag vX-bN). unzip.yml no longer needed.
+- DELETE.txt in a zip removes listed files.
+
+MGB 0.0.2 (S2+S3)
+- S2: browser screen: URL bar (URL or search), progress bar, back/forward/reload-stop, back-key logic.
+- S3: tabs (one WebView each), tab switcher sheet, window.open/_blank popups on tap, session restore, external-app links.
+
 MGB 0.0.1 (S0+S1)
 - S0: Gradle project + GitHub Actions build (debug APK, or signed release when keystore secrets exist). Placeholder MainActivity.
 - S1: colour tokens (light + dark), Theme.MGB, Util.kt helpers.
