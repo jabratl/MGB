@@ -1,5 +1,5 @@
-MGB handoff after S10 (extension screens), version 0.0.11
-Done: S0-S10, S15. NOT done: S11-S14, S16, S17. App version 0.0.11. Source ext: media-grabber V77 (v2.79.2) in assets/ext (unchanged).
+MGB handoff after S10b (menu entries), version 0.0.12
+Done: S0-S10, S15. NOT done: S11-S14, S16, S17. App version 0.0.12. Source ext: media-grabber V77 (v2.79.2) in assets/ext (unchanged).
 
 WORKFLOW RULE (always keep): the user only uploads a zip to the repo root. GitHub does everything: unzip -> commit -> build -> Release (APK attached).
 - Zip = whole project or only changed files, with or without a top folder; name must end _vX_Y_Z.zip (applied in version order).
@@ -17,7 +17,7 @@ Changed in S10 (pair with S9: hidden document = background work, ExtScreen = the
 
 Checks done: braces/parens balanced, no nested comment openers, layout XML parses, ids unique, every R.id used exists. No JS changed. Kotlin NOT compiled (no SDK); layout NOT rendered (no Android in the sandbox): 360/1280px and dark/light still to be looked at on device.
 NOT tested (needs device): build; Dialog with Theme.Material3.DayNight.NoActionBar really fills the screen; V77 popup/queue/history pages load and talk to the engine (runtime.sendMessage, storage); manga.html opens from a content-script open-manga; options opens from openOptionsPage; page dark mode follows the app; file inputs inside a window (import/export) do nothing yet (S14 file chooser); keyboard resize in options.
-NO ENTRY POINT YET from the browser menu: MainActivity.kt was not attached. Until it is wired, windows open only when V77 asks (open options, open manga, links inside a window).
+Entry points (S10b): MainActivity menu rows Media Grabber / Queue / History / Settings call ExtScreen.open (menu ids 4-7, order -4..-1). MainActivity.kt changed in S10b: 3 hunks (menu rows, click handlers, openExt()).
 Known gaps: scripting.executeScript/registerContentScripts not implemented; notification has no pause/cancel (S12); engine WebView + hidden document may be throttled in background; ext-tab POST not proxied; S7/S8/S9 untested items still apply.
 
-Next: S10b (tiny, finish pair E) then S11. S10b goal: add menu rows "Media Grabber", "Queue", "History", "Settings" to the browser menu = ExtScreen.open(activity, EXT_BASE + "popup.html" / "queue.html" / "history.html" / "options.html"), close the window on activity destroy (already done via destroyAll). Attach: kt/MainActivity.kt (+ menu layout if the menu is a layout). If you prefer to continue to S11 first, attach MainActivity.kt there too: S11 also needs it.
+Next: S11 (pair F: S11+S12). S11 goal: kt/FloatingDl.kt + res/layout/sheet_media.xml = 1DM-style floating download button over the browser; shows when Sniffer/V77 found media on the active tab; tap -> bottom sheet with quality list -> start download through V77 (runtime.sendMessage start-job / download-all). Look first at what the content script / background expose (grep get-state, video-info, start-job, jobs-get in background.js and content.js). Attach: kt/MainActivity.kt (this zip), kt/Sniffer.kt, kt/TabManager.kt, res/layout/activity_main.xml, res/layout/sheet_tabs.xml (for style).

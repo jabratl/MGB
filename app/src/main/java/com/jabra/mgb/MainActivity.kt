@@ -57,6 +57,11 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         btnTabs.setOnClickListener { tabs.showSwitcher() }
         findViewById<TextView>(R.id.btn_menu).setOnClickListener { anchor ->
             val m = PopupMenu(this, anchor)
+            // S10b: extension windows (V77 popup, queue, history, options)
+            m.menu.add(0, 4, -4, "Media Grabber")
+            m.menu.add(0, 5, -3, "Queue")
+            m.menu.add(0, 6, -2, "History")
+            m.menu.add(0, 7, -1, "Settings")
             m.menu.add(0, 1, 0, "Check for updates")
             m.menu.add(0, 2, 1, "MGB ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})").isEnabled = false
             m.menu.add(0, 3, 2, "Engine status")
@@ -64,6 +69,10 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                 when (it.itemId) {
                     1 -> { UpdateManager.check(this, false); true }
                     3 -> { EngineHost.showStatus(this); true }
+                    4 -> { openExt("popup.html"); true }
+                    5 -> { openExt("queue.html"); true }
+                    6 -> { openExt("history.html"); true }
+                    7 -> { openExt("options.html"); true }
                     else -> false
                 }
             }
@@ -101,6 +110,10 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
         if (!tabs.restoreSession()) tabs.newTab(TabManager.HOME)
         UpdateManager.autoCheck(this)
+    }
+
+    private fun openExt(page: String) {
+        if (!ExtScreen.open(this, ContentInjector.EXT_BASE + page)) Util.toast(this, "Could not open $page")
     }
 
     // ---------- URL bar ----------

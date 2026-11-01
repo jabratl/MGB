@@ -1,3 +1,6 @@
+MGB 0.0.12 (S10b)
+- Menu (⋮) now has Media Grabber, Queue, History and Settings. They open the extension windows from 0.0.11.
+
 MGB 0.0.11 (S10)
 - Extension screens: the Media Grabber popup, Queue, Manga reader, History and Settings pages open as full-screen windows (title, back, reload, close) instead of browser tabs. Opened by V77 itself (open options, open manga, links between its pages).
 - A link to a website or to the downloader/player page opened from a window becomes a normal tab and the window closes.
