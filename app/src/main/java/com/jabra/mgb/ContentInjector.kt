@@ -35,12 +35,13 @@ object ContentInjector {
     private var extScript = ""
 
     private fun read(ctx: Context, path: String): String =
-        ctx.assets.open(path).bufferedReader().use { it.readText() }
+        ExtUpdater.readText(path) ?: ctx.assets.open(path).bufferedReader().use { it.readText() } // S16: hot ext files first
 
     @Synchronized fun init(ctx: Context) {
         if (inited) return
         inited = true
         val app = ctx.applicationContext
+        ExtUpdater.init(app)
         ChromeBridge.init(app)
         val b = ByteArray(16).also { SecureRandom().nextBytes(it) }
         token = b.joinToString("") { "%02x".format(it) }

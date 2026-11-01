@@ -1,11 +1,11 @@
-MGB HANDOFF for a new chat - after S14 (pair G done), app version 0.0.19 (S13+S14+CrashLog+menu order FIX, all files in one zip)
+MGB HANDOFF for a new chat - after S16 (pair H done), app version 0.0.21 (S16: ext hot update)
 (Paste this whole text as the first message of the new chat, then attach the files listed at the bottom.)
 
 PROJECT: MGB = Media Grabber Browser. Android app, WebView browser + a chrome.* shim that runs my Chrome extension "media-grabber V77" (v2.79.2, MV3) unchanged. Package com.jabra.mgb. kt/ = app/src/main/java/com/jabra/mgb/. Built by GitHub Actions to an APK Release.
 Language: I write Bangla/English mixed. Answer in short plain English, final reply under 10 lines.
 
-DONE: S0-S15 (versions: S8=0.0.9, S9=0.0.10, S10=0.0.11, S10b=0.0.12, S11+S12=0.0.13, S13=0.0.14, S14=0.0.15).
-NOT DONE: S16, S17.
+DONE: S0-S16 (versions: S8=0.0.9, S9=0.0.10, S10=0.0.11, S10b=0.0.12, S11+S12=0.0.13, S13=0.0.14, S14=0.0.15, S14b=0.0.20; 0.0.16-0.0.19 were fixes, S16=0.0.21).
+NOT DONE: S17.
 
 ======== WORKFLOW RULES (always keep) ========
 - I only upload a zip to the repo root. GitHub does everything: unzip -> commit -> build -> Release (APK attached).
@@ -42,7 +42,11 @@ My standing prompt rules (apply every step):
 - DownloadsScreen (S12): full-screen Dialog (screen_downloads.xml): V77 jobs with Pause/Resume/Cancel/Remove/Clear + Saved files Open/Show (chrome.downloads.open/show through EngineHost.eval).
 - Other files that exist (never touched here, not attached): MainActivity.kt, UpdateManager.kt, Util.kt, res (colors mg_bg, mg_text, mg_text_dim, mg_outline, mg_primary, mg_surface_variant; layouts activity_main.xml, sheet_tabs.xml; drawable bg_url_bar).
 - V77 messages used from native: get-state, start-job, job-pause (on), job-cancel, job-remove, jobs-clear, plus the CONTENT_MSG list in TabsApi for page frames.
-- CHANGELOG.txt was NOT attached for S13/S14, so it was not overwritten. Entries are in CHANGELOG_NEW.txt (newest on top). Attach CHANGELOG.txt next time and I merge it (or tell me to leave it).
+- CHANGELOG.txt is the only changelog again (0.0.20 merged the S13-S19 entries; CHANGELOG_NEW.txt is deleted by DELETE.txt in the 0.0.20 zip).
+- LESSON: Menu.add(group, id, order, title): order must be >= 0 (a negative order crashed the 3-dot menu 0.0.12-0.0.18). Menu order values now run 6..12.
+- app/src/extra/AndroidManifest.xml is now known (S14b patched it): INTERNET, FOREGROUND_SERVICE(+DATA_SYNC), POST_NOTIFICATIONS, WRITE_EXTERNAL_STORAGE<=28, CAMERA, RECORD_AUDIO, MODIFY_AUDIO_SETTINGS, ACCESS_FINE/COARSE_LOCATION, DownloadService, MgbFileProvider (xml/mgb_dl_paths). Attach it again when it must change.
+
+- ExtUpdater (S16, ExtUpdater.kt): hot update of the ext bundle (assets/ext) without an APK. CI (build.yml, pasted by hand) computes MGB_NATIVE_HASH = fingerprint of everything except assets/ext (and the appVersionName line) -> BuildConfig.NATIVE_HASH, and attaches MGB-ext-b<run>-n<hash>.zip (ext files + _bundle.json {build,native}) to every release. UpdateManager.check: ext zip with SAME hash and build > max(VERSION_CODE, hot build) = ext-only dialog (reuses dialog_update layout); different hash and newer APK = normal APK dialog. Zip is checked (zip-slip, size, _bundle.json, manifest, background/shared/sites + content scripts), unpacked to filesDir/ext_hot/b<run>, prefs mgb_ext.dir; used from the NEXT start only (dialog asks to close MGB). ContentInjector.read and EngineHost.page ask ExtUpdater first (readText / open), then the built-in assets. Hot dir is dropped at start if build <= VERSION_CODE or hash differs. Manual check with nothing newer + hot active offers Reset to built-in. No hash/sha256 check of the zip itself (HTTPS + GitHub only).
 
 - Bookmarks (S13, Bookmarks.kt): bookmarks (= speed dial tiles, seeded Google/YouTube/Wikipedia/GitHub on first run) + browsing history (max 500) as JSON in filesDir (mgb_bookmarks.json, mgb_history.json). API: init, bookmarks(), isBookmarked, addBookmark, removeBookmark, history(), addHistory, removeHistory(time,url), clearHistory.
 - HomeView (S13): native speed dial built in code, shown by TabManager.syncHome() over the blank WebView of a "home" tab (Tab.home, url TabManager.HOME_PAGE = about:home, never loaded). Tap = openUrl, long press = new tab / remove, "+" = add. Buttons Bookmarks / History.
@@ -54,27 +58,23 @@ My standing prompt rules (apply every step):
 - DownloadsApi.startPlain(url, ua, contentDisposition, mime, referer, srcWebView): plain link download (http/https/data/blob), saved to Downloads/<name>, headers Referer + User-Agent + Cookie. Item creation moved to a private newItem() (same code the downloads.download handler used).
 - MainActivity menu S14: "Desktop site" / "Mobile site" toggle.
 
-======== NOT TESTED ON DEVICE (all of S6-S14) ========
+======== NOT TESTED ON DEVICE (all of S6-S16) ========
+S16 not tested: CI step "Native fingerprint" + ext zip in the release (path assumed app/src/main/assets/ext); first S16 APK must be installed by hand, the ext-only path only works from the NEXT release on; BuildConfig.NATIVE_HASH matches the hash in the zip name; ext-only dialog + download + unpack; hot files really served after restart (engine page, popup, content scripts, runtime.getManifest); Reset; auto drop after an APK update. Other Kotlin files that read assets/ext directly (OffscreenHost, TabManager, TabsApi ... not checked) would still use the built-in files: grep "ext/" in assets.open calls if a hot update seems half applied.
 build itself; engine runs background.js (Engine status: running + Background script started); shim forwards downloads.*; blob download from downloader.html and from the hidden document (blob made in the hidden WebView, downloads.download called from the engine: if reading fails, fix in DownloadsApi); sniffer finds streams in V77; header rules reach real downloads; <video> in player.html through proxyFor; hidden document timers when the screen is off; ExtScreen Dialog fills the screen and V77 pages work in it (popup, queue, history, options, manga); FloatingDl button/badge/sheet and start-job; DownloadsScreen with real mgJobs/mgHist fields (read from V77 source, not seen live); Open/Show via EngineHost.eval.
 S13 not tested: speed dial shows on new tab / startup / after closing the last tab, and hides on first navigation; tiles wrap at 360px and 1280px, dark + light (not rendered); add / long-press remove dialogs; bookmark toggle in the menu; history list, long press, Clear; home tab survives app restart and dark/light recreate (saved as about:home); extension tabs.query sees url about:home on a home tab.
 S14 not tested: Desktop site toggle (UA really changes, ContentInjector/shim does not reset it, viewport width 1024 applied on page finish, state is per tab and NOT saved in the session); fullscreen video enter/exit + Back + rotate; file chooser from a web page and from an extension window (options import, etc.); camera/mic/location prompts; plain link download (filename, Referer/Cookie/User-Agent headers reach Downloader, notification, file lands in Downloads, blob: link); possible duplicate Cookie header if Downloader also adds cookies.
-Known gaps S14: CAMERA, RECORD_AUDIO, ACCESS_FINE_LOCATION are NOT declared (extra manifest was not attached): the prompts show but the permission is refused with a toast until the manifest is patched. input capture=camera not handled. Plain-link downloads do not appear in the native Downloads screen (it only lists V77 jobs and mgHist); they show a notification. Desktop mode is not remembered per site. No fullscreen auto-rotate.
+Known gaps S14: input capture=camera not handled. Plain-link downloads do not appear in the native Downloads screen (it only lists V77 jobs and mgHist); they show a notification. Desktop mode is not remembered per site. No fullscreen auto-rotate.
 Known gaps: scripting.executeScript / registerContentScripts not implemented (shim sends no func); notification has no pause/cancel (needs DownloadService.kt + DownloadsApi.kt); Share in the downloads screen (needs file uri from DownloadsApi); engine WebView background throttling; ext-tab POST not proxied (no body); file inputs inside extension windows do nothing (S14 file chooser); FloatingDl skips V77 dup-check ("download again?").
 
 ======== PLAN TABLE (pairs: A=S0+S1 B=S2+S3 C=S4+S5 D=S7+S8 E=S9+S10 F=S11+S12 G=S13+S14 H=S15+S16; S6 and S17 alone) ========
 S13 Home (speed dial), bookmarks, history: kt/Bookmarks.kt, kt/HomeFragment.kt (or a home view for new tabs), res/layout/fragment_home.xml
 S14 Extras: kt/BrowserExtras.kt = desktop mode, fullscreen video, file chooser (also for extension windows), permissions (camera/mic/location), browser downloads of normal links; MainActivity patch
-S16 Hot update of the ext JS bundle (ext.zip) without a new APK: kt/ExtUpdater.kt + build.yml patch (user pastes build.yml by hand, say so first)
+S16 (DONE 0.0.21) Hot update of the ext JS bundle: kt/ExtUpdater.kt + build.yml patch (pasted by hand)
 S17 Final check 360/410/1280px, light + dark, changelog
 
-======== NEXT: S16 (pair H part 2), then S17 ========
-Before S16: attach app/src/extra/AndroidManifest.xml and I add CAMERA, RECORD_AUDIO, ACCESS_FINE_LOCATION (+ MODIFY_AUDIO_SETTINGS) so the S14 prompts can work.
-S16 Hot update of the ext JS bundle (ext.zip) without a new APK: kt/ExtUpdater.kt + build.yml patch (user pastes build.yml by hand, say so first). S17 final check 360/410/1280px, light + dark, changelog.
+======== NEXT: S17 (final check) ========
+S17 Final check 360/410/1280px, light + dark, changelog. Review what S6-S16 left untested (list above), fix only what the user reports from real use.
 
-FILES TO ATTACH in the new chat (from the 0.0.15 repo): app/build.gradle.kts, HANDOFF.txt, CHANGELOG.txt, app/src/extra/AndroidManifest.xml, kt/MainActivity.kt (only if S16 needs a menu entry), kt/UpdateManager.kt, kt/EngineHost.kt, kt/ContentInjector.kt (S16 reads how assets/ext is served).
+FILES TO ATTACH in the new chat (from the 0.0.21 repo): app/build.gradle.kts, HANDOFF.txt, CHANGELOG.txt, plus the files the user reports a problem in (ask).
 
-FIX 0.0.16: menu (3 dots) crash reported, root cause NOT found by reading (menu code compiles and looks fine). CrashLog.kt added: next start after a crash shows the stack trace (Copy). Ask user for that trace, then fix.
-
-FIX 0.0.18: 3-dot crash exists already in 0.0.12 (user test). Menu code itself is fine, so the crash is inside android.widget.PopupMenu (theme). Switched to androidx.appcompat.widget.PopupMenu (best guess, trace still unknown). If it still crashes: read the CrashLog dialog on next start.
-
-FIX 0.0.19: ROOT CAUSE of 3-dot crash (since 0.0.12): IllegalArgumentException "order does not contain a valid category" - Menu.add order must be >= 0 (negative orders are invalid). Orders shifted by +10 in MainActivity menu, same sequence. Never use negative menu orders.
+LESSON (S16): the user's uploads can be stale copies (CHANGELOG.txt / HANDOFF.txt attached were 0.0.13 / 0.0.19). Check the top line of each against the version first. Uploads may be renamed (build_gradle.kts = app/build.gradle.kts).

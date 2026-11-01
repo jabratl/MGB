@@ -1,3 +1,34 @@
+MGB 0.0.21 (S16)
+- Extension update without a new APK: when a new release changes only the extension files (Media Grabber popup, queue, downloader ...), Check for updates offers a small download of just those files. After it, close MGB and open it again.
+- If the app itself changed, you still get the normal APK update. A newer APK always replaces the downloaded extension files.
+- Check for updates with nothing new: if downloaded extension files are in use, you can reset to the built-in ones.
+
+MGB 0.0.20 (S14b)
+- Manifest: CAMERA, RECORD_AUDIO, MODIFY_AUDIO_SETTINGS, ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION declared (hardware features optional). Web pages that ask for camera, microphone or location now get the Allow / Block question and then the Android permission.
+
+MGB 0.0.19 (FIX)
+- 3-dot menu crash fixed: the menu used negative sort orders, which Android refuses. Same menu order as before.
+
+MGB 0.0.18 (FIX)
+- Menu uses the AppCompat PopupMenu.
+
+MGB 0.0.17 (FIX)
+- Build fix: the S13 files were missing in the repo; all S13/S14/CrashLog files sent again.
+
+MGB 0.0.16 (FIX)
+- Crash log: after a crash the next start shows the stack trace with a Copy button.
+
+MGB 0.0.15 (S14)
+- Desktop site / Mobile site toggle per tab (user agent + wide viewport, reloads the page).
+- Fullscreen video; Back leaves fullscreen first.
+- File chooser works in tabs and in extension windows (options import etc.).
+- Camera / microphone / location questions (Allow / Block), kept for the run.
+- Plain download links, blob: and data: links in a tab download to the Downloads folder with a notification (Referer, User-Agent and Cookie of the page are sent).
+
+MGB 0.0.14 (S13)
+- Speed-dial home for new tabs and at startup: tiles are your bookmarks (tap = open, long press = open in new tab / remove, + = add a site).
+- Menu: Add / Remove bookmark, Bookmarks, Browsing history. History keeps the last 500 pages (long press = remove, Clear).
+
 MGB 0.0.13 (S11 + S12)
 - Floating download button: when Media Grabber finds videos or audio on the page, a round button with the count appears over the page (drag it anywhere, the place is remembered). Tap it for a quality sheet: Best, each quality with its size, or a subtitle format. The download runs in the background (hidden document from 0.0.10), no tab opens.
 - Downloads screen (menu > Downloads, or the Downloads button in the sheet): running jobs with progress, Pause / Resume / Cancel, finished and failed jobs with Remove, Clear, and a Saved files list with Open and Show.

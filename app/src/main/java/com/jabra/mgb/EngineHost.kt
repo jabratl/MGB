@@ -117,6 +117,7 @@ object EngineHost {
                 "<script src=\"background.js\"></script>"
             return WebResourceResponse("text/html", "utf-8", ByteArrayInputStream(html.toByteArray()))
         }
+        ExtUpdater.open(path)?.let { return it } // S16: hot-updated ext files first
         return assets.handle("ext/$path")
     }
 

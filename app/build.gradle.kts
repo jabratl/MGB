@@ -3,11 +3,13 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-val appVersionName = "0.0.19"
+val appVersionName = "0.0.21"
 // CI sets GITHUB_RUN_NUMBER, so every build has a higher versionCode (needed for updates)
 // CI provides "owner/repo"; the in-app updater reads releases from it
 val ghRepo = System.getenv("GITHUB_REPOSITORY") ?: ""
 val appVersionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
+// S16: CI fingerprint of all non-ext sources; ext-only hot updates (ExtUpdater) are allowed only when it matches
+val nativeHash = System.getenv("MGB_NATIVE_HASH") ?: ""
 
 android {
     namespace = "com.jabra.mgb"
@@ -20,6 +22,7 @@ android {
         versionCode = appVersionCode
         versionName = appVersionName
         buildConfigField("String", "GH_REPO", "\"$ghRepo\"")
+        buildConfigField("String", "NATIVE_HASH", "\"$nativeHash\"")
     }
 
     buildFeatures {

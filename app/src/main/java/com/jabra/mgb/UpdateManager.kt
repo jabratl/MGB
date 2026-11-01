@@ -34,7 +34,10 @@ object UpdateManager {
     private val io = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
 
-    private class Info(val tag: String, val build: Int, val notes: String, val url: String, val size: Long, val name: String)
+    private class Info(
+        val tag: String, val build: Int, val notes: String, val url: String, val size: Long, val name: String,
+        val extName: String = "", val extUrl: String = "", val extSize: Long = -1L
+    )
 
     /** On app start: silent check, at most every 12 hours. */
     fun autoCheck(a: Activity) {
@@ -56,9 +59,20 @@ object UpdateManager {
             main.post {
                 if (a.isFinishing || a.isDestroyed) return@post
                 when (res) {
-                    is Info -> if (res.build > BuildConfig.VERSION_CODE) showDialog(a, res) else {
-                        cleanCache(a, null)
-                        if (!silent) Util.toast(a, "You have the latest version (${BuildConfig.VERSION_NAME})")
+                    is Info -> {
+                        // S16: same native code + newer ext zip = ext-only update (no APK install)
+                        val eb = ExtUpdater.matchBuild(res.extName)
+                        if (eb > ExtUpdater.currentBuild()) {
+                            ExtUpdater.showDialog(a, res.tag, res.notes, res.extUrl, res.extName, res.extSize, eb)
+                        } else if (res.build > BuildConfig.VERSION_CODE && eb < 0) {
+                            showDialog(a, res)
+                        } else {
+                            cleanCache(a, null)
+                            if (!silent) {
+                                Util.toast(a, "You have the latest version (${BuildConfig.VERSION_NAME})")
+                                ExtUpdater.offerReset(a)
+                            }
+                        }
                     }
                     is Exception -> if (!silent) Util.toast(a, "Update check failed: ${res.message}")
                 }
@@ -90,14 +104,19 @@ object UpdateManager {
             val build = Regex("-b(\\d+)$").find(tag)?.groupValues?.get(1)?.toIntOrNull()
                 ?: throw Exception("unknown release tag \"$tag\"")
             val assets = j.optJSONArray("assets") ?: JSONArray()
+            var apk: JSONObject? = null
+            var ext: JSONObject? = null
             for (i in 0 until assets.length()) {
                 val x = assets.getJSONObject(i)
                 val name = x.optString("name")
-                if (name.endsWith(".apk")) {
-                    return Info(tag, build, j.optString("body").trim(), x.optString("browser_download_url"), x.optLong("size", -1L), name)
-                }
+                if (apk == null && name.endsWith(".apk")) apk = x
+                else if (ext == null && name.endsWith(".zip") && name.contains("-ext-b")) ext = x
             }
-            throw Exception("release has no APK")
+            val ax = apk ?: throw Exception("release has no APK")
+            return Info(
+                tag, build, j.optString("body").trim(), ax.optString("browser_download_url"), ax.optLong("size", -1L), ax.optString("name"),
+                ext?.optString("name") ?: "", ext?.optString("browser_download_url") ?: "", ext?.optLong("size", -1L) ?: -1L
+            )
         } finally {
             c.disconnect()
         }
