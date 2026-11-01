@@ -1,0 +1,23 @@
+name: Unzip upload
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  unzip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          for Z in *.zip; do
+            rm -rf _tmp
+            unzip -oq "$Z" -d _tmp
+            rm -rf _tmp/*/.github
+            cp -a _tmp/*/. .
+            rm -f "$Z"
+          done
+          rm -rf _tmp
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add -A
+          git commit -m "Add files from zip" || echo "nothing to commit"
+          git push
