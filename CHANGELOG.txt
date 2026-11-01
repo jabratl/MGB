@@ -1,3 +1,7 @@
+MGB 0.0.13 (S11 + S12)
+- Floating download button: when Media Grabber finds videos or audio on the page, a round button with the count appears over the page (drag it anywhere, the place is remembered). Tap it for a quality sheet: Best, each quality with its size, or a subtitle format. The download runs in the background (hidden document from 0.0.10), no tab opens.
+- Downloads screen (menu > Downloads, or the Downloads button in the sheet): running jobs with progress, Pause / Resume / Cancel, finished and failed jobs with Remove, Clear, and a Saved files list with Open and Show.
+
 MGB 0.0.12 (S10b)
 - Menu (⋮) now has Media Grabber, Queue, History and Settings. They open the extension windows from 0.0.11.
 

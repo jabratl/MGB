@@ -26,6 +26,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     private lateinit var btnTabs: MaterialButton
     private lateinit var progress: LinearProgressIndicator
     private lateinit var backCb: OnBackPressedCallback
+    private lateinit var floating: FloatingDl // S11
     private var lastNight = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,6 +43,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         EngineHost.start(this) // S6: background.js engine (hidden WebView)
         tabs = TabManager(this, findViewById<FrameLayout>(R.id.web_container), this)
         TabsApi.attach(tabs)
+        floating = FloatingDl(this, findViewById<FrameLayout>(R.id.web_container).parent as FrameLayout, tabs) // S11
 
         btnBack.setOnClickListener { tabs.active?.web?.let { if (it.canGoBack()) it.goBack() } }
         btnFwd.setOnClickListener { tabs.active?.web?.let { if (it.canGoForward()) it.goForward() } }
@@ -60,6 +62,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             // S10b: extension windows (V77 popup, queue, history, options)
             m.menu.add(0, 4, -4, "Media Grabber")
             m.menu.add(0, 5, -3, "Queue")
+            m.menu.add(0, 8, -3, "Downloads") // S12
             m.menu.add(0, 6, -2, "History")
             m.menu.add(0, 7, -1, "Settings")
             m.menu.add(0, 1, 0, "Check for updates")
@@ -73,6 +76,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                     5 -> { openExt("queue.html"); true }
                     6 -> { openExt("history.html"); true }
                     7 -> { openExt("options.html"); true }
+                    8 -> { DownloadsScreen.open(this); true }
                     else -> false
                 }
             }
@@ -161,10 +165,16 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         btnTabs.text = tabs.count.toString()
     }
 
-    override fun onActiveChanged(tab: TabManager.Tab?) = refreshAll(tab)
+    override fun onActiveChanged(tab: TabManager.Tab?) {
+        refreshAll(tab)
+        floating.poke() // S11
+    }
 
     override fun onPageInfo(tab: TabManager.Tab) {
-        if (tab === tabs.active) refreshAll(tab)
+        if (tab === tabs.active) {
+            refreshAll(tab)
+            if (tab.progress >= 100) floating.poke() // S11
+        }
     }
 
     // ---------- lifecycle ----------
@@ -173,15 +183,19 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         super.onResume()
         backCb.isEnabled = true
         tabs.active?.web?.onResume()
+        floating.start() // S11
     }
 
     override fun onPause() {
+        floating.stop() // S11
         tabs.active?.web?.onPause()
         tabs.saveSession()
         super.onPause()
     }
 
     override fun onDestroy() {
+        floating.stop() // S11
+        DownloadsScreen.closeAll() // S12
         tabs.destroyAll()
         TabsApi.attach(null)
         super.onDestroy()

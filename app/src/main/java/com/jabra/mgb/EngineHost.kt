@@ -120,6 +120,12 @@ object EngineHost {
         return assets.handle("ext/$path")
     }
 
+    /** S12: run a short script in the engine page (for example chrome.downloads.open(id)). Result is ignored. */
+    fun eval(js: String) {
+        val w = web ?: return
+        w.post { try { w.evaluateJavascript(js, null) } catch (e: Exception) { Log.e(TAG, "eval", e) } }
+    }
+
     /** For TabManager: serves https://appassets.androidplatform.net/ext/... (null = not an extension URL). */
     fun ext(u: Uri): WebResourceResponse? = loader?.shouldInterceptRequest(u)
 
