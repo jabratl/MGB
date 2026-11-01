@@ -271,8 +271,7 @@ object TabsApi {
             tm?.newTab(ContentInjector.EXT_BASE + "options.html", 0, true)
             c.ok(null)
         }
-        // S9 replaces this with the real offscreen document list
-        ChromeBridge.onSync("runtime.getContexts") { JSONArray() }
+        // runtime.getContexts + offscreen.*: OffscreenHost (S9)
 
         // windows: one window; chrome.windows.create opens a tab
         handle("windows.create") { c ->

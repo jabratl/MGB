@@ -140,13 +140,18 @@ object ContentInjector {
         }
     }
 
-    /** Extension page / engine WebView (S6, S10): trusted origin only, window.chrome is defined. */
-    fun attachExt(ctx: Context, web: WebView) {
+    /** Keeps only chrome.runtime (S9): what a Chrome offscreen document really has. V77 offscreen-shim.js adds the rest. */
+    private const val OFFSCREEN_STRIP =
+        "\n(function(){try{var c=window.chrome;if(!c)return;Object.keys(c).forEach(function(k){" +
+            "if(k!=='runtime'&&k!=='__mgbLog'){try{delete c[k];}catch(e){}}});}catch(e){}})();"
+
+    /** Extension page / engine WebView (S6, S10): trusted origin only, window.chrome is defined. offscreen = S9 document. */
+    fun attachExt(ctx: Context, web: WebView, offscreen: Boolean = false) {
         init(ctx)
         if (!supported()) return
         try {
             ChromeBridge.install(web, setOf(EXT_ORIGIN))
-            WebViewCompat.addDocumentStartJavaScript(web, extScript, setOf(EXT_ORIGIN))
+            WebViewCompat.addDocumentStartJavaScript(web, if (offscreen) extScript + OFFSCREEN_STRIP else extScript, setOf(EXT_ORIGIN))
         } catch (e: Exception) {
             Log.e(TAG, "attachExt failed", e)
         }

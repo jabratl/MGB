@@ -1,3 +1,8 @@
+MGB 0.0.10 (S9)
+- Hidden background downloads: chrome.offscreen (createDocument, closeDocument, hasDocument) now works. V77 joins HLS/DASH segments in a hidden page (offhost.html -> offscreen.html with remux.js and mux.min.js) instead of opening a downloader tab. Network goes through the engine proxy (CORS-free, header rules).
+- chrome.runtime.getContexts returns the hidden document, the engine (BACKGROUND) and extension tabs, with contextTypes / documentUrls / tabIds filters.
+- Menu > Engine status shows the hidden document state.
+
 MGB 0.0.9 (S8)
 - Stream detection: pages are watched while they load. HLS/DASH playlists, subtitles, video/audio files and stream-looking requests are reported to the engine (V77 webRequest), including the Referer the page used, so V77 can list them and download with the right headers.
 - Header rules: declarativeNetRequest (V77 Referer/Origin/site-header rules) now works for the engine and for extension pages (downloader, player, manga).

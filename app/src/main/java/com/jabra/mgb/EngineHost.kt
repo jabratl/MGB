@@ -66,6 +66,7 @@ object EngineHost {
         DownloadsApi.init(app)
         HeaderModes.init(app)
         Sniffer.init(app)
+        OffscreenHost.init(app)
         val assets = WebViewAssetLoader.AssetsPathHandler(app)
         loader = WebViewAssetLoader.Builder()
             .addPathHandler("/ext/", WebViewAssetLoader.PathHandler { path -> page(assets, path) })
@@ -219,7 +220,7 @@ object EngineHost {
         val eng = web
         val frames = ChromeBridge.contexts().count { it.web === eng }
         return "Engine: " + (if (eng == null) "not started" else if (loaded) "running" else "loading") +
-            "\nEngine frames: $frames" + TabsApi.status() + HeaderModes.status() + Sniffer.status() + "\n\n" + logText(40)
+            "\nEngine frames: $frames" + TabsApi.status() + HeaderModes.status() + Sniffer.status() + OffscreenHost.status() + "\n\n" + logText(40)
     }
 
     fun showStatus(a: Activity) {
