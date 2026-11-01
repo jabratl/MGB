@@ -13,15 +13,17 @@ import java.util.concurrent.Executors
  * All calls are cheap and safe from the main thread; the disk write runs on one background thread.
  */
 object Bookmarks {
-    class Item(val title: String, val url: String, val time: Long)
+    class Item(val title: String, val url: String, val time: Long, val folder: String = "") // S24: folder "" = no folder
 
     private const val MAX_HISTORY = 500
     private const val F_BM = "mgb_bookmarks.json"
     private const val F_HIST = "mgb_history.json"
+    private const val F_FOL = "mgb_folders.json" // S24: folder names (also empty ones)
 
     private var dir: File? = null
     private val bm = ArrayList<Item>()
     private val hist = ArrayList<Item>()
+    private val fol = ArrayList<String>() // S24
     private val io = Executors.newSingleThreadExecutor()
 
     @Synchronized
@@ -39,6 +41,13 @@ object Bookmarks {
             saveAsync(F_BM, bm)
         }
         read(File(d, F_HIST), hist)
+        try { // S24
+            val ff = File(d, F_FOL)
+            if (ff.exists()) {
+                val arr = JSONArray(ff.readText())
+                for (i in 0 until arr.length()) arr.optString(i).trim().let { if (it.isNotEmpty() && it !in fol) fol.add(it) }
+            }
+        } catch (e: Exception) { /* broken file: no folders */ }
     }
 
     private fun read(f: File, out: ArrayList<Item>) {
@@ -48,7 +57,7 @@ object Bookmarks {
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
                 val u = o.optString("u")
-                if (u.isNotEmpty()) out.add(Item(o.optString("t"), u, o.optLong("w")))
+                if (u.isNotEmpty()) out.add(Item(o.optString("t"), u, o.optLong("w"), o.optString("f")))
             }
         } catch (e: Exception) { /* broken file: start empty */ }
     }
@@ -56,7 +65,7 @@ object Bookmarks {
     private fun saveAsync(name: String, list: List<Item>) {
         val d = dir ?: return
         val arr = JSONArray()
-        for (x in list) arr.put(JSONObject().put("t", x.title).put("u", x.url).put("w", x.time))
+        for (x in list) arr.put(JSONObject().put("t", x.title).put("u", x.url).put("w", x.time).put("f", x.folder))
         val text = arr.toString()
         io.execute {
             try {
@@ -85,6 +94,50 @@ object Bookmarks {
         if (bm.removeAll { it.url == url }) saveAsync(F_BM, bm)
     }
 
+    // ---------- S24: folders ----------
+
+    private fun saveFolders() {
+        val d = dir ?: return
+        val text = JSONArray(fol).toString()
+        io.execute {
+            try { File(d, F_FOL).writeText(text) } catch (e: Exception) { /* keep running */ }
+        }
+    }
+
+    @Synchronized fun folders(): List<String> = fol.toList()
+
+    /** Returns the folder name (existing one if the name is already used), or "" for a blank name. */
+    @Synchronized
+    fun addFolder(name: String): String {
+        val n = name.trim().take(40)
+        if (n.isEmpty()) return ""
+        fol.firstOrNull { it.equals(n, true) }?.let { return it }
+        fol.add(n)
+        saveFolders()
+        return n
+    }
+
+    /** Deletes the folder; its bookmarks go back to "no folder". */
+    @Synchronized
+    fun removeFolder(name: String) {
+        if (!fol.remove(name)) return
+        val moved = ArrayList<Item>()
+        for (x in bm) moved.add(if (x.folder == name) Item(x.title, x.url, x.time, "") else x)
+        bm.clear()
+        bm.addAll(moved)
+        saveAsync(F_BM, bm)
+        saveFolders()
+    }
+
+    @Synchronized
+    fun setFolder(url: String, folder: String) {
+        val i = bm.indexOfFirst { it.url == url }
+        if (i < 0) return
+        val x = bm[i]
+        bm[i] = Item(x.title, x.url, x.time, folder)
+        saveAsync(F_BM, bm)
+    }
+
     // ---------- S18: import / export ----------
 
     private fun esc(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
@@ -94,6 +147,8 @@ object Bookmarks {
 
     private val A_TAG = Regex("<a\\s[^>]*?href\\s*=\\s*([\"'])(.*?)\\1[^>]*>(.*?)</a>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
     private val ANY_TAG = Regex("<[^>]*>")
+    private val TOKEN = Regex("<H3[^>]*>.*?</H3>|<DL[^>]*>|</DL>|<a\\s[^>]*?href\\s*=.*?</a>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+    private val ROOT_NAMES = setOf("bookmarks", "bookmarks bar", "bookmarks toolbar", "other bookmarks", "mobile bookmarks", "favorites", "favorites bar", "menu", "toolbar")
 
     /** Standard browser bookmark file (Netscape HTML): opens in Chrome, Firefox, Edge ... */
     @Synchronized
@@ -102,9 +157,15 @@ object Bookmarks {
         sb.append("<!DOCTYPE NETSCAPE-Bookmark-file-1>\n")
         sb.append("<META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; charset=UTF-8\">\n")
         sb.append("<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks</H1>\n<DL><p>\n")
-        for (x in bm) {
-            sb.append("    <DT><A HREF=\"").append(esc(x.url)).append("\" ADD_DATE=\"").append(x.time / 1000).append("\">")
+        fun line(x: Item, pad: String) {
+            sb.append(pad).append("<DT><A HREF=\"").append(esc(x.url)).append("\" ADD_DATE=\"").append(x.time / 1000).append("\">")
                 .append(esc(x.title.ifBlank { x.url })).append("</A>\n")
+        }
+        for (x in bm) if (x.folder.isEmpty()) line(x, "    ")
+        for (f in fol) { // S25: folders as nested lists
+            sb.append("    <DT><H3>").append(esc(f)).append("</H3>\n    <DL><p>\n")
+            for (x in bm) if (x.folder == f) line(x, "        ")
+            sb.append("    </DL><p>\n")
         }
         sb.append("</DL><p>\n")
         return sb.toString()
@@ -116,7 +177,7 @@ object Bookmarks {
      */
     @Synchronized
     fun importText(text: String): Int {
-        val found = ArrayList<Pair<String, String>>()
+        val found = ArrayList<Triple<String, String, String>>() // title, url, folder (S25)
         val t = text.trimStart('\uFEFF', ' ', '\n', '\r', '\t')
         if (t.startsWith("[") || t.startsWith("{")) {
             val arr = try { if (t.startsWith("[")) JSONArray(t) else JSONObject(t).optJSONArray("bookmarks") } catch (e: Exception) { null }
@@ -124,21 +185,36 @@ object Bookmarks {
                 for (i in 0 until arr.length()) {
                     val o = arr.optJSONObject(i) ?: continue
                     val u = o.optString("u", o.optString("url"))
-                    if (u.isNotEmpty()) found.add(Pair(o.optString("t", o.optString("title")), u))
+                    if (u.isNotEmpty()) found.add(Triple(o.optString("t", o.optString("title")), u, o.optString("f", o.optString("folder"))))
                 }
             }
         } else {
-            for (m in A_TAG.findAll(text)) {
-                found.add(Pair(unesc(m.groupValues[3].replace(ANY_TAG, "").trim()), unesc(m.groupValues[2].trim())))
+            // S25: walk <H3> (folder name), <DL> / </DL> (nesting) and <A> in file order
+            val stack = ArrayList<String>()
+            var pending: String? = null
+            for (m in TOKEN.findAll(text)) {
+                val g = m.value
+                when {
+                    g.startsWith("<H3", true) -> pending = unesc(g.replace(ANY_TAG, "").trim())
+                    g.startsWith("<DL", true) -> { stack.add(pending ?: stack.lastOrNull().orEmpty()); pending = null }
+                    g.startsWith("</DL", true) -> if (stack.isNotEmpty()) stack.removeAt(stack.size - 1)
+                    else -> {
+                        val am = A_TAG.find(g) ?: continue
+                        var f = stack.lastOrNull().orEmpty()
+                        if (f.lowercase() in ROOT_NAMES) f = ""
+                        found.add(Triple(unesc(am.groupValues[3].replace(ANY_TAG, "").trim()), unesc(am.groupValues[2].trim()), f))
+                    }
+                }
             }
         }
         var n = 0
         val now = System.currentTimeMillis()
-        for ((title, u) in found) {
+        for ((title, u, fo) in found) {
             if (bm.size >= 2000) break
             if (!(u.startsWith("http://") || u.startsWith("https://"))) continue
             if (bm.any { it.url == u }) continue
-            bm.add(Item(title.ifBlank { Util.host(u) }, u, now))
+            val fn = if (fo.isBlank() || fol.size >= 200 && fol.none { it.equals(fo.trim(), true) }) "" else addFolder(fo)
+            bm.add(Item(title.ifBlank { Util.host(u) }, u, now, fn))
             n++
         }
         if (n > 0) saveAsync(F_BM, bm)

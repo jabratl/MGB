@@ -83,6 +83,21 @@ object DownloadsScreen {
             empty = findViewById(R.id.xd_empty)
             findViewById<View>(R.id.xd_back).setOnClickListener { dismiss() }
             findViewById<View>(R.id.xd_close).setOnClickListener { dismiss() }
+            // S25: same top pills as the Bookmarks screen (needs BookmarksScreen.tabsRef, set by MainActivity)
+            val title = findViewById<View>(R.id.xd_title)
+            val hdr = title?.parent as? ViewGroup
+            val tabsRef = BookmarksScreen.tabsRef
+            if (hdr != null && tabsRef != null) {
+                val at = hdr.indexOfChild(title)
+                hdr.removeView(title)
+                hdr.addView(BookmarksScreen.pills(act, 2) { i ->
+                    if (i != 2) {
+                        dismiss()
+                        BookmarksScreen.open(act, if (i == 0) BookmarksScreen.Mode.BOOKMARKS else BookmarksScreen.Mode.HISTORY, tabsRef)
+                    }
+                }, at, android.widget.LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginStart = dp(4); marginEnd = dp(4) })
+                findViewById<View>(R.id.xd_close).visibility = View.GONE // the back arrow already closes
+            }
             findViewById<View>(R.id.xd_clear).setOnClickListener {
                 EngineApi.send(JSONObject().put("type", "jobs-clear"))
                 main.postDelayed({ sig = ""; render() }, 400)

@@ -1,3 +1,13 @@
+MGB 0.0.27 (S25)
+- Downloads screen has the same top pills as Bookmarks (Bookmarks | History | Downloads), so you can switch screens without going back. The close X is hidden there (back arrow closes).
+- Bookmark export writes folders (nested lists, opens in Chrome / Firefox). Import reads folders from a browser file (innermost folder name; root folders like "Bookmarks bar" / "Other bookmarks" become no folder) and from JSON ("f" / "folder").
+- Removed the unused bg_url_bar.xml.
+
+MGB 0.0.26 (S24)
+- Icons: all text glyph buttons (home, menu, back, reload, close, bookmark, history, download) are now vector icons (drawable/ic_*.xml), in the bottom bar, menu sheet, Bookmarks screen, Downloads screen and extension windows.
+- Home: quiet monochrome tiles (one letter, thin outline), dashed "Add" tile with a thin plus, lighter spaced "MGB" wordmark. Pencil (top right) = edit mode with a remove badge on each tile.
+- Bookmarks: folders. Folder rows at the top (tap = open, long press = delete folder, bookmarks are kept), long press a bookmark = Move to folder, 3-dot = New folder. Search looks in all folders. Folder names in mgb_folders.json, bookmark folder in mgb_bookmarks.json ("f").
+
 MGB 0.0.25 (S23)
 - Bookmarks / History screen: top pills Bookmarks | History | Downloads (Downloads opens the downloads screen), search box, 3-dot menu (Import / Export bookmarks, Clear history).
 

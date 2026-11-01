@@ -7,6 +7,7 @@ import android.view.KeyEvent
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.FrameLayout
 import android.view.WindowManager
 import android.widget.TextView
@@ -20,7 +21,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     private lateinit var tabs: TabManager
     private lateinit var urlBar: EditText
-    private lateinit var btnHome: TextView // S22
+    private lateinit var btnHome: ImageView // S22
     private lateinit var btnTabs: MaterialButton
     private lateinit var progress: LinearProgressIndicator
     private lateinit var backCb: OnBackPressedCallback
@@ -44,11 +45,12 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         EngineHost.start(this) // S6: background.js engine (hidden WebView)
         tabs = TabManager(this, findViewById<FrameLayout>(R.id.web_container), this)
         TabsApi.attach(tabs)
+        BookmarksScreen.tabsRef = tabs // S25
         floating = FloatingDl(this, findViewById<FrameLayout>(R.id.web_container).parent as FrameLayout, tabs) // S11
 
         btnHome.setOnClickListener { if (tabs.active?.home != true) tabs.newTab(TabManager.HOME_PAGE) } // S22
         btnTabs.setOnClickListener { tabs.showSwitcher() }
-        findViewById<TextView>(R.id.btn_menu).setOnClickListener { showMenu() } // S22
+        findViewById<ImageView>(R.id.btn_menu).setOnClickListener { showMenu() } // S22
 
         urlBar.setOnEditorActionListener { _, actionId, event ->
             val go = actionId == EditorInfo.IME_ACTION_GO ||
@@ -103,16 +105,16 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         val canMark = cur != null && !cur.home && !cur.isExt && cur.url.startsWith("http")
         val marked = cur != null && canMark && Bookmarks.isBookmarked(cur.url)
         val quick = listOf(
-            MenuSheet.Quick("★", "Bookmarks") { BookmarksScreen.open(this, BookmarksScreen.Mode.BOOKMARKS, tabs) },
-            MenuSheet.Quick("↺", "History") { BookmarksScreen.open(this, BookmarksScreen.Mode.HISTORY, tabs) },
-            MenuSheet.Quick("↓", "Downloads") { DownloadsScreen.open(this) },
-            MenuSheet.Quick("▶", "Grabber") { openExt("popup.html") }
+            MenuSheet.Quick(R.drawable.ic_bookmark, "Bookmarks") { BookmarksScreen.open(this, BookmarksScreen.Mode.BOOKMARKS, tabs) },
+            MenuSheet.Quick(R.drawable.ic_history, "History") { BookmarksScreen.open(this, BookmarksScreen.Mode.HISTORY, tabs) },
+            MenuSheet.Quick(R.drawable.ic_download, "Downloads") { DownloadsScreen.open(this) },
+            MenuSheet.Quick(R.drawable.ic_play, "Grabber") { openExt("popup.html") }
         )
         val acts = listOf(
-            MenuSheet.Act("‹", web?.canGoBack() == true) { web?.goBack() },
-            MenuSheet.Act("›", web?.canGoForward() == true) { web?.goForward() },
-            MenuSheet.Act(if (marked) "★" else "☆", canMark) { toggleBookmark() },
-            MenuSheet.Act(if (cur?.loading == true) "×" else "↻", cur != null) { reloadOrStop() }
+            MenuSheet.Act(R.drawable.ic_back, web?.canGoBack() == true) { web?.goBack() },
+            MenuSheet.Act(R.drawable.ic_forward, web?.canGoForward() == true) { web?.goForward() },
+            MenuSheet.Act(if (marked) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border, canMark) { toggleBookmark() },
+            MenuSheet.Act(if (cur?.loading == true) R.drawable.ic_close else R.drawable.ic_reload, cur != null) { reloadOrStop() }
         )
         val items = listOf(
             MenuSheet.Item("Queue") { openExt("queue.html") },
@@ -233,6 +235,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         floating.stop() // S11
         DownloadsScreen.closeAll() // S12
         BookmarksScreen.closeAll() // S13
+        BookmarksScreen.tabsRef = null // S25
         FindBar.close() // S21
         tabs.destroyAll()
         TabsApi.attach(null)
