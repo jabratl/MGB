@@ -55,6 +55,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
+      - name: Native fingerprint (S16, for ext-only hot updates)
+        run: |
+          H=$( { find app -type f ! -path 'app/build/*' ! -path 'app/src/main/assets/ext/*' ! -path 'app/build.gradle.kts' | LC_ALL=C sort | xargs -r -d '\n' sha256sum; grep -v 'appVersionName = ' app/build.gradle.kts | sha256sum; for F in settings.gradle.kts settings.gradle build.gradle.kts build.gradle gradle.properties; do if [ -f "$F" ]; then sha256sum "$F"; fi; done; } | sha256sum | cut -c1-16 )
+          echo "Native hash: $H"
+          echo "MGB_NATIVE_HASH=$H" >> "$GITHUB_ENV"
       - name: Prepare signing (only if secrets exist)
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
@@ -85,9 +90,17 @@ jobs:
           TAG="v${VER}-b${GITHUB_RUN_NUMBER}"
           APK=$(ls app/build/outputs/apk/*/*.apk | head -n1)
           cp "$APK" "MGB-${TAG}.apk"
+          EXT=""
+          if [ -d app/src/main/assets/ext ]; then
+            EXT="MGB-ext-b${GITHUB_RUN_NUMBER}-n${MGB_NATIVE_HASH}.zip"
+            rm -rf extpkg; mkdir extpkg
+            cp -a app/src/main/assets/ext/. extpkg/
+            printf '{"build":%s,"native":"%s"}' "$GITHUB_RUN_NUMBER" "$MGB_NATIVE_HASH" > extpkg/_bundle.json
+            (cd extpkg && zip -qr "../$EXT" .)
+          fi
           awk 'NR==1{next} /^[[:space:]]*$/{exit} {print}' CHANGELOG.txt > notes.txt || true
           [ -s notes.txt ] || echo "Build ${GITHUB_RUN_NUMBER}" > notes.txt
-          gh release create "$TAG" "MGB-${TAG}.apk" \
+          gh release create "$TAG" "MGB-${TAG}.apk" $EXT \
             --title "MGB ${VER} (build ${GITHUB_RUN_NUMBER})" \
             --notes-file notes.txt \
             --target "$(git rev-parse HEAD)"
