@@ -1,0 +1,86 @@
+MGB 0.0.20 (S14b)
+- Manifest: CAMERA, RECORD_AUDIO, MODIFY_AUDIO_SETTINGS, ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION declared (hardware features optional). Web pages that ask for camera, microphone or location now get the Allow / Block question and then the Android permission.
+
+MGB 0.0.19 (FIX)
+- 3-dot menu crash fixed: the menu used negative sort orders, which Android refuses. Same menu order as before.
+
+MGB 0.0.18 (FIX)
+- Menu uses the AppCompat PopupMenu.
+
+MGB 0.0.17 (FIX)
+- Build fix: the S13 files were missing in the repo; all S13/S14/CrashLog files sent again.
+
+MGB 0.0.16 (FIX)
+- Crash log: after a crash the next start shows the stack trace with a Copy button.
+
+MGB 0.0.15 (S14)
+- Desktop site / Mobile site toggle per tab (user agent + wide viewport, reloads the page).
+- Fullscreen video; Back leaves fullscreen first.
+- File chooser works in tabs and in extension windows (options import etc.).
+- Camera / microphone / location questions (Allow / Block), kept for the run.
+- Plain download links, blob: and data: links in a tab download to the Downloads folder with a notification (Referer, User-Agent and Cookie of the page are sent).
+
+MGB 0.0.14 (S13)
+- Speed-dial home for new tabs and at startup: tiles are your bookmarks (tap = open, long press = open in new tab / remove, + = add a site).
+- Menu: Add / Remove bookmark, Bookmarks, Browsing history. History keeps the last 500 pages (long press = remove, Clear).
+
+MGB 0.0.13 (S11 + S12)
+- Floating download button: when Media Grabber finds videos or audio on the page, a round button with the count appears over the page (drag it anywhere, the place is remembered). Tap it for a quality sheet: Best, each quality with its size, or a subtitle format. The download runs in the background (hidden document from 0.0.10), no tab opens.
+- Downloads screen (menu > Downloads, or the Downloads button in the sheet): running jobs with progress, Pause / Resume / Cancel, finished and failed jobs with Remove, Clear, and a Saved files list with Open and Show.
+
+MGB 0.0.12 (S10b)
+- Menu (⋮) now has Media Grabber, Queue, History and Settings. They open the extension windows from 0.0.11.
+
+MGB 0.0.11 (S10)
+- Extension screens: the Media Grabber popup, Queue, Manga reader, History and Settings pages open as full-screen windows (title, back, reload, close) instead of browser tabs. Opened by V77 itself (open options, open manga, links between its pages).
+- A link to a website or to the downloader/player page opened from a window becomes a normal tab and the window closes.
+- The popup stays narrow and centered on wide screens. window.close() in a page closes the window.
+- runtime.getContexts lists an open window as POPUP.
+
+MGB 0.0.10 (S9)
+- Hidden background downloads: chrome.offscreen (createDocument, closeDocument, hasDocument) now works. V77 joins HLS/DASH segments in a hidden page (offhost.html -> offscreen.html with remux.js and mux.min.js) instead of opening a downloader tab. Network goes through the engine proxy (CORS-free, header rules).
+- chrome.runtime.getContexts returns the hidden document, the engine (BACKGROUND) and extension tabs, with contextTypes / documentUrls / tabIds filters.
+- Menu > Engine status shows the hidden document state.
+
+MGB 0.0.9 (S8)
+- Stream detection: pages are watched while they load. HLS/DASH playlists, subtitles, video/audio files and stream-looking requests are reported to the engine (V77 webRequest), including the Referer the page used, so V77 can list them and download with the right headers.
+- Header rules: declarativeNetRequest (V77 Referer/Origin/site-header rules) now works for the engine and for extension pages (downloader, player, manga).
+- Extension pages opened as tabs now load remote files through the engine proxy, so cross-site requests are no longer blocked.
+- Direct downloads send the Referer the page used for that host.
+- Menu > Engine status shows header rule counts and sniffer counters.
+
+MGB 0.0.8 (S7)
+- Downloads: chrome.downloads now works (download, search, pause, resume, cancel, open, show, removeFile, erase + onCreated/onChanged/onErased). http(s), data: and blob: urls.
+- Files are saved to the phone Downloads folder (same sub-folder names V77 asks for). Resume after pause or network loss. Progress notification while downloading, tap a finished one to open the file.
+- Asks for notification permission once, on the first download.
+
+MGB 0.0.7 (S6 fix)
+- Build fix: a comment in EngineHost.kt contained a nested comment opener, which broke compilation. No feature change.
+
+MGB 0.0.6 (S6)
+- Engine: V77 background.js now runs in a hidden WebView (EngineHost). Its network requests are done natively, so CORS never blocks them.
+- Messages: runtime.sendMessage / tabs.sendMessage route between the engine, extension pages and page frames (TabsApi).
+- tabs.* (get, query, create, update, remove, reload, getCurrent) + onCreated/onUpdated/onActivated/onRemoved; windows.*, alarms.*; runtime.onInstalled/onStartup; cosmetic APIs (badge, context menu...) are accepted and ignored.
+- Extension pages can open as tabs (https://appassets.androidplatform.net/ext/...), web pages cannot navigate there.
+- Menu (⋮) > Engine status: shows whether background.js started + last log lines, with a Copy button.
+
+MGB 0.0.5 (S15)
+- In-app update: menu (⋮) > Check for updates, plus a silent check on start (every 12h). Reads the latest GitHub Release, downloads the APK with progress, opens the system installer.
+- Needs a public repo; first install of this version must be done by hand once.
+
+MGB 0.0.4 (S4+S5)
+- S4: chrome.* shim (assets/shim/chrome-shim.js) + ChromeBridge.kt: storage local/sync/session + onChanged, runtime (getURL, getManifest, sendMessage, onMessage), generic forwarding of tabs/downloads/DNR/... to Kotlin handlers.
+- S5: V77 (v2.79.2) copied as is into assets/ext; ContentInjector.kt injects hook.js + content.js (all frames, from manifest) into every tab.
+
+MGB 0.0.3 (CI)
+- CI: upload a zip -> GitHub unpacks it, builds, and publishes the APK as a Release (tag vX-bN). unzip.yml no longer needed.
+- DELETE.txt in a zip removes listed files.
+
+MGB 0.0.2 (S2+S3)
+- S2: browser screen: URL bar (URL or search), progress bar, back/forward/reload-stop, back-key logic.
+- S3: tabs (one WebView each), tab switcher sheet, window.open/_blank popups on tap, session restore, external-app links.
+
+MGB 0.0.1 (S0+S1)
+- S0: Gradle project + GitHub Actions build (debug APK, or signed release when keystore secrets exist). Placeholder MainActivity.
+- S1: colour tokens (light + dark), Theme.MGB, Util.kt helpers.
+- Source extension to embed later: media-grabber V77 (v2.79.2).

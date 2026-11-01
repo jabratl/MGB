@@ -1,0 +1,81 @@
+MGB HANDOFF for a new chat - after S14 (pair G done), app version 0.0.20 (S14b: manifest permissions)
+(Paste this whole text as the first message of the new chat, then attach the files listed at the bottom.)
+
+PROJECT: MGB = Media Grabber Browser. Android app, WebView browser + a chrome.* shim that runs my Chrome extension "media-grabber V77" (v2.79.2, MV3) unchanged. Package com.jabra.mgb. kt/ = app/src/main/java/com/jabra/mgb/. Built by GitHub Actions to an APK Release.
+Language: I write Bangla/English mixed. Answer in short plain English, final reply under 10 lines.
+
+DONE: S0-S15 (versions: S8=0.0.9, S9=0.0.10, S10=0.0.11, S10b=0.0.12, S11+S12=0.0.13, S13=0.0.14, S14=0.0.15, S14b=0.0.20; 0.0.16-0.0.19 were fixes).
+NOT DONE: S16, S17.
+
+======== WORKFLOW RULES (always keep) ========
+- I only upload a zip to the repo root. GitHub does everything: unzip -> commit -> build -> Release (APK attached).
+- Zip = whole project or ONLY the changed files, with a top folder MGB/ ; name must end _vX_Y_Z.zip (applied in version order). I use MGB_Sxx_v0_0_NN.zip.
+- Delete a file: DELETE.txt (one path per line) in the zip root.
+- .github/ inside a zip is ignored. If a step needs a workflow change (S16) give the full new build.yml to paste by hand and say so first.
+- No manual file edits for me. Extra manifest entries go to app/src/extra/AndroidManifest.xml (merged into debug+release via sourceSets), never the main manifest.
+- IMPORTANT LESSON: a zip file REPLACES the repo file. Never write a file you have not seen (example: app/src/extra/AndroidManifest.xml, DownloadsApi.kt). If a step must patch a file, ask me to attach it. In the zip include only files you really changed. Because the extra manifest was never attached, S10/S12 windows are Dialogs (no manifest entry needed), not Activities.
+- No Kotlin SDK in the sandbox: Kotlin is NOT compiled there, CI is the test. Never write a nested comment opener (slash-star) inside a Kotlin comment (Kotlin comments nest). Check: braces/parens balance, layout XML parses, ids unique, every R.id used exists, node --check for changed JS.
+- Do not read big files whole: grep, then view the range. V77 source zip (media-grabber_V77.zip) is the reference for what messages/storage V77 uses.
+
+My standing prompt rules (apply every step):
+- Patch only, no full rewrite. Keep existing logic, ids, handlers, file names unless the goal says so.
+- Plan in at most 5 lines, then build. Do not ask questions unless something is truly missing; state assumptions in one line.
+- One step (or the named pair) only. Other files you notice: list as NEXT, do not touch.
+- UI: render check at 360 and 1280px, dark + light (not possible in the sandbox: say it was not rendered).
+- FIX mode: root cause first (1-2 lines), smallest fix, say what could break.
+- Output: zip, bump version in app/build.gradle.kts (appVersionName), CHANGELOG.txt entry (newest on top), HANDOFF.txt update, final reply < 10 lines.
+- Handoff note format: Done list + current version / what changed (file: 1 line each) / checks done / NOT tested (needs real use) / Next step + its goal.
+- Session guard: if the chat is ~90% used, stop and give zip + handoff immediately, say exactly what is left.
+
+======== ARCHITECTURE (what exists) ========
+- ChromeBridge (object): native side of the shim. on(api){Call}, onSync(api){Call->result}, emit(event, JSONArray){ctx->Boolean}, request(ctx,msg,sender,cb) (runtime.onMessage to one frame), contexts(), bindTab/unbind, storage areas local/sync/session (ChromeBridge.local/sync/session .get(...)). Ctx has kind (CONTENT/EXT), web, origin, isMainFrame, tabId. Call has ctx, api, args, ok(x), fail(msg). Page frames (CONTENT) may only use runtime.sendMessage + storage.local/sync.
+- assets/shim/chrome-shim.js: forwards every chrome.<ns>.<method> in its NS table to handler "ns.method", events via event.add(name, ...). ContentInjector injects V77 content scripts + shim; attachExt(ctx, web, offscreen=false) gives extension-origin pages window.chrome; offscreen=true keeps only chrome.runtime (like a real offscreen document).
+- EngineHost: hidden WebView at https://appassets.androidplatform.net/ext/_engine.html running shared.js + sites.js + background.js (V77 service worker). proxyFor(req, tabId) = native network (CORS headers, cookies, HeaderModes rules per hop), GET/HEAD only. ext(uri) serves assets/ext. eval(js) runs a script in the engine. addLog / status / showStatus. init order in start(): ContentInjector, TabsApi, DownloadsApi, HeaderModes, Sniffer, OffscreenHost.
+- TabsApi: tabs.*, runtime.sendMessage / tabs.sendMessage routing, alarms, windows, no-op stubs, onInstalled/onStartup. tabs.create / runtime.openOptionsPage to popup/queue/manga/history/options.html open ExtScreen windows; openTab(url).
+- TabManager: one WebView per tab; ext pages opened as tabs (Tab.isExt). host() returns the Activity. shouldInterceptRequest -> ext assets, or proxyFor (ext tab), or Sniffer.onRequest (web tab).
+- DownloadsApi.kt + DownloadService.kt (S7, NOT re-attached since): native chrome.downloads (OkHttp, MediaStore, foreground service, blob: read from the owning page). headerProvider hook set by Sniffer.
+- HeaderModes (S8): declarativeNetRequest modifyHeaders. Sniffer (S8): webRequest events to the engine only, probes media urls.
+- OffscreenHost (S9): chrome.offscreen create/close/hasDocument + runtime.getContexts (OFFSCREEN_DOCUMENT, BACKGROUND, POPUP, TAB). One hidden WebView on ext origin (offhost.html -> iframes offscreen.html). V77 does HLS/DASH merge there (remux.js, lib/mux.min.js), network via proxyFor.
+- ExtScreen (S10): V77 popup/queue/manga/history/options pages as full-screen Dialog windows (open(activity,url), closeAll, isScreen, urlOf). Non-window links -> new tab. MainActivity menu rows: Media Grabber, Queue, Downloads, History, Settings, Check for updates, version, Engine status.
+- EngineApi (S11/S12): ask(msg, cb)/send(msg) = runtime message to the engine with sender url popup.html (V77 then trusts msg.tabId, same as its popup); jobs() = storage.session mgJobs; history() = storage.local mgHist; fmtSize/fmtDur.
+- FloatingDl (S11): draggable button over the page (count of hls/dash/video/audio from get-state of the active tab, poll 3s) + quality sheet (sheet_media.xml). Row -> start-job {tabId,key,variant|fmt}; V77 sets auto=1 so the S9 hidden document runs it.
+- DownloadsScreen (S12): full-screen Dialog (screen_downloads.xml): V77 jobs with Pause/Resume/Cancel/Remove/Clear + Saved files Open/Show (chrome.downloads.open/show through EngineHost.eval).
+- Other files that exist (never touched here, not attached): MainActivity.kt, UpdateManager.kt, Util.kt, res (colors mg_bg, mg_text, mg_text_dim, mg_outline, mg_primary, mg_surface_variant; layouts activity_main.xml, sheet_tabs.xml; drawable bg_url_bar).
+- V77 messages used from native: get-state, start-job, job-pause (on), job-cancel, job-remove, jobs-clear, plus the CONTENT_MSG list in TabsApi for page frames.
+- CHANGELOG.txt is the only changelog again (0.0.20 merged the S13-S19 entries; CHANGELOG_NEW.txt is deleted by DELETE.txt in the 0.0.20 zip).
+- LESSON: Menu.add(group, id, order, title): order must be >= 0 (a negative order crashed the 3-dot menu 0.0.12-0.0.18). Menu order values now run 6..12.
+- app/src/extra/AndroidManifest.xml is now known (S14b patched it): INTERNET, FOREGROUND_SERVICE(+DATA_SYNC), POST_NOTIFICATIONS, WRITE_EXTERNAL_STORAGE<=28, CAMERA, RECORD_AUDIO, MODIFY_AUDIO_SETTINGS, ACCESS_FINE/COARSE_LOCATION, DownloadService, MgbFileProvider (xml/mgb_dl_paths). Attach it again when it must change.
+
+- Bookmarks (S13, Bookmarks.kt): bookmarks (= speed dial tiles, seeded Google/YouTube/Wikipedia/GitHub on first run) + browsing history (max 500) as JSON in filesDir (mgb_bookmarks.json, mgb_history.json). API: init, bookmarks(), isBookmarked, addBookmark, removeBookmark, history(), addHistory, removeHistory(time,url), clearHistory.
+- HomeView (S13): native speed dial built in code, shown by TabManager.syncHome() over the blank WebView of a "home" tab (Tab.home, url TabManager.HOME_PAGE = about:home, never loaded). Tap = openUrl, long press = new tab / remove, "+" = add. Buttons Bookmarks / History.
+- BookmarksScreen (S13): full-screen Dialog list (Mode.BOOKMARKS / Mode.HISTORY), tap = tabs.openUrl, long press = new tab / remove, History has Clear.
+- TabManager S13 API: syncHome(), leaveHome(tab), openUrl(url). New tab / startup / last tab closed = newTab(HOME_PAGE). TabsApi still uses HOME (google) for tabs.create with an empty url (not changed).
+- MainActivity menu now: Media Grabber, Queue, Downloads, History (V77 download history), Settings, Add/Remove bookmark, Bookmarks, Browsing history, Check for updates, version, Engine status.
+- BrowserExtras (S14, BrowserExtras.kt): init(activity) in MainActivity.onCreate registers the ActivityResult launchers (file chooser, runtime permissions). chooseFile(cb, params) is used by tab WebViews and ExtScreen windows. webPermission(req) / geoPermission(origin, cb) ask the user (Allow/Block) then the Android permission; desktopUa(ctx).
+- TabManager S14: Tab.desktop + setDesktop(tab,on) (UA + viewport width 1024 + reload), fullscreen video (onShowCustomView, inFullscreen, exitFullscreen; Back exits it), DownloadListener on every tab WebView -> DownloadsApi.startPlain.
+- DownloadsApi.startPlain(url, ua, contentDisposition, mime, referer, srcWebView): plain link download (http/https/data/blob), saved to Downloads/<name>, headers Referer + User-Agent + Cookie. Item creation moved to a private newItem() (same code the downloads.download handler used).
+- MainActivity menu S14: "Desktop site" / "Mobile site" toggle.
+
+======== NOT TESTED ON DEVICE (all of S6-S14) ========
+build itself; engine runs background.js (Engine status: running + Background script started); shim forwards downloads.*; blob download from downloader.html and from the hidden document (blob made in the hidden WebView, downloads.download called from the engine: if reading fails, fix in DownloadsApi); sniffer finds streams in V77; header rules reach real downloads; <video> in player.html through proxyFor; hidden document timers when the screen is off; ExtScreen Dialog fills the screen and V77 pages work in it (popup, queue, history, options, manga); FloatingDl button/badge/sheet and start-job; DownloadsScreen with real mgJobs/mgHist fields (read from V77 source, not seen live); Open/Show via EngineHost.eval.
+S13 not tested: speed dial shows on new tab / startup / after closing the last tab, and hides on first navigation; tiles wrap at 360px and 1280px, dark + light (not rendered); add / long-press remove dialogs; bookmark toggle in the menu; history list, long press, Clear; home tab survives app restart and dark/light recreate (saved as about:home); extension tabs.query sees url about:home on a home tab.
+S14 not tested: Desktop site toggle (UA really changes, ContentInjector/shim does not reset it, viewport width 1024 applied on page finish, state is per tab and NOT saved in the session); fullscreen video enter/exit + Back + rotate; file chooser from a web page and from an extension window (options import, etc.); camera/mic/location prompts; plain link download (filename, Referer/Cookie/User-Agent headers reach Downloader, notification, file lands in Downloads, blob: link); possible duplicate Cookie header if Downloader also adds cookies.
+Known gaps S14: input capture=camera not handled. Plain-link downloads do not appear in the native Downloads screen (it only lists V77 jobs and mgHist); they show a notification. Desktop mode is not remembered per site. No fullscreen auto-rotate.
+Known gaps: scripting.executeScript / registerContentScripts not implemented (shim sends no func); notification has no pause/cancel (needs DownloadService.kt + DownloadsApi.kt); Share in the downloads screen (needs file uri from DownloadsApi); engine WebView background throttling; ext-tab POST not proxied (no body); file inputs inside extension windows do nothing (S14 file chooser); FloatingDl skips V77 dup-check ("download again?").
+
+======== PLAN TABLE (pairs: A=S0+S1 B=S2+S3 C=S4+S5 D=S7+S8 E=S9+S10 F=S11+S12 G=S13+S14 H=S15+S16; S6 and S17 alone) ========
+S13 Home (speed dial), bookmarks, history: kt/Bookmarks.kt, kt/HomeFragment.kt (or a home view for new tabs), res/layout/fragment_home.xml
+S14 Extras: kt/BrowserExtras.kt = desktop mode, fullscreen video, file chooser (also for extension windows), permissions (camera/mic/location), browser downloads of normal links; MainActivity patch
+S16 Hot update of the ext JS bundle (ext.zip) without a new APK: kt/ExtUpdater.kt + build.yml patch (user pastes build.yml by hand, say so first)
+S17 Final check 360/410/1280px, light + dark, changelog
+
+======== NEXT: S16 (pair H part 2), then S17 ========
+S16 Hot update of the ext JS bundle (ext.zip) without a new APK: kt/ExtUpdater.kt + build.yml patch (user pastes build.yml by hand, say so first). S17 final check 360/410/1280px, light + dark, changelog.
+
+FILES TO ATTACH in the new chat (from the 0.0.15 repo): app/build.gradle.kts, HANDOFF.txt, CHANGELOG.txt, app/src/extra/AndroidManifest.xml, kt/MainActivity.kt (only if S16 needs a menu entry), kt/UpdateManager.kt, kt/EngineHost.kt, kt/ContentInjector.kt (S16 reads how assets/ext is served).
+
+FIX 0.0.16: menu (3 dots) crash reported, root cause NOT found by reading (menu code compiles and looks fine). CrashLog.kt added: next start after a crash shows the stack trace (Copy). Ask user for that trace, then fix.
+
+FIX 0.0.18: 3-dot crash exists already in 0.0.12 (user test). Menu code itself is fine, so the crash is inside android.widget.PopupMenu (theme). Switched to androidx.appcompat.widget.PopupMenu (best guess, trace still unknown). If it still crashes: read the CrashLog dialog on next start.
+
+FIX 0.0.19: ROOT CAUSE of 3-dot crash (since 0.0.12): IllegalArgumentException "order does not contain a valid category" - Menu.add order must be >= 0 (negative orders are invalid). Orders shifted by +10 in MainActivity menu, same sequence. Never use negative menu orders.
