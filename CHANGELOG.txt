@@ -1,3 +1,8 @@
+MGB 0.0.8 (S7)
+- Downloads: chrome.downloads now works (download, search, pause, resume, cancel, open, show, removeFile, erase + onCreated/onChanged/onErased). http(s), data: and blob: urls.
+- Files are saved to the phone Downloads folder (same sub-folder names V77 asks for). Resume after pause or network loss. Progress notification while downloading, tap a finished one to open the file.
+- Asks for notification permission once, on the first download.
+
 MGB 0.0.7 (S6 fix)
 - Build fix: a comment in EngineHost.kt contained a nested comment opener, which broke compilation. No feature change.
 

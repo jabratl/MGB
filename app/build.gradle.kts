@@ -3,7 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-val appVersionName = "0.0.7"
+val appVersionName = "0.0.8"
 // CI sets GITHUB_RUN_NUMBER, so every build has a higher versionCode (needed for updates)
 // CI provides "owner/repo"; the in-app updater reads releases from it
 val ghRepo = System.getenv("GITHUB_REPOSITORY") ?: ""
@@ -48,6 +48,12 @@ android {
         }
     }
 
+    // S7: extra manifest (service, FileProvider, permissions) merged into both build types
+    sourceSets {
+        getByName("debug") { manifest.srcFile("src/extra/AndroidManifest.xml") }
+        getByName("release") { manifest.srcFile("src/extra/AndroidManifest.xml") }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -62,4 +68,5 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.webkit:webkit:1.11.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }

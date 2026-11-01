@@ -62,6 +62,7 @@ object EngineHost {
         val app = ctx.applicationContext
         ContentInjector.init(app)
         TabsApi.init(app)
+        DownloadsApi.init(app)
         val assets = WebViewAssetLoader.AssetsPathHandler(app)
         loader = WebViewAssetLoader.Builder()
             .addPathHandler("/ext/", WebViewAssetLoader.PathHandler { path -> page(assets, path) })
