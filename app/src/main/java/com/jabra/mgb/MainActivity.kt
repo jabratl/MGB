@@ -8,7 +8,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
-import android.widget.PopupMenu
+import androidx.appcompat.widget.PopupMenu // FIX: AppCompat popup, themed by the app theme
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
@@ -65,19 +65,19 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             val canMark = cur != null && !cur.home && !cur.isExt && cur.url.startsWith("http")
             val marked = cur != null && canMark && Bookmarks.isBookmarked(cur.url)
             // S10b: extension windows (V77 popup, queue, history, options)
-            m.menu.add(0, 4, -4, "Media Grabber")
-            m.menu.add(0, 5, -3, "Queue")
-            m.menu.add(0, 8, -3, "Downloads") // S12
-            m.menu.add(0, 6, -2, "History")
-            m.menu.add(0, 7, -1, "Settings")
-            m.menu.add(0, 9, -1, if (marked) "Remove bookmark" else "Add bookmark").isEnabled = canMark // S13
-            m.menu.add(0, 10, -1, "Bookmarks") // S13
-            m.menu.add(0, 11, -1, "Browsing history") // S13
-            m.menu.add(0, 12, -1, if (cur?.desktop == true) "Mobile site" else "Desktop site") // S14
+            m.menu.add(0, 4, 6, "Media Grabber")
+            m.menu.add(0, 5, 7, "Queue")
+            m.menu.add(0, 8, 7, "Downloads") // S12
+            m.menu.add(0, 6, 8, "History")
+            m.menu.add(0, 7, 9, "Settings")
+            m.menu.add(0, 9, 9, if (marked) "Remove bookmark" else "Add bookmark").isEnabled = canMark // S13
+            m.menu.add(0, 10, 9, "Bookmarks") // S13
+            m.menu.add(0, 11, 9, "Browsing history") // S13
+            m.menu.add(0, 12, 9, if (cur?.desktop == true) "Mobile site" else "Desktop site") // S14
                 .isEnabled = cur != null && !cur.home && !cur.isExt
-            m.menu.add(0, 1, 0, "Check for updates")
-            m.menu.add(0, 2, 1, "MGB ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})").isEnabled = false
-            m.menu.add(0, 3, 2, "Engine status")
+            m.menu.add(0, 1, 10, "Check for updates")
+            m.menu.add(0, 2, 11, "MGB ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})").isEnabled = false
+            m.menu.add(0, 3, 12, "Engine status")
             m.setOnMenuItemClickListener {
                 when (it.itemId) {
                     1 -> { UpdateManager.check(this, false); true }

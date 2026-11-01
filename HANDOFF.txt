@@ -1,4 +1,4 @@
-MGB HANDOFF for a new chat - after S14 (pair G done), app version 0.0.17 (S13+S14+CrashLog, all files in one zip)
+MGB HANDOFF for a new chat - after S14 (pair G done), app version 0.0.19 (S13+S14+CrashLog+menu order FIX, all files in one zip)
 (Paste this whole text as the first message of the new chat, then attach the files listed at the bottom.)
 
 PROJECT: MGB = Media Grabber Browser. Android app, WebView browser + a chrome.* shim that runs my Chrome extension "media-grabber V77" (v2.79.2, MV3) unchanged. Package com.jabra.mgb. kt/ = app/src/main/java/com/jabra/mgb/. Built by GitHub Actions to an APK Release.
@@ -74,3 +74,7 @@ S16 Hot update of the ext JS bundle (ext.zip) without a new APK: kt/ExtUpdater.k
 FILES TO ATTACH in the new chat (from the 0.0.15 repo): app/build.gradle.kts, HANDOFF.txt, CHANGELOG.txt, app/src/extra/AndroidManifest.xml, kt/MainActivity.kt (only if S16 needs a menu entry), kt/UpdateManager.kt, kt/EngineHost.kt, kt/ContentInjector.kt (S16 reads how assets/ext is served).
 
 FIX 0.0.16: menu (3 dots) crash reported, root cause NOT found by reading (menu code compiles and looks fine). CrashLog.kt added: next start after a crash shows the stack trace (Copy). Ask user for that trace, then fix.
+
+FIX 0.0.18: 3-dot crash exists already in 0.0.12 (user test). Menu code itself is fine, so the crash is inside android.widget.PopupMenu (theme). Switched to androidx.appcompat.widget.PopupMenu (best guess, trace still unknown). If it still crashes: read the CrashLog dialog on next start.
+
+FIX 0.0.19: ROOT CAUSE of 3-dot crash (since 0.0.12): IllegalArgumentException "order does not contain a valid category" - Menu.add order must be >= 0 (negative orders are invalid). Orders shifted by +10 in MainActivity menu, same sequence. Never use negative menu orders.

@@ -1,3 +1,7 @@
+0.0.19 (FIX) - MainActivity.kt: 3-dot menu crash fixed (negative menu orders are invalid, shifted +10). Zip carries all S13/S14/CrashLog files.
+
+0.0.18 (FIX) - MainActivity.kt: 3-dot menu uses androidx.appcompat PopupMenu (menu crashed on click since 0.0.12). Zip carries all S13/S14/CrashLog files again.
+
 0.0.17 (FIX) - build error "Unresolved reference: BookmarksScreen": the S13 files were missing in the repo. This zip carries ALL S13 + S14 + CrashLog files again (Bookmarks, HomeView, BookmarksScreen, BrowserExtras, CrashLog, TabManager, MainActivity, ExtScreen, DownloadsApi).
 
 0.0.16 (FIX) - CrashLog.kt (new): saves the stack trace of a crash and shows it on the next start (Copy button). MainActivity.kt: install + show.
