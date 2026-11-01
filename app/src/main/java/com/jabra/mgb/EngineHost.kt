@@ -20,6 +20,7 @@ import java.io.ByteArrayInputStream
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.TreeMap
 
 /**
  * S6: the "engine" = V77 background.js running in a hidden WebView (it was a service worker).
@@ -63,6 +64,8 @@ object EngineHost {
         ContentInjector.init(app)
         TabsApi.init(app)
         DownloadsApi.init(app)
+        HeaderModes.init(app)
+        Sniffer.init(app)
         val assets = WebViewAssetLoader.AssetsPathHandler(app)
         loader = WebViewAssetLoader.Builder()
             .addPathHandler("/ext/", WebViewAssetLoader.PathHandler { path -> page(assets, path) })
@@ -134,7 +137,10 @@ object EngineHost {
     private fun empty(code: Int, reason: String, req: Map<String, String>): WebResourceResponse =
         WebResourceResponse("text/plain", "utf-8", code, reason, cors(req, emptyList()), ByteArrayInputStream(ByteArray(0)))
 
-    private fun proxy(req: WebResourceRequest): WebResourceResponse? {
+    private fun proxy(req: WebResourceRequest): WebResourceResponse? = proxyFor(req, -1)
+
+    /** S8: also used for extension pages opened as tabs (tabId = that tab), so header rules and CORS work there too. */
+    fun proxyFor(req: WebResourceRequest, tabId: Int): WebResourceResponse? {
         val first = req.url.toString()
         if (!first.startsWith("http://") && !first.startsWith("https://")) return null
         val rh: Map<String, String> = req.requestHeaders ?: emptyMap()
@@ -149,15 +155,19 @@ object EngineHost {
                 c.connectTimeout = 15000
                 c.readTimeout = 60000
                 c.requestMethod = req.method
+                val hm = TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER)
                 for ((k, v) in rh) {
                     val lk = k.lowercase()
                     if (lk in SKIP_REQ) continue
                     if (lk == "referer" && v.startsWith(ContentInjector.EXT_ORIGIN)) continue
-                    c.setRequestProperty(k, v)
+                    hm[k] = v
                 }
-                if (rh.keys.none { it.equals("cookie", true) }) {
-                    CookieManager.getInstance().getCookie(u)?.let { c.setRequestProperty("Cookie", it) }
+                if (!hm.containsKey("Cookie")) {
+                    CookieManager.getInstance().getCookie(u)?.let { hm["Cookie"] = it }
                 }
+                // S8: declarativeNetRequest header rules (V77 sets Referer / Origin / site headers this way)
+                try { HeaderModes.apply(u, tabId, typeOf(rh), req.method, hm) } catch (e: Exception) { Log.e(TAG, "headerModes", e) }
+                for ((k, v) in hm) c.setRequestProperty(k, v)
                 try { requestModifier?.invoke(c, req) } catch (e: Exception) { Log.e(TAG, "requestModifier", e) }
                 val code = c.responseCode
                 for ((k, vs) in c.headerFields) {
@@ -193,13 +203,23 @@ object EngineHost {
         }
     }
 
+    private fun typeOf(rh: Map<String, String>): String =
+        when (rh.entries.firstOrNull { it.key.equals("Sec-Fetch-Dest", true) }?.value?.lowercase()) {
+            "video", "audio", "track" -> "media"
+            "image" -> "image"
+            "script" -> "script"
+            "style" -> "stylesheet"
+            null, "", "empty" -> "xmlhttprequest"
+            else -> "other"
+        }
+
     // ---------- status (menu > Engine status) ----------
 
     fun status(): String {
         val eng = web
         val frames = ChromeBridge.contexts().count { it.web === eng }
         return "Engine: " + (if (eng == null) "not started" else if (loaded) "running" else "loading") +
-            "\nEngine frames: $frames" + TabsApi.status() + "\n\n" + logText(40)
+            "\nEngine frames: $frames" + TabsApi.status() + HeaderModes.status() + Sniffer.status() + "\n\n" + logText(40)
     }
 
     fun showStatus(a: Activity) {

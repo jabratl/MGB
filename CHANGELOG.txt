@@ -1,3 +1,10 @@
+MGB 0.0.9 (S8)
+- Stream detection: pages are watched while they load. HLS/DASH playlists, subtitles, video/audio files and stream-looking requests are reported to the engine (V77 webRequest), including the Referer the page used, so V77 can list them and download with the right headers.
+- Header rules: declarativeNetRequest (V77 Referer/Origin/site-header rules) now works for the engine and for extension pages (downloader, player, manga).
+- Extension pages opened as tabs now load remote files through the engine proxy, so cross-site requests are no longer blocked.
+- Direct downloads send the Referer the page used for that host.
+- Menu > Engine status shows header rule counts and sniffer counters.
+
 MGB 0.0.8 (S7)
 - Downloads: chrome.downloads now works (download, search, pause, resume, cancel, open, show, removeFile, erase + onCreated/onChanged/onErased). http(s), data: and blob: urls.
 - Files are saved to the phone Downloads folder (same sub-folder names V77 asks for). Resume after pause or network loss. Progress notification while downloading, tap a finished one to open the file.

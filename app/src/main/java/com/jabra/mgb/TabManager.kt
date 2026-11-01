@@ -212,7 +212,12 @@ class TabManager(
         // S6: extension pages (https://appassets.androidplatform.net/ext/...) are served from assets
         override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
             val r = request ?: return null
-            if (!r.url.toString().startsWith(ContentInjector.EXT_ORIGIN)) return null
+            if (!r.url.toString().startsWith(ContentInjector.EXT_ORIGIN)) {
+                // S8: extension page -> network goes through the engine proxy (CORS + header rules); web page -> sniff
+                if (tab.isExt) return EngineHost.proxyFor(r, tab.id)
+                Sniffer.onRequest(tab, r)
+                return null
+            }
             if (!r.isForMainFrame && !tab.isExt) return null
             return EngineHost.ext(r.url)
         }
