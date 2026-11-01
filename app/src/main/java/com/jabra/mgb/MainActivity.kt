@@ -33,6 +33,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         lastNight = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        CrashLog.install(this) // FIX: save crash trace for the next start
+        BrowserExtras.init(this) // S14: file chooser + permission launchers (before STARTED)
 
         urlBar = findViewById(R.id.url_bar)
         btnBack = findViewById(R.id.btn_back)
@@ -59,12 +61,20 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         btnTabs.setOnClickListener { tabs.showSwitcher() }
         findViewById<TextView>(R.id.btn_menu).setOnClickListener { anchor ->
             val m = PopupMenu(this, anchor)
+            val cur = tabs.active // S13
+            val canMark = cur != null && !cur.home && !cur.isExt && cur.url.startsWith("http")
+            val marked = cur != null && canMark && Bookmarks.isBookmarked(cur.url)
             // S10b: extension windows (V77 popup, queue, history, options)
             m.menu.add(0, 4, -4, "Media Grabber")
             m.menu.add(0, 5, -3, "Queue")
             m.menu.add(0, 8, -3, "Downloads") // S12
             m.menu.add(0, 6, -2, "History")
             m.menu.add(0, 7, -1, "Settings")
+            m.menu.add(0, 9, -1, if (marked) "Remove bookmark" else "Add bookmark").isEnabled = canMark // S13
+            m.menu.add(0, 10, -1, "Bookmarks") // S13
+            m.menu.add(0, 11, -1, "Browsing history") // S13
+            m.menu.add(0, 12, -1, if (cur?.desktop == true) "Mobile site" else "Desktop site") // S14
+                .isEnabled = cur != null && !cur.home && !cur.isExt
             m.menu.add(0, 1, 0, "Check for updates")
             m.menu.add(0, 2, 1, "MGB ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})").isEnabled = false
             m.menu.add(0, 3, 2, "Engine status")
@@ -77,6 +87,10 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                     6 -> { openExt("history.html"); true }
                     7 -> { openExt("options.html"); true }
                     8 -> { DownloadsScreen.open(this); true }
+                    9 -> { toggleBookmark(); true } // S13
+                    10 -> { BookmarksScreen.open(this, BookmarksScreen.Mode.BOOKMARKS, tabs); true } // S13
+                    11 -> { BookmarksScreen.open(this, BookmarksScreen.Mode.HISTORY, tabs); true } // S13
+                    12 -> { tabs.active?.let { tabs.setDesktop(it, !it.desktop) }; true } // S14
                     else -> false
                 }
             }
@@ -91,7 +105,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         }
         urlBar.setOnFocusChangeListener { _, focused ->
             if (focused) {
-                urlBar.setText(tabs.active?.url ?: "")
+                urlBar.setText(if (tabs.active?.home == true) "" else (tabs.active?.url ?: "")) // S13
                 urlBar.post { urlBar.selectAll() }
             } else refreshUrlField()
         }
@@ -100,6 +114,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             override fun handleOnBackPressed() {
                 val t = tabs.active
                 when {
+                    tabs.inFullscreen -> tabs.exitFullscreen() // S14
                     urlBar.hasFocus() -> leaveUrlBar()
                     t != null && t.web.canGoBack() -> t.web.goBack()
                     t != null && tabs.count > 1 -> tabs.close(t)
@@ -112,12 +127,26 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         }
         onBackPressedDispatcher.addCallback(this, backCb)
 
-        if (!tabs.restoreSession()) tabs.newTab(TabManager.HOME)
+        if (!tabs.restoreSession()) tabs.newTab(TabManager.HOME_PAGE) // S13
         UpdateManager.autoCheck(this)
+        CrashLog.showLast(this) // FIX
     }
 
     private fun openExt(page: String) {
         if (!ExtScreen.open(this, ContentInjector.EXT_BASE + page)) Util.toast(this, "Could not open $page")
+    }
+
+    /** S13: add / remove the bookmark of the page in the active tab. */
+    private fun toggleBookmark() {
+        val t = tabs.active ?: return
+        if (t.home || t.isExt || !t.url.startsWith("http")) return
+        if (Bookmarks.isBookmarked(t.url)) {
+            Bookmarks.removeBookmark(t.url)
+            Util.toast(this, "Bookmark removed")
+        } else {
+            Bookmarks.addBookmark(t.title.ifBlank { Util.host(t.url) }, t.url)
+            Util.toast(this, "Bookmark added")
+        }
     }
 
     // ---------- URL bar ----------
@@ -126,6 +155,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         val target = Util.toUrlOrSearch(urlBar.text.toString())
         leaveUrlBar()
         val t = tabs.active ?: tabs.newTab(null) ?: return
+        if (t.home && target == "about:blank") return // S13: empty input on the speed dial = stay
+        tabs.leaveHome(t) // S13
         t.url = target
         t.web.loadUrl(target)
     }
@@ -138,7 +169,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     private fun refreshUrlField() {
         if (urlBar.hasFocus()) return
-        val u = tabs.active?.url ?: ""
+        val u = if (tabs.active?.home == true) "" else (tabs.active?.url ?: "") // S13
         val s = when {
             u == "about:blank" -> ""
             u.startsWith("http") -> Util.host(u)
@@ -196,6 +227,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     override fun onDestroy() {
         floating.stop() // S11
         DownloadsScreen.closeAll() // S12
+        BookmarksScreen.closeAll() // S13
         tabs.destroyAll()
         TabsApi.attach(null)
         super.onDestroy()
