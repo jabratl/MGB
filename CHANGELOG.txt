@@ -1,3 +1,6 @@
+MGB 0.0.28 (S25 fix)
+- Build fix: the S24 files were missing in the repo (vector icons ic_*.xml, activity_main / screen_ext_page / screen_downloads layouts, HomeView, MenuSheet, ExtScreen), so the build failed with "Unresolved reference: ic_back ...". This zip adds them again. No other change.
+
 MGB 0.0.27 (S25)
 - Downloads screen has the same top pills as Bookmarks (Bookmarks | History | Downloads), so you can switch screens without going back. The close X is hidden there (back arrow closes).
 - Bookmark export writes folders (nested lists, opens in Chrome / Firefox). Import reads folders from a browser file (innermost folder name; root folders like "Bookmarks bar" / "Other bookmarks" become no folder) and from JSON ("f" / "folder").

@@ -16,18 +16,16 @@
         android:paddingStart="4dp"
         android:paddingEnd="4dp">
 
-        <TextView
+        <ImageView
             android:id="@+id/xs_back"
             android:layout_width="44dp"
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:clickable="true"
             android:contentDescription="Back"
-            android:focusable="true"
-            android:gravity="center"
-            android:text="‹"
-            android:textColor="@color/mg_text"
-            android:textSize="30sp" />
+            android:focusable="true" android:padding="12dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_back" />
 
         <TextView
             android:id="@+id/xs_title"
@@ -42,31 +40,27 @@
             android:textSize="17sp"
             android:textStyle="bold" />
 
-        <TextView
+        <ImageView
             android:id="@+id/xs_reload"
             android:layout_width="44dp"
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:clickable="true"
             android:contentDescription="Reload"
-            android:focusable="true"
-            android:gravity="center"
-            android:text="↻"
-            android:textColor="@color/mg_text"
-            android:textSize="22sp" />
+            android:focusable="true" android:padding="12dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_reload" />
 
-        <TextView
+        <ImageView
             android:id="@+id/xs_close"
             android:layout_width="44dp"
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:clickable="true"
             android:contentDescription="Close"
-            android:focusable="true"
-            android:gravity="center"
-            android:text="✕"
-            android:textColor="@color/mg_text"
-            android:textSize="20sp" />
+            android:focusable="true" android:padding="12dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_close" />
     </LinearLayout>
 
     <View

@@ -1,10 +1,10 @@
-MGB HANDOFF for a new chat - after S16 + S18-S25 (bookmark import/export, ad blocker, night/day, page tools, minimal UI, library pills + search, folders, vector icons, shared pills), app version 0.0.27
+MGB HANDOFF for a new chat - after S16 + S18-S25 (bookmark import/export, ad blocker, night/day, page tools, minimal UI, library pills + search, folders, vector icons, shared pills), app version 0.0.28
 (Paste this whole text as the first message of the new chat, then attach the files listed at the bottom.)
 
 PROJECT: MGB = Media Grabber Browser. Android app, WebView browser + a chrome.* shim that runs my Chrome extension "media-grabber V77" (v2.79.2, MV3) unchanged. Package com.jabra.mgb. kt/ = app/src/main/java/com/jabra/mgb/. Built by GitHub Actions to an APK Release.
 Language: I write Bangla/English mixed. Answer in short plain English, final reply under 10 lines.
 
-DONE: S0-S16 (versions: S8=0.0.9, S9=0.0.10, S10=0.0.11, S10b=0.0.12, S11+S12=0.0.13, S13=0.0.14, S14=0.0.15, S14b=0.0.20; 0.0.16-0.0.19 were fixes, S16=0.0.21, S18+S19+S20=0.0.22, S21=0.0.23, S22=0.0.24, S23=0.0.25, S24=0.0.26, S25=0.0.27).
+DONE: S0-S16 (versions: S8=0.0.9, S9=0.0.10, S10=0.0.11, S10b=0.0.12, S11+S12=0.0.13, S13=0.0.14, S14=0.0.15, S14b=0.0.20; 0.0.16-0.0.19 were fixes, S16=0.0.21, S18+S19+S20=0.0.22, S21=0.0.23, S22=0.0.24, S23=0.0.25, S24=0.0.26, S25=0.0.27, 0.0.28 = S25 fix: S24-only files re-added).
 NOT DONE: S17. (S18=bookmark import/export, S19=ad blocker, S20=night/day were added by the user after the plan table.)
 
 ======== WORKFLOW RULES (always keep) ========
@@ -70,6 +70,7 @@ My standing prompt rules (apply every step):
 - S24 NOT tested (not compiled/rendered): build, vector icons look/size (paths typed from memory of Material icons: check each shape on the phone), tint in night mode, menu sheet icons, edit mode badge position and tap, folder create / move / delete / back navigation, search inside folders, old bookmarks file without "f" loads, Downloads / ext windows header icons. bg_url_bar.xml is unused (delete it with DELETE.txt if wanted).
 - S25 (0.0.27): BookmarksScreen.pills(act, selected, pick) = shared top pills (also used by DownloadsScreen, which swaps its xd_title for them and hides xd_close); BookmarksScreen.tabsRef (set in MainActivity.onCreate after TabsApi.attach, nulled in onDestroy) lets DownloadsScreen open Bookmarks / History. Bookmarks.exportHtml writes folders (H3 + nested DL); importText walks tokens (TOKEN regex: H3 / DL / /DL / A) with a folder stack; ROOT_NAMES (bookmarks bar, other bookmarks, mobile bookmarks, favorites ...) = no folder; max 200 folders. bg_url_bar.xml deleted (DELETE.txt in the zip).
 - S25 NOT tested (not compiled): build; Downloads header at 360px (pills fit next to Clear); jump Downloads -> Bookmarks / History and back; export file with folders opens in Chrome; import of a Chrome file with nested folders (folders appear, bookmarks sit in them); import of an old flat file; tabsRef null case (pills simply missing).
+- LESSON (0.0.28): a CI build failed with "Unresolved reference: ic_back" because the S24 zip (0.0.26) was never applied while S25 (0.0.27) was. S25 zip holds only S25 files, so files changed ONLY in S24 were missing: drawable/ic_*.xml, layouts activity_main / screen_ext_page / screen_downloads, HomeView.kt, MenuSheet.kt, ExtScreen.kt. 0.0.28 re-adds them. Next time ask the user for the repo zip (or the CI log) before building on an earlier step, and check the top line of CHANGELOG.txt = the version the user is on.
 - S22 NEXT ideas (not done): (S23 pills + search, S24 folders + home edit mode done) (S25 did pills in Downloads + folders in export/import) folders on home (home still shows all bookmarks); real favicons on tiles; vector icons instead of glyphs; hide bottom bar on scroll; private tab.
 
 ======== NOT TESTED ON DEVICE (all of S6-S21) ========

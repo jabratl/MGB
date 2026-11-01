@@ -112,9 +112,9 @@ object ExtScreen {
             box = container
             titleView = findViewById<TextView>(R.id.xs_title).also { it.text = fallbackTitle }
             bar = findViewById(R.id.xs_progress)
-            findViewById<TextView>(R.id.xs_back).setOnClickListener { goBackOrClose() }
-            findViewById<TextView>(R.id.xs_reload).setOnClickListener { web?.reload() }
-            findViewById<TextView>(R.id.xs_close).setOnClickListener { dismiss() }
+            findViewById<android.view.View>(R.id.xs_back).setOnClickListener { goBackOrClose() }
+            findViewById<android.view.View>(R.id.xs_reload).setOnClickListener { web?.reload() }
+            findViewById<android.view.View>(R.id.xs_close).setOnClickListener { dismiss() }
 
             // the popup is a narrow page: keep it centered on tablets / wide screens
             if (page == "popup.html") {

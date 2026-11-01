@@ -5,6 +5,7 @@ import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -18,8 +19,8 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
  */
 object MenuSheet {
 
-    class Quick(val glyph: String, val label: String, val onClick: () -> Unit)
-    class Act(val glyph: String, val enabled: Boolean = true, val onClick: () -> Unit)
+    class Quick(val icon: Int, val label: String, val onClick: () -> Unit)
+    class Act(val icon: Int, val enabled: Boolean = true, val onClick: () -> Unit)
     class Item(val label: String, val enabled: Boolean = true, val onClick: () -> Unit)
 
     private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
@@ -56,7 +57,7 @@ object MenuSheet {
                 isFocusable = true
                 setOnClickListener { dlg.dismiss(); q.onClick() }
             }
-            t.addView(TextView(ctx).apply { this.text = q.glyph; textSize = 22f; setTextColor(cAccent); gravity = Gravity.CENTER })
+            t.addView(ImageView(ctx).apply { setImageResource(q.icon); setColorFilter(cAccent) }, LinearLayout.LayoutParams(dp(24), dp(24)))
             t.addView(TextView(ctx).apply {
                 this.text = q.label
                 textSize = 12f
@@ -75,11 +76,10 @@ object MenuSheet {
             background = round(cTile, 24)
         }
         for (a in acts) {
-            arow.addView(TextView(ctx).apply {
-                this.text = a.glyph
-                textSize = 24f
-                gravity = Gravity.CENTER
-                setTextColor(cText)
+            arow.addView(ImageView(ctx).apply {
+                setImageResource(a.icon)
+                setColorFilter(cText)
+                scaleType = ImageView.ScaleType.CENTER
                 alpha = if (a.enabled) 1f else 0.35f
                 isEnabled = a.enabled
                 isClickable = a.enabled
