@@ -1,3 +1,6 @@
+MGB 0.0.25 (S23)
+- Bookmarks / History screen: top pills Bookmarks | History | Downloads (Downloads opens the downloads screen), search box, 3-dot menu (Import / Export bookmarks, Clear history).
+
 MGB 0.0.24 (S22)
 - New minimal look: address bar is a floating pill at the bottom (home, address, tabs, menu). Back / forward / reload moved into the menu.
 - 3-dot menu is now a bottom sheet: 4 quick tiles (Bookmarks, History, Downloads, Grabber), icon row (back, forward, bookmark, reload / stop), then the text rows. Same actions as before.

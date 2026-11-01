@@ -49,12 +49,13 @@ object BookmarksScreen {
 
     private class Screen(
         private val act: Activity,
-        private val mode: Mode,
+        private var mode: Mode, // S23: switchable from the top pills
         private val tabs: TabManager
     ) : Dialog(act, com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar) {
 
         private var list: LinearLayout? = null
         private var empty: TextView? = null
+        private var query = "" // S23: search text
         private val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         private val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 
@@ -66,13 +67,24 @@ object BookmarksScreen {
 
         override fun onCreate(savedInstanceState: Bundle?) {
             super.onCreate(savedInstanceState)
+            build()
+            window?.let {
+                it.setLayout(MATCH, MATCH)
+                it.setBackgroundDrawable(ColorDrawable(act.getColor(R.color.mg_bg)))
+                it.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            }
+        }
+
+        /** S23: (re)build the whole screen: top pills + search + list. Called at start and when the mode changes. */
+        private fun build() {
             val root = LinearLayout(act).apply {
                 orientation = LinearLayout.VERTICAL
                 setBackgroundColor(act.getColor(R.color.mg_bg))
             }
-            root.addView(header(), LinearLayout.LayoutParams(MATCH, dp(52)))
-            root.addView(View(act).apply { setBackgroundColor(act.getColor(R.color.mg_outline)) },
-                LinearLayout.LayoutParams(MATCH, dp(1)))
+            root.addView(header(), LinearLayout.LayoutParams(MATCH, dp(56)))
+            root.addView(searchBox(), LinearLayout.LayoutParams(MATCH, dp(44)).apply {
+                marginStart = dp(16); marginEnd = dp(16); topMargin = dp(4); bottomMargin = dp(8)
+            })
 
             val box = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
             val emptyView = TextView(act).apply {
@@ -93,12 +105,28 @@ object BookmarksScreen {
             list = items
             empty = emptyView
             setContentView(root)
-            window?.let {
-                it.setLayout(MATCH, MATCH)
-                it.setBackgroundDrawable(ColorDrawable(act.getColor(R.color.mg_bg)))
-                it.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-            }
             render()
+        }
+
+        private fun round(color: Int, r: Int) = android.graphics.drawable.GradientDrawable().apply {
+            setColor(color)
+            cornerRadius = dp(r).toFloat()
+        }
+
+        private fun searchBox(): View = android.widget.EditText(act).apply {
+            hint = if (mode == Mode.BOOKMARKS) "Search bookmarks" else "Search history"
+            setText(query)
+            setSingleLine()
+            textSize = 15f
+            setTextColor(act.getColor(R.color.mg_text))
+            setHintTextColor(act.getColor(R.color.mg_text_dim))
+            background = round(act.getColor(R.color.mg_surface_variant), 22)
+            setPadding(dp(16), 0, dp(16), 0)
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun afterTextChanged(e: android.text.Editable?) { query = e?.toString().orEmpty(); render() }
+                override fun beforeTextChanged(t: CharSequence?, a: Int, b: Int, c: Int) {}
+                override fun onTextChanged(t: CharSequence?, a: Int, b: Int, c: Int) {}
+            })
         }
 
         @Suppress("OVERRIDE_DEPRECATION")
@@ -108,7 +136,7 @@ object BookmarksScreen {
             val h = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(4), 0, dp(8), 0)
+                setPadding(dp(4), 0, dp(4), 0)
             }
             h.addView(TextView(act).apply {
                 text = "‹"
@@ -118,37 +146,49 @@ object BookmarksScreen {
                 contentDescription = "Back"
                 setOnClickListener { dismiss() }
             }, LinearLayout.LayoutParams(dp(40), dp(48)))
-            h.addView(TextView(act).apply {
-                text = if (mode == Mode.BOOKMARKS) "Bookmarks" else "History"
-                setTextColor(act.getColor(R.color.mg_text))
-                textSize = 18f
-                setTypeface(typeface, android.graphics.Typeface.BOLD)
-                setPadding(dp(8), 0, 0, 0)
-            }, LinearLayout.LayoutParams(0, WRAP, 1f))
-            if (mode == Mode.BOOKMARKS) { // S18
-                for (label in arrayOf("Import", "Export")) {
-                    h.addView(TextView(act).apply {
-                        text = label
-                        gravity = Gravity.CENTER
-                        textSize = 15f
-                        setTextColor(act.getColor(R.color.mg_primary))
-                        setPadding(dp(10), 0, dp(10), 0)
-                        setOnClickListener {
-                            if (label == "Import") BrowserExtras.importBookmarks { render() } else BrowserExtras.exportBookmarks()
-                        }
-                    }, LinearLayout.LayoutParams(WRAP, dp(48)))
-                }
+            // S23: segmented pills Bookmarks | History | Downloads
+            val seg = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                background = round(act.getColor(R.color.mg_surface_variant), 22)
+                setPadding(dp(3), dp(3), dp(3), dp(3))
             }
-            if (mode == Mode.HISTORY) {
-                h.addView(TextView(act).apply {
-                    text = "Clear"
+            for (label in arrayOf("Bookmarks", "History", "Downloads")) {
+                val on = (label == "Bookmarks" && mode == Mode.BOOKMARKS) || (label == "History" && mode == Mode.HISTORY)
+                seg.addView(TextView(act).apply {
+                    text = label
                     gravity = Gravity.CENTER
-                    textSize = 15f
-                    setTextColor(act.getColor(R.color.mg_primary))
-                    setPadding(dp(12), 0, dp(12), 0)
-                    setOnClickListener { askClear() }
-                }, LinearLayout.LayoutParams(WRAP, dp(48)))
+                    textSize = 13f
+                    maxLines = 1
+                    setTextColor(act.getColor(if (on) R.color.mg_on_primary else R.color.mg_text))
+                    if (on) background = round(act.getColor(R.color.mg_primary), 19)
+                    setOnClickListener {
+                        when (label) {
+                            "Downloads" -> { dismiss(); DownloadsScreen.open(act) }
+                            else -> {
+                                val m = if (label == "Bookmarks") Mode.BOOKMARKS else Mode.HISTORY
+                                if (m != mode) { mode = m; query = ""; build() }
+                            }
+                        }
+                    }
+                }, LinearLayout.LayoutParams(0, dp(38), 1f))
             }
+            h.addView(seg, LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginStart = dp(4); marginEnd = dp(4) })
+            // 3-dot: Import / Export (bookmarks, S18) or Clear (history)
+            h.addView(TextView(act).apply {
+                text = "⋮"
+                gravity = Gravity.CENTER
+                textSize = 22f
+                setTextColor(act.getColor(R.color.mg_text))
+                contentDescription = "More"
+                setOnClickListener {
+                    val labels = if (mode == Mode.BOOKMARKS) arrayOf("Import bookmarks", "Export bookmarks") else arrayOf("Clear history")
+                    MaterialAlertDialogBuilder(act).setItems(labels) { _, which ->
+                        if (mode == Mode.BOOKMARKS) {
+                            if (which == 0) BrowserExtras.importBookmarks { render() } else BrowserExtras.exportBookmarks()
+                        } else askClear()
+                    }.show()
+                }
+            }, LinearLayout.LayoutParams(dp(40), dp(48)))
             return h
         }
 
@@ -162,7 +202,9 @@ object BookmarksScreen {
 
         private fun render() {
             val box = list ?: return
-            val items = if (mode == Mode.BOOKMARKS) Bookmarks.bookmarks() else Bookmarks.history().take(300)
+            val all = if (mode == Mode.BOOKMARKS) Bookmarks.bookmarks() else Bookmarks.history().take(300)
+            val q = query.trim()
+            val items = if (q.isEmpty()) all else all.filter { it.title.contains(q, true) || it.url.contains(q, true) } // S23
             box.removeAllViews()
             empty?.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
             val fmt = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT)
