@@ -81,7 +81,7 @@ object TabsApi {
 
     private fun frameIdOf(c: ChromeBridge.Ctx): Int {
         if (c.isMainFrame) return 0
-        synchronized(frameIds) { return frameIds.getOrPut(c) { nextFrame++ } }
+        return synchronized(frameIds) { frameIds.getOrPut(c) { nextFrame++ } }
     }
 
     private fun listens(c: ChromeBridge.Ctx, ev: String): Boolean =

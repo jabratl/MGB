@@ -23,7 +23,7 @@ import java.net.URL
 
 /**
  * S6: the "engine" = V77 background.js running in a hidden WebView (it was a service worker).
- *  - serves assets/ext/* at https://appassets.androidplatform.net/ext/ (same origin as every extension page)
+ *  - serves the assets/ext folder at https://appassets.androidplatform.net/ext/ (same origin as every extension page)
  *  - generates /ext/_engine.html: shared.js + sites.js + background.js as plain <script> tags (importScripts = no-op)
  *  - every http(s) request of the engine goes through proxy(): done natively, so CORS never blocks it
  *    (this is what "host_permissions: <all_urls>" gave the real extension). S8 can set requestModifier.
