@@ -91,6 +91,11 @@ object BookmarksScreen {
         private var empty: TextView? = null
         private var query = "" // S23: search text
         private var folder: String? = null // S24: open folder (null = top level)
+        // S27: multi-select (bookmarks and history). Key = url (bookmarks) or "time|url" (history).
+        private var selecting = false
+        private val picked = LinkedHashSet<String>()
+        private val visible = ArrayList<String>()
+        private var selTitle: TextView? = null
         private val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         private val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 
@@ -165,9 +170,13 @@ object BookmarksScreen {
         }
 
         @Suppress("OVERRIDE_DEPRECATION")
-        override fun onBackPressed() { if (folder != null) { folder = null; render() } else dismiss() } // S24
+        override fun onBackPressed() { // S24, S27
+            if (selecting) endSelect() else if (folder != null) { folder = null; render() } else dismiss()
+        }
 
-        private fun header(): View {
+        private fun header(): View = if (selecting) selHeader() else normalHeader()
+
+        private fun normalHeader(): View {
             val h = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -194,12 +203,13 @@ object BookmarksScreen {
                 setPadding(dp(10), dp(10), dp(10), dp(10))
                 contentDescription = "More"
                 setOnClickListener {
-                    val labels = if (mode == Mode.BOOKMARKS) arrayOf("New folder", "Import bookmarks", "Export bookmarks") else arrayOf("Clear history")
+                    val labels = if (mode == Mode.BOOKMARKS) arrayOf("Select", "New folder", "Import bookmarks", "Export bookmarks") else arrayOf("Select", "Clear history")
                     MaterialAlertDialogBuilder(act).setItems(labels) { _, which ->
-                        if (mode == Mode.BOOKMARKS) {
+                        if (which == 0) { selecting = true; picked.clear(); build() } // S27
+                        else if (mode == Mode.BOOKMARKS) {
                             when (which) {
-                                0 -> askNewFolder { render() }
-                                1 -> BrowserExtras.importBookmarks { render() }
+                                1 -> askNewFolder { render() }
+                                2 -> BrowserExtras.importBookmarks { render() }
                                 else -> BrowserExtras.exportBookmarks()
                             }
                         } else askClear()
@@ -207,6 +217,108 @@ object BookmarksScreen {
                 }
             }, LinearLayout.LayoutParams(dp(44), dp(48)))
             return h
+        }
+
+        // ---------- S27: multi-select ----------
+
+        private fun keyOf(b: Bookmarks.Item) = if (mode == Mode.BOOKMARKS) b.url else b.time.toString() + "|" + b.url
+        private fun urlOfKey(k: String) = if (mode == Mode.BOOKMARKS) k else k.substringAfter('|')
+
+        private fun endSelect() { selecting = false; picked.clear(); build() }
+
+        private fun toggle(k: String) {
+            if (!picked.remove(k)) picked.add(k)
+            if (picked.isEmpty()) { endSelect(); return }
+            selTitle?.text = picked.size.toString() + " selected"
+            render()
+        }
+
+        private fun toggleAll() {
+            if (visible.isNotEmpty() && picked.containsAll(visible)) picked.removeAll(visible.toSet()) else picked.addAll(visible)
+            if (picked.isEmpty()) { endSelect(); return }
+            selTitle?.text = picked.size.toString() + " selected"
+            render()
+        }
+
+        private fun selHeader(): View {
+            fun icon(res: Int, desc: String, on: () -> Unit) = ImageView(act).apply {
+                setImageResource(res)
+                setColorFilter(act.getColor(R.color.mg_text))
+                setPadding(dp(10), dp(10), dp(10), dp(10))
+                contentDescription = desc
+                setOnClickListener { on() }
+            }
+            val h = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(4), 0, dp(4), 0)
+                setBackgroundColor(act.getColor(R.color.mg_surface))
+            }
+            h.addView(icon(R.drawable.ic_close, "Cancel") { endSelect() }, LinearLayout.LayoutParams(dp(44), dp(48)))
+            val t = TextView(act).apply {
+                text = picked.size.toString() + " selected"
+                setTextColor(act.getColor(R.color.mg_text))
+                textSize = 16f
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                setPadding(dp(8), 0, 0, 0)
+            }
+            selTitle = t
+            h.addView(t, LinearLayout.LayoutParams(0, WRAP, 1f))
+            h.addView(TextView(act).apply {
+                text = "All"
+                textSize = 14f
+                gravity = Gravity.CENTER
+                setTextColor(act.getColor(R.color.mg_primary))
+                setPadding(dp(12), 0, dp(12), 0)
+                setOnClickListener { toggleAll() }
+            }, LinearLayout.LayoutParams(WRAP, dp(48)))
+            if (mode == Mode.BOOKMARKS) h.addView(icon(R.drawable.ic_folder, "Move") { moveSelected() }, LinearLayout.LayoutParams(dp(44), dp(48)))
+            h.addView(icon(R.drawable.ic_add, "Open in new tabs") { openSelected() }, LinearLayout.LayoutParams(dp(44), dp(48)))
+            h.addView(icon(R.drawable.ic_trash, "Remove") { removeSelected() }, LinearLayout.LayoutParams(dp(44), dp(48)))
+            return h
+        }
+
+        private fun removeSelected() {
+            val n = picked.size
+            if (n == 0) return
+            MaterialAlertDialogBuilder(act)
+                .setMessage("Remove " + n + (if (n == 1) " item?" else " items?"))
+                .setPositiveButton("Remove") { _, _ ->
+                    for (k in picked.toList()) {
+                        if (mode == Mode.BOOKMARKS) Bookmarks.removeBookmark(k)
+                        else Bookmarks.removeHistory(k.substringBefore('|').toLongOrNull() ?: 0L, k.substringAfter('|'))
+                    }
+                    endSelect()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+
+        private fun moveSelected() {
+            if (picked.isEmpty()) return
+            val names = ArrayList<String>()
+            names.add("No folder")
+            names.addAll(Bookmarks.folders())
+            names.add("New folder...")
+            fun doMove(f: String) {
+                for (u in picked.toList()) Bookmarks.setFolder(u, f)
+                endSelect()
+            }
+            MaterialAlertDialogBuilder(act)
+                .setTitle("Move " + picked.size + " to")
+                .setItems(names.toTypedArray()) { _, i ->
+                    if (i == names.size - 1) askNewFolder { n -> doMove(n) }
+                    else doMove(if (i == 0) "" else names[i])
+                }
+                .show()
+        }
+
+        private fun openSelected() {
+            val urls = picked.map { urlOfKey(it) }.take(10)
+            if (urls.isEmpty()) return
+            for (u in urls) tabs.newTab(u)
+            if (picked.size > 10) Util.toast(act, "Opened the first 10")
+            dismiss()
         }
 
         private fun askClear() {
@@ -222,6 +334,7 @@ object BookmarksScreen {
             box.removeAllViews()
             val q = query.trim()
             var count = 0
+            visible.clear() // S27
             if (mode == Mode.BOOKMARKS) {
                 val all = Bookmarks.bookmarks()
                 val open = folder
@@ -245,18 +358,18 @@ object BookmarksScreen {
                     open == null -> all.filter { it.folder.isEmpty() }
                     else -> all.filter { it.folder == open }
                 }
-                for (b in items) box.addView(row(b, Util.host(b.url)))
+                for (b in items) { box.addView(row(b, Util.host(b.url))); visible.add(keyOf(b)) }
                 count += items.size
             } else {
                 val fmt = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT)
                 val all = Bookmarks.history().take(300)
                 val items = if (q.isEmpty()) all else all.filter { it.title.contains(q, true) || it.url.contains(q, true) } // S23
-                for (b in items) box.addView(row(b, Util.host(b.url) + " · " + fmt.format(java.util.Date(b.time))))
+                for (b in items) { box.addView(row(b, Util.host(b.url) + " · " + fmt.format(java.util.Date(b.time)))); visible.add(keyOf(b)) }
                 count = items.size
             }
             empty?.visibility = if (count == 0) View.VISIBLE else View.GONE
             if (count > 0) box.addView(TextView(act).apply {
-                text = "Long press an item for more"
+                text = if (selecting) "Tap to select or unselect" else "Long press an item to select"
                 setTextColor(act.getColor(R.color.mg_text_dim))
                 textSize = 12f
                 gravity = Gravity.CENTER
@@ -342,8 +455,10 @@ object BookmarksScreen {
         }
 
         private fun row(b: Bookmarks.Item, sub: String): View {
+            val key = keyOf(b)
+            val isOn = selecting && picked.contains(key)
             val r = LinearLayout(act).apply {
-                orientation = LinearLayout.VERTICAL
+                orientation = LinearLayout.HORIZONTAL
                 minimumHeight = dp(60)
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(16), dp(8), dp(16), dp(8))
@@ -352,37 +467,45 @@ object BookmarksScreen {
                 if (act.theme.resolveAttribute(android.R.attr.selectableItemBackground, out, true)) {
                     foreground = act.getDrawable(out.resourceId)
                 }
+                if (isOn) setBackgroundColor(act.getColor(R.color.mg_surface))
             }
-            r.addView(TextView(act).apply {
+            if (selecting) { // S27: round check box
+                r.addView(ImageView(act).apply {
+                    if (isOn) {
+                        setImageResource(R.drawable.ic_check)
+                        setColorFilter(act.getColor(R.color.mg_on_primary))
+                        setPadding(dp(3), dp(3), dp(3), dp(3))
+                        background = android.graphics.drawable.GradientDrawable().apply {
+                            shape = android.graphics.drawable.GradientDrawable.OVAL
+                            setColor(act.getColor(R.color.mg_primary))
+                        }
+                    } else {
+                        background = android.graphics.drawable.GradientDrawable().apply {
+                            shape = android.graphics.drawable.GradientDrawable.OVAL
+                            setStroke(dp(2), act.getColor(R.color.mg_outline))
+                        }
+                    }
+                }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(14) })
+            }
+            val col = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+            col.addView(TextView(act).apply {
                 text = b.title.ifBlank { Util.host(b.url) }
                 setTextColor(act.getColor(R.color.mg_text))
                 textSize = 15f
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END
             })
-            r.addView(TextView(act).apply {
+            col.addView(TextView(act).apply {
                 text = sub
                 setTextColor(act.getColor(R.color.mg_text_dim))
                 textSize = 12f
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END
             })
-            r.setOnClickListener { tabs.openUrl(b.url); dismiss() }
-            r.setOnLongClickListener {
-                MaterialAlertDialogBuilder(act)
-                    .setTitle(b.title.ifBlank { Util.host(b.url) })
-                    .setItems(if (mode == Mode.BOOKMARKS) arrayOf("Open in new tab", "Remove", "Move to folder") else arrayOf("Open in new tab", "Remove")) { _, which ->
-                        if (which == 0) {
-                            tabs.newTab(b.url)
-                            dismiss()
-                        } else if (which == 2) {
-                            askMove(b)
-                        } else {
-                            if (mode == Mode.BOOKMARKS) Bookmarks.removeBookmark(b.url) else Bookmarks.removeHistory(b.time, b.url)
-                            render()
-                        }
-                    }
-                    .show()
+            r.addView(col, LinearLayout.LayoutParams(0, WRAP, 1f))
+            r.setOnClickListener { if (selecting) toggle(key) else { tabs.openUrl(b.url); dismiss() } }
+            r.setOnLongClickListener { // S27: long press starts selecting
+                if (selecting) toggle(key) else { selecting = true; picked.clear(); picked.add(key); build() }
                 true
             }
             return r

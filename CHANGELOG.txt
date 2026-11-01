@@ -1,3 +1,8 @@
+MGB 0.0.30 (S27: select + move/remove, new menu, Settings screen)
+- Bookmarks and History: multi-select. Long press a row (or 3-dot > Select) starts it; tap rows to pick; top bar: X cancel, "N selected", All, Move (bookmarks), Open in new tabs (max 10), Remove (asks first). Back closes selection first.
+- Menu sheet redesigned: two rounded cards. Card 1 = quick tiles + New private tab / Queue / Settings. Card 2 = site name + share, Find on page, Desktop/Mobile site, Ad blocker (ON/OFF + count), back / forward / bookmark / reload row. New vector icons.
+- New native Settings screen (menu > Settings): General (Theme, Dark pages), Downloads (Downloads, Queue, Download history, Grabber settings = V77 options), Privacy and security (Ad blocker, clear history / cookies and site data / cache), About (updates, engine status, version).
+
 MGB 0.0.29 (S26: home folders + private tab)
 - Home screen shows folders: folder tile opens the folder in place (back arrow in the header); Add inside a folder adds there; long press a tile = Move to folder / Move out of folder; edit mode (pencil): folder badge deletes the folder (bookmarks go back to the top level) and a "Folder" tile creates one.
 - Private tab (menu: New private tab): own WebView profile (cookies / storage separate from normal tabs), no browsing history, not saved in the session, tabs opened from it stay private. Last private tab closed = profile deleted. Tab count turns rose while a private tab is active. Needs a WebView with multi-profile support (else a toast says cookies are shared).

@@ -116,30 +116,28 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Act(if (marked) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border, canMark) { toggleBookmark() },
             MenuSheet.Act(if (cur?.loading == true) R.drawable.ic_close else R.drawable.ic_reload, cur != null) { reloadOrStop() }
         )
-        val items = listOf(
-            MenuSheet.Item("New private tab") { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) }, // S26
-            MenuSheet.Item("Queue") { openExt("queue.html") },
-            MenuSheet.Item("Download history") { openExt("history.html") },
-            MenuSheet.Item("Find in page", canMark) { FindBar.open(this, tabs.active?.web) },
-            MenuSheet.Item("Share page", canMark) { tabs.active?.let { if (it.url.startsWith("http")) tabs.shareText(it.url) } },
-            MenuSheet.Item(if (cur?.desktop == true) "Mobile site" else "Desktop site", cur != null && !cur.home && !cur.isExt) {
+        // S27: general card (app level) and page card (this page)
+        val general = listOf(
+            MenuSheet.Item("New private tab", R.drawable.ic_lock) { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) }, // S26
+            MenuSheet.Item("Queue", R.drawable.ic_list) { openExt("queue.html") },
+            MenuSheet.Item("Settings", R.drawable.ic_settings) { SettingsScreen.open(this) }
+        )
+        val page = listOf(
+            MenuSheet.Item("Find on page", R.drawable.ic_search, canMark) { FindBar.open(this, tabs.active?.web) },
+            MenuSheet.Item(if (cur?.desktop == true) "Mobile site" else "Desktop site", R.drawable.ic_desktop, cur != null && !cur.home && !cur.isExt) {
                 tabs.active?.let { tabs.setDesktop(it, !it.desktop) }
             },
-            MenuSheet.Item(if (AdBlock.enabled) "Ad blocker: ON (${AdBlock.blocked} blocked)" else "Ad blocker: OFF") { // S19
+            MenuSheet.Item("Ad blocker", R.drawable.ic_shield, true, if (AdBlock.enabled) "ON · ${AdBlock.blocked}" else "OFF") { // S19
                 Util.toast(this, if (AdBlock.toggle()) "Ad blocker ON (reload the page)" else "Ad blocker OFF (reload the page)")
-            },
-            MenuSheet.Item("Theme: ${UiMode.label(this)}") { UiMode.pick(this) }, // S20
-            MenuSheet.Item(if (UiMode.darkPages(this)) "Dark pages: ON" else "Dark pages: OFF") { // S20
-                val on = !UiMode.darkPages(this)
-                UiMode.setDarkPages(this, on)
-                tabs.applyDarkPages()
-                Util.toast(this, if (on) "Dark pages ON (reload the page)" else "Dark pages OFF (reload the page)")
-            },
-            MenuSheet.Item("Settings") { openExt("options.html") },
-            MenuSheet.Item("Check for updates") { UpdateManager.check(this, false) },
-            MenuSheet.Item("Engine status") { EngineHost.showStatus(this) }
+            }
         )
-        MenuSheet.show(this, quick, acts, items, "MGB ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
+        val title = when {
+            cur == null -> "MGB"
+            cur.home -> if (cur.priv) "Private tab" else "Home"
+            else -> Util.host(cur.url).ifBlank { "New tab" }
+        }
+        val share: (() -> Unit)? = if (canMark) ({ tabs.active?.let { if (it.url.startsWith("http")) tabs.shareText(it.url) } }) else null
+        MenuSheet.show(this, quick, general, title, share, page, acts, "MGB ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
     }
 
     private fun openExt(page: String) {
