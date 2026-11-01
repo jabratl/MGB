@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- MGB design tokens: LIGHT. Dark values live in values-night/colors.xml -->
+    <color name="mg_bg">#FFFFFF</color>
+    <color name="mg_surface">#F4F5F7</color>
+    <color name="mg_surface_variant">#E7E9EE</color>
+    <color name="mg_primary">#1E6BFF</color>
+    <color name="mg_on_primary">#FFFFFF</color>
+    <color name="mg_text">#14171C</color>
+    <color name="mg_text_dim">#5F6673</color>
+    <color name="mg_outline">#D3D7DF</color>
+    <color name="mg_error">#D93025</color>
+    <color name="mg_success">#1E9E5A</color>
+
+    <bool name="mg_light_bars">true</bool>
+</resources>

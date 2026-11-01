@@ -1,0 +1,4 @@
+MGB 0.0.1 (S0+S1)
+- S0: Gradle project + GitHub Actions build (debug APK, or signed release when keystore secrets exist). Placeholder MainActivity.
+- S1: colour tokens (light + dark), Theme.MGB, Util.kt helpers.
+- Source extension to embed later: media-grabber V77 (v2.79.2).

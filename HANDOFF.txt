@@ -1,0 +1,8 @@
+MGB handoff after pair A (S0+S1)
+Done: S0, S1. App version 0.0.1. Source ext: media-grabber V77 (v2.79.2) NOT yet copied (S5).
+Not built here (no Android SDK access): the first GitHub Actions run is the real test. If it fails, paste the red error lines.
+Placeholder: kt/MainActivity.kt shows only a text. S2 replaces it.
+Tokens: mg_bg, mg_surface, mg_surface_variant, mg_primary, mg_on_primary, mg_text, mg_text_dim, mg_outline, mg_error, mg_success. Theme.MGB.
+Util: dp, toast, fmtBytes, fmtSpeed, fmtDuration, host, toUrlOrSearch.
+Secrets for signed APK: KEYSTORE_B64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD.
+Next: pair B = S2 (MainActivity.kt, activity_main.xml) + S3 (TabManager.kt, sheet_tabs.xml).

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.MGB" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/mg_primary</item>
+        <item name="colorOnPrimary">@color/mg_on_primary</item>
+        <item name="colorSurface">@color/mg_surface</item>
+        <item name="colorOnSurface">@color/mg_text</item>
+        <item name="colorSurfaceVariant">@color/mg_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/mg_text_dim</item>
+        <item name="colorOutline">@color/mg_outline</item>
+        <item name="colorError">@color/mg_error</item>
+        <item name="android:colorBackground">@color/mg_bg</item>
+        <item name="android:windowBackground">@color/mg_bg</item>
+        <item name="android:statusBarColor">@color/mg_bg</item>
+        <item name="android:navigationBarColor">@color/mg_bg</item>
+        <item name="android:windowLightStatusBar">@bool/mg_light_bars</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">@bool/mg_light_bars</item>
+    </style>
+</resources>
