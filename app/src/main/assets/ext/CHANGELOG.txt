@@ -1,0 +1,483 @@
+Media Grabber 2.79.2 (V77)  - Quetta: subtitle downloads, then the episode tab closes and the video fails
+- CAUSE: the helper tab of a batch episode was closed 15s after queueing. The subtitle is done by then, the video is not; if the player still had to ask
+  again (first token refused with 403, seen on Quetta, not on Kiwi) the tab it needed was already gone.
+- FIX 1: the helper tab stays open until its job is finished (never longer than 3h; at least 20s as before).
+- FIX 2 (alternative way): when only a refused (403) stream is known after 4s, the player tab is reloaded ONCE to get a fresh token (then waits up to 9s as in V76).
+- Not changed: header modes, downloader.js, popup, subtitle code. If the browser kills the background worker during a long download the tab may stay open: close it by hand.
+- Files: background.js (closeSniffTab, sniff loop), manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.79.1 (V76)  - 403 on animixplay / megaplay (fetch.nexabloom.top master.m3u8)
+- ROOT CAUSE (from the report): the PLAYER'S OWN request for the master playlist got HTTP 403 (token burnt / refused); the player then asked again, but the
+  first, refused address stayed in the list and was picked (all 5 header modes + the video-page fallback then fail, because the address itself is dead).
+- FIX: when the page's own request for a playlist / video gets 401 / 403 / 410 the item is flagged "refused". Best (popup, batch, report order) puts refused
+  streams last; if the same address answers 200 later the flag is removed. Batch: if only a refused stream exists it waits up to 9s more for a fresh one.
+- Not changed: header modes, video-page fallbacks, downloader.js, popup.js. No new permission.
+- Files: background.js (markRefused, addItems, batch pick), shared.js (cmpStreams), manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.79.0 (V75)  - gallery pages: "only 19 pages" fix
+- FIX (main cause): image servers that answer "429 Too Many Requests" after a burst (nhentai-style CDNs). Before, a page that got 429 tried every other server
+  at once, which made it worse, and everything after roughly the 19th page failed. Now the pages screen waits (honours Retry-After), halves the number of
+  parallel downloads, speeds up again after a few good answers, never tries other servers for a rate-limit answer, and finishes with two slow
+  automatic retry rounds for pages that still failed. Simulated server (19 requests, then 429): old logic saved 18 of 40 pages, new logic saved 40 of 40.
+- FIX: gallery thumbnails that the page has not loaded yet (lazy "data-src" images that are still 1px placeholders) were not counted, so only the thumbnails
+  near the screen were found. They are counted now.
+- NEW: the page's own total ("44 pages", "Pages: 44") is read from the info block. If the thumbnail list shows fewer than that (a "show more" list, paged
+  thumbnails), the missing numbered viewer pages (.../g/ID/20/ ... /44/) are added so the grab covers the whole gallery. The count on the page button includes them.
+- NEW: "Show all" / "Load more" / "More pages" buttons are pressed automatically (buttons and in-page links only, never links that leave the page) before the pages are collected.
+- NEW: if the pages screen still ends up with fewer pages than the page says, it says so in the status line ("the page says 44 pages but only 19 were found").
+- NEW: nhentai last resort: when the API and the page JSON are both unavailable, the page list is built from the gallery page's own thumbnail list + its page total.
+- No change to video / stream / subtitle / naming / batch code. No new permission.
+- Files changed: shared.js, content.js, manga.js, sites.js, background.js (passes the page total on), manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.78.15 (V74p)
+- FIX (animixplay.cz / megaplay.buzz: "10 segment(s) could not be downloaded (HTTP 403)"): the download used an OLD stream. When the page shows a
+  new player (episode or server switched without reloading), the earlier streams were still listed, and the popup's Best picked the first
+  one when two looked alike (same quality / length): its signed address had expired, so the CDN refused every segment although the
+  playlist still loaded (that is why even "read through the video page" failed: it is the address, not the headers).
+- Streams from an earlier player are now flagged "old" (still listed, but last) when a stream from another player address arrives; Best picks the current
+  one (an old stream only wins if the current one is less than half as long: a preview / an ad). Popup list: newest first. The report marks "(older player)".
+- Not changed: the 403 header modes and the "read through the video page" last resort (V74n) stay exactly as they were.
+- Files: shared.js (markOldStreams, cmpStreams), background.js (call after a new item), popup.js (pickBest, list order), content.js (order + report), manifest.json
+  (version AND version_name), CHANGELOG.txt.
+
+Media Grabber 2.78.14 (V74o)
+- NEW: any video height is supported, not only 1080/720/480/360/240 (donghuastream.org offers 536p, 352p, 216p). A height close to a standard one
+  keeps the standard name (1088 = 1080p); any other height is shown as it is (536p was shown as "480p"). Quality buttons, the popup list and the
+  downloader's quality page use it.
+- NEW: the batch quality list (Best / 1080p ...) also lists the heights the page's streams really offer, so "536p" can be chosen for a whole batch.
+- Picking and capping (Best, "up to N p", batch "if missing") compare the real height for such streams (qh in shared.js). Portrait videos and
+  cinematic crops (1920x800) keep their standard label as before. Streams that list two different heights of the same standard bucket
+  (536p and 480p) are no longer merged into one button.
+- Files: shared.js, downloader.js, background.js, content.js, manifest.json (version AND version_name), CHANGELOG.txt.
+
+Media Grabber 2.78.13 (V74n)
+- FIX (animixplay.cz / megaplay.buzz style streams): subtitle saved, video failed with "10 segment(s) could not be downloaded (HTTP 403 from <cdn host>)", also after Retry.
+- What the report shows: the playlists (master / variant) are read fine, but EVERY segment is refused with 403 by a different CDN host than the playlist host, and the header modes (full referer, origin referer, borrowed headers, none) all fail - so it is not a Referer / Origin problem. The segments are disguised as .css / .webp / .jpg / .ico files.
+- New last resort for segments: when a segment still gets 403 after the header modes, the video page / its player frame downloads it itself (own origin and cookies) and hands the bytes over. If it works once it is used first for the rest of the job; after 3 failures with no success it stops trying (no extra slowness). Playlists already had this since V73b.
+- Header recording: the player's own requests to files named .css / .ico (disguised segments) are no longer skipped, so the CDN host gets its recorded headers like any other.
+- 403 now shows a plain hint: open the episode page, press Play until the video starts, then download from there (the Referer in the report pointed at another episode's player than the page that was open).
+- Files changed: background.js (pageFetchBin + "page-fetch-bin" message, header-recording filter), downloader.js (viaPageBin, bin flag on segment / init fetches, 403 hint), manifest.json (version AND version_name), CHANGELOG.txt.
+- Not testable here (no network): please test on the same episode. If it still fails, press "Copy debug info" and send it.
+
+Media Grabber 2.78.12 (V74m)
+- FIX/DESIGN (on-page panel, batch "Select episodes / chapters" view on phones; CSS only, markup / data-a names / handlers untouched, desktop unchanged).
+- Problem: with the browser's tab bar showing, the header (tools, tabs, title, filter, buttons) and the footer (3 rows) used up the whole panel and the episode list had almost no room.
+- While the episode list is open (phone layout only): the Best / Scan / All row, the Detected / Downloads tabs and the "made by / Diagnose / Hide" line are hidden (the arrow at the title goes back); panel may grow to 94% of the screen height.
+- Header is compact: title + count, filter, and the All / None / Invert / Reverse / New only buttons in ONE row that scrolls sideways.
+- Footer is 2 rows: quality / Videos / CBZ, then "If missing" next to Follow / Read. When Stop / Retry failed / Resume are shown they take their own row.
+- Episode rows a little tighter (48px min). Checked with a mock list at 400 x 620: list area went from 0px to about 245px (4+ rows); with Retry / Resume shown about 200px.
+- manifest "version_name" was still V74i since S9 (not updated in V74j-V74l) - now V74m.
+- File changed: content.js (CSS block "V74m" at the end of the panel style), manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.78.11 (V74l)
+- DESIGN STEP S12 (final check of the whole redesign; one small fix, no logic touched).
+- Checked every page (popup, side panel, Settings, Library hub, Downloads, History, Following, Pages/manga + reader, Downloader, Player) at 360 / 410 / 1280px in dark and light theme: no sideways scrolling, no script errors on load, all pages follow the theme.
+- Fix: History page count "(n/n)" used a fixed gray that was hard to read on the light theme - now uses the shared muted colour.
+- The redesign steps S0-S12 are complete. Still worth a manual pass with real data: downloader running / paused / done / error, manga page with loaded pages, player with a playlist.
+- Files changed: history.html, manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.78.10 (V74k)
+- DESIGN STEP S11 (downloader + player; CSS only, no markup, id or script touched).
+- Downloader: phone - tighter card, smaller title / percent, Pause / Cancel / Stop & save bar sticks to the bottom (safe-area aware, hidden when no button is shown); touch - 44px option rows, checkbox and clip inputs; light theme gets a softer card shadow.
+- Player: speed shown as a small chip; buttons and inputs use the shared radius; phone - control bar is two tidy rows (title / speed / prev / next / PiP, then Open files / link field / Play); touch - 44px buttons and playlist rows; the keyboard-shortcut help is hidden on touch screens; drop overlay is more readable.
+- Files changed: downloader.html, player.html, manifest.json, CHANGELOG.txt.
+- NEXT (V74l): S12 final check (360 / 410 / 1280px, light theme, changelog, small fixes).
+
+Media Grabber 2.78.9 (V74j)
+- DESIGN STEP S10 (manga page toolbar + reader controls; look only, no saving / reading / loading logic touched, all ids and handlers kept).
+- Toolbar is now 2 clear rows: row 1 = title + Save CBZ (primary), Save ZIP / PDF / EPUB (compact group), Read; row 2 = All / None / Reverse / Sort by name (+ Retry / Screenshot failed pages when shown).
+- Min width, "Process pages when saving" and "Re-encode" moved into a collapsed "Options" section (closed by default).
+- Phone (520px and narrower): bottom bar with the selected count, Save CBZ and Read (they press the same buttons); header keeps ZIP / PDF / EPUB; the selection row scrolls sideways; grid has room under the bar (safe-area aware).
+- Reader bar grouped (title + Close / view / zoom + brightness / bookmark + page number); on touch every reader button, select, slider and label is 44px tall. Close sits top-right on phone.
+- Light theme: toolbar and Options use the shared tokens (checked at 360 / 1280px in dark and light).
+- Files changed: manga.html (CSS + markup, bottom-bar buttons forward clicks in a 1-line script), manga.js (updateButtons: +1 line, sets the count and enables the bar buttons), manifest.json, CHANGELOG.txt.
+- NEXT (V74k): downloader.html + player.html polish (S11).
+
+Media Grabber 2.78.8 (V74i)
+- DESIGN STEP S9 (Library hub and its pages; look only, no download / history / follow logic touched).
+- One header: the hub loads its tabs with ?embed=1; inside the hub, Downloads / History / Following hide their own title and the links to the other pages (the hub tab bar is
+  the title). The count (e.g. number of jobs) stays visible, "Clear finished" / "Clear all" / "Check now" stay. Opened on their own, the pages look exactly as before.
+- Phone (520px and narrower): the hub tabs move to a bottom bar with icons (Downloads, History, Following, Settings), safe-area aware, running-downloads badge on the Downloads tab.
+- History page had no mobile viewport tag (phones showed it zoomed out) - added. History and Following cards / buttons use the shared radius and size tokens.
+- New file: embed.js (one line, runs before the page is drawn). Files changed: hub.html, hub.js, queue.html, history.html, follow.html, theme.css, manifest.json, CHANGELOG.txt.
+- NEXT (V74j): manga page toolbar + reader controls (manga.html).
+
+Media Grabber 2.78.7 (V74h)
+- DESIGN STEP S8 (Settings: Saving, Downloads, Backup & debug regrouped; no setting, id, default or saving logic touched - same rows, same ids, only moved).
+- Saving: Subtitles (save with video, languages, format; check each subtitle / if language missing are under "Advanced options") / Manga / Video files (merge, convert to MP4;
+  the size limit for conversion is under "Advanced options").
+- Downloads: the four everyday options first (background downloads, jobs at the same time, ask before downloading again, retry when the connection comes back);
+  everything else is under "Advanced options" in two parts: Speed & downloader window, Episode batches.
+- Backup & debug: the cards stay as they were; headings Checks / Backup & reset / Debug log.
+- Three long help texts shortened (merge audio, MP4 size limit, remember what worked), same meaning.
+- Files changed: options.html, manifest.json, CHANGELOG.txt.
+- NEXT (V74i): Library hub + Downloads / History / Following pages (embed mode, one header).
+
+Media Grabber 2.78.6 (V74g)
+- DESIGN STEP S7 (Settings: Quick, On-page, Detection tabs regrouped; no setting, id, default or saving logic touched - the same rows with the same ids, only moved).
+- Quick: General (theme, folder, notify) / Quality & speed / File names. The rarely used name options (extra site names, series name source, file name template) are under
+  a collapsed "Advanced options"; the file name preview stays visible below.
+- On-page: Show Media Grabber / Position / Titles & sites.
+- Detection: "What to list" first (skip ads, short streams, small files, site modules, gallery adapters); extra extensions, MediaSource-off sites and site rules are under "Advanced options".
+- The search box opens an "Advanced options" block by itself when it has a hit inside, and restores it when the search is cleared.
+- Three of the longest help texts were shortened (library naming, gallery adapters, full titles), same meaning.
+- Files changed: options.html, options-ui.js, manifest.json, CHANGELOG.txt.
+- NEXT (V74h): Settings: Saving, Downloads, Backup & debug tabs regrouped the same way.
+
+Media Grabber 2.78.5 (V74f)
+- DESIGN STEP S6 (Settings page layout; no setting, id, default or saving logic touched).
+- Desktop (900px and wider): the tabs are a left sidebar (title, search, tab list) that stays in place while the settings scroll on the right.
+- Phone / tablet: the title and search scroll away, only the tab chips stay on screen (before, title + hint + search + chips took about 150px of the screen all the time).
+- Settings in a tab are grouped in rounded blocks (rows join up, borders between) instead of loose lines; while searching each result is its own card.
+- FIXED: rows hidden by the search box could stay visible (the row style overrode the hidden attribute); now they are hidden for sure.
+- Bigger inputs / selects / tabs on touch screens (44px). Arrow keys, Home and End move between the tabs.
+- Files changed: options.html (one CSS block), options-ui.js (arrow keys), manifest.json, CHANGELOG.txt.
+- NEXT (V74g): Settings rows regroup - Quick / On-page / Detection: Basic first, Advanced collapsed.
+
+Media Grabber 2.78.4 (V74e)
+- DESIGN STEP S5 (on-page panel C; CSS only - no markup, no data-a name, no handler, no download / batch logic touched).
+- Episodes / chapters view: solid sticky header and footer (no see-through gradient), the All / None / Invert / Reverse / New only buttons share the row evenly, the
+  "Shift+click = range" hint is hidden on touch screens (it cannot be used there), "More ways to pick" is a clear expandable row with an arrow, selected episodes are
+  highlighted, episode rows are taller (52px on touch screens) with a bigger tick box, the footer actions are full width and 44px on touch screens.
+- Downloads view: cards use the shared tokens, status has a coloured dot (running / paused / saved / failed), percent is bigger, pause / cancel buttons are 36px (44px on touch).
+- Files changed: content.js (one CSS block at the end of the panel template), manifest.json, CHANGELOG.txt.
+- NEXT (V74f): Settings page (options.html) layout: sidebar on desktop, chips on phone, Advanced collapse.
+
+Media Grabber 2.78.3 (V74d)
+- DESIGN STEP S4 (on-page panel B; CSS only - no markup, no data-a name, no handler, no download / scan logic touched).
+- Video row card is now a 2-column grid on every screen width (before: phones only): thumbnail with name and info next to it, and the quality list + Download + "..."
+  use the FULL card width below instead of being squeezed next to the thumbnail. Tap targets 40px (44px on touch screens).
+- The "..." button is highlighted while its menu is open.
+- The "..." menu: same groups and buttons (Watch first / Copy & open / Download only a part / Start later), but the buttons sit in an even grid instead of a ragged wrap;
+  groups with time boxes (clip, schedule) keep one line. Bigger buttons on touch screens.
+- Files changed: content.js (one CSS block at the end of the panel template), manifest.json, CHANGELOG.txt.
+- NEXT (V74e): on-page panel C - batch / chapters view and the Downloads (jobs) view.
+
+Media Grabber 2.78.2 (V74c)
+- DESIGN STEP S3 (on-page panel A; look only, no scan / download / batch / naming logic touched).
+- Panel is calmer: flat dark surface (no purple glow / blur), plain title (no gradient text), no glowing logo, no coloured side bar on rows, no shine sweep on Download buttons.
+  Spacing, radius and button size now come from the shared tokens (MG_TOKENS). Panel is 400px wide (was 420).
+- Touch screens: header icon buttons are 44px (were 32px).
+- Phone bottom sheet: FIXED - the later "v41" style had put rounded bottom corners and a glow back on the sheet; it is now flat to the screen edge again.
+  The drag handle is a 24px tall tap area (was 4px), and the page behind is dimmed while the sheet is open. Tap outside still closes it.
+- Files changed: content.js (panel style block + one tokens line), manifest.json, CHANGELOG.txt.
+- NEXT (V74d): on-page panel B - video row card and the "..." menu.
+
+Media Grabber 2.78.1 (V74b)
+- DESIGN STEP S2 (popup + side panel list; look only, no download / scan / quality / schedule logic touched).
+- Item card is now a 2-column grid: thumbnail with name and info next to it, and the quality list + Download + "..." use the FULL card width below (before they were squeezed
+  next to the thumbnail). On phones under 400px the thumbnail is smaller and the quality list gets its own full row. Subtitle cards are compact (no empty thumbnail space).
+- "..." menu inside a card is grouped with small headings (Copy / Quality or clip / Start later / Save as) instead of a pile of loose buttons. Same buttons, same actions.
+- Best match card: thumbnail + title on top, one wide "Download best" button below. Length moved onto the thumbnail.
+- Empty state: icon, short reason, 3 numbered steps, Play & scan + Diagnose. "Subtitles but no video" is now a small note card, not a big empty block.
+- Section headings show the count (Videos - 3).
+- Files changed: popup.js (render code only), popup.css, manifest.json, CHANGELOG.txt.
+- NEXT (V74c): on-page panel A (content.js CSS part): tokens, header, phone bottom sheet.
+
+Media Grabber 2.78.0 (V74a)
+- DESIGN STEP S0 + S1 (look only; no download / scan / batch / naming / manga logic touched).
+- S0: theme.css now has shared design tokens (spacing 4-24, radius 10/14/20, type scale, touch size 40 / 44 on touch screens) and a reusable popover menu style.
+  shared.js has MG_TOKENS, the same tokens as a string for the on-page panel (used from the next step). Nothing visible changes from this part alone.
+- S1: popup and side panel header is calmer: logo, count, Settings and one "..." menu (Downloads, History, Following, Panel on the page, Side panel, Built-in player,
+  Clear this list) instead of 7 icon-only buttons + 3 tool buttons. The tool row has only Play & scan and Rescan. The menu opens with keyboard (arrows / Escape),
+  closes on outside tap. All button ids are unchanged, so popup.js works as before.
+- Side panel got bottom tabs: Found / Downloads / History / Settings.
+- New file: popup-ui.js. Files changed: theme.css, shared.js, popup.html, popup.css, sidepanel.html, manifest.json, CHANGELOG.txt.
+- NEXT (V74b): popup item card, best-match hero, empty state.
+
+Media Grabber 2.77.1 (V73b)
+- FIX ATTEMPT (animixplay.cz style sites: HTTP 403 on master.m3u8, quality list empty): when the server refuses the extension, the playlist is now read by the VIDEO PAGE itself,
+  first the top page, then EVERY frame of the tab (the player is usually in an iframe with its own origin / cookies). Used for the quality list (analysis) and as the last step of the
+  downloader after all 4 header modes returned 403. The helper tab of a batch now stays open 15 s (was 1.5-4 s) so the downloader can still ask it.
+- Not changed: naming / subtitle changes of V73, batch order, segment downloads. Files changed: background.js, downloader.js, manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.77.0 (V73)
+- FIXED: file / series names started with the WEBSITE name ("Site - Episode 5"). Now the website part of a page title is recognised (its name, its address, taglines like
+  "Watch Anime Online Free", or names you list) on either side of the title, and the batch uses the show name: "Naruto - Episode 5". The show name is read by a chain:
+  page data -> tab title -> og:title -> big heading -> address (first real one wins). Single downloads are cleaned too ("Site - Naruto Episode 5" -> "Naruto Episode 5").
+- FIXED: wrong subtitle (a preview / thumbnail track, or another language) saved instead of English. Subtitles are now chosen by a chain: page data (srclang / label) -> file name ->
+  address (/en/, ?lang=en) -> the text inside the file. Each file is read first: preview tracks and wrong-language files are skipped and the next candidate is tried.
+  If no file can be read here, the old downloader-page way is still the last step.
+- NEW settings: Remove the website name from titles (ON), Extra site names to remove, Series name is read from (Auto), Check each subtitle before saving (ON),
+  If the wanted language is not found (save another / save nothing).
+- Not touched: video / HLS / DASH download code, manga downloads. Files changed: shared.js, background.js, content.js, options.html, manifest.json, CHANGELOG.txt.
+- NEXT (V74): video download failure fallbacks (other links of the page, other download method, retry steps) + settings. NEXT (V75): subtitle retry for failed ones, batch subtitle report.
+
+Media Grabber 2.76.0 (V72)
+- IMPROVED: subtitle download. Every subtitle row now has .srt / .vtt / Original and, under "...", also ".txt (text only)". Before, only .srt and Original existed, and ".srt" did
+  nothing when the site's subtitle was not WebVTT (ASS / SSA, TTML / DFXP, SBV, YouTube json3, JSON cue lists, SRT with odd times). A new converter reads all of those and writes a
+  proper .srt / .vtt / .txt (if a file is not understood it is saved as it is, never lost).
+- IMPROVED: the subtitle link is now read in 4 steps - the extension with the page as referer, the same without cookies, a fetch inside the page itself (cookies, blob: links), then the
+  downloader page. Before, one failed step was a "Failed". Subtitles saved by the downloader page follow the chosen format too (non-WebVTT files get a Save .srt / .vtt / .txt / original choice).
+- NEW: "All .srt / All .vtt / All .txt" buttons in the Subtitles section (panel and toolbar popup): every subtitle of the page in one press, one file per language, thumbnail tracks skipped.
+- NEW: "From player" / "Save subtitles from player": reads the subtitle text the video player already loaded (works when the subtitle has no file link or is a blob: link). Turn subtitles ON in the
+  player and play a few seconds first. Needs no new permission (uses the existing "scripting").
+- NEW: Settings > Saving > "Subtitle format" (default .srt = exactly as before) for the subtitles that are saved by themselves.
+- Not touched: video / audio / HLS / DASH / batch / manga code. Files changed: shared.js, background.js, downloader.js, content.js, popup.js, popup.css, options.html, manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.75.0 (V71)
+- NEW: "Download again?" question. When you press Download (on-page panel, "Download best", toolbar popup or side panel) on a video / episode that you already
+  saved before, a small question appears: Cancel / Download again. It appears ONLY if the finished download is in the history AND its file is still on your device.
+  If you deleted or moved the file (or removed it from the browser's download list) there is no question and it downloads at once, like a normal browser.
+- How an item is recognised: the same media link, or the same title on the same site (so a changed token in the link does not hide a repeat). Subtitles, "Quality / clip"
+  and clip downloads, the failed-job "Download again" button, episode batches, "Download all", the right-click menu and manga are NOT asked (they behave exactly as in V70).
+  Downloads made before V71 are not recognised (the history did not store the episode identity yet); everything from now on is.
+- Any problem while checking (history unreadable, file status unknown, saved with a plain link) = no question, the download just starts.
+- Switch: Settings > Downloads > "Ask before downloading something again" (default ON; off = exactly V70).
+- No change to the download, batch, detection, naming, subtitle or manga code. History entries only got two extra fields (ik, tt). No new permission.
+- Files changed: background.js, downloader.js, content.js, popup.js, popup.css, shared.js, options.html, manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.74.0 (V70)
+- DESIGN AUDIT (look and accessibility only; no download / batch / detection / naming / manga logic touched). Problems found and fixed:
+  * Followed-manga page and the manga page grid had no mobile viewport tag (phones showed them zoomed out); the popup and side panel had none either. Added.
+  * Followed-manga page: the "error" text used a fixed pink that is unreadable in the light theme -> now uses the theme colour. Header / rows wrap on narrow screens, buttons 44px on touch.
+  * Manga page: toolbar buttons / selects / inputs 44px on touch, narrower thumbnails and full-width title box on phones.
+  * Popup: icon buttons were 32px (hard to tap) -> 40px on touch screens; the header wraps instead of overflowing on very narrow phones.
+  * Library page (hub): keyboard navigation - Left / Right / Home / End move between the tabs (only the active tab is a tab stop).
+  * Screen readers: icon-only buttons, selects and unlabeled inputs on every extension page get a name from their tooltip / placeholder (added only where missing,
+    also for rows drawn later); the page language is set. Does nothing inside web pages (it runs only on the extension's own pages).
+- Checked in a real browser (360px phone width): Downloads, History, Followed, Manga and Popup pages have no sideways scrolling; tab keyboard navigation works.
+- Not changed on purpose: the on-page panel (content.js) already has touch sizes, narrow-screen rules, focus rings and the V63 thumbnail row is intact (the manga "Page images"
+  row keeps its own icon). Options and Downloader pages already had touch and narrow rules.
+- No new permission, no new setting. Files changed: shared.js, hub.js, follow.html, manga.html, popup.css, popup.html, sidepanel.html, manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.73.0 (V69)
+- NEW: auto "Retry failed" when the internet comes back. If a batch ended with episodes that failed only because of the connection (reason "connection problem"),
+  they are retried ONCE as soon as the browser reports the connection is back - same action as pressing "Retry failed". Works while the Downloads page is open,
+  only after the batch ended, never after Stop / interrupted, never for other reasons (site refused, DRM, quality...). A note on the batch card says so.
+  Switch: Settings > Downloads > "Retry by itself when the connection comes back" (default ON; off = exactly V68, the manual button stays).
+- IMPROVED (design audit, Downloads + History pages, low risk, look only): touch-friendly buttons (44px) on phones / tablets, narrow-screen layout for the download rows
+  (name on its own line, smaller percent), the History header wraps on small screens, icon buttons and progress bars have screen-reader labels, the batch status is
+  announced politely, the search box has a label.
+- IMPROVED: light theme colours for "done / failed / paused" text got darker so they are readable on white (dark theme unchanged).
+- Nothing in the batch, download, detection, naming, manga or single-video code was changed. No new permission.
+- Files changed: queue.js, queue.html, history.html, theme.css, shared.js, options.html, manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.72.0 (V68)
+- NEW: episode batch now saves subtitles together with each episode when the video was found in the episode page itself (the common case on sites that put the
+  video link in their HTML). Subtitles written as <track> tags or .vtt / .srt / .ass links in the page (and in its player iframe) are saved next to the video with the
+  same base name (Title.en.srt), using the existing "Download subtitles with the video" and "Subtitle languages" settings, the same language / forced-track rules
+  and the same naming (Plex mode included). Before, only the player-tab path could save them.
+- IMPROVED: when the video is read from the player tab (direct read of the page), the subtitles that tab saw are now saved too (before they were skipped).
+- Safe: the new part is wrapped; if it fails the video still downloads as in V67 and the reason is in the debug log ("subs"). Switch off with the existing
+  "Download subtitles with the video" setting. Manual downloads, manga and the single-video path are not touched. No new permission.
+- Files changed: background.js, manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.71.0 (V67)
+- NEW: site memory (episode batch). The extension now remembers, per site, which way found the video: the page HTML, or the player tab (and whether the tab had to be
+  shown). On a site where the page never holds the video (kaa.lt and similar) and the player tab worked at least twice, the first pass skips the slow page read
+  and goes to the player tab at once; if the tab had to be shown before, it is shown after 1.5s instead of 4s. Only a hint: the second and third try still read the page
+  and wait longer exactly as in V66, and ONE page-read success on that site switches the shortcut off again. Stored as site name + counters only (storage.local "mgSiteMem",
+  max 60 sites). Switch: Settings > Downloads > "Remember what worked on each site" (default ON; off = exactly the V66 behaviour).
+- NEW: Settings > Backup & debug > "Health check": browser features (hidden background downloads), permissions, saved settings (finds a wrong type / value, e.g. text in a
+  number field after a hand-edited import, with a "Fix" button that resets only those settings), and local storage size. Runs when the page opens, "Check again" re-runs it.
+  Nothing is changed unless you press Fix. The result is also part of "Copy full report".
+- NEW: Settings > Backup & debug > "What the extension remembers about sites" (list + "Forget all"); also part of "Copy full report".
+- Nothing else changed: the batch order, quality choice, retry passes, download path, queue and every other page are as in V66. No new permission.
+- Files changed: background.js, shared.js, options.js, options.html, manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.70.0 (V66)
+- NEW: when an episode batch ends, the failures are grouped by reason in plain words, each with what to do next (e.g. "2 episodes: The site asked us to slow down -
+  wait a few minutes, raise the delay in Settings, then Retry"). Shown on the Downloads page under the batch. Reasons: site refused / slow down, page not found,
+  connection problem, no video in the player, quality missing, protected video (DRM), other.
+- NEW: "Retry failed (N)" button on the Downloads page when a batch ended with failures (uses the same Resume that was already there).
+- NEW: one summary notification when a batch (2+ episodes) has been searched: "10 episode(s) queued, 2 need attention - ...". Uses the existing "Notify" setting.
+- IMPROVED: hovering a failed episode now shows the plain reason instead of the technical one (the technical one is still in Diagnose / the debug log).
+- Nothing in the batch logic, quality choice, retry passes, or the download path was changed. The new parts are wrapped so that if they fail, the batch ends as in V65.
+- No new permission. Files changed: background.js, content.js, queue.js, queue.html, manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.69.0 (V65)
+- NEW (reliability): if the hidden background document does not start, it is dropped and made again once before a downloader tab is used.
+- NEW: watchdog - a job in the hidden document that shows no progress in 60s is moved to a normal downloader tab by itself.
+- NEW: if a downloader tab is closed (or the browser kills it) before the download started, the job is retried by itself the other way round
+  (tab <-> hidden document), up to 2 times, instead of ending with an error.
+- NEW: batch: episodes without a video get a THIRD try (page read again, longest wait, player tab in front at once).
+- NEW: if the browser refuses a hidden helper tab for an episode, the tab is opened in front.
+- No new permission. Files changed: background.js, manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.68.0 (V64)
+- FIXED (regression of V63): after ONE failed start of the hidden background document, V63 never used it again in that session, so every next download opened
+  a hidden downloader tab (the page that asks for Retry / Resume). Now only that one job uses a tab; the next job tries the hidden document again.
+  The wait for the hidden document is 20s (was 8s).
+- FIXED: when one download finished, the hidden document could be closed at the very moment the next one was starting in it ("host did not answer").
+  It is now kept open while a job is starting.
+- Manifest name/version updated (2.68.0, V64). No new permission. Files changed: background.js, manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.67.0 (V63)
+- FIXED: batch download: the downloader page (media opener) did not open and the batch showed only "Resume". A pop-up guard closed every tab opened
+  while a helper (sniff) tab was the opener - on some browsers (Android) that also hit the extension's own downloader tab. The guard now never closes
+  the extension's own pages (it looks at the address again after a moment) and only closes real ad pop-ups.
+- IMPROVED: if the hidden background document does not start within 8s, a normal downloader tab is used (and kept for the rest of the session).
+- IMPROVED: the downloader tab is opened a second time in front if the browser refuses a hidden tab; if it still does not open the episode says so
+  (Retry) instead of waiting silently; a hidden downloader tab that has not started after 25s is brought to the front once.
+- CHANGED: the books emoji on the batch / episode row and in the "Episodes / chapters" chip is removed.
+- No new permission. Files changed: background.js, content.js, manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.66.0 (V62)
+- FIXED (kaa.lt and sites built like it): the batch list held only 3 episodes (the one you are on and its neighbours) or none (Episode 1).
+  The site's own API names an episode only by its code ("slug":"08db70") and its number ("episode_number":3); the address is /show/ep-3-08db70.
+  Those answers were read as "no episode codes inside". Now the address is built from number + code, so the whole list is found.
+- NEW: when the API splits the list into pages (more than 100 episodes), the other pages are asked for too.
+- NEW: a show can have another code per language: lists are kept per language and the one that contains the episode you are on is used.
+- NEW: if the page asked the show's API but nothing usable came out, the extension asks it once or twice itself (only on sites that have /api/show/<show>/).
+- IMPROVED: Diagnose shows the field names of an answer that was not understood (names only, no values).
+- FIXED: ad clips could be taken as the episode. animeapp.org and /bnr/<n>/ addresses (banner videos) are treated as ads, and when a long stream exists a
+  short plain video is ignored. When the player tab shows a master playlist and one of its variants with the same length, the master (quality list) is taken,
+  so the batch quality choice (720p, 480p...) works and a single random variant is not downloaded.
+- No new permission. Files changed: hook.js, content.js, background.js, shared.js, manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.65.0 (V61)
+- IMPROVED: "Diagnose" now has an "Episode list check" block that says, in plain words, what happened with the episode list:
+  address shape (/show/ep-N-code or not), whether hook.js is answering, how many episodes came from the site's own API / page data and how many of
+  them were really added, the final list with its number range and any missing numbers (e.g. "missing 5, 9-11"), and whether the episode you are on is in it.
+- IMPROVED: every JSON request is listed with the reason it was used or not ("USED", "episodes of another show only", "not about this show and the
+  episode you are on is not in it", "no episode codes inside", ...). The block ends with a one-line verdict and what to do next.
+- IMPROVED: hook.js now reads JSON answers only on episode pages (V60 read every JSON answer on every site, then dropped it). Less work on other sites.
+- Nothing else changed. No new permission. Files changed: hook.js, content.js, manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.64.0 (V60)
+- FIXED: the episode list from the site's own API was only read when the request path contained the show name. kaa.lt asks in another way,
+  so nothing was found. Now an answer counts when it is about this show OR it contains the episode you are on plus at least 2 more; entries that
+  name another show are skipped. Any field holding an episode code (ep-3-44655d) is recognised, not only "slug".
+- NEW: episode codes written into the page itself (server-rendered data) are read too, when the episode you are on is among them.
+- NEW: "Diagnose" lists the requests the page made (path only, no tokens) and how many episode entries each one held, so a site that
+  still does not work can be understood in one report.
+
+Media Grabber 2.63.0 (V59)
+- NEW: episode lists that single-page sites load from their own API (kaa.lt and similar: the episode page draws only a few or no episode links).
+  hook.js now reads JSON answers of requests about THIS show (the show name is in the request path, so "latest episodes" feeds of other shows
+  are ignored), finds the episode entries (slug like ep-3-44655d) and content.js merges them into the batch list, with the episode title.
+  Links found on the page are kept; the API only adds the missing ones. The report ("Diagnose") shows how many episodes came this way.
+- The batch list is sorted by the episode number, not by the last number inside the title.
+
+Media Grabber 2.62.0 (V58)
+- FIXED: the quality chosen for a batch (720p, 480p, 360p...) was ignored for HLS streams and the best quality (1080p) was always downloaded.
+  The downloader never knew the height of an HLS variant, so "best that fits the chosen quality" always fell back to the best one.
+- A quality is now read as people mean it: from RESOLUTION (a 1920x800 film still counts as 1080p), else from a name / address that says "720p",
+  else guessed from the bandwidth. This is used for the batch check ("is 720p available?"), for the choice itself, and for DASH streams too.
+- The episode row now also shows the quality that was taken when it matched exactly ("Queued - 360p"). New 240p choice in the batch quality box.
+- If the chosen quality does not exist, the "If missing" rule decides (closest / lower / higher / ask / skip), as before. If an episode is a single
+  playlist with no quality choice, it is downloaded as it is.
+- No new permission. Files changed: shared.js, downloader.js, background.js, content.js, manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.61.0 (V57)
+- FIXED: animixplay.cz: the player is created only after a tap on the "Watch" button (div.player-btn inside #player). The batch helper tab now taps it
+  (also any button that just says "Watch"), so the player, its stream and the quality list appear and the episode can be queued.
+- No new permission. Files changed: background.js, content.js, manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.60.0 (V56)
+- FIXED: animixplay-style sites where the player is only created after a tap on the big player box (the opened episode tab showed no video, so
+  "no video stream appeared"). In the helper tab the biggest 16:9 box / poster / "Play" control is now tapped (a different candidate on each try),
+  and any ad pop-up that this tap opens is closed automatically. Note: the browser's tab bar may briefly show the episode tab.
+- No new permission. Files changed: background.js, manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.59.0 (V55)
+- FIXED (Quetta and other browsers where tab messages / the network sniffer do not reach a background tab): the episode batch now keeps its whole
+  state (status line, every episode's status, the quality question) in storage. The on-page panel reads it from there, and so does the Downloads
+  page, so progress shows even when no message arrives. Messages are still sent as before.
+- NEW: Downloads page has an "Episode batch" card on top: running episode (n/total), progress bar, status of every episode (Looking for video /
+  Opening player / Queued 480p (720p missing) / No video found / Quality missing), Stop, Resume and Hide. The "If missing: ask me" question
+  is shown there too (and in the page panel) - answer it in either place.
+- NEW: batch episodes are processed strictly one after the other (default "Episodes searched at the same time" is now 1): find video -> check
+  quality (ask if needed) -> queue download -> next episode. Raise the number in Settings only if you want parallel search.
+- FIXED: episodes whose player has to be opened in a tab: the tab is brought to the front after 4 s (was 10 s) when the player does not start,
+  play is pressed from outside the page as well (no content script needed), and when the network sniffer sees nothing the stream address is read
+  straight from the page (video element + loaded resources). After each episode the browser returns to the page that started the batch.
+- NEW: if the browser stops the extension in the middle of a batch, the Downloads page says "Interrupted" and offers Resume.
+- No new permission. Files changed: background.js, content.js, queue.js, queue.html, shared.js (default), manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.58.0 (V54)
+- NEW: episode batch - choose the quality ONCE for the whole batch. Every episode is checked before it is queued; if it has the chosen quality
+  (e.g. 720p) that exact quality is downloaded. New "If missing" box above the quality box (active when a quality is chosen, not "Best"):
+  * closest quality (default; a tie goes to the lower one)   * lower, never higher (higher only if nothing lower exists)
+  * higher, never lower (lower only if nothing higher exists)   * ask me   * skip episode
+  "Ask me" shows a small question in the page ("Episode 7: 720p is not available. Available: 1080p, 480p"), with a tick box "Do the same for
+  the rest of this batch". No answer within 90 s = the closest quality is used, so a batch never waits forever.
+- NEW: the episode row shows what was really taken: "Queued - 480p (720p missing)", "Done - 480p (720p missing)". A skipped episode shows a red
+  "Quality missing" badge (hover: which qualities it has) and is counted in "Retry failed" and in the batch summary.
+- FIXED: batch episodes that need the player to be opened in a tab (animixplay and similar) failed with "no video found" since V47: two tabs were
+  searched at the same time, and a hidden tab often does not start its player. These tabs now take turns (like V43); episodes whose video link is
+  in the page HTML are still searched in parallel. Download, naming and detection logic of single downloads is untouched.
+- The "If missing" choice is remembered, and "Resume" restores it together with the quality.
+- No new permission. Files changed: shared.js (pickHeight), background.js (batch), content.js (batch panel), manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.57.0 (V53)
+- NEW: Settings > Backup & debug > "What works in this browser": one line per browser feature (side panel, Show in folder, hidden background
+  downloads, big-file temp storage, header rules, notifications, alarms...) marked yes / no. A "no" only explains a fallback that was already
+  there (e.g. Kiwi / Firefox-Android); nothing is switched off by it.
+- NEW: "Copy full report" (Settings) now also lists those browser features. The on-page "Diagnose" report now lists every setting that differs
+  from the default (not just six) and the browser features, so one report is enough to see site / browser differences.
+- No new permission. Download, detection and naming logic untouched. Files changed: shared.js, options.html, options.js, content.js (report text only),
+  background.js (one line that saves the feature list), manifest.json, CHANGELOG.txt.
+
+Media Grabber 2.56.0 (V52)
+- NEW: popup / side panel "Best match" card on top with one big "Download best" button. It picks the video or stream that is not DRM,
+  then the highest resolution, then the longest, then the biggest. If other links belong to the same video it says so. Every other
+  link is still listed below under "All found" with its own quality choice - nothing was removed.
+- NEW: a short message ("Download started - progress is shown above") when you press Download, instead of only the button text changing.
+- NEW: "Just saved" list in the popup (files saved in the last 30 minutes) with a Show-in-folder button. The button only appears where the
+  browser supports it (desktop Chrome / Edge); where it does not (some Android browsers) the file is simply listed.
+- NEW: empty state is now three steps (play the video, Play & scan, Diagnose) with the two buttons right there.
+- NEW: icon buttons got screen-reader / keyboard labels.
+- No new permission, no download / detection / naming logic changed.
+
+Media Grabber 2.55.0 (V51)
+- NEW: Settings page redesigned (same options, same ids, same saving code - only the layout changed):
+  tabs (Quick, On-page, Detection, Saving, Downloads, Backup & debug), a search box that looks through every option,
+  switch-style toggles, phone-friendly rows, and a small reset arrow next to any option that differs from its default.
+- NEW: Quick setup presets - Anime (Plex), Manga, Low data, Fast, Recommended. One tap sets several options together,
+  shows exactly what changed, and has an Undo. Presets only touch the options they list.
+- NEW: File name preview (Quick tab). Shows the real file names your template / folder / library naming produce for an episode, its
+  subtitle, a single video and a manga chapter, and updates while you type. It calls the same naming code the downloads use.
+- NEW: Library hub (hub.html): Downloads | History | Following | Settings in one page, with a running-downloads badge. Each tab is
+  the existing page, so nothing inside them changed; links between them switch tabs. The popup's Queue / History / Follow buttons open it.
+  The Settings button still opens the normal Settings page. Old pages (queue.html, history.html, follow.html) work on their own as before.
+- No download, detection, naming or storage logic was changed.
+
+Media Grabber 2.54.0 (V50)
+- NEW: Settings -> Saving -> "Library naming (Plex / Jellyfin / Emby / Kodi)". When on, an episode with a clear number is saved as
+  Show/Season 01/Show - S01E05.mp4 (season from "Season 2" / "2nd Season" / S02E05, resolution and site tags are left out). Subtitles of
+  that episode get the same name (Show - S01E05.en.srt) so the media server pairs them. Works for single downloads and for episode batches
+  (the batch's show title is the folder). Anything that is not clearly an episode (movies, clips, "Episode 4" with no show name), audio
+  files and manga / CBZ keep the normal naming. Default: Off, so nothing changes until you turn it on.
+- NEW: the sub-folder setting now fills in tokens, e.g. Anime/{series}; new {series} token (show name without episode / season) for
+  the file name template too. Plain folder names behave exactly as before (checked against V48 on 1152 name combinations).
+- Tip: put your library root in "Sub-folder inside Downloads" (e.g. Anime), then add it as a library folder in Plex / Jellyfin.
+
+Media Grabber 2.53.0 (V49)
+- NEW: a live recording can now be recovered after a crash. While a live HLS stream is recorded, a small note (stream, format, title) is kept
+  beside the segments already saved on disk. If the tab is closed, the browser crashes or saving fails, open History: an "Unsaved recording"
+  row appears with Recover (joins the saved segments into one file straight from disk, nothing is re-downloaded, no conversion, so it also
+  works for very long recordings) and Discard. Data is kept for 3 days. A recording that is still running is never offered.
+- No existing download / merge / convert logic was changed: the note is written best-effort and any failure is ignored.
+
+Media Grabber 2.52.0 (V48)
+- NEW: "Diagnose" (panel footer, and "Diagnose this page" in the popup): one text report of what the extension sees on the page - frames, video
+  elements, detected streams, episode links found (and whether the addresses carry a random code), batch results with the reason for every
+  episode without a video, settings and the last log lines. Tokens in links are cut out. Works even when nothing was detected.
+- NEW: a batch episode with no video now says why (hover the red badge): page did not open / no stream appeared in N seconds.
+- NEW: Settings -> "Wait for each episode's player (seconds)" (was hidden): raise it for slow players or sites with ads before the video.
+
+Media Grabber 2.51.0 (V47)
+- NEW: long titles can be read in full everywhere. The on-page panel has an "Aa" button (all titles wrap, remembered), every episode row has a
+  small v button, and tapping a title in Downloads / Detected opens just that one. Popup, Queue, History, Follow and Player pages: tap a title to
+  open it, or turn on "Always show full titles" in Settings. Hover shows the full name + address.
+- FIXED: episode list labels were cut at 90 characters while collecting; the limit is 240 now.
+- FIXED: sites that put a random code after the episode number (kaa.lt: /ep-5-ad7134) were read as episode 7134 (the last number of the
+  address), so the current page never joined the list and "From this page" built wrong links. The number is now the episode (5), the code is
+  ignored, and the pattern builder says clearly that such sites need the episode list or pasted links.
+
+Media Grabber 2.50.0 (V46)
+- FIXED: On-page panel (Downloads tab) showed episode progress as stuck during a batch while the extension's own panel was right.
+  Cause: for episodes found by "opening the player in a background tab" the download was bound to that helper tab, and the helper tab is
+  closed a moment later, so every later progress message was sent to a tab that no longer existed. The download is now bound to the page
+  that started the batch (the helper tab is only used to find the stream). Subtitles of those episodes had the same problem.
+- NEW: the on-page panel now asks the background about its jobs when it opens, after a page reload / episode switch, and every 2.5 s
+  while something runs, and merges the answer (a finished / failed job always wins over a stuck "running"). So a reloaded page, a
+  restarted service worker or a lost message can no longer leave old progress on screen.
+- FIXED: "Clear" in the Downloads tab only cleared the page's own list: with the new sync the cleared jobs would have come back. It now
+  also removes them in the background.
+- FIXED: a card in the Downloads list kept the first (fallback) title; it is now updated when the real title arrives.
+- FIXED: a job update for an unknown tab could throw inside the service worker; it is ignored safely now.
+- Tests: routing of progress to the starting page, the merge rules (older / newer / final / unknown), sendJob with bad tab ids.
+

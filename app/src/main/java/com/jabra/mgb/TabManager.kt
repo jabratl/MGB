@@ -76,6 +76,7 @@ class TabManager(
         web.webViewClient = client(tab)
         web.webChromeClient = chrome(tab)
         tabs.add(tab)
+        ChromeBridge.bindTab(web, tab.id)
         if (url != null) tab.url = url
         if (select) switchTo(tab)
         if (url != null) web.loadUrl(url)
@@ -103,6 +104,7 @@ class TabManager(
             active = null
         }
         tab.web.stopLoading()
+        ChromeBridge.unbind(tab.web)
         tab.web.webChromeClient = null
         container.post { tab.web.destroy() }
         if (wasActive) {
@@ -116,6 +118,7 @@ class TabManager(
     fun destroyAll() {
         for (t in tabs) {
             container.removeView(t.web)
+            ChromeBridge.unbind(t.web)
             t.web.destroy()
         }
         tabs.clear()
@@ -179,6 +182,7 @@ class TabManager(
         val cm = CookieManager.getInstance()
         cm.setAcceptCookie(true)
         cm.setAcceptThirdPartyCookies(w, true)
+        ContentInjector.attach(ctx, w) // S5: V77 content scripts + chrome shim (before first load)
         return w
     }
 

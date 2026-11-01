@@ -1,14 +1,27 @@
-MGB handoff after pair B (S2+S3) + CI release flow
-Done: S0, S1, S2, S3. App version 0.0.3. Source ext: media-grabber V77 (v2.79.2) NOT yet copied (S5).
-Changed: kt/MainActivity.kt (browser screen, TabManager.Listener), kt/TabManager.kt (tabs, switcher, popups, session), res/layout/activity_main.xml, res/layout/sheet_tabs.xml, res/drawable/bg_url_bar.xml (new), app/build.gradle.kts (version).
-API for later steps: TabManager.active (Tab: id, web, url, title, progress, openerId), newTab(url, openerId, select), switchTo, close, count. createWebView()/client(tab)/chrome(tab) are the hooks S5 (inject), S7 (download listener), S8 (sniffer), S14 (file chooser, fullscreen) will patch.
-Checks: XML well-formed, ids unique. Kotlin NOT compiled here (no SDK): CI is the test.
-NOT tested: real use (popups, lazy session restore, light/dark switch recreate, back key flow, 360/1280px look).
-Not done on purpose: default-browser intent filter, desktop mode, home page (using google.com), WebView dark mode.
-Next: pair C = S4 (chrome-shim.js, ChromeBridge.kt) + S5 (V77 into assets/ext, ContentInjector.kt).
+MGB handoff after pair C (S4+S5) + S15 (updater, done early at user request)
+Done: S0-S5, S15. NOT done: S6-S14, S16, S17. App version 0.0.5. Source ext: media-grabber V77 (v2.79.2) is in assets/ext (unchanged).
 
 WORKFLOW RULE (always keep): the user only uploads a zip to the repo root. GitHub does everything: unzip -> commit -> build -> Release (APK attached).
 - Zip = whole project or only changed files, with or without a top folder; name must end _vX_Y_Z.zip (applied in version order).
 - To delete a file: put DELETE.txt (one path per line) in the zip root.
 - .github/ inside a zip is ignored (token cannot edit workflows). If a step needs a workflow change (S15, S16), give the user the full new build.yml to paste by hand, and say so first.
 - Future code (updater, ext hot update, etc.) must be built so no manual file edits are needed.
+
+Changed in this pair:
+- assets/shim/chrome-shim.js: chrome.* in JS. content kind = runtime+storage only; ext kind = + tabs, downloads, DNR, scripting, sidePanel, action, notifications, contextMenus, alarms, windows, permissions, offscreen, commands, webRequest (all forwarded to Kotlin as "ns.method", events as "ns.onX").
+- kt/ChromeBridge.kt: WebMessageListener "MGBBridge" + token check; registry on(api){call->call.ok/fail} / onSync(api){value}; emit(event,args,filter); request(ctx,msg,sender,cb) = runtime.onMessage to one frame; bindTab(web,tabId); contexts(); storage Areas (local/sync in filesDir, session in memory) + storageSet(). Unknown api -> error "Not implemented: x".
+- kt/ContentInjector.kt: reads assets/ext/manifest.json content_scripts -> document-start scripts (match patterns -> origin rules, run_at, all_frames, world MAIN vs private scope with chrome passed as parameter). attach(ctx, web) for tabs, attachExt(ctx, web) for extension pages/engine (origin https://appassets.androidplatform.net, defines window.chrome). EXT_BASE = that origin + /ext/ (chrome.runtime.getURL).
+- kt/TabManager.kt: 4 one-line hooks (attach, bindTab, unbind x2).
+- ext/: V77 as is. app/build.gradle.kts: version.
+
+Checks: node --check on shim and on all 4 generated content scripts + ext script; node test of shim against a mock native (storage, onChanged, sendMessage, lastError, runtime.onMessage sync/async/promise/none, content kind has no tabs/downloads). XML/Kotlin braces balanced. Kotlin NOT compiled (no SDK): CI is the test.
+NOT tested (needs real device): scripts actually running in WebView (check logcat tag MGB.inject / MGB.shim), content.js pill/overlay showing on a video page, iframes, WebView version support (DOCUMENT_START_SCRIPT), run_at idle timing.
+Known limits: page JS in the same frame can read replies/broadcasts sent to that frame (WebView has no isolated world); content kind is restricted to storage.local/sync + runtime.sendMessage; S6 must validate message types from content senders (ctx.kind == CONTENT) before acting. about:blank/data: iframes do not get scripts (no origin match).
+Next: S6 (alone) = EngineHost.kt (hidden WebView loads background.js via a generated page on EXT_ORIGIN; needs WebViewAssetLoader mapping /ext/ -> assets/ext, attachExt) + TabsApi.kt (tabs.* handlers, runtime.sendMessage routing background <-> content frames via ChromeBridge.request/emit, tabs.sendMessage, onUpdated/onRemoved/onActivated events from TabManager, runtime.onInstalled/onStartup). background.js is a service worker using importScripts: run it in a normal page via <script> tags, shim importScripts.
+
+S15 (updater) details:
+- kt/UpdateManager.kt: check(activity, silent), autoCheck(activity). Latest release tag "v<ver>-b<run>"; run number == versionCode (set from GITHUB_RUN_NUMBER). Newer if run > BuildConfig.VERSION_CODE. APK asset downloaded to cacheDir/updates (.part then rename), installed via FileProvider + system installer (asks "install unknown apps" once).
+- app/build.gradle.kts: buildConfigField GH_REPO from env GITHUB_REPOSITORY (empty on local builds). No workflow change was needed.
+- res: layout/dialog_update.xml, xml/file_paths.xml; manifest: REQUEST_INSTALL_PACKAGES + FileProvider; activity_main.xml: btn_menu (⋮); MainActivity: PopupMenu (Check for updates, version line) + autoCheck. S14 can add more items to that menu.
+- Needs: public repo; releases always signed with the SAME key (secrets set), otherwise Android refuses the update.
+- NOT tested: everything (no device). Compile via CI only.

@@ -1,0 +1,48 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Media Grabber - Player</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{display:flex;font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--fg)}
+#stage{flex:1;min-width:0;display:flex;flex-direction:column;background:#000}
+video{flex:1;min-height:0;width:100%;background:#000;outline:0}
+#bar{display:flex;gap:8px;align-items:center;padding:8px 10px;background:var(--panel);border-top:1px solid var(--line);flex-wrap:wrap}
+#bar span{color:var(--mut);font-size:12.5px}
+#now{flex:1;min-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--fg)!important}
+button,input[type=text]{font:inherit;background:var(--btn);color:var(--btnfg);border:0;border-radius:8px;padding:6px 11px;cursor:pointer}
+button:hover{background:var(--btnh)}
+input[type=text]{cursor:text;background:var(--panel2);color:var(--fg);border:1px solid var(--line);min-width:0;width:240px}
+#side{width:300px;max-width:42vw;display:flex;flex-direction:column;background:var(--panel);border-left:1px solid var(--line)}
+#side h3{margin:0;padding:12px 14px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);display:flex;justify-content:space-between;align-items:center}
+#list{flex:1;overflow:auto;padding:0 8px 8px}
+.it{display:flex;gap:6px;align-items:center;padding:8px 10px;border-radius:9px;cursor:pointer;margin:2px 0}
+.it:hover{background:var(--panel2)}.it.on{background:var(--panel2);box-shadow:inset 3px 0 0 var(--accent)}
+.it .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it .x{background:transparent;color:var(--mut);padding:2px 7px}
+#drop{display:none;position:fixed;inset:0;background:rgba(91,141,255,.25);border:3px dashed var(--accent);z-index:9;align-items:center;justify-content:center;font-size:22px;font-weight:700}
+#help{padding:10px 14px;color:var(--mut);font-size:12px;border-top:1px solid var(--line);line-height:1.6}
+#empty{padding:24px 14px;color:var(--mut);text-align:center}
+@media (max-width:700px){body{flex-direction:column}#side{width:auto;max-width:none;height:38%;border-left:0;border-top:1px solid var(--line)}}
+/* V74k */
+button,input[type=text]{border-radius:var(--r-sm)}
+#spd{background:var(--panel2);padding:2px var(--s2);border-radius:99px;font-variant-numeric:tabular-nums}
+#drop{color:var(--fg);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+#side h3 button{font-size:var(--fs-sm);padding:var(--s1) var(--s3)}
+@media (pointer:coarse){#bar button,#bar input[type=text],#side h3 button{min-height:var(--tap)}#bar button{min-width:var(--tap)}.it{min-height:var(--tap)}.it .x{min-width:var(--tap);min-height:var(--tap)}#help{display:none}}
+@media (max-width:700px){#bar{padding:var(--s2) var(--s3);gap:var(--s2)}#bar #url{flex:1 1 0;width:auto;min-width:0;order:5}#bar #go{order:6}#side{padding-bottom:env(safe-area-inset-bottom,0px)}}
+</style></head><body>
+<div id="stage">
+  <video id="v" controls autoplay></video>
+  <div id="bar">
+    <span id="now">Nothing playing</span>
+    <span id="spd">1x</span>
+    <button id="prev" title="Previous (B)">&#9664;&#9664;</button><button id="next" title="Next (N)">&#9654;&#9654;</button>
+    <button id="pip" title="Picture in picture (P)">PiP</button>
+    <button id="open">Open files</button><input id="files" type="file" accept="video/*,audio/*,.mkv,.ts,.m3u8" multiple hidden>
+    <input id="url" type="text" placeholder="Paste a direct link (mp4, webm, mp3, m3u8)"><button id="go">Play</button>
+  </div>
+</div>
+<div id="side"><h3>Playlist <button id="clr">Clear</button></h3><div id="list"></div>
+  <div id="help"><b>Keys</b>: Space play/pause, &larr; &rarr; 10 s, &uarr; &darr; volume, M mute, F fullscreen, P PiP, N / B next / previous, [ ] speed, 0-9 jump to 0-90%, Home / End.<br>Double-click left / right side: -10 s / +10 s, centre: fullscreen. Drop files here.</div></div>
+<div id="drop">Drop to add to the playlist</div>
+<script src="shared.js"></script><script src="player.js"></script></body></html>

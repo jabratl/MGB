@@ -1,0 +1,33 @@
+:root{--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--r-sm:10px;--r-md:14px;--r-lg:20px;--fs-xs:11px;--fs-sm:12px;--fs-md:13.5px;--fs-lg:16px;--fs-xl:20px;--tap:40px;--bg:#0e1014;--panel:#171a21;--panel2:#1f232c;--line:#2a2f3a;--fg:#eceef2;--mut:#8f98a6;--btn:#232833;--btnh:#2e3441;--btnfg:#fff;--accent:#5b8dff;--accent2:#8b5cff;--ok:#3fb96a;--err:#ff5370;--warn:#ffb74d;--r:14px;--glow:0 0 0 1px rgba(91,141,255,.35),0 8px 28px rgba(91,141,255,.18);--ease:cubic-bezier(.2,.8,.2,1);color-scheme:dark}
+:root[data-theme="light"]{--bg:#f4f6fb;--panel:#ffffff;--panel2:#eef1f7;--line:#e0e5ee;--fg:#1a1d24;--mut:#5d6572;--btn:#e8ebf2;--btnh:#d9deea;--btnfg:#1a1d24;--ok:#1d7f48;--err:#c9304d;--warn:#a85f00;--glow:0 0 0 1px rgba(91,141,255,.4),0 8px 24px rgba(91,141,255,.15);color-scheme:light}
+button{transition:background .18s var(--ease),filter .18s,transform .12s var(--ease),box-shadow .18s}
+button:active{transform:scale(.96)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:disabled{opacity:.55;cursor:default}
+button.p,button.primary{background:linear-gradient(135deg,var(--accent),var(--accent2))!important;color:#fff!important;box-shadow:0 4px 14px rgba(91,141,255,.3)}
+button.p:hover,button.primary:hover{filter:brightness(1.1)}
+@keyframes mgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes mgShine{from{background-position:200% 0}to{background-position:-200% 0}}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px}::-webkit-scrollbar-track{background:transparent}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* long titles: cut with ... by default; tap one to read it in full, or turn on "Always show full titles" in Settings */
+.nm,.name,#now,.it .n,.jn > span:first-child{cursor:pointer}
+.tx-open,.tx-all .nm,.tx-all .name,.tx-all #now,.tx-all .it .n,.tx-all .jn > span:first-child{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;-webkit-line-clamp:unset!important;overflow-wrap:anywhere;word-break:break-word}
+
+/* ---- V74a: shared tokens + small reusable pieces ---- */
+@media (pointer:coarse){:root{--tap:44px}}
+.mg-pop{position:absolute;right:12px;top:52px;z-index:40;min-width:220px;max-width:calc(100vw - 24px);padding:var(--s2);background:var(--panel);border:1px solid var(--line);border-radius:var(--r-md);box-shadow:0 14px 40px rgba(0,0,0,.4);animation:mgIn .16s var(--ease) both}
+.mg-pop[hidden]{display:none}
+.mg-pop .mi{display:flex;align-items:center;gap:var(--s3);width:100%;min-height:var(--tap);padding:var(--s2) var(--s3);margin:0;background:transparent;color:var(--fg);border-radius:var(--r-sm);font-weight:600;font-size:var(--fs-md);text-align:left;justify-content:flex-start}
+.mg-pop .mi:hover,.mg-pop .mi:focus-visible{background:var(--panel2)}
+.mg-pop .mi svg{width:18px;height:18px;color:var(--mut)}
+.mg-pop .mi.danger{color:var(--err)}.mg-pop .mi.danger svg{color:var(--err)}
+.mg-pop hr{border:0;border-top:1px solid var(--line);margin:var(--s1) 0}
+
+/* ---- V74i: a page shown inside the Library hub (?embed=1) uses the hub's tab bar as its title, so its own title and sibling links are hidden ---- */
+html.embed h1{font-size:0;line-height:0;margin:0}
+html.embed h1 small{font-size:var(--fs-sm);line-height:1.4;margin:0;display:inline;color:var(--mut);font-weight:500}
+html.embed header>a{display:none}
+html.embed body{margin-top:0;padding-top:var(--s3)}
+html.embed header{margin-bottom:var(--s2)}

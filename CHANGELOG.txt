@@ -1,3 +1,11 @@
+MGB 0.0.5 (S15)
+- In-app update: menu (⋮) > Check for updates, plus a silent check on start (every 12h). Reads the latest GitHub Release, downloads the APK with progress, opens the system installer.
+- Needs a public repo; first install of this version must be done by hand once.
+
+MGB 0.0.4 (S4+S5)
+- S4: chrome.* shim (assets/shim/chrome-shim.js) + ChromeBridge.kt: storage local/sync/session + onChanged, runtime (getURL, getManifest, sendMessage, onMessage), generic forwarding of tabs/downloads/DNR/... to Kotlin handlers.
+- S5: V77 (v2.79.2) copied as is into assets/ext; ContentInjector.kt injects hook.js + content.js (all frames, from manifest) into every tab.
+
 MGB 0.0.3 (CI)
 - CI: upload a zip -> GitHub unpacks it, builds, and publishes the APK as a Release (tag vX-bN). unzip.yml no longer needed.
 - DELETE.txt in a zip removes listed files.

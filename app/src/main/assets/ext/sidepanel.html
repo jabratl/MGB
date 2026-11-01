@@ -1,0 +1,30 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="popup.css"><style>body{width:auto;max-height:none;height:100vh}#side{display:none}</style></head>
+<body>
+  <header>
+    <div class="brand"><span class="logo"></span><b>Media Grabber</b><span id="count"></span>
+      <span class="sp"></span>
+      <button id="opts" class="ic" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3h0a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5h0a1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8v0a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></button>
+      <button id="moreBtn" class="ic" aria-label="More" aria-haspopup="menu" aria-expanded="false" title="More"><svg viewBox="0 0 24 24" class="fill"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
+    </div>
+    <div id="menu" class="mg-pop" role="menu" hidden><button id="queue" class="mi" role="menuitem"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 20h16"/></svg><span>Downloads</span></button><button id="hist" class="mi" role="menuitem"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>History</span></button><button id="follow" class="mi" role="menuitem"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg><span>Following</span></button><hr><button id="panel" class="mi" role="menuitem"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M15 4v16"/></svg><span>Panel on the page</span></button><button id="side" class="mi" role="menuitem"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg><span>Open in side panel</span></button><button id="player" class="mi" role="menuitem"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/></svg><span>Built-in player</span></button><hr><button id="clear" class="mi danger" role="menuitem"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span>Clear this list</span></button></div>
+    <div class="tools">
+      <button id="playscan" class="primary" title="Press play on the page (muted) and scan again"><svg viewBox="0 0 24 24" class="fill"><path d="M8 5.5v13a1 1 0 001.5.86l10.5-6.5a1 1 0 000-1.72L9.5 4.64A1 1 0 008 5.5z"/></svg> Play &amp; scan</button>
+      <button id="rescan" title="Scan the page again"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 10-2.3 5.7M20 4v7h-7"/></svg> Rescan</button>
+    </div>
+  </header>
+  <div id="page"></div>
+  <section id="jobs"></section>
+  <main id="list"></main>
+  <footer>Made by <b>MohmShawon</b></footer>
+  <nav class="bnav" aria-label="Media Grabber">
+    <button class="on" id="nv0"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Found</span></button>
+    <button data-go="queue"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 20h16"/></svg><span>Downloads</span></button>
+    <button data-go="hist"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>History</span></button>
+    <button data-go="opts"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg><span>Settings</span></button>
+  </nav>
+  <script src="shared.js"></script>
+  <script src="popup.js"></script>
+  <script src="sidepanel.js"></script>
+  <script src="popup-ui.js"></script>
+</body></html>

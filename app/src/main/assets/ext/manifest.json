@@ -1,0 +1,115 @@
+{
+  "manifest_version": 3,
+  "name": "Media Grabber",
+  "version": "2.79.2",
+  "version_name": "V77",
+  "author": "MohmShawon",
+  "description": "Auto-detects videos, audio, HLS/DASH streams and subtitles, and shows a download button right on the page. Also grabs manga / doujinshi pages and whole chapters (CBZ), skipping ads.",
+  "permissions": [
+    "webRequest",
+    "downloads",
+    "storage",
+    "tabs",
+    "declarativeNetRequest",
+    "contextMenus",
+    "notifications",
+    "alarms",
+    "offscreen",
+    "sidePanel",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Media Grabber"
+  },
+  "options_page": "options.html",
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "commands": {
+    "toggle-panel": {
+      "suggested_key": {
+        "default": "Alt+Shift+D"
+      },
+      "description": "Show / hide the Media Grabber panel on the page"
+    },
+    "open-sidepanel": {
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      },
+      "description": "Open Media Grabber in the side panel"
+    },
+    "grab-pages": {
+      "suggested_key": {
+        "default": "Alt+Shift+M"
+      },
+      "description": "Grab all manga / doujinshi pages of this page as CBZ"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "shared.js",
+        "sites.js",
+        "content.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "hook.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "*://tiktok.com/*",
+        "*://*.tiktok.com/*",
+        "*://douyin.com/*",
+        "*://*.douyin.com/*",
+        "*://vimeo.com/*",
+        "*://*.vimeo.com/*",
+        "*://soundcloud.com/*",
+        "*://*.soundcloud.com/*",
+        "*://bandcamp.com/*",
+        "*://*.bandcamp.com/*"
+      ],
+      "js": [
+        "siteHook.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "*://web.telegram.org/*"
+      ],
+      "js": [
+        "siteTelegram.js"
+      ],
+      "run_at": "document_end",
+      "world": "MAIN"
+    }
+  ],
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}

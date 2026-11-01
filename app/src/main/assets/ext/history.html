@@ -1,0 +1,19 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Media Grabber - History</title>
+<link rel="stylesheet" href="theme.css"><script src="embed.js"></script><style>
+*{box-sizing:border-box}body{max-width:860px;margin:24px auto;padding:0 16px;font:14px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+header{display:flex;gap:8px;align-items:center;margin-bottom:12px}h1{font-size:20px;margin:0;flex:1}
+input{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit;width:220px}
+button{background:var(--btn);color:var(--btnfg);border:0;border-radius:6px;padding:6px 12px;cursor:pointer;font:inherit}button:hover{background:var(--btnh)}
+.row{display:flex;gap:10px;align-items:center;background:var(--panel);border-radius:8px;padding:9px 12px;margin:6px 0}
+.mn{flex:1;min-width:0}.nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (pointer:coarse){button{min-height:44px;padding:8px 14px}input{min-height:44px}a{padding:10px 8px}}
+@media (max-width:560px){header{flex-wrap:wrap}h1{flex-basis:100%}input{flex:1;width:auto;min-width:120px}.row{flex-wrap:wrap}}
+.row{border-radius:var(--r-md);padding:var(--s3) var(--s4)}
+button{border-radius:var(--r-sm);min-height:38px}input{border-radius:var(--r-sm);min-height:38px}
+.rec{border:1px solid var(--line)}.mt{color:var(--mut);font-size:12px}.gone{opacity:.5}.empty{text-align:center;color:var(--mut);padding:40px}
+</style></head><body>
+<header><h1>Download history <small id="cnt" style="color:var(--mut);font-weight:400"></small></h1><input id="q" placeholder="Search..." aria-label="Search history"><a href="queue.html" style="color:var(--mut)">Queue</a><a href="follow.html" style="color:var(--mut)">Follow</a><button id="clr">Clear all</button></header>
+<div id="rec"></div>
+<div id="list"></div>
+<script src="shared.js"></script><script src="history.js"></script></body></html>

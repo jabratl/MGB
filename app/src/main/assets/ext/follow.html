@@ -1,0 +1,19 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Media Grabber - Followed manga</title>
+<link rel="stylesheet" href="theme.css"><script src="embed.js"></script><style>
+*{box-sizing:border-box}body{max-width:860px;margin:24px auto;padding:0 16px;font:14px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+header{display:flex;gap:10px;align-items:center;margin-bottom:12px}h1{font-size:20px;margin:0;flex:1}
+button{background:var(--btn);color:var(--btnfg);border:0;border-radius:6px;padding:5px 11px;cursor:pointer;font:inherit}button:hover{background:var(--btnh)}
+a{color:var(--mut)}.f{background:var(--panel);border-radius:8px;padding:10px 12px;margin:8px 0}
+.top{display:flex;gap:8px;align-items:center}.nm{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.new{background:#ff4d6d;color:#fff;border-radius:10px;padding:0 8px;font-size:12px}.mt{color:var(--mut);font-size:12px}.err{color:var(--err)}
+@media (pointer:coarse){button{min-height:44px;padding:8px 14px}.ul a{padding:10px 0}}
+@media (max-width:520px){body{margin:16px auto}header{flex-wrap:wrap}.top{flex-wrap:wrap}.nm{flex-basis:100%;order:-1;white-space:normal}}
+.f{border-radius:var(--r-md);padding:var(--s3) var(--s4)}
+button{border-radius:var(--r-sm);min-height:38px}
+.ul a{display:block;color:var(--fg);padding:2px 0}.empty{text-align:center;color:var(--mut);padding:40px}
+</style></head><body>
+<header><h1>Followed manga</h1><span id="msg" class="mt"></span><button id="chk">Check now</button></header>
+<div id="list"></div>
+<p class="mt">Follow a manga from the chapter list in the on-page panel (&#9734; Follow). Checking interval: Settings.</p>
+<script src="shared.js"></script><script src="follow.js"></script></body></html>

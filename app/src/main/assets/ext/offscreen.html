@@ -1,0 +1,65 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Media Grabber - Download</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;
+  background:radial-gradient(70% 50% at 20% 0,rgba(91,141,255,.22),transparent 65%),radial-gradient(60% 45% at 100% 100%,rgba(139,92,255,.16),transparent 65%),var(--bg);color:var(--fg)}
+.card{width:100%;max-width:600px;background:linear-gradient(180deg,color-mix(in srgb,var(--panel) 92%,transparent),var(--panel));border:1px solid var(--line);border-radius:26px;padding:26px;box-shadow:0 30px 80px -20px rgba(0,0,0,.55);animation:mgIn .4s var(--ease) both}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.brand{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--mut)}
+.logo{width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 0 12px var(--accent)}
+.badge{font-size:11px;font-weight:700;padding:3px 11px;border-radius:99px;background:var(--panel2);color:var(--mut);transition:.25s}
+.card.run .badge{background:rgba(91,141,255,.16);color:var(--accent)}
+.card.paused .badge{background:rgba(255,183,77,.16);color:var(--warn)}
+.card.done .badge{background:rgba(63,185,106,.16);color:var(--ok)}
+.card.err .badge{background:rgba(255,83,112,.16);color:var(--err)}
+h2{font-size:19px;line-height:1.35;margin:0 0 4px;word-break:break-word;letter-spacing:-.015em;font-weight:750}
+h4{margin:20px 0 8px;color:var(--mut);text-transform:uppercase;font-size:11px;letter-spacing:.09em;font-weight:800}
+#status{margin:4px 0 4px;color:var(--mut);font-size:13px;min-height:20px;word-break:break-word}#status.err{color:var(--err)}
+#prog{margin-top:16px}
+.pc{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
+#pct{font-size:34px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+#sub{color:var(--mut);font-size:12.5px;font-variant-numeric:tabular-nums}
+progress{width:100%;height:12px;border:0;border-radius:12px;background:var(--panel2);overflow:hidden;-webkit-appearance:none;appearance:none;display:block}
+progress::-webkit-progress-bar{background:var(--panel2);border-radius:12px}
+progress::-webkit-progress-value{background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent));background-size:200% 100%;animation:mgShine 2s linear infinite;border-radius:12px;transition:width .35s var(--ease)}
+.card.paused progress::-webkit-progress-value{animation:none;background:var(--warn)}
+.card.done progress::-webkit-progress-value{animation:none;background:var(--ok)}
+.card.err progress::-webkit-progress-value{animation:none;background:var(--err)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+.stats div{background:var(--panel2);border-radius:14px;padding:9px 11px;min-width:0}
+.stats small{display:block;color:var(--mut);font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.stats b{display:block;font-size:13.5px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+button{font:inherit;font-weight:650;background:var(--btn);color:var(--btnfg);border:0;border-radius:13px;padding:11px 18px;margin:0;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px}
+button:hover{background:var(--btnh)}
+button svg{width:15px;height:15px;fill:currentColor}
+#options{margin-top:16px;display:flex;flex-direction:column;gap:7px}
+#options h4{margin-bottom:2px}
+#options button{width:100%;justify-content:flex-start;text-align:left;padding:13px 16px;font-weight:600;border-radius:15px;background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line);animation:mgIn .3s var(--ease) both}
+#options button:hover{box-shadow:inset 0 0 0 1px var(--accent),var(--glow);transform:translateY(-1px)}
+#options button.primary{box-shadow:0 8px 22px -8px rgba(91,141,255,.6)}
+#options label{display:flex;gap:10px;align-items:center;margin:2px 2px 8px;color:var(--mut);font-size:13px;cursor:pointer}
+#options input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent)}
+.actions{margin-top:18px;display:flex;gap:8px}
+.actions button{flex:1}
+#cancel{background:rgba(255,83,112,.12);color:var(--err)}#cancel:hover{background:rgba(255,83,112,.22)}
+#pause{background:rgba(91,141,255,.14);color:var(--accent)}#pause:hover{background:rgba(91,141,255,.25)}
+.card.paused #pause{background:rgba(255,183,77,.18);color:var(--warn)}
+#stopLive{background:rgba(63,185,106,.16);color:var(--ok)}#stopLive:hover{background:rgba(63,185,106,.28)}
+.actions button[hidden]{display:none}
+@media (pointer:coarse){button{min-height:44px}}
+@media (max-width:480px){.stats{grid-template-columns:repeat(2,1fr)}.card{padding:20px}}
+</style></head><body>
+<div class="card" id="card">
+  <div class="top"><div class="brand"><span class="logo"></span>Media Grabber</div><span class="badge" id="badge">Ready</span></div>
+  <h2 id="title"></h2><div id="status">Loading...</div>
+  <div id="prog" hidden>
+    <div class="pc"><span id="pct">0%</span><span id="sub"></span></div>
+    <progress id="bar" value="0" max="1"></progress>
+    <div class="stats"><div><small>Speed</small><b id="sSpeed">-</b></div><div><small>Downloaded</small><b id="sSize">-</b></div><div><small>Time left</small><b id="sEta">-</b></div><div><small>Segments</small><b id="sSeg">-</b></div></div>
+  </div>
+  <div id="options"></div>
+  <div class="actions"><button id="stopLive" hidden>Stop &amp; save</button><button id="pause" hidden>Pause</button><button id="cancel" hidden>Cancel</button></div>
+</div>
+<script src="offscreen-shim.js"></script><script src="shared.js"></script><script src="remux.js"></script><script src="downloader.js"></script></body></html>

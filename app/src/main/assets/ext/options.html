@@ -1,0 +1,197 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Media Grabber - Settings</title>
+<link rel="stylesheet" href="theme.css"><style>
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--fg)}
+.wrap{max-width:720px;margin:0 auto;padding:0 14px 90px}
+.top{position:sticky;top:0;z-index:5;background:var(--bg);padding:14px 0 6px;border-bottom:1px solid transparent}
+.top.sc{border-bottom-color:var(--line)}
+.tt{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+h1{font-size:22px;margin:0}
+#saved{color:var(--mut);transition:color .2s}#saved.ok{color:var(--ok)}
+#q{width:100%;margin:10px 0 8px;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font:inherit}
+.tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0 8px;-webkit-overflow-scrolling:touch}
+.tabs::-webkit-scrollbar{display:none}
+.tabbtn{flex:none;margin:0;padding:8px 14px;border-radius:99px;background:var(--panel);color:var(--mut);border:1px solid var(--line);font-weight:600}
+.tabbtn.on{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-color:transparent}
+.tab{display:none;animation:mgIn .22s var(--ease) both}.tab.on{display:block}
+body.searching .tab{display:block}
+body.searching .st{display:none}
+body.searching .card{display:none}
+h2.st{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin:18px 0 6px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin:12px 0}
+.card h2{font-size:15px;margin:0 0 2px;text-transform:none;letter-spacing:0;color:var(--fg)}
+.hint{color:var(--mut);margin:2px 0 10px;font-size:12.5px}.hint.foot{margin-top:24px;text-align:center}
+.presets{display:flex;flex-wrap:wrap;gap:8px}
+.presets button{margin:0;padding:9px 14px;border-radius:12px;font-weight:600}
+.pm{margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--panel2);font-size:12.5px}
+.pm b{color:var(--ok)}.pm button{margin:6px 0 0;padding:5px 12px}
+.row{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--line);min-height:52px}
+.row>span{flex:1;min-width:0}
+small{display:block;color:var(--mut);font-size:12px;line-height:1.4;margin-top:1px}
+button{background:var(--btn);color:var(--btnfg);border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font:inherit;margin-left:6px}button:hover{background:var(--btnh)}
+input[type=text],input[type=number],input[type=search],select,textarea{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:9px 10px;font:inherit}
+input[type=text]{width:240px}textarea{width:240px;height:78px}input[type=number]{width:90px}
+select{max-width:260px}
+input[type=checkbox]{appearance:none;-webkit-appearance:none;flex:none;width:46px;height:28px;border-radius:14px;background:var(--btn);border:1px solid var(--line);position:relative;cursor:pointer;transition:background .2s}
+input[type=checkbox]::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .2s var(--ease)}
+input[type=checkbox]:checked{background:linear-gradient(135deg,var(--accent),var(--accent2));border-color:transparent}
+input[type=checkbox]:checked::after{transform:translateX(18px)}
+.rs{flex:none;width:30px;height:30px;padding:0;margin:0;border-radius:50%;font-size:15px;line-height:1;background:transparent;color:var(--mut);border:1px solid var(--line)}
+.rs:hover{background:var(--accent);color:#fff}
+.rs[hidden]{display:none}
+#mux{padding:12px;border-radius:12px;background:var(--panel);margin:8px 0;font-size:13px}
+code{background:var(--panel2);padding:1px 5px;border-radius:4px;word-break:break-all}
+.capl{list-style:none;margin:0;padding:0}.capl li{display:flex;gap:10px;align-items:baseline;padding:6px 0;border-top:1px solid var(--line);font-size:13px}.capl b{min-width:34px;font-size:12px}.capl .y b{color:#2e9e5b}.capl .n b{color:#c77d00}.capl small{color:var(--mut);display:block;font-size:12px}
+.tag{font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px;margin-left:6px;vertical-align:middle;background:var(--panel2);color:var(--mut)}.tag.ok{color:#2e9e5b}.tag.bad{color:#c77d00}#healthAct{margin-top:8px}#healthAct button,#memCard button{margin:4px 6px 0 0;min-height:36px}.logbox{width:100%;height:150px;font:11px/1.4 monospace;margin-top:8px}
+#pvList .pv{padding:8px 0;border-top:1px solid var(--line)}#pvList .pv:first-child{border-top:0}
+#pvList .pv b{display:block;font-size:12px;color:var(--mut);font-weight:600}
+#pvList .pv code{display:block;background:transparent;padding:2px 0;color:var(--fg);font-size:13px}
+.none{display:none;text-align:center;color:var(--mut);padding:36px 0}body.searching.nores .none{display:block}
+@media (max-width:640px){
+  .row:not(.cb){flex-wrap:wrap}.row:not(.cb)>span{flex:1 1 100%}
+  .row:not(.cb) input[type=text],.row:not(.cb) textarea,.row:not(.cb) select{flex:1 1 0;width:100%;max-width:none;min-width:0}
+  .row:not(.cb) input[type=number]{width:110px}
+  .row button{min-height:40px}.tabbtn{padding:9px 14px}
+}
+@media (pointer:coarse){input[type=checkbox]{width:50px;height:30px}input[type=checkbox]::after{width:22px;height:22px}input[type=checkbox]:checked::after{transform:translateX(20px)}}
+
+/* ---- V74f: settings layout. Desktop (900px+): left sidebar. Phone / tablet: only the tab chips stay on screen while scrolling. CSS only: ids, data-k rows and data-tab names unchanged ---- */
+.row[hidden]{display:none!important}
+.tt{gap:var(--s1) var(--s3)}
+#q{min-height:var(--tap);border-radius:var(--r-sm)}
+.tabbtn{min-height:var(--tap);padding:var(--s2) var(--s4);border-radius:var(--r-sm)}
+h2.st{margin:var(--s5) 0 var(--s2)}
+/* rows form groups: first / middle / last row share one rounded surface */
+.row{background:var(--panel);border:1px solid var(--line);border-top:0;border-radius:0;margin:0;padding:var(--s3) var(--s4)}
+:not(.row)+.row{border-top:1px solid var(--line);border-radius:var(--r-md) var(--r-md) 0 0}
+.row:not(:has(+ .row)){border-radius:0 0 var(--r-md) var(--r-md)}
+:not(.row)+.row:not(:has(+ .row)){border-radius:var(--r-md)}
+body.searching .row{border:1px solid var(--line);border-radius:var(--r-md);margin:var(--s2) 0}
+.card{border-radius:var(--r-md);padding:var(--s4)}
+.row:focus-within{border-color:var(--accent)}
+@media (pointer:coarse){input[type=text],input[type=number],input[type=search],select{min-height:var(--tap)}}
+@media (max-width:899px){
+  .top{display:contents}
+  .tt{padding:var(--s4) 0 0}
+  #q{margin:var(--s3) 0 var(--s2)}
+  .tabs{position:sticky;top:0;z-index:5;background:var(--bg);margin:0 -14px;padding:var(--s2) 14px;border-bottom:1px solid var(--line)}
+}
+@media (min-width:900px){
+  .wrap{max-width:1080px;display:grid;grid-template-columns:240px minmax(0,1fr);gap:0 var(--s5);align-items:start}
+  .top{position:sticky;top:0;height:100vh;overflow-y:auto;padding:var(--s5) 0;display:flex;flex-direction:column;border-bottom:0}
+  .top.sc{border-bottom-color:transparent}
+  .tt{flex-direction:column;align-items:flex-start;gap:2px}
+  h1{font-size:24px;letter-spacing:-.02em}
+  #q{margin:var(--s4) 0 var(--s3)}
+  .tabs{flex-direction:column;overflow:visible;gap:var(--s1);padding:0}
+  .tabbtn{width:100%;text-align:left;background:transparent;border-color:transparent;color:var(--mut);margin:0}
+  .tabbtn:hover{background:var(--panel);color:var(--fg)}
+  .tabbtn.on{color:#fff}
+  main{padding-top:var(--s5)}
+  h2.st{font-size:var(--fs-xl);text-transform:none;letter-spacing:-.01em;color:var(--fg);margin:0 0 var(--s3)}
+}
+
+/* ---- V74g: group headings + collapsed "Advanced options" ---- */
+.gh{margin:var(--s5) var(--s1) var(--s2);font-size:var(--fs-xs);font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--mut)}
+h2.st+.gh,.card+.gh:first-child{margin-top:var(--s3)}
+body.searching .gh,body.searching .adv>summary{display:none}
+.adv{margin:var(--s3) 0 0}
+.adv>summary{display:flex;align-items:center;justify-content:space-between;min-height:var(--tap);padding:var(--s2) var(--s4);list-style:none;cursor:pointer;color:var(--mut);font-weight:650;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-md)}
+.adv>summary::-webkit-details-marker{display:none}
+.adv>summary::after{content:"\25BE";transition:transform .2s var(--ease)}
+.adv>summary:hover{color:var(--fg)}
+.adv[open]>summary{margin-bottom:var(--s2);color:var(--fg)}
+.adv[open]>summary::after{transform:rotate(180deg)}
+</style></head><body>
+<div class="wrap">
+<header class="top" id="top"><div class="tt"><h1>Settings</h1><small id="saved">Changes save automatically.</small></div>
+<input id="q" type="search" placeholder="Search settings, e.g. speed, folder, subtitles" autocomplete="off">
+<nav class="tabs" role="tablist"><button class="tabbtn" role="tab" data-tab="quick">Quick</button><button class="tabbtn" role="tab" data-tab="page">On-page</button><button class="tabbtn" role="tab" data-tab="detect">Detection</button><button class="tabbtn" role="tab" data-tab="saving">Saving</button><button class="tabbtn" role="tab" data-tab="dl">Downloads</button><button class="tabbtn" role="tab" data-tab="tools">Backup &amp; debug</button></nav></header>
+<main><section class="tab" data-tab="quick" role="tabpanel"><h2 class="st">Quick</h2>
+<div class="card" id="presetCard"><h2>Quick setup</h2><p class="hint">One tap sets several options together. You can undo it, and every option can still be changed below.</p>
+<div class="presets"><button data-p="anime">Anime (Plex)</button><button data-p="manga">Manga</button><button data-p="lowdata">Low data</button><button data-p="fast">Fast</button><button data-p="default">Recommended</button></div><div id="presetMsg" class="pm" hidden></div></div>
+<h3 class="gh">General</h3>
+<label class="row " data-k="theme"><span>Theme<small>Settings, history, pages screen and reader</small></span><select id="theme"><option value="auto">Auto (follow system)</option><option value="dark">Dark</option><option value="light">Light</option></select></label>
+<label class="row " data-k="subfolder"><span>Sub-folder inside Downloads<small>e.g. Anime or Anime/{series}. Tokens like {series} {site} {season} are filled in.</small></span><input type="text" id="subfolder"></label>
+<label class="row cb" data-k="notify"><span>Notify when downloads finish</span><input type="checkbox" id="notify"></label>
+<h3 class="gh">Quality &amp; speed</h3>
+<label class="row " data-k="maxHeight"><span>Preferred max video quality<small>Used by Best / Download all / auto jobs. Falls back to the lowest one if nothing is under the limit.</small></span><select id="maxHeight"><option value="0">Highest available</option><option value="2160">2160p (4K)</option><option value="1440">1440p</option><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option><option value="360">360p</option></select></label>
+<label class="row " data-k="speedLimitKBps"><span>Bandwidth limit (KB/s)<small>Per stream download. 0 = unlimited. e.g. 1500 is about 1.5 MB/s. Useful so downloads do not use your whole connection.</small></span><input type="number" id="speedLimitKBps" min="0" max="1000000"></label>
+<h3 class="gh">File names</h3>
+<label class="row cb" data-k="cleanTitles"><span>Remove the website name from titles<small>"Site - Naruto Episode 5" is saved as "Naruto Episode 5", and episode batches use the show name, never the website name.</small></span><input type="checkbox" id="cleanTitles"></label>
+<label class="row " data-k="libraryMode"><span>Library naming (Plex / Jellyfin / Emby / Kodi)<small>Episodes are saved as Show/Season 01/Show - S01E05.mp4 (subtitles too, e.g. .en.srt). Movies, clips and manga are not touched. Set the sub-folder above to your library root, e.g. Anime.</small></span><select id="libraryMode"><option value="off">Off (use the template above)</option><option value="plex">On: Show/Season 01/Show - S01E05</option></select></label>
+<details class="adv"><summary>Advanced options</summary><label class="row " data-k="titleStrip"><span>Extra site names to remove<small>Comma separated, e.g. <code>MySite, Anime Hub</code>. Only needed if a site name is still left in a title.</small></span><input type="text" id="titleStrip"></label>
+<label class="row " data-k="titleSource"><span>Series name is read from<small>Auto = page data, then tab title, big heading, address. The others stay as fallbacks if the chosen one gives nothing.</small></span><select id="titleSource"><option value="auto">Auto (best first)</option><option value="page">Tab title</option><option value="schema">Page data (schema)</option><option value="h1">Big heading (h1)</option></select></label>
+<label class="row " data-k="nameTemplate"><span>File name template<small>{title} {series} {book} {chapter} {episode} {season} {sxe} {index} {site} {name} {res} {date} {time} {kind} {lang}</small></span><input type="text" id="nameTemplate"></label></details>
+<div class="card" id="namePrev"><h2>File name preview</h2><p class="hint">What your current naming settings produce (updates while you type).</p><div id="pvList"></div></div>
+</section><section class="tab" data-tab="page" role="tabpanel"><h2 class="st">On-page</h2>
+<h3 class="gh">Show Media Grabber</h3>
+<label class="row cb" data-k="enabled"><span>Enable Media Grabber<small>Master switch for detection and UI</small></span><input type="checkbox" id="enabled"></label>
+<label class="row cb" data-k="showPill"><span>Floating download button<small>Draggable button with item count</small></span><input type="checkbox" id="showPill"></label>
+<label class="row cb" data-k="showOverlay"><span>Button on top of videos</span><input type="checkbox" id="showOverlay"></label>
+<h3 class="gh">Position</h3>
+<label class="row " data-k="overlayCorner"><span>Video button corner</span><select id="overlayCorner"><option value="tl">Top-left</option><option value="tr">Top-right</option></select></label>
+<label class="row " data-k="pillSide"><span>Floating button side</span><select id="pillSide"><option value="right">Right</option><option value="left">Left</option></select></label>
+<h3 class="gh">Titles &amp; sites</h3>
+<label class="row cb" data-k="fullTitles"><span>Always show full titles<small>Long names are cut with ... (tap a name to read it in full). Turn on to wrap them instead. Same as the Aa button in the panel.</small></span><input type="checkbox" id="fullTitles"></label>
+<label class="row " data-k="disabledSites"><span>Hidden sites<small>One domain per line</small></span><textarea id="disabledSites"></textarea></label>
+</section><section class="tab" data-tab="detect" role="tabpanel"><h2 class="st">Detection</h2>
+<h3 class="gh">What to list</h3>
+<label class="row cb" data-k="blockAds"><span>Skip ads<small>Ignore ad videos, ad banners and sponsored links when listing media / manga pages / chapters</small></span><input type="checkbox" id="blockAds"></label>
+<label class="row " data-k="minDurationSec"><span>Ignore streams shorter than (seconds)<small>HLS / DASH only, once the length is known. 0 = off. Try 30 to hide ads and previews.</small></span><input type="number" id="minDurationSec" min="0" max="3600"></label>
+<label class="row " data-k="minSizeKB"><span>Ignore media smaller than (KB)</span><input type="number" id="minSizeKB" min="0"></label>
+<label class="row cb" data-k="siteModules"><span>Site modules<small>Extra readers for TikTok, Douyin, Vimeo, SoundCloud, Bandcamp and a Download button on Telegram Web (Telegram: Chrome with the Save dialog works best).</small></span><input type="checkbox" id="siteModules"></label>
+<label class="row cb" data-k="siteAdapters"><span>Gallery / chapter adapters<small>Reads the real page list of hitomi.la, MangaDex and nhentai, and scans page scripts on other sites when no images are visible. Expired links are asked for again automatically. Switch off to use only plain image detection.</small></span><input type="checkbox" id="siteAdapters"></label>
+<details class="adv"><summary>Advanced options</summary><label class="row " data-k="extraExts"><span>Extra video extensions<small>comma separated, e.g. bin,dat</small></span><input type="text" id="extraExts"></label>
+<label class="row " data-k="msOffSites"><span>Switch off MediaSource on these sites<small>One domain per line. Some players then fall back to a plain MP4/HLS link that can be downloaded. If a site stops playing, remove it. Reload the site after changing this.</small></span><textarea id="msOffSites"></textarea></label>
+<label class="row " data-k="siteRules"><span>Site rules (optional)<small>One per line: <code>domain = css selector of the page images</code>, e.g. <code>example.com = #reader img</code>. Overrides auto detection on that site.</small></span><textarea id="siteRules"></textarea></label></details>
+</section><section class="tab" data-tab="saving" role="tabpanel"><h2 class="st">Saving</h2>
+<h3 class="gh">Subtitles</h3>
+<label class="row cb" data-k="autoSubs"><span>Download subtitles with the video<small>Subtitles found on the page are saved next to the video with the same name (Title.en.srt), so VLC / Plex pick them up</small></span><input type="checkbox" id="autoSubs"></label>
+<label class="row " data-k="subLangs"><span>Subtitle languages to download<small>Comma separated, e.g. <code>en</code> or <code>bn,en</code>. The first match is saved next to the video (Title.en.srt). Empty = first 5 found. Forced / thumbnail tracks are skipped.</small></span><input type="text" id="subLangs"></label>
+<label class="row " data-k="subFmt"><span>Subtitle format<small>Used when subtitles are saved by themselves (with the video, "All subtitles", from the player). ASS, TTML, DFXP, SBV and JSON subtitles are converted too. The buttons on each subtitle still let you pick .srt / .vtt / .txt / Original every time.</small></span><select id="subFmt"><option value="srt">.srt (works everywhere)</option><option value="vtt">.vtt</option><option value="txt">.txt (text only, no times)</option><option value="orig">Original file as the site has it</option></select></label>
+<details class="adv"><summary>Advanced options</summary><label class="row cb" data-k="subCheck"><span>Check each subtitle before saving<small>Reads inside the file: skips seek-bar preview (thumbnail) tracks and files in the wrong language, then tries the next one.</small></span><input type="checkbox" id="subCheck"></label>
+<label class="row " data-k="subFallback"><span>If the wanted language is not found<small>Any = save the best other subtitle. None = save nothing.</small></span><select id="subFallback"><option value="any">Save another language</option><option value="none">Save nothing</option></select></label>
+</details>
+<h3 class="gh">Manga</h3>
+<label class="row cb" data-k="padChapters"><span>Zero-pad chapter numbers<small>"Chapter 5" is saved as "Chapter 005" so files sort correctly</small></span><input type="checkbox" id="padChapters"></label>
+<label class="row cb" data-k="skipDone"><span>Skip chapters already downloaded<small>When several chapters are selected, ones marked with a tick are skipped</small></span><input type="checkbox" id="skipDone"></label>
+<label class="row " data-k="siteFormats"><span>Default format per site<small>One per line: <code>domain = cbz|zip|pdf|epub</code>, e.g. <code>example.com = pdf</code>. Used by the CBZ button, Alt+Shift+M and chapter downloads. Default is CBZ.</small></span><textarea id="siteFormats"></textarea></label>
+<label class="row " data-k="followHours"><span>Check followed manga every (hours)<small>0 = never. You get a notification when a followed manga has new chapters.</small></span><input type="number" id="followHours" min="0" max="72"></label>
+<h3 class="gh">Video files</h3>
+<label class="row cb" data-k="mergeAV"><span>Merge separate audio into the video<small>Joins separate video and audio into ONE MP4 (no re-encoding, no quality loss). If they cannot be joined here, they are saved as two files.</small></span><input type="checkbox" id="mergeAV"></label>
+<label class="row cb" data-k="convertMp4"><span>Convert HLS .ts to .mp4</span><input type="checkbox" id="convertMp4"></label>
+<details class="adv"><summary>Advanced options</summary><label class="row " data-k="convertMaxMB"><span>Skip MP4 conversion above (MB)<small>Big HLS (.ts) videos take minutes to convert. Above this size they are saved as .ts at once (plays in VLC). 0 = always convert.</small></span><input type="number" id="convertMaxMB" min="0" max="50000"></label>
+</details>
+</section><section class="tab" data-tab="dl" role="tabpanel"><h2 class="st">Downloads</h2>
+<h3 class="gh">Downloads</h3>
+<label class="row cb" data-k="bgDownload"><span>Download streams in the background<small>No extra tab opens, and closing tabs cannot stop a download. Turn off to see the downloader page (the setting below is used then).</small></span><input type="checkbox" id="bgDownload"></label>
+<label class="row " data-k="maxJobs"><span>Stream jobs at the same time<small>how many stream downloads run at once (each runs in the background, the rest wait in the queue)</small></span><input type="number" id="maxJobs" min="1" max="6"></label>
+<label class="row cb" data-k="dupAsk"><span>Ask before downloading something again<small>If you press Download on a video / episode you already saved and the file is still on your device, a "Download again?" question appears. If you deleted or moved the file, it downloads straight away like a normal browser. Batches and manga are not affected.</small></span><input type="checkbox" id="dupAsk"></label>
+<label class="row cb" data-k="autoNetRetry"><span>Retry by itself when the connection comes back<small>If episodes of a batch failed only because the connection dropped, they are retried once when the internet returns (works while the Downloads page is open). Same as pressing "Retry failed".</small></span><input type="checkbox" id="autoNetRetry"></label>
+<details class="adv"><summary>Advanced options</summary><h3 class="gh">Speed &amp; downloader window</h3><label class="row " data-k="jobWindow"><span>Stream downloader opens in</span><select id="jobWindow"><option value="tab">Background tab</option><option value="window">Small window</option></select></label>
+<label class="row cb" data-k="autoClose"><span>Close it when finished</span><input type="checkbox" id="autoClose"></label>
+<label class="row " data-k="concurrency"><span>Parallel segment downloads</span><input type="number" id="concurrency" min="1" max="16"></label>
+<label class="row " data-k="requestDelayMs"><span>Delay between requests (ms)<small>0 = fastest. Raise it (e.g. 800) if a site blocks you. Slows down automatically after HTTP 429/503.</small></span><input type="number" id="requestDelayMs" min="0" max="5000"></label>
+<label class="row " data-k="liveMaxMin"><span>Live recording limit (minutes)<small>Live HLS streams are recorded until the stream ends, you press Stop, or this limit. 0 = no limit.</small></span><input type="number" id="liveMaxMin" min="0" max="1440"></label>
+<h3 class="gh">Episode batches</h3><label class="row " data-k="batchParallel"><span>Episodes searched at the same time<small>Episode batch: how many episodes are looked up in parallel (1-4). The downloads themselves follow "Stream jobs at the same time".</small></span><input type="number" id="batchParallel" min="1" max="4"></label>
+<label class="row " data-k="sniffSeconds"><span>Wait for each episode's player (seconds)<small>Episode batch on sites whose video only appears after the player runs: how long to wait for the stream of each episode. Raise it for slow players or sites with ads before the video.</small></span><input type="number" id="sniffSeconds" min="8" max="180"></label>
+<label class="row cb" data-k="batchRetryMiss"><span>Second try for episodes without a video<small>After the batch, episodes whose video was not found get one more, longer try (the player tab is shown early).</small></span><input type="checkbox" id="batchRetryMiss"></label>
+<label class="row cb" data-k="siteMemory"><span>Remember what worked on each site<small>If a site always needs the player tab, the next batch starts with that way and saves time. The normal order is still the second / third try. See and clear it under Backup &amp; debug.</small></span><input type="checkbox" id="siteMemory"></label>
+</details>
+</section><section class="tab" data-tab="tools" role="tabpanel"><h2 class="st">Backup &amp; debug</h2>
+<div id="mux"></div>
+<h3 class="gh">Checks</h3>
+<div class="card" id="capCard"><h2>What works in this browser</h2><p class="hint">Some browsers (Kiwi, Quetta, Firefox on Android) do not have every feature. Anything marked "no" has a fallback, nothing is broken. Included in the full report below.</p><ul id="capl" class="capl"></ul></div>
+<div class="card" id="healthCard"><h2>Health check <span id="healthTag" class="tag"></span></h2><p class="hint">Checks that the browser features, permissions and saved settings are in order. Nothing is changed unless you press Fix.</p><ul id="healthl" class="capl"></ul><div id="healthAct"><button id="healthRun" type="button">Check again</button></div></div>
+<div class="card" id="memCard"><h2>What the extension remembers about sites</h2><p class="hint">Filled by the episode batch (when "Remember what worked" is on). Only the site name and how many times each way worked - no pages, no titles.</p><ul id="meml" class="capl"></ul><div><button id="memClr" type="button">Forget all</button></div></div>
+<h3 class="gh">Backup &amp; reset</h3>
+<label class="row" data-k="exp"><span>Export / import settings<small>Saves every setting (and your site rules) to a .json file, or restores them from one</small></span><button id="exp">Export</button><button id="imp">Import</button><input type="file" id="impf" accept=".json,application/json" hidden></label>
+<label class="row" data-k="rst"><span>Reset all settings to default</span><button id="rst">Reset</button></label>
+<h3 class="gh">Debug log</h3>
+<label class="row" data-k="rep"><span>Debug log<small>Which fallback worked, why a download failed. Paste it into a bug report.</small></span><button id="rep">Copy full report</button><button id="logcopy">Copy log</button><button id="logclr">Clear</button></label>
+<textarea id="logbox" readonly class="logbox"></textarea>
+<p class="hint foot">Media Grabber made by <b>MohmShawon</b></p></section><div class="none">No setting matches your search.</div></main>
+</div>
+<script src="shared.js"></script><script src="options.js"></script><script src="options-ui.js"></script></body></html>

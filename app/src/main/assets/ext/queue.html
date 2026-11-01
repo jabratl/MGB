@@ -1,0 +1,50 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Media Grabber - Queue</title>
+<link rel="stylesheet" href="theme.css"><script src="embed.js"></script><style>
+*{box-sizing:border-box}
+body{max-width:820px;margin:0 auto;padding:28px 16px 60px;font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;
+  background:radial-gradient(70% 40% at 15% 0,rgba(91,141,255,.18),transparent 65%),var(--bg);color:var(--fg)}
+header{display:flex;gap:10px;align-items:center;margin-bottom:18px}
+h1{font-size:24px;margin:0;flex:1;letter-spacing:-.02em;font-weight:800}
+h1 small{color:var(--mut);font-weight:500;font-size:13px;margin-left:8px;letter-spacing:0}
+a{color:var(--mut);text-decoration:none;font-weight:600;padding:7px 12px;border-radius:10px}a:hover{background:var(--panel2);color:var(--fg)}
+button{font:inherit;font-weight:650;background:var(--btn);color:var(--btnfg);border:0;border-radius:11px;padding:8px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}button:hover{background:var(--btnh)}
+button svg{width:14px;height:14px;fill:currentColor}
+.job{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:15px 16px;margin:10px 0;animation:mgIn .3s var(--ease) both;transition:border-color .2s,box-shadow .2s}
+.job.run{border-color:rgba(91,141,255,.45)}
+.job.paused{border-color:rgba(255,183,77,.5)}
+.top{display:flex;gap:10px;align-items:center}
+.nm{flex:1;min-width:0;font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tag{font-size:10px;font-weight:800;letter-spacing:.06em;background:rgba(91,141,255,.16);color:var(--accent);border-radius:7px;padding:2px 8px}
+.pct{font-size:20px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;min-width:56px;text-align:right}
+.ib{width:34px;height:34px;padding:0;justify-content:center;border-radius:50%}
+.ib.pz{background:rgba(91,141,255,.16);color:var(--accent)}.ib.cx{background:rgba(255,83,112,.12);color:var(--err)}
+.paused .ib.pz{background:rgba(255,183,77,.2);color:var(--warn)}
+.bar{height:8px;border-radius:8px;background:var(--panel2);overflow:hidden;margin:12px 0 8px}
+.bar i{display:block;height:100%;width:0;border-radius:8px;background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent));background-size:200% 100%;animation:mgShine 2s linear infinite;transition:width .4s var(--ease)}
+.paused .bar i{animation:none;background:var(--warn)}
+.done .bar i{animation:none;background:var(--ok)}.error .bar i{animation:none;background:var(--err)}
+.mt{display:flex;justify-content:space-between;gap:8px;color:var(--mut);font-size:12.5px}
+.mt span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st{font-weight:700;white-space:nowrap}.done .st{color:var(--ok)}.error .st{color:var(--err)}.run .st{color:var(--accent)}.paused .st{color:var(--warn)}
+.bcard{background:var(--panel);border:1px solid rgba(91,141,255,.45);border-radius:20px;padding:15px 16px;margin:10px 0}
+.bcard h2{font-size:15px;margin:0 0 4px;display:flex;gap:8px;align-items:center}.bcard h2 span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bcard .sub{color:var(--mut);font-size:12.5px;margin:2px 0 6px}
+.bcard .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.beps{max-height:260px;overflow:auto;margin-top:10px;border-top:1px solid var(--line)}
+.bsum{margin:8px 0 2px;display:grid;gap:6px}.bsr{background:var(--panel2);border-radius:12px;padding:8px 10px;font-size:13px}.bsr .act{color:var(--mut);font-size:12px;margin-top:2px}
+.bep{display:flex;gap:8px;align-items:center;padding:6px 2px;border-bottom:1px solid var(--line);font-size:13px}
+.bep .l{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bep .b{font-size:11px;font-weight:700;border-radius:7px;padding:2px 8px;background:var(--panel2);color:var(--mut);white-space:nowrap}
+.bep .b.ok{background:rgba(60,200,140,.16);color:var(--ok)}.bep .b.err{background:rgba(255,83,112,.14);color:var(--err)}.bep .b.run{background:rgba(91,141,255,.16);color:var(--accent)}
+.bask{margin-top:10px;padding:12px;border-radius:14px;background:rgba(255,183,77,.14);border:1px solid rgba(255,183,77,.5)}
+.bask .qb{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.bask label{display:flex;gap:8px;align-items:center;margin-top:8px;font-size:12.5px;color:var(--mut)}
+@media (pointer:coarse){button{min-height:44px}.ib{width:44px;height:44px}a{padding:11px 12px}.bep{padding:10px 2px}}
+@media (max-width:520px){body{padding:18px 12px 50px}h1{font-size:20px}h1 small{display:block;margin:0}header{flex-wrap:wrap}.pct{font-size:17px;min-width:44px}.top{flex-wrap:wrap}.nm{flex-basis:100%;order:-1}.mt{flex-direction:column;gap:2px}.mt span:first-child{white-space:normal}}
+.empty{text-align:center;color:var(--mut);padding:70px 20px;border:1px dashed var(--line);border-radius:22px;margin-top:10px}
+</style></head><body>
+<header><h1>Download queue<small id="cnt"></small></h1><a href="history.html">History</a><button id="clr">Clear finished</button></header>
+<div id="batch"></div>
+<div id="list"></div>
+<script src="shared.js"></script><script src="queue.js"></script></body></html>

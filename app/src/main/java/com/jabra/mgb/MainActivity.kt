@@ -8,6 +8,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.PopupMenu
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
@@ -52,6 +53,15 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             }
         }
         btnTabs.setOnClickListener { tabs.showSwitcher() }
+        findViewById<TextView>(R.id.btn_menu).setOnClickListener { anchor ->
+            val m = PopupMenu(this, anchor)
+            m.menu.add(0, 1, 0, "Check for updates")
+            m.menu.add(0, 2, 1, "MGB ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})").isEnabled = false
+            m.setOnMenuItemClickListener {
+                if (it.itemId == 1) { UpdateManager.check(this, false); true } else false
+            }
+            m.show()
+        }
 
         urlBar.setOnEditorActionListener { _, actionId, event ->
             val go = actionId == EditorInfo.IME_ACTION_GO ||
@@ -83,6 +93,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         onBackPressedDispatcher.addCallback(this, backCb)
 
         if (!tabs.restoreSession()) tabs.newTab(TabManager.HOME)
+        UpdateManager.autoCheck(this)
     }
 
     // ---------- URL bar ----------
