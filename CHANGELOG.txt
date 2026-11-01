@@ -1,3 +1,7 @@
+MGB 0.0.23 (S21)
+- Long press on a link: Open in new tab, Copy link, Share link. Long press on an image: Open image in new tab, Copy image address, Download image.
+- Menu: Find in page (type to highlight, arrows for previous / next) and Share page.
+
 MGB 0.0.22 (S18 + S19 + S20)
 - Bookmarks: Import and Export buttons at the top of the Bookmarks screen. Export saves a standard browser bookmark file (HTML); Import reads such a file from Chrome, Firefox or Edge (or an MGB JSON list) and skips what you already have.
 - Ad blocker (menu): blocks ads, pop-up networks and trackers inside web pages. On by default, ON/OFF in the menu with a count of blocked requests. Reload the page after changing it.

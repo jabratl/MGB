@@ -77,6 +77,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             m.menu.add(0, 11, 9, "Browsing history") // S13
             m.menu.add(0, 12, 9, if (cur?.desktop == true) "Mobile site" else "Desktop site") // S14
                 .isEnabled = cur != null && !cur.home && !cur.isExt
+            m.menu.add(0, 16, 9, "Find in page").isEnabled = canMark // S21
+            m.menu.add(0, 17, 9, "Share page").isEnabled = canMark // S21
             m.menu.add(0, 13, 10, if (AdBlock.enabled) "Ad blocker: ON (${AdBlock.blocked} blocked)" else "Ad blocker: OFF") // S19
             m.menu.add(0, 14, 10, "Theme: ${UiMode.label(this)}") // S20
             m.menu.add(0, 15, 10, if (UiMode.darkPages(this)) "Dark pages: ON" else "Dark pages: OFF") // S20
@@ -101,6 +103,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                         true
                     }
                     14 -> { UiMode.pick(this); true } // S20
+                    16 -> { FindBar.open(this, tabs.active?.web); true } // S21
+                    17 -> { tabs.active?.let { if (it.url.startsWith("http")) tabs.shareText(it.url) }; true } // S21
                     15 -> { // S20
                         val on = !UiMode.darkPages(this)
                         UiMode.setDarkPages(this, on)
@@ -214,6 +218,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     }
 
     override fun onActiveChanged(tab: TabManager.Tab?) {
+        FindBar.close() // S21
         refreshAll(tab)
         floating.poke() // S11
     }
@@ -245,6 +250,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         floating.stop() // S11
         DownloadsScreen.closeAll() // S12
         BookmarksScreen.closeAll() // S13
+        FindBar.close() // S21
         tabs.destroyAll()
         TabsApi.attach(null)
         super.onDestroy()

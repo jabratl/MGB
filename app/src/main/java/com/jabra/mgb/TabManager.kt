@@ -114,6 +114,7 @@ class TabManager(
         val tab = Tab(nextId++, web, openerId)
         web.webViewClient = client(tab)
         web.webChromeClient = chrome(tab)
+        web.setOnLongClickListener(longPress(tab)) // S21
         tabs.add(tab)
         ChromeBridge.bindTab(web, tab.id)
         if (url != null) tab.url = url
@@ -362,6 +363,81 @@ class TabManager(
             ctx.startActivity(i)
         } catch (_: Exception) {
             Util.toast(ctx, "No app to open this link")
+        }
+    }
+
+    // ---------- S21: long press on a link / image, copy, share ----------
+
+    private fun longPress(tab: Tab) = View.OnLongClickListener { v ->
+        val w = v as? WebView ?: return@OnLongClickListener false
+        if (tab.isExt || tab.home) return@OnLongClickListener false
+        val r = w.hitTestResult
+        val type = r.type
+        val extra = r.extra
+        when (type) {
+            WebView.HitTestResult.SRC_ANCHOR_TYPE, WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
+                val h = android.os.Handler(android.os.Looper.getMainLooper(), android.os.Handler.Callback { m ->
+                    val link = m.data?.getString("url") ?: extra
+                    val img = if (type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE) m.data?.getString("src") else null
+                    showLinkMenu(tab, link, img)
+                    true
+                })
+                w.requestFocusNodeHref(h.obtainMessage())
+                true
+            }
+            WebView.HitTestResult.IMAGE_TYPE -> {
+                if (extra != null) showLinkMenu(tab, null, extra)
+                true
+            }
+            else -> false
+        }
+    }
+
+    private fun showLinkMenu(tab: Tab, link: String?, img: String?) {
+        val l = link ?: ""
+        val i = img ?: ""
+        val labels = ArrayList<String>()
+        val acts = ArrayList<() -> Unit>()
+        if (l.startsWith("http")) {
+            labels.add("Open in new tab"); acts.add { newTab(l, tab.id) }
+            labels.add("Copy link"); acts.add { copyText(l) }
+            labels.add("Share link"); acts.add { shareText(l) }
+        }
+        if (i.startsWith("http") || i.startsWith("data:")) {
+            if (i.startsWith("http")) {
+                labels.add("Open image in new tab"); acts.add { newTab(i, tab.id) }
+                labels.add("Copy image address"); acts.add { copyText(i) }
+            }
+            labels.add("Download image"); acts.add { downloadImage(tab, i) }
+        }
+        if (labels.isEmpty()) return
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
+            .setTitle(Util.host(if (l.isNotEmpty()) l else i).ifBlank { "Link" })
+            .setItems(labels.toTypedArray()) { _, which -> acts[which]() }
+            .show()
+    }
+
+    private fun downloadImage(tab: Tab, url: String) {
+        try {
+            val item = DownloadsApi.startPlain(url, tab.web.settings.userAgentString, "", "application/octet-stream", tab.url, tab.web)
+            if (item == null) Util.toast(ctx, "Cannot download this image")
+            else Util.toast(ctx, "Downloading " + item.rel.substringAfterLast('/'))
+        } catch (e: Exception) {
+            Util.toast(ctx, "Download failed to start")
+        }
+    }
+
+    fun copyText(s: String) {
+        (ctx.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+            .setPrimaryClip(android.content.ClipData.newPlainText("MGB", s))
+        Util.toast(ctx, "Copied")
+    }
+
+    fun shareText(s: String) {
+        try {
+            ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, s), null))
+        } catch (e: Exception) {
+            Util.toast(ctx, "Cannot share")
         }
     }
 
