@@ -2,8 +2,10 @@ package com.jabra.mgb
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.net.Uri
 import android.os.Message
 import android.text.TextUtils
@@ -13,6 +15,9 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
+import android.webkit.GeolocationPermissions
+import android.webkit.PermissionRequest
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -22,6 +27,9 @@ import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import org.json.JSONArray
@@ -30,6 +38,9 @@ import org.json.JSONObject
 /**
  * S3: owns all tabs (one WebView each), the tab switcher sheet, popup (window.open) handling
  * and session save/restore. `ctx` must be the Activity.
+ * S13: a "home" tab (Tab.home, url HOME_PAGE) shows the native speed dial (HomeView) over a blank WebView;
+ * visited pages are written to Bookmarks history.
+ * S14: desktop mode per tab, fullscreen video, file chooser / permissions (BrowserExtras), plain link downloads.
  */
 class TabManager(
     private val ctx: Context,
@@ -48,6 +59,10 @@ class TabManager(
         var progress: Int = 100
         /** Restored tabs are loaded lazily, the first time they are selected. */
         var pending: String? = null
+        /** S13: speed dial is shown over this tab until the first navigation. */
+        var home: Boolean = false
+        /** S14: desktop user agent + wide viewport (not saved in the session). */
+        var desktop: Boolean = false
         val loading: Boolean get() = progress < 100
         /** Extension page (downloader.html, player.html ...) served by EngineHost. */
         val isExt: Boolean get() = url.startsWith(ContentInjector.EXT_ORIGIN)
@@ -55,6 +70,8 @@ class TabManager(
 
     companion object {
         const val HOME = "https://www.google.com"
+        /** S13: marker url of a speed-dial tab (never loaded into the WebView). */
+        const val HOME_PAGE = "about:home"
         const val MAX_TABS = 30
         private const val PREFS = "mgb_session"
         private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
@@ -63,6 +80,12 @@ class TabManager(
     }
 
     private val tabs = ArrayList<Tab>()
+    private var homeView: HomeView? = null // S13
+    private var customView: android.view.View? = null // S14: fullscreen video
+    private var customHolder: FrameLayout? = null
+    private var customCb: WebChromeClient.CustomViewCallback? = null
+
+    init { Bookmarks.init(ctx) } // S13
 
     var active: Tab? = null
         private set
@@ -88,21 +111,24 @@ class TabManager(
         tabs.add(tab)
         ChromeBridge.bindTab(web, tab.id)
         if (url != null) tab.url = url
+        if (url == HOME_PAGE) tab.home = true // S13: speed dial, nothing to load
         TabsApi.onCreated(tab) // S6
         if (select) switchTo(tab)
-        if (url != null) web.loadUrl(url)
+        if (url != null && !tab.home) web.loadUrl(url)
         listener.onTabsChanged()
         return tab
     }
 
     fun switchTo(tab: Tab) {
         if (active === tab) return
+        exitFullscreen() // S14
         active?.let { container.removeView(it.web) }
         active = tab
         container.addView(tab.web, FrameLayout.LayoutParams(MATCH, MATCH))
         tab.web.requestFocus()
         TabsApi.onActivated(tab) // S6
         tab.pending?.let { tab.pending = null; tab.web.loadUrl(it) }
+        syncHome() // S13
         listener.onActiveChanged(tab)
     }
 
@@ -110,6 +136,7 @@ class TabManager(
         val idx = tabs.indexOf(tab)
         if (idx < 0) return
         val wasActive = active === tab
+        if (wasActive) exitFullscreen() // S14
         tabs.removeAt(idx)
         TabsApi.onRemoved(tab) // S6
         if (wasActive) {
@@ -123,13 +150,17 @@ class TabManager(
         if (wasActive) {
             val next = tabs.firstOrNull { it.id == tab.openerId }
                 ?: tabs.getOrNull(minOf(idx, tabs.size - 1))
-            if (next != null) switchTo(next) else newTab(HOME)
+            if (next != null) switchTo(next) else newTab(HOME_PAGE) // S13
         }
         listener.onTabsChanged()
     }
 
     fun destroyAll() {
+        exitFullscreen() // S14
         ExtScreen.closeAll() // S10
+        BookmarksScreen.closeAll() // S13
+        homeView?.let { container.removeView(it) }
+        homeView = null
         for (t in tabs) {
             TabsApi.onRemoved(t) // S6
             container.removeView(t.web)
@@ -146,7 +177,7 @@ class TabManager(
         val arr = JSONArray()
         var activeIdx = 0
         for (t in tabs) {
-            val u = t.web.url ?: t.url
+            val u = if (t.home) HOME_PAGE else (t.web.url ?: t.url)
             if (u.isBlank() || u == "about:blank" || u.startsWith(ContentInjector.EXT_ORIGIN)) continue
             if (t === active) activeIdx = arr.length()
             arr.put(u)
@@ -169,7 +200,7 @@ class TabManager(
             val t = newTab(null, 0, false) ?: break
             val u = arr.getString(i)
             t.url = u
-            t.pending = u
+            if (u == HOME_PAGE) t.home = true else t.pending = u // S13
             if (i == act) target = t
         }
         val sel = target ?: tabs.firstOrNull() ?: return false
@@ -198,6 +229,16 @@ class TabManager(
         cm.setAcceptCookie(true)
         cm.setAcceptThirdPartyCookies(w, true)
         ContentInjector.attach(ctx, w) // S5: V77 content scripts + chrome shim (before first load)
+        // S14: plain download links (and blob:/data: links) in a tab go to the native downloader
+        w.setDownloadListener { url, ua, disp, mime, _ ->
+            try {
+                val item = DownloadsApi.startPlain(url, ua, disp, mime, w.url, w)
+                if (item == null) Util.toast(ctx, "Cannot download this link")
+                else Util.toast(ctx, "Downloading " + item.rel.substringAfterLast('/'))
+            } catch (e: Exception) {
+                Util.toast(ctx, "Download failed to start")
+            }
+        }
         return w
     }
 
@@ -229,6 +270,7 @@ class TabManager(
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
             tab.url = url ?: tab.url
             tab.progress = 0
+            if (tab.home) { tab.home = false; syncHome() } // S13
             TabsApi.onUpdated(tab, JSONObject().put("status", "loading").put("url", tab.url)) // S6
             listener.onPageInfo(tab)
         }
@@ -236,6 +278,10 @@ class TabManager(
         override fun onPageFinished(view: WebView?, url: String?) {
             tab.url = url ?: tab.url
             tab.progress = 100
+            if (tab.desktop && !tab.isExt) view?.evaluateJavascript(BrowserExtras.DESKTOP_JS, null) // S14
+            // S13: browsing history (web pages only, not extension pages)
+            if (!tab.isExt && (tab.url.startsWith("http://") || tab.url.startsWith("https://")))
+                Bookmarks.addHistory(view?.title ?: tab.title, tab.url)
             TabsApi.onUpdated(tab, JSONObject().put("status", "complete")) // S6
             listener.onPageInfo(tab)
         }
@@ -273,6 +319,29 @@ class TabManager(
         override fun onCloseWindow(window: WebView?) {
             tabs.firstOrNull { it.web === window }?.let { close(it) }
         }
+
+        // S14: fullscreen video
+        override fun onShowCustomView(view: android.view.View?, callback: CustomViewCallback?) {
+            if (view == null) { callback?.onCustomViewHidden(); return }
+            showFullscreen(view, callback)
+        }
+
+        override fun onHideCustomView() { exitFullscreen() }
+
+        // S14: <input type=file>
+        override fun onShowFileChooser(
+            webView: WebView?, filePathCallback: ValueCallback<Array<Uri>>?, fileChooserParams: FileChooserParams?
+        ): Boolean = BrowserExtras.chooseFile(filePathCallback, fileChooserParams)
+
+        // S14: camera / microphone / location (asks the user first)
+        override fun onPermissionRequest(request: PermissionRequest?) {
+            if (request == null) return
+            BrowserExtras.webPermission(request)
+        }
+
+        override fun onGeolocationPermissionsShowPrompt(origin: String?, callback: GeolocationPermissions.Callback?) {
+            BrowserExtras.geoPermission(origin, callback)
+        }
     }
 
     private fun openExternal(url: String) {
@@ -288,6 +357,95 @@ class TabManager(
         }
     }
 
+    // ---------- S14: desktop mode + fullscreen video ----------
+
+    /** Desktop site on / off for one tab: user agent, wide viewport, reload. Not for extension pages or the speed dial. */
+    fun setDesktop(tab: Tab, on: Boolean) {
+        if (tab.isExt || tab.home) return
+        tab.desktop = on
+        val s = tab.web.settings
+        s.userAgentString = if (on) BrowserExtras.desktopUa(ctx) else null // null = WebView default
+        s.useWideViewPort = true
+        s.loadWithOverviewMode = true
+        val p = tab.pending
+        if (p != null) { tab.pending = null; tab.web.loadUrl(p) } else tab.web.reload()
+    }
+
+    val inFullscreen: Boolean get() = customView != null
+
+    private fun showFullscreen(v: android.view.View, cb: WebChromeClient.CustomViewCallback?) {
+        val act = ctx as? Activity
+        if (customView != null || act == null) { cb?.onCustomViewHidden(); return }
+        val holder = FrameLayout(act)
+        holder.setBackgroundColor(Color.BLACK)
+        holder.addView(v, FrameLayout.LayoutParams(MATCH, MATCH))
+        (act.window.decorView as ViewGroup).addView(holder, FrameLayout.LayoutParams(MATCH, MATCH))
+        customView = v
+        customHolder = holder
+        customCb = cb
+        val c = WindowCompat.getInsetsController(act.window, act.window.decorView)
+        c.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        c.hide(WindowInsetsCompat.Type.systemBars())
+    }
+
+    /** Leave fullscreen video (Back button, tab switch, page asked for it). Does nothing when not fullscreen. */
+    fun exitFullscreen() {
+        val v = customView ?: return
+        val holder = customHolder
+        val cb = customCb
+        customView = null
+        customHolder = null
+        customCb = null
+        if (holder != null) {
+            holder.removeView(v)
+            (holder.parent as? ViewGroup)?.removeView(holder)
+        }
+        (ctx as? Activity)?.let {
+            WindowCompat.getInsetsController(it.window, it.window.decorView).show(WindowInsetsCompat.Type.systemBars())
+        }
+        cb?.onCustomViewHidden()
+    }
+
+    // ---------- S13: speed dial ----------
+
+    /** Show the speed dial over the active tab when it is a home tab, hide it otherwise. */
+    fun syncHome() {
+        var hv = homeView
+        if (hv != null) container.removeView(hv)
+        val a = active
+        if (a == null || !a.home) return
+        if (hv == null) {
+            hv = HomeView(
+                ctx,
+                onOpen = { openUrl(it) },
+                onOpenNew = { newTab(it) },
+                onBookmarks = { (ctx as? android.app.Activity)?.let { BookmarksScreen.open(it, BookmarksScreen.Mode.BOOKMARKS, this) } },
+                onHistory = { (ctx as? android.app.Activity)?.let { BookmarksScreen.open(it, BookmarksScreen.Mode.HISTORY, this) } }
+            )
+            homeView = hv
+        }
+        container.addView(hv, FrameLayout.LayoutParams(MATCH, MATCH))
+        hv.refresh()
+    }
+
+    /** The tab is about to navigate: drop the speed dial now (not when the page starts). */
+    fun leaveHome(t: Tab) {
+        if (!t.home) return
+        t.home = false
+        if (t === active) syncHome()
+    }
+
+    /** Load url in the active tab (an extension page tab gets a new tab instead). */
+    fun openUrl(url: String) {
+        val t = active
+        if (t == null || t.isExt) { newTab(url); return }
+        t.pending = null
+        t.url = url
+        leaveHome(t)
+        t.web.loadUrl(url)
+        listener.onPageInfo(t)
+    }
+
     // ---------- tab switcher ----------
 
     fun showSwitcher() {
@@ -296,7 +454,7 @@ class TabManager(
         val list = v.findViewById<LinearLayout>(R.id.tabs_list)
         val title = v.findViewById<TextView>(R.id.tabs_title)
         v.findViewById<View>(R.id.tabs_new).setOnClickListener {
-            newTab(HOME)
+            newTab(HOME_PAGE) // S13
             dlg.dismiss()
         }
         fun render() {
@@ -312,7 +470,7 @@ class TabManager(
     }
 
     private fun titleOf(t: Tab): String =
-        t.title.ifBlank { Util.host(t.url) }.ifBlank { "New tab" }
+        if (t.home) "Home" else t.title.ifBlank { Util.host(t.url) }.ifBlank { "New tab" }
 
     private fun row(t: Tab, dlg: BottomSheetDialog, onChanged: () -> Unit): View {
         val row = LinearLayout(ctx).apply {
@@ -340,7 +498,7 @@ class TabManager(
             ellipsize = TextUtils.TruncateAt.END
         })
         col.addView(TextView(ctx).apply {
-            text = Util.host(t.url)
+            text = if (t.home) "Speed dial" else Util.host(t.url) // S13
             setTextColor(ctx.getColor(R.color.mg_text_dim))
             textSize = 12f
             maxLines = 1

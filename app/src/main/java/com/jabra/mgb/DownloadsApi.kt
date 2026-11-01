@@ -221,6 +221,45 @@ object DownloadsApi {
         if (d.length() > 0) emit("downloads.onChanged", d)
     }
 
+    private fun newItem(url: String): DlItem = synchronized(items) {
+        val n = DlItem(nextId++, url)
+        items[n.id] = n
+        if (items.size > MAX_ITEMS) {   // forget the oldest finished ones
+            val drop = items.values.filter { it.state != "in_progress" }.take(items.size - MAX_ITEMS)
+            for (d in drop) { items.remove(d.id); Downloader.partFile(d.id).delete() }
+        }
+        n
+    }
+
+    /**
+     * S14: a plain link / file download started by a browser tab (WebView DownloadListener). Main thread.
+     * Saved as Downloads/<name>; Referer, User-Agent and Cookie of the page are sent. src = the page WebView (needed for blob: urls).
+     * Returns null when the url scheme is not supported.
+     */
+    fun startPlain(url: String, userAgent: String?, disposition: String?, mime: String?, referer: String?, src: WebView?): DlItem? {
+        if (!listOf("http://", "https://", "data:", "blob:").any { url.startsWith(it, true) }) return null
+        val item = newItem(url)
+        item.rel = cleanRel(android.webkit.URLUtil.guessFileName(url, disposition, mime))
+        if (!mime.isNullOrBlank()) item.mime = mime
+        val http = url.startsWith("http", true)
+        val h = JSONArray()
+        if (http) {
+            if (!referer.isNullOrBlank() && referer.startsWith("http", true))
+                h.put(JSONObject().put("name", "Referer").put("value", referer))
+            if (!userAgent.isNullOrBlank()) h.put(JSONObject().put("name", "User-Agent").put("value", userAgent))
+            val ck = try { android.webkit.CookieManager.getInstance().getCookie(url) } catch (e: Exception) { null }
+            if (!ck.isNullOrBlank()) h.put(JSONObject().put("name", "Cookie").put("value", ck))
+        }
+        item.headers = h
+        item.canResume = http
+        if (url.startsWith("blob:", true) && src != null) item.src = WeakReference(src)
+        save()
+        emit("downloads.onCreated", toJson(item, false))
+        askPerms()
+        Downloader.start(item)
+        return item
+    }
+
     fun active(): List<DlItem> = synchronized(items) { items.values.filter { it.state == "in_progress" && !it.paused } }
 
     // ---------- notifications ----------
@@ -358,15 +397,7 @@ object DownloadsApi {
             val url = o.optString("url")
             val ok = listOf("http://", "https://", "data:", "blob:").any { url.startsWith(it, true) }
             if (!ok) { c.fail("Invalid URL"); return@handle }
-            val item = synchronized(items) {
-                val n = DlItem(nextId++, url)
-                items[n.id] = n
-                if (items.size > MAX_ITEMS) {   // forget the oldest finished ones
-                    val drop = items.values.filter { it.state != "in_progress" }.take(items.size - MAX_ITEMS)
-                    for (d in drop) { items.remove(d.id); Downloader.partFile(d.id).delete() }
-                }
-                n
-            }
+            val item = newItem(url)
             item.rel = cleanRel(o.optString("filename"))
             item.conflict = o.optString("conflictAction", "uniquify")
             item.method = o.optString("method", "GET").uppercase()

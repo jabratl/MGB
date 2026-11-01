@@ -1,4 +1,4 @@
-MGB HANDOFF for a new chat - after S14 (pair G done), app version 0.0.16 (crash-log FIX on top of S14)
+MGB HANDOFF for a new chat - after S14 (pair G done), app version 0.0.17 (S13+S14+CrashLog, all files in one zip)
 (Paste this whole text as the first message of the new chat, then attach the files listed at the bottom.)
 
 PROJECT: MGB = Media Grabber Browser. Android app, WebView browser + a chrome.* shim that runs my Chrome extension "media-grabber V77" (v2.79.2, MV3) unchanged. Package com.jabra.mgb. kt/ = app/src/main/java/com/jabra/mgb/. Built by GitHub Actions to an APK Release.

@@ -152,6 +152,12 @@ object ExtScreen {
                 }
 
                 override fun onCloseWindow(window: WebView?) { dismiss() } // window.close() in a page
+
+                // S14: file inputs inside extension windows (Dialog cannot get activity results: MainActivity owns the launcher)
+                override fun onShowFileChooser(
+                    webView: WebView?, filePathCallback: android.webkit.ValueCallback<Array<android.net.Uri>>?,
+                    fileChooserParams: FileChooserParams?
+                ): Boolean = BrowserExtras.chooseFile(filePathCallback, fileChooserParams)
             }
             w.webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
