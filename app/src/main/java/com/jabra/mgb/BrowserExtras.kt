@@ -254,17 +254,22 @@ object BrowserExtras {
 
     private fun ask(a: ComponentActivity, origin: String, what: String, answer: (Boolean) -> Unit) {
         val key = "$origin|$what"
+        val host = Util.host(origin)
+        SitePerms.get(a, host, what)?.let { answer(it); return } // S45: remembered for this site
         decided[key]?.let { answer(it); return }
         if (a.isFinishing || a.isDestroyed) { answer(false); return }
         var done = false
+        var remember = true
         fun finish(ok: Boolean) {
             if (done) return
             done = true
             decided[key] = ok
+            if (remember) SitePerms.set(a, host, what, ok) // S45
             answer(ok)
         }
         MaterialAlertDialogBuilder(a)
-            .setMessage("Allow ${Util.host(origin)} to use your $what?")
+            .setTitle("Allow $host to use your $what?")
+            .setMultiChoiceItems(arrayOf("Remember for this site"), booleanArrayOf(true)) { _, _, on -> remember = on }
             .setPositiveButton("Allow") { _, _ -> finish(true) }
             .setNegativeButton("Block") { _, _ -> finish(false) }
             .setOnCancelListener { done = true; answer(false) } // dismissed: refuse this time, ask again next time

@@ -954,6 +954,15 @@ object TabSwitcher {
             val seed = if (t.home) "thazir" else host
             val hue = (abs(seed.hashCode()) % 360).toFloat()
             val letter = if (t.home) "T" else (host.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "?")
+            val fav = if (t.home || t.priv) null else Favicons.get(host) // S45
+            if (fav != null) return ImageView(act).apply {
+                setImageBitmap(fav)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                val pd = dp(sizeDp) / 6
+                setPadding(pd, pd, pd, pd)
+                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.argb(235, 255, 255, 255)) }
+                layoutParams = ViewGroup.LayoutParams(dp(sizeDp), dp(sizeDp))
+            }
             return TextView(act).apply {
                 text = letter
                 gravity = Gravity.CENTER

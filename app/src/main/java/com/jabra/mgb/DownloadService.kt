@@ -463,7 +463,7 @@ class DownloadService : Service() {
 
     private val tick = object : Runnable {
         override fun run() {
-            if (DownloadsApi.active().isEmpty()) {
+            if (DownloadsApi.active().isEmpty() && DownloadsApi.pausedList().isEmpty()) {
                 if (++idle >= 2) {
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
@@ -480,6 +480,17 @@ class DownloadService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // S45: notification buttons
+        when (intent?.action) {
+            ACT_PAUSE -> DownloadsApi.pauseAll()
+            ACT_RESUME -> DownloadsApi.resumeAll()
+            ACT_CANCEL -> DownloadsApi.cancelAll()
+        }
+        if (intent?.action != null && DownloadsApi.active().isEmpty() && DownloadsApi.pausedList().isEmpty()) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         try {
             val type = if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else 0
             ServiceCompat.startForeground(this, NOTE_ID, DownloadsApi.progressNote(), type)
@@ -500,6 +511,9 @@ class DownloadService : Service() {
 
     companion object {
         private const val NOTE_ID = 7001
+        const val ACT_PAUSE = "com.jabra.mgb.DL_PAUSE"
+        const val ACT_RESUME = "com.jabra.mgb.DL_RESUME"
+        const val ACT_CANCEL = "com.jabra.mgb.DL_CANCEL"
 
         /** Start the foreground service. Android may refuse it when the app is in the background; downloads still run then. */
         fun ensure(ctx: Context) {

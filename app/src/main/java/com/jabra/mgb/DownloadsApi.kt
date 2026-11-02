@@ -262,6 +262,27 @@ object DownloadsApi {
 
     fun active(): List<DlItem> = synchronized(items) { items.values.filter { it.state == "in_progress" && !it.paused } }
 
+    /** S45: downloads the user paused (still resumable, notification stays). */
+    fun pausedList(): List<DlItem> = synchronized(items) { items.values.filter { it.state == "in_progress" && it.paused } }
+
+    /** S45: notification buttons. Run on the main thread. */
+    fun pauseAll() {
+        for (i in active()) { change(i) { paused = true }; Downloader.abort(i) }
+    }
+
+    fun resumeAll() {
+        for (i in pausedList()) { change(i) { paused = false }; Downloader.start(i) }
+    }
+
+    fun cancelAll() {
+        val all = synchronized(items) { items.values.filter { it.state == "in_progress" } }
+        for (i in all) {
+            change(i) { state = "interrupted"; error = "USER_CANCELED"; paused = false; canResume = false; end = System.currentTimeMillis() }
+            Downloader.abort(i)
+            Downloader.partFile(i.id).delete()
+        }
+    }
+
     // ---------- notifications ----------
 
     @SuppressLint("MissingPermission")
@@ -290,20 +311,36 @@ object DownloadsApi {
     /** Notification shown while the foreground service runs. */
     fun progressNote(): android.app.Notification {
         val act = active()
+        val pz = pausedList()
+        val allPaused = act.isEmpty() && pz.isNotEmpty()
+        val shown = if (allPaused) pz else act
         var got = 0L; var tot = 0L; var known = true
-        for (i in act) { got += i.received; if (i.total > 0) tot += i.total else known = false }
+        for (i in shown) { got += i.received; if (i.total > 0) tot += i.total else known = false }
         val b = NotificationCompat.Builder(app, CH_RUN)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setSmallIcon(if (allPaused) android.R.drawable.ic_media_pause else android.R.drawable.stat_sys_download)
             .setOngoing(true).setOnlyAlertOnce(true)
-            .setContentTitle(if (act.size <= 1) "Downloading" else "Downloading ${act.size} files")
-        if (act.size == 1) b.setContentText(displayPath(act[0]).substringAfterLast('/'))
-        if (known && tot > 0 && act.isNotEmpty()) b.setProgress(100, (got * 100 / tot).toInt().coerceIn(0, 100), false)
-        else b.setProgress(0, 0, true)
+            .setContentTitle(
+                if (allPaused) (if (pz.size <= 1) "Download paused" else "${pz.size} downloads paused")
+                else if (act.size <= 1) "Downloading" else "Downloading ${act.size} files"
+            )
+        if (shown.size == 1) b.setContentText(displayPath(shown[0]).substringAfterLast('/'))
+        if (known && tot > 0 && shown.isNotEmpty()) b.setProgress(100, (got * 100 / tot).toInt().coerceIn(0, 100), false)
+        else if (!allPaused) b.setProgress(0, 0, true)
+        // S45: Pause / Resume and Cancel buttons (handled in DownloadService.onStartCommand)
+        if (allPaused) b.addAction(android.R.drawable.ic_media_play, "Resume", svcIntent(DownloadService.ACT_RESUME, 1))
+        else if (act.isNotEmpty()) b.addAction(android.R.drawable.ic_media_pause, "Pause", svcIntent(DownloadService.ACT_PAUSE, 2))
+        if (shown.isNotEmpty()) b.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", svcIntent(DownloadService.ACT_CANCEL, 3))
         app.packageManager.getLaunchIntentForPackage(app.packageName)?.let {
             b.setContentIntent(PendingIntent.getActivity(app, 0, it, PendingIntent.FLAG_IMMUTABLE))
         }
         return b.build()
     }
+
+    private fun svcIntent(action: String, code: Int): PendingIntent =
+        PendingIntent.getService(
+            app, code, Intent(app, DownloadService::class.java).setAction(action),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
 
     // ---------- opening files ----------
 

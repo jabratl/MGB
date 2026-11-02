@@ -89,6 +89,8 @@ import kotlin.math.abs
 class PlayerActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "MGB.player"
+        /** S45: the open player (PlayerService buttons call bgToggle / bgClose on it). */
+        @Volatile var live: PlayerActivity? = null
         const val EXTRA_TITLE = "title"
         const val EXTRA_REF = "ref"
         const val EXTRA_UA = "ua"
@@ -203,6 +205,7 @@ class PlayerActivity : AppCompatActivity() {
         hideBars()
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER // the player may rotate with the phone; the rotate button decides after that
 
+        live = this // S45
         installBackHandler()
         buildUi()
         startPlayer()
@@ -232,13 +235,37 @@ class PlayerActivity : AppCompatActivity() {
         hideBars()
     }
 
+    // S45: background audio: keep playing when the screen turns off / the user leaves (not after PiP, not when finishing)
+    private var pipWas = false
+
+    override fun onStart() {
+        super.onStart()
+        pipWas = false
+    }
+
     override fun onStop() {
         super.onStop()
-        player?.pause()
+        val keep = PlayerService.on(this) && player?.isPlaying == true && !pipWas && !isFinishing
+        if (!keep) player?.pause()
         saveResume()
     }
 
+    private var bgStarted = false
+
+    private fun bgNote(playing: Boolean) {
+        if (!PlayerService.on(this)) return
+        if (!playing && !bgStarted) return // never started: nothing to update
+        bgStarted = true
+        PlayerService.update(this, title, playing)
+    }
+
+    fun bgToggle() { runOnUiThread { togglePlay() } }
+
+    fun bgClose() { runOnUiThread { player?.pause(); finish() } }
+
     override fun onDestroy() {
+        if (live === this) live = null // S45
+        PlayerService.stop(this)
         try { unregisterReceiver(pipReceiver) } catch (_: Exception) { } // S42
         main.removeCallbacksAndMessages(null)
         saveResume()
@@ -269,7 +296,7 @@ class PlayerActivity : AppCompatActivity() {
         player = p
         playerView.player = p
         p.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) { refreshPlayIcon(); updatePipActions() }
+            override fun onIsPlayingChanged(isPlaying: Boolean) { refreshPlayIcon(); updatePipActions(); bgNote(isPlaying) }
 
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_ENDED) {
@@ -712,7 +739,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-        if (isInPictureInPictureMode) { controls.visibility = View.GONE; resumeBar.visibility = View.GONE } else showControls(true)
+        if (isInPictureInPictureMode) { pipWas = true; controls.visibility = View.GONE; resumeBar.visibility = View.GONE } else showControls(true)
     }
 
     // ---------- S38: dark bottom sheets (replace the grey platform dialogs) ----------
@@ -889,6 +916,12 @@ class PlayerActivity : AppCompatActivity() {
         })
         val left = if (sleepAt > 0) ((sleepAt - System.currentTimeMillis()) / 60000 + 1).coerceAtLeast(1) else 0L
         rows.add(SheetRow("Sleep timer", if (left > 0) "Pauses in $left min" else "Off", left > 0) { showSleepDialog() })
+        val bg = PlayerService.on(this)
+        rows.add(SheetRow("Background audio", if (bg) "On" else "Off", bg) { // S45
+            PlayerService.setOn(this, !bg)
+            if (bg) PlayerService.stop(this) else if (player?.isPlaying == true) bgNote(true)
+            flash(if (bg) "Background audio off" else "Background audio on")
+        })
         rows.add(SheetRow("Picture in picture", null, false) { enterPip() })
         rows.add(SheetRow("Video info", null, false) { showInfo() })
         rows.add(SheetRow("Open in another app", null, false) { openExternal() })

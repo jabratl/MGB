@@ -281,8 +281,10 @@ class TabManager(
         cm.setAcceptCookie(true)
         cm.setAcceptThirdPartyCookies(w, true)
         w.setOnScrollChangeListener { _, _, y, _, oy -> onScroll?.invoke(y - oy) } // S33: hide bar on scroll
+        PullRefresh.attach(w, container) { w.reload() } // S45: pull down at the top = reload
         ContentInjector.attach(ctx, w) // S5: V77 content scripts + chrome shim (before first load)
         if (!priv) w.addJavascriptInterface(PasswordStore.Bridge(this), "MGBPW") // S30: save-login hook (before first load)
+        if (!priv) w.addJavascriptInterface(WebVideo.Bridge(this), "MGBVID") // S45: in-page video button
         // S14: plain download links (and blob:/data: links) in a tab go to the native downloader
         w.setDownloadListener { url, ua, disp, mime, _ ->
             try {
@@ -366,6 +368,7 @@ class TabManager(
             tab.progress = 100
             if (tab.desktop && !tab.isExt) view?.evaluateJavascript(BrowserExtras.DESKTOP_JS, null) // S14
             if (!tab.isExt && !tab.priv && tab.url.startsWith("http")) view?.evaluateJavascript(PasswordStore.HOOK_JS, null) // S30
+            if (!tab.isExt && !tab.priv && tab.url.startsWith("http") && WebVideo.on(ctx)) view?.evaluateJavascript(WebVideo.JS, null) // S45
             if (!tab.isExt) CosmeticFilter.inject(ctx, view, tab.url) // S42
             // S13: browsing history (web pages only, not extension pages)
             if (!tab.isExt && !tab.priv && (tab.url.startsWith("http://") || tab.url.startsWith("https://")))
@@ -385,6 +388,13 @@ class TabManager(
             tab.progress = newProgress
             if (!tab.isExt && newProgress in 35..99) CosmeticFilter.inject(ctx, view, tab.url) // S42: early, so the banner does not flash
             listener.onPageInfo(tab)
+        }
+
+        // S45: real favicon per host (not for private tabs / extension pages)
+        override fun onReceivedIcon(view: WebView?, icon: android.graphics.Bitmap?) {
+            if (icon == null || tab.isExt || tab.priv) return
+            val u = view?.url ?: tab.url
+            if (u.startsWith("http", true)) Favicons.save(Util.host(u), icon)
         }
 
         override fun onReceivedTitle(view: WebView?, title: String?) {
@@ -643,6 +653,8 @@ class TabManager(
 
     /** S33: vertical scroll of any tab WebView (positive = page moves up, finger swipes up). */
     var onScroll: ((Int) -> Unit)? = null
+    /** S45: tap on the in-page video button (address of the video or "" / blob:, page title). Set by MainActivity. */
+    var onWebVideo: ((String, String) -> Unit)? = null
 
     fun showSwitcher() {
         (ctx as? android.app.Activity)?.let { TabSwitcher.show(it, this); return } // S31: Thazir switcher; old sheet below is the fallback

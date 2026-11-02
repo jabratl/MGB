@@ -184,7 +184,7 @@ class FloatingDl(
 
     // ---------- quality sheet ----------
 
-    private fun openSheet() {
+    fun openSheet() {
         val t = tabs.active ?: return
         val id = t.id
         EngineApi.ask(JSONObject().put("type", "get-state").put("tabId", id)) { r ->

@@ -39,6 +39,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     override fun onCreate(savedInstanceState: Bundle?) {
         UiMode.apply(this) // S20: saved theme (System / Light / Dark), before the Activity is created
         AdBlock.init(this) // S19
+        Favicons.init(this) // S45
         SiteConfig.init(this) // S29
         ClosedTabs.init(this) // S29
         super.onCreate(savedInstanceState)
@@ -62,6 +63,12 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             urlBar.requestFocus()
             urlBar.selectAll()
             (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(urlBar, 0)
+        }
+        tabs.onWebVideo = { src, title -> // S45: in-page video button
+            val t = tabs.active
+            if (t != null && (src.startsWith("http://", true) || src.startsWith("https://", true)))
+                WebPlay.play(this, src, title.ifBlank { null }, t.url, t.web.settings.userAgentString)
+            else floating.openSheet()
         }
         val barView = findViewById<View>(R.id.bottom_bar) // S33: hide the bottom bar while scrolling down (Settings > General)
         var acc = 0
@@ -114,6 +121,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         if (!tabs.restoreSession()) tabs.newTab(TabManager.HOME_PAGE) // S13
         UpdateManager.autoCheck(this)
         CrashLog.showLast(this) // FIX
+        AppLock.onCreate(this) // S45: lock screen at cold start (if ON)
         window.decorView.post { PlayerScreen.reopenPending(this) } // S35: player comes back if the Activity was recreated
         window.decorView.postDelayed({ Backup.auto(this) }, 10000) // S42: daily auto backup (if ON)
     }
@@ -266,6 +274,16 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     // ---------- lifecycle ----------
 
+    override fun onStart() {
+        super.onStart()
+        AppLock.onStart(this) // S45: lock again after the chosen delay
+    }
+
+    override fun onStop() {
+        AppLock.onStop(this) // S45
+        super.onStop()
+    }
+
     override fun onResume() {
         super.onResume()
         backCb.isEnabled = true
@@ -281,6 +299,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     }
 
     override fun onDestroy() {
+        AppLock.onDestroy() // S45
         PlayerScreen.onHostDestroy(this) // S35
         floating.stop() // S11
         DownloadsScreen.closeAll() // S12

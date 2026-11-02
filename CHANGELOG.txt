@@ -1,3 +1,14 @@
+MGB 0.0.48 (S45: favicons, pull to refresh, video button, background audio, app lock, site permissions, password suggest, download buttons)
+- Favicons: real site icons on the home tiles, the "Jump back in" chips and the tab switcher (saved per site, never from private tabs).
+- Pull to refresh: pull down at the top of a page = reload (Settings > General > Pull down to refresh, default ON).
+- In-page video button: a small "Thazir" pill on the biggest video of a page; tap = built-in player. Blob / MSE video opens the grabber sheet instead (Settings > Downloads > Video button on pages).
+- Background audio: the player keeps playing when the screen turns off or you leave the app, with a notification (Pause / Close). Not after PiP. Settings > Downloads, or Player > More.
+- App lock: Settings > Privacy > App lock (fingerprint / face / screen lock) + Lock after (Immediately / 1 min / 5 min). While ON the recent-apps picture is blank and screenshots are blocked.
+- Site permissions: camera / microphone / location question now has "Remember for this site". Settings > Privacy > Site permissions lists, changes, resets them.
+- Password suggest: on a sign-up password box a bar offers "Suggest a strong password?" (Use fills new password + confirm; the normal Save prompt follows on submit).
+- Download notification: Pause / Resume and Cancel buttons (all running downloads). Paused downloads keep the notification.
+- New library: none. Extra manifest: service PlayerService + FOREGROUND_SERVICE_MEDIA_PLAYBACK.
+
 MGB 0.0.47 (S44: drag a tab into a group)
 - Tab switcher: long press a tab and the card lifts. Drag it onto a group card = it moves into that group; drag it onto another tab = a new group (name + colour dialog) with both. The target gets a rose ring, the card flies in and shrinks. Let go on empty space = it springs back; let go without moving = the tab menu. The grid scrolls by itself near the top / bottom edge while dragging.
 - Drag works on the Tabs pill (no search, no select mode). Everywhere else long press still opens the menu.

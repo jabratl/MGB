@@ -199,6 +199,10 @@ object SettingsScreen {
                     act.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE).edit().putBoolean("hide_bar", !hideBar()).apply()
                     fill()
                 },
+                Row(R.drawable.ic_reload, "Pull down to refresh", if (PullRefresh.enabled(act)) "ON" else "OFF") { // S45
+                    PullRefresh.setEnabled(act, !PullRefresh.enabled(act))
+                    fill()
+                },
                 Row(R.drawable.ic_screen, "Rotate browser with phone", if (Orient.rotateBrowser(act)) "ON" else "OFF") { // S35
                     Orient.setRotateBrowser(act, !Orient.rotateBrowser(act))
                     Orient.apply(act)
@@ -224,6 +228,15 @@ object SettingsScreen {
                 Row(R.drawable.ic_settings, "Grabber settings") { ext("options.html") },
                 Row(R.drawable.ic_play, "Play video links in built-in player", if (WebPlay.linksEnabled(act)) "ON" else "OFF") { // S39
                     WebPlay.setLinksEnabled(act, !WebPlay.linksEnabled(act))
+                    fill()
+                },
+                Row(R.drawable.ic_play, "Video button on pages", if (WebVideo.on(act)) "ON" else "OFF") { // S45
+                    WebVideo.setOn(act, !WebVideo.on(act))
+                    Util.toast(act, "Reload the page")
+                    fill()
+                },
+                Row(R.drawable.ic_play, "Background audio in player", if (PlayerService.on(act)) "ON" else "OFF") { // S45
+                    PlayerService.setOn(act, !PlayerService.on(act))
                     fill()
                 },
                 Row(R.drawable.ic_download, "Extra native download button", if (nativeBtn()) "ON" else "OFF") {
@@ -253,6 +266,13 @@ object SettingsScreen {
                 Row(R.drawable.ic_list, "My email aliases") { EmailAlias.manage(act) }
             ))
             section("Privacy and security", listOf(
+                Row(R.drawable.ic_lock, "App lock", if (AppLock.on(act)) "ON · ${AppLock.delayLabel(act)}" else "OFF") { // S45
+                    fa?.let { AppLock.toggle(it) { fill() } }
+                },
+                Row(R.drawable.ic_lock, "Lock after", AppLock.delayLabel(act)) { AppLock.pickDelay(act) { fill() } }, // S45
+                Row(R.drawable.ic_shield, "Site permissions", "${SitePerms.count(act)} saved") { // S45
+                    fa?.let { SitePerms.screen(it) { fill() } }
+                },
                 Row(R.drawable.ic_shield, "Ad blocker", if (AdBlock.enabled) "ON · ${AdBlock.blocked} blocked" else "OFF") {
                     Util.toast(act, if (AdBlock.toggle()) "Ad blocker ON (reload the page)" else "Ad blocker OFF (reload the page)")
                     fill()

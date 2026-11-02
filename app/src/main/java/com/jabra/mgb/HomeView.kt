@@ -271,7 +271,17 @@ class HomeView(
             isFocusable = true
             setOnClickListener { onOpen(url) }
             setOnLongClickListener { onOpenNew(url); true }
-            addView(TextView(context).apply {
+            val favC = Favicons.get(Util.host(url)) // S45
+            if (favC != null) addView(ImageView(context).apply {
+                setImageBitmap(favC)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                setPadding(dp(5), dp(5), dp(5), dp(5))
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(ColorUtils.blendARGB(context.getColor(R.color.mg_surface_variant), t, 0.30f))
+                }
+            }, LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginEnd = dp(10) })
+            else addView(TextView(context).apply {
                 text = letter
                 gravity = Gravity.CENTER
                 textSize = 12f
@@ -341,6 +351,23 @@ class HomeView(
 
     private fun letterBox(letter: String, seed: String): View {
         val t = tint(seed) // S34: soft per-site colour
+        val fav = Favicons.get(seed) // S45: real site icon when we have one
+        if (fav != null) {
+            return ImageView(context).apply {
+                setImageBitmap(fav)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                setPadding(dp(14), dp(14), dp(14), dp(14))
+                val surf = context.getColor(R.color.mg_surface)
+                background = GradientDrawable(
+                    GradientDrawable.Orientation.TL_BR,
+                    intArrayOf(ColorUtils.blendARGB(surf, t, 0.26f), ColorUtils.blendARGB(surf, t, 0.07f))
+                ).apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = dp(20).toFloat()
+                    setStroke(dp(1), ColorUtils.blendARGB(context.getColor(R.color.mg_outline), t, 0.30f))
+                }
+            }
+        }
         return TextView(context).apply {
             text = letter
             gravity = Gravity.CENTER

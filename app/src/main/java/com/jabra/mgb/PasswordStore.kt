@@ -111,8 +111,19 @@ if(!b)return;
 grab(b.form||b.closest('form')||document);
 },true);
 if(document.querySelector('input[type=password]')){try{MGBPW.onField();}catch(e){}}
+function isNew(p){
+var ac=(p.getAttribute('autocomplete')||'').toLowerCase();
+if(ac==='new-password')return true;
+if(ac==='current-password')return false;
+var f=p.form||document,n=0,l=f.querySelectorAll('input[type=password]');
+for(var i=0;i<l.length;i++){if(l[i].offsetParent!==null)n++;}
+if(n>=2)return true;
+var s=((p.name||'')+' '+(p.id||'')+' '+(location.pathname||'')+' '+(f.id||'')+' '+(f.className||'')+' '+String(f.action||'')).toLowerCase();
+return /sign.?up|regist|create.?account|join|new.?pass/.test(s);
+}
 document.addEventListener('focusin',function(e){var t=e.target;
 if(t&&t.tagName==='INPUT'&&/^(text|email|tel|password)$/i.test(t.type||'text')&&document.querySelector('input[type=password]')){try{MGBPW.onFocus();}catch(x){}}
+if(t&&t.tagName==='INPUT'&&(t.type||'').toLowerCase()==='password'&&isNew(t)){try{MGBPW.onNewPw();}catch(x){}}
 },true);
 })();"""
 
@@ -133,6 +144,15 @@ set(pw,p);
 return 'ok';
 }"""
 
+    /** S45: put a generated password into every visible password box (new password + confirm). */
+    private const val SUGGEST_JS = """function(p){
+function set(el,v){var s=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;s.call(el,v);
+el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}
+var all=document.querySelectorAll('input[type=password]'),n=0;
+for(var i=0;i<all.length;i++){if(all[i].offsetParent!==null){set(all[i],p);n++;}}
+return 'n'+n;
+}"""
+
     /** Object exposed to normal tab pages as window.MGBPW (added in TabManager.createWebView, not for private tabs). */
     class Bridge(private val tm: TabManager) {
         @JavascriptInterface
@@ -150,6 +170,40 @@ return 'ok';
 
         @JavascriptInterface
         fun onFocus() { hint(tm) }
+
+        @JavascriptInterface
+        fun onNewPw() { suggest(tm) } // S45: sign-up form
+    }
+
+    private var lastSuggest = ""
+
+    /** S45: on a sign-up password box: bar "Suggest strong password" with Use (fills new password + confirm; the normal save prompt follows on submit). */
+    private fun suggest(tm: TabManager) {
+        main.post {
+            val t = tm.active ?: return@post
+            if (t.priv || t.isExt || !t.url.startsWith("http")) return@post
+            val act = tm.host() as? FragmentActivity ?: return@post
+            val host = Util.host(t.url)
+            if (never(act, host)) return@post
+            val key = t.id.toString() + "|" + t.url
+            if (lastSuggest == key) return@post
+            lastSuggest = key
+            try {
+                val sb = Snackbar.make(act.findViewById<View>(android.R.id.content), "Suggest a strong password?", 10000)
+                act.findViewById<View>(R.id.bottom_bar)?.let { sb.setAnchorView(it) }
+                sb.setAction("Use") {
+                    val pw = generate(16)
+                    val js = "(" + SUGGEST_JS + ")(" + JSONObject.quote(pw) + ")"
+                    t.web.evaluateJavascript(js) { r ->
+                        if (r != null && r.contains("n0")) Util.toast(act, "No visible password box")
+                        else Util.toast(act, "Strong password filled. You will be asked to save it.")
+                    }
+                }
+                sb.show()
+            } catch (e: Exception) {
+                Log.e(TAG, "suggest failed", e)
+            }
+        }
     }
 
     /** S40: a saved login for this site: a small bar above the address bar with a Fill button (once per page). */
