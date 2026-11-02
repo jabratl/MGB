@@ -21,6 +21,11 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.EditText
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import androidx.core.graphics.ColorUtils
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.materialswitch.MaterialSwitch
@@ -30,6 +35,8 @@ import com.google.android.material.materialswitch.MaterialSwitch
  * as "Grabber settings".
  * S46: categories are collapsed cards (accordion, one open at a time). Inside a category the rows are
  * grouped by small sub labels, ON/OFF rows use a switch. Open category is kept while a toggle rebuilds.
+ * S48: search box under the title (filters rows by label, matching categories open); a category with more
+ * than SUB_FOLD rows gets collapsible sub groups.
  */
 object SettingsScreen {
     private const val TAG = "MGB.settings"
@@ -62,6 +69,8 @@ object SettingsScreen {
         private var body: LinearLayout? = null
         private var sv: ScrollView? = null
         private var openCat: String? = null // S46
+        private var query = "" // S48 search text
+        private val SUB_FOLD = 10 // S48: rows per category before sub groups fold
         private val cats = LinkedHashMap<String, Pair<View, View>>() // key -> (content, chevron)
 
         private fun dp(v: Int) = Util.dp(act, v)
@@ -75,6 +84,7 @@ object SettingsScreen {
             build()
             window?.let {
                 it.setLayout(MATCH, MATCH)
+                it.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
                 it.setBackgroundDrawable(ColorDrawable(act.getColor(R.color.mg_bg)))
             }
         }
@@ -110,6 +120,57 @@ object SettingsScreen {
             }, LinearLayout.LayoutParams(0, WRAP, 1f))
             head.addView(View(act), LinearLayout.LayoutParams(dp(44), dp(48)))
             root.addView(head, LinearLayout.LayoutParams(MATCH, dp(56)))
+
+            // S48: search box (outside the ScrollView so it survives fill())
+            val sbox = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                background = round(act.getColor(R.color.mg_surface), 24)
+                setPadding(dp(14), 0, dp(6), 0)
+            }
+            sbox.addView(ImageView(act).apply {
+                setImageResource(R.drawable.ic_search)
+                setColorFilter(act.getColor(R.color.mg_text_dim))
+            }, LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(10) })
+            val clear = ImageView(act).apply {
+                setImageResource(R.drawable.ic_close)
+                setColorFilter(act.getColor(R.color.mg_text_dim))
+                setPadding(dp(10), dp(10), dp(10), dp(10))
+                contentDescription = "Clear search"
+                visibility = View.GONE
+            }
+            val edit = EditText(act).apply {
+                hint = "Search settings"
+                textSize = 15f
+                setSingleLine(true)
+                background = null
+                imeOptions = EditorInfo.IME_ACTION_SEARCH
+                setTextColor(act.getColor(R.color.mg_text))
+                setHintTextColor(act.getColor(R.color.mg_text_dim))
+                setPadding(0, 0, 0, 0)
+                addTextChangedListener(object : TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) { }
+                    override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) { }
+                    override fun afterTextChanged(s: Editable?) {
+                        query = s?.toString() ?: ""
+                        clear.visibility = if (query.isEmpty()) View.GONE else View.VISIBLE
+                        fill()
+                        sv?.scrollTo(0, 0)
+                    }
+                })
+                setOnEditorActionListener { v, _, _ ->
+                    v.clearFocus()
+                    (act.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? InputMethodManager)
+                        ?.hideSoftInputFromWindow(v.windowToken, 0)
+                    true
+                }
+            }
+            clear.setOnClickListener { edit.setText("") }
+            sbox.addView(edit, LinearLayout.LayoutParams(0, dp(44), 1f))
+            sbox.addView(clear, LinearLayout.LayoutParams(dp(40), dp(40)))
+            root.addView(sbox, LinearLayout.LayoutParams(MATCH, dp(44)).apply {
+                marginStart = dp(16); marginEnd = dp(16); topMargin = dp(2); bottomMargin = dp(6)
+            })
 
             val col = LinearLayout(act).apply {
                 orientation = LinearLayout.VERTICAL
@@ -187,7 +248,28 @@ object SettingsScreen {
         /** S46: one collapsible category card. items = Row or Sub (small group label). */
         private fun category(key: String, icon: Int, title: String, subtitle: String, items: List<Any>) {
             val col = body ?: return
-            val isOpen = openCat == key
+            // S48: search filter. A title match keeps the whole category, else only rows whose label matches.
+            val q = query.trim()
+            val searching = q.isNotEmpty()
+            var shown = items
+            if (searching && !title.contains(q, true)) {
+                val out = ArrayList<Any>()
+                var pend: Sub? = null
+                for (item in items) {
+                    when (item) {
+                        is Sub -> pend = item
+                        is Row -> if (item.label.contains(q, true)) {
+                            pend?.let { out.add(it) }
+                            pend = null
+                            out.add(item)
+                        }
+                    }
+                }
+                if (out.isEmpty()) return
+                shown = out
+            }
+            val fold = !searching && shown.count { it is Row } > SUB_FOLD
+            val isOpen = searching || openCat == key
             val card = LinearLayout(act).apply {
                 orientation = LinearLayout.VERTICAL
                 background = round(act.getColor(R.color.mg_surface), 22)
@@ -204,10 +286,33 @@ object SettingsScreen {
             }
             content.addView(View(act).apply { setBackgroundColor(act.getColor(R.color.mg_outline)) },
                 LinearLayout.LayoutParams(MATCH, dp(1)).apply { marginStart = dp(16); marginEnd = dp(16) })
-            for (item in items) {
-                when (it) {
-                    is Sub -> content.addView(subLabel(item.title), LinearLayout.LayoutParams(MATCH, WRAP))
-                    is Row -> content.addView(rowView(item), LinearLayout.LayoutParams(MATCH, WRAP))
+            var box: LinearLayout? = null // S48: current folded sub group
+            var firstSub = true
+            for (item in shown) {
+                when (item) {
+                    is Sub -> {
+                        if (fold) {
+                            val t = item.title.uppercase()
+                            val b = LinearLayout(act).apply {
+                                orientation = LinearLayout.VERTICAL
+                                visibility = if (firstSub) View.VISIBLE else View.GONE
+                            }
+                            val lbl = subLabel(item.title)
+                            lbl.text = (if (firstSub) "\u25BE " else "\u25B8 ") + t
+                            lbl.setOnClickListener {
+                                val open = b.visibility != View.VISIBLE
+                                b.visibility = if (open) View.VISIBLE else View.GONE
+                                lbl.text = (if (open) "\u25BE " else "\u25B8 ") + t
+                            }
+                            content.addView(lbl, LinearLayout.LayoutParams(MATCH, WRAP))
+                            content.addView(b, LinearLayout.LayoutParams(MATCH, WRAP))
+                            box = b
+                            firstSub = false
+                        } else {
+                            content.addView(subLabel(item.title), LinearLayout.LayoutParams(MATCH, WRAP))
+                        }
+                    }
+                    is Row -> (box ?: content).addView(rowView(item), LinearLayout.LayoutParams(MATCH, WRAP))
                 }
             }
             val header = LinearLayout(act).apply {
@@ -259,6 +364,7 @@ object SettingsScreen {
         /** S46: open one category, close the others (animated). */
         private fun toggle(key: String, card: View) {
             val col = body ?: return
+            if (query.isNotBlank()) return // S48: all matches stay open while searching
             val opening = openCat != key
             try {
                 TransitionManager.beginDelayedTransition(col, AutoTransition().setDuration(200))
@@ -436,6 +542,14 @@ object SettingsScreen {
                 Row(R.drawable.ic_info, "Engine status") { EngineHost.showStatus(act) },
                 Row(R.drawable.ic_info, "Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
             ))
+            if (query.isNotBlank() && col.childCount == 0) { // S48
+                col.addView(TextView(act).apply {
+                    text = "No setting found"
+                    textSize = 14f
+                    gravity = Gravity.CENTER
+                    setTextColor(act.getColor(R.color.mg_text_dim))
+                }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(40) })
+            }
             sv?.post { sv?.scrollTo(0, keepY) }
         }
     }

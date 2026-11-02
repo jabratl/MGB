@@ -1,3 +1,10 @@
+MGB 0.0.51 (S48: settings search)
+- Settings has a search box under the title. Type a word: only matching settings show, with their group label. Clear with the X.
+- Long categories can fold their groups (nothing needs it yet).
+
+MGB 0.0.50 (S47: build fix)
+- Fixed the Settings screen build error from 0.0.49. No visible change.
+
 MGB 0.0.49 (S46: settings redesign)
 - Settings is now a list of 6 collapsed category cards: General, Downloads, Privacy and security, Data and backup, Passwords and email, About. Tap a card = it opens like a dropdown (others close), tap again = closes.
 - Inside a card the rows are grouped by small labels (Appearance / Browsing, Manage / Player and buttons, Security / Ads and cookies, Backup / Clear data, Passwords / Email alias).
