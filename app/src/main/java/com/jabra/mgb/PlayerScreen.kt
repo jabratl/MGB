@@ -8,6 +8,8 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
+import android.content.Context
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Bundle
@@ -15,6 +17,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.GestureDetector
+import kotlin.math.abs
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -81,6 +84,13 @@ object PlayerScreen {
         private var rotated = false
         private var ended = false // S29: video reached the end (stay open, show controls)
         private val startPortrait = Orient.isPortrait(act) // S29
+        // S30: swipe gestures (left half = brightness, right half = volume, horizontal = seek) + resume position
+        private val audio = act.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        private val resumePrefs = act.getSharedPreferences("mgb_resume", Context.MODE_PRIVATE)
+        private var swipe = 0 // 0 none, 1 vertical, 2 horizontal
+        private var swipeLeft = false
+        private var seekTarget = -1
+        private var volAcc = 0f
 
         private fun dp(v: Int) = Util.dp(act, v)
 
@@ -100,6 +110,7 @@ object PlayerScreen {
         init {
             setOnDismissListener {
                 main.removeCallbacksAndMessages(null)
+                saveResume()
                 try { vv.stopPlayback() } catch (_: Exception) { }
                 if (rotated) Orient.restore(act, startPortrait) // S29 FIX: browser stayed landscape
                 if (current === this) current = null
@@ -172,9 +183,41 @@ object PlayerScreen {
                     if (e.x < root.width / 2f) jump(-10000) else jump(10000)
                     return true
                 }
+                override fun onScroll(e1: MotionEvent?, e2: MotionEvent, dx: Float, dy: Float): Boolean {
+                    if (locked || e1 == null) return true
+                    if (swipe == 0) {
+                        swipe = if (abs(e2.y - e1.y) > abs(e2.x - e1.x)) 1 else 2
+                        swipeLeft = e1.x < root.width / 2f
+                        volAcc = 0f
+                    }
+                    if (swipe == 1) {
+                        val h = root.height.coerceAtLeast(1).toFloat()
+                        if (swipeLeft) changeBrightness(dy / h * 1.4f) else changeVolume(dy / h * 1.4f)
+                    } else {
+                        val d = try { vv.duration } catch (e: Exception) { 0 }
+                        if (d > 0) {
+                            val base = if (seekTarget >= 0) seekTarget else vv.currentPosition
+                            seekTarget = (base - (dx * d / (root.width.coerceAtLeast(1) * 3f)).toInt()).coerceIn(0, d)
+                            showFlash(fmt(seekTarget))
+                        }
+                    }
+                    return true
+                }
             })
             val layer = View(act)
-            layer.setOnTouchListener { _, e -> gd.onTouchEvent(e); true }
+            layer.setOnTouchListener { _, e ->
+                gd.onTouchEvent(e)
+                if (e.actionMasked == MotionEvent.ACTION_UP || e.actionMasked == MotionEvent.ACTION_CANCEL) {
+                    if (swipe == 2 && seekTarget >= 0) {
+                        vv.seekTo(seekTarget)
+                        seek.progress = seekTarget
+                        tCur.text = fmt(seekTarget)
+                    }
+                    swipe = 0
+                    seekTarget = -1
+                }
+                true
+            }
             root.addView(layer, FrameLayout.LayoutParams(MATCH, MATCH))
 
             flash = TextView(act).apply {
@@ -257,6 +300,11 @@ object PlayerScreen {
                 seek.max = vv.duration
                 tTotal.text = fmt(vv.duration)
                 applySpeed()
+                val at = resumePrefs.getInt(uri.toString(), 0)
+                if (at > 5000 && at < vv.duration - 5000) {
+                    vv.seekTo(at)
+                    showFlash("Resumed " + fmt(at))
+                }
                 vv.start()
                 updatePlay()
                 poke()
@@ -362,6 +410,49 @@ object PlayerScreen {
             flash.animate().cancel()
             flash.alpha = 1f
             flash.animate().alpha(0f).setStartDelay(450).setDuration(250).start()
+        }
+
+        // ---- S30 swipe + resume
+
+        private fun showFlash(t: String) {
+            flash.text = t
+            flash.animate().cancel()
+            flash.alpha = 1f
+            flash.animate().alpha(0f).setStartDelay(700).setDuration(250).start()
+        }
+
+        private fun changeBrightness(delta: Float) {
+            val w = window ?: return
+            val lp = w.attributes
+            val cur = if (lp.screenBrightness < 0f) 0.5f else lp.screenBrightness
+            val v = (cur + delta).coerceIn(0.02f, 1f)
+            lp.screenBrightness = v
+            w.attributes = lp
+            showFlash("Brightness " + Math.round(v * 100) + "%")
+        }
+
+        private fun changeVolume(delta: Float) {
+            val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            volAcc += delta * max
+            val step = volAcc.toInt()
+            if (step != 0) {
+                volAcc -= step
+                val v = (audio.getStreamVolume(AudioManager.STREAM_MUSIC) + step).coerceIn(0, max)
+                try { audio.setStreamVolume(AudioManager.STREAM_MUSIC, v, 0) } catch (_: Exception) { }
+            }
+            val now = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+            showFlash("Volume " + (now * 100 / max.coerceAtLeast(1)) + "%")
+        }
+
+        /** Remember where a video stopped (not near the start or the end); forget it when finished. */
+        private fun saveResume() {
+            try {
+                val d = vv.duration
+                val p = vv.currentPosition
+                val e = resumePrefs.edit()
+                if (!ended && d > 0 && p > 5000 && p < d - 5000) e.putInt(uri.toString(), p) else e.remove(uri.toString())
+                e.apply()
+            } catch (_: Exception) { }
         }
 
         // ---- speed

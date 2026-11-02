@@ -1,3 +1,9 @@
+MGB 0.0.33 (S30: email alias, password manager, player extras)
+- Player: swipe up/down on the LEFT half = brightness, RIGHT half = volume, swipe left/right = seek (shows the target time, applies on release). Videos remember where you stopped (not near start/end) and resume next time ("Resumed 12:34").
+- Password manager: after you submit a login form MGB asks Save / Not now / Never here (also Update when the password changed). Passwords are AES-GCM encrypted with an Android Keystore key. Menu > Fill password fills the page (asks fingerprint / face / screen lock first, open for 2 minutes). Settings > Passwords and email > Saved passwords: copy user, copy / show password (unlock first), delete. Not in private tabs. Not part of Export data.
+- Email alias (addy.io): Settings > Passwords and email > addy.io API key (stored encrypted), Create email alias (also Menu > Email alias, site name prefilled, address is copied), My email aliases (copy / disable / enable / delete). Mail goes to your own inbox through your addy.io account.
+- New dependency androidx.biometric:biometric:1.1.0 (app/build.gradle.kts).
+
 MGB 0.0.32 (S29: fixes + Export/Import data + Page info)
 - FIX white home after an update: the saved theme is now applied before the Activity is built (attachBaseContext), so the home screen no longer uses light colours on a dark app. Dialogs (Theme picker) have readable title / text in dark mode (container colours added to Theme.MGB).
 - FIX two download buttons: the blue native button is now OFF by default (Settings > Downloads > Extra native download button). The Grabber page button stays.

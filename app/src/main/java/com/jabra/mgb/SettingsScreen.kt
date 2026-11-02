@@ -211,6 +211,13 @@ object SettingsScreen {
                 Row(R.drawable.ic_download, "Import data") { Backup.importData(act) },
                 Row(R.drawable.ic_history, "Recently closed tabs") { dismiss(); Backup.closedTabs(act, tabs) }
             ))
+            val fa = act as? androidx.fragment.app.FragmentActivity
+            section("Passwords and email", listOf(
+                Row(R.drawable.ic_lock, "Saved passwords") { fa?.let { PasswordStore.screen(it) } },
+                Row(R.drawable.ic_share, "addy.io API key", if (EmailAlias.hasKey(act)) "set" else "not set") { EmailAlias.keyDialog(act) { fill() } },
+                Row(R.drawable.ic_add, "Create email alias") { EmailAlias.create(act, "") },
+                Row(R.drawable.ic_list, "My email aliases") { EmailAlias.manage(act) }
+            ))
             section("Privacy and security", listOf(
                 Row(R.drawable.ic_shield, "Ad blocker", if (AdBlock.enabled) "ON · ${AdBlock.blocked} blocked" else "OFF") {
                     Util.toast(act, if (AdBlock.toggle()) "Ad blocker ON (reload the page)" else "Ad blocker OFF (reload the page)")

@@ -272,6 +272,7 @@ class TabManager(
         cm.setAcceptCookie(true)
         cm.setAcceptThirdPartyCookies(w, true)
         ContentInjector.attach(ctx, w) // S5: V77 content scripts + chrome shim (before first load)
+        if (!priv) w.addJavascriptInterface(PasswordStore.Bridge(this), "MGBPW") // S30: save-login hook (before first load)
         // S14: plain download links (and blob:/data: links) in a tab go to the native downloader
         w.setDownloadListener { url, ua, disp, mime, _ ->
             try {
@@ -328,6 +329,7 @@ class TabManager(
             tab.url = url ?: tab.url
             tab.progress = 100
             if (tab.desktop && !tab.isExt) view?.evaluateJavascript(BrowserExtras.DESKTOP_JS, null) // S14
+            if (!tab.isExt && !tab.priv && tab.url.startsWith("http")) view?.evaluateJavascript(PasswordStore.HOOK_JS, null) // S30
             // S13: browsing history (web pages only, not extension pages)
             if (!tab.isExt && !tab.priv && (tab.url.startsWith("http://") || tab.url.startsWith("https://")))
                 Bookmarks.addHistory(view?.title ?: tab.title, tab.url)

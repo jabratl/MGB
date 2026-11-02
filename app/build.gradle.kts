@@ -3,7 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-val appVersionName = "0.0.32"
+val appVersionName = "0.0.33"
 // CI sets GITHUB_RUN_NUMBER, so every build has a higher versionCode (needed for updates)
 // CI provides "owner/repo"; the in-app updater reads releases from it
 val ghRepo = System.getenv("GITHUB_REPOSITORY") ?: ""
@@ -72,4 +72,5 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.webkit:webkit:1.11.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("androidx.biometric:biometric:1.1.0") // S30: unlock for saved passwords
 }
