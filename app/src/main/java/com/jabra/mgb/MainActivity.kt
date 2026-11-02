@@ -46,6 +46,11 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         tabs = TabManager(this, findViewById<FrameLayout>(R.id.web_container), this)
         TabsApi.attach(tabs)
         BookmarksScreen.tabsRef = tabs // S25
+        tabs.onHomeSearch = { // S28
+            urlBar.requestFocus()
+            urlBar.selectAll()
+            (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(urlBar, 0)
+        }
         floating = FloatingDl(this, findViewById<FrameLayout>(R.id.web_container).parent as FrameLayout, tabs) // S11
 
         btnHome.setOnClickListener { if (tabs.active?.home != true) tabs.newTab(TabManager.HOME_PAGE) } // S22

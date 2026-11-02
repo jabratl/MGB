@@ -221,7 +221,7 @@ object DownloadsScreen {
             })
             if (id > 0) {
                 val actions = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END }
-                actions.addView(button("Open") { EngineHost.eval("try{chrome.downloads.open($id)}catch(e){}") })
+                actions.addView(button("Open") { if (!DownloadsApi.playIfMedia(act, id)) EngineHost.eval("try{chrome.downloads.open($id)}catch(e){}") }) // S28
                 actions.addView(button("Show") { EngineHost.eval("try{chrome.downloads.show($id)}catch(e){}") })
                 c.addView(actions)
             }

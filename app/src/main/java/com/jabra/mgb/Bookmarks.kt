@@ -14,16 +14,20 @@ import java.util.concurrent.Executors
  */
 object Bookmarks {
     class Item(val title: String, val url: String, val time: Long, val folder: String = "") // S24: folder "" = no folder
+    /** S28: one home screen tile. folder != "" = shortcut to that bookmark folder, else a site (title, url). */
+    class Home(val title: String, val url: String, val folder: String = "")
 
     private const val MAX_HISTORY = 500
     private const val F_BM = "mgb_bookmarks.json"
     private const val F_HIST = "mgb_history.json"
     private const val F_FOL = "mgb_folders.json" // S24: folder names (also empty ones)
+    private const val F_HOME = "mgb_home.json" // S28: what the home screen shows (pinned, not all bookmarks)
 
     private var dir: File? = null
     private val bm = ArrayList<Item>()
     private val hist = ArrayList<Item>()
     private val fol = ArrayList<String>() // S24
+    private val hm = ArrayList<Home>() // S28
     private val io = Executors.newSingleThreadExecutor()
 
     @Synchronized
@@ -48,6 +52,7 @@ object Bookmarks {
                 for (i in 0 until arr.length()) arr.optString(i).trim().let { if (it.isNotEmpty() && it !in fol) fol.add(it) }
             }
         } catch (e: Exception) { /* broken file: no folders */ }
+        loadHome() // S28
     }
 
     private fun read(f: File, out: ArrayList<Item>) {
@@ -245,5 +250,64 @@ object Bookmarks {
     fun clearHistory() {
         hist.clear()
         saveAsync(F_HIST, hist)
+    }
+
+    // ---------- S28: home screen list ----------
+
+    private fun loadHome() {
+        val d = dir ?: return
+        val f = File(d, F_HOME)
+        if (!f.exists()) { // first run of this version: only the first 4 bookmarks, never a big import
+            for (x in bm.filter { it.folder.isEmpty() }.take(4)) hm.add(Home(x.title, x.url))
+            saveHome()
+            return
+        }
+        try {
+            val arr = JSONArray(f.readText())
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val u = o.optString("u")
+                val fo = o.optString("f")
+                if (u.isNotEmpty() || fo.isNotEmpty()) hm.add(Home(o.optString("t"), u, fo))
+            }
+        } catch (e: Exception) { /* broken file: empty home */ }
+    }
+
+    private fun saveHome() {
+        val d = dir ?: return
+        val arr = JSONArray()
+        for (x in hm) arr.put(JSONObject().put("t", x.title).put("u", x.url).put("f", x.folder))
+        val text = arr.toString()
+        io.execute {
+            try { File(d, F_HOME).writeText(text) } catch (e: Exception) { /* keep running */ }
+        }
+    }
+
+    @Synchronized fun home(): List<Home> = hm.toList()
+
+    @Synchronized fun isHome(url: String): Boolean = hm.any { it.folder.isEmpty() && it.url == url }
+
+    @Synchronized
+    fun addHome(title: String, url: String) {
+        if (url.isBlank() || hm.any { it.folder.isEmpty() && it.url == url }) return
+        hm.add(Home(title.ifBlank { Util.host(url) }, url))
+        saveHome()
+    }
+
+    @Synchronized
+    fun addHomeFolder(name: String) {
+        if (name.isBlank() || hm.any { it.folder == name }) return
+        hm.add(Home(name, "", name))
+        saveHome()
+    }
+
+    @Synchronized
+    fun removeHome(url: String) {
+        if (hm.removeAll { it.folder.isEmpty() && it.url == url }) saveHome()
+    }
+
+    @Synchronized
+    fun removeHomeFolder(name: String) {
+        if (hm.removeAll { it.folder == name }) saveHome()
     }
 }

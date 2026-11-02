@@ -273,8 +273,13 @@ object BookmarksScreen {
                 setOnClickListener { toggleAll() }
             }, LinearLayout.LayoutParams(WRAP, dp(48)))
             if (mode == Mode.BOOKMARKS) h.addView(icon(R.drawable.ic_folder, "Move") { moveSelected() }, LinearLayout.LayoutParams(dp(44), dp(48)))
-            h.addView(icon(R.drawable.ic_add, "Open in new tabs") { openSelected() }, LinearLayout.LayoutParams(dp(44), dp(48)))
             h.addView(icon(R.drawable.ic_trash, "Remove") { removeSelected() }, LinearLayout.LayoutParams(dp(44), dp(48)))
+            h.addView(icon(R.drawable.ic_more, "More") { // S28
+                val labels = if (mode == Mode.BOOKMARKS) arrayOf("Pin to home", "Open in new tabs") else arrayOf("Open in new tabs")
+                MaterialAlertDialogBuilder(act).setItems(labels) { _, w ->
+                    if (mode == Mode.BOOKMARKS && w == 0) pinSelected() else openSelected()
+                }.show()
+            }, LinearLayout.LayoutParams(dp(44), dp(48)))
             return h
         }
 
@@ -311,6 +316,18 @@ object BookmarksScreen {
                     else doMove(if (i == 0) "" else names[i])
                 }
                 .show()
+        }
+
+        /** S28: show the picked bookmarks on the home screen. */
+        private fun pinSelected() {
+            var n = 0
+            val all = Bookmarks.bookmarks()
+            for (u in picked.toList()) {
+                val b = all.firstOrNull { it.url == u } ?: continue
+                if (!Bookmarks.isHome(u)) { Bookmarks.addHome(b.title, u); n++ }
+            }
+            Util.toast(act, if (n == 0) "Already on home" else "Pinned $n to home")
+            endSelect()
         }
 
         private fun openSelected() {

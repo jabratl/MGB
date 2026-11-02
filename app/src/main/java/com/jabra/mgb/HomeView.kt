@@ -38,6 +38,9 @@ class HomeView(
     private var folder: String? = null // S26: folder open on the home screen (null = top level)
     /** S26: private tab: small "Private tab" note under the wordmark. */
     var priv = false
+    /** S28: tap on the search pill (MainActivity focuses the address bar). */
+    var onSearch: (() -> Unit)? = null
+    private var animateNext = false
 
     private companion object {
         const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
@@ -72,7 +75,7 @@ class HomeView(
     fun refresh() = rebuild()
 
     /** S26: back to the top level (called when the home tab is shown). */
-    fun showTop() { folder = null }
+    fun showTop() { folder = null; editing = false; pencil.setImageResource(R.drawable.ic_edit); animateNext = true }
 
     override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) {
         super.onSizeChanged(w, h, ow, oh)
@@ -97,15 +100,18 @@ class HomeView(
                 letterSpacing = 0.32f
                 gravity = Gravity.CENTER
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-                setPadding(0, (this@HomeView.height * 0.14f).toInt(), 0, if (priv) dp(8) else dp(52))
+                setPadding(0, (this@HomeView.height * 0.10f).toInt(), 0, if (priv) dp(8) else dp(28))
             }, LinearLayout.LayoutParams(MATCH, WRAP))
             if (priv) content.addView(TextView(context).apply {
                 text = "Private tab"
                 setTextColor(context.getColor(R.color.mg_primary))
                 textSize = 13f
                 gravity = Gravity.CENTER
-                setPadding(0, 0, 0, dp(44))
+                setPadding(0, 0, 0, dp(20))
             }, LinearLayout.LayoutParams(MATCH, WRAP))
+            content.addView(searchPill(), LinearLayout.LayoutParams(MATCH, dp(48)).apply {
+                marginStart = dp(8); marginEnd = dp(8); bottomMargin = dp(32)
+            })
         } else {
             val head = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -131,14 +137,15 @@ class HomeView(
         }
 
         val cells = ArrayList<View>()
-        if (cur == null) {
-            for (n in Bookmarks.folders()) cells.add(folderTile(n))
-            for (b in Bookmarks.bookmarks()) if (b.folder.isEmpty()) cells.add(tile(b.title, b.url))
+        if (cur == null) { // S28: only what the user pinned (not every bookmark)
+            for (h in Bookmarks.home()) {
+                if (h.folder.isNotEmpty()) { if (Bookmarks.folders().contains(h.folder)) cells.add(folderTile(h.folder)) }
+                else cells.add(tile(h.title, h.url))
+            }
         } else {
             for (b in Bookmarks.bookmarks()) if (b.folder == cur) cells.add(tile(b.title, b.url))
         }
         if (!editing) cells.add(addTile())
-        else if (cur == null) cells.add(newFolderTile())
         var i = 0
         while (i < cells.size) {
             val row = LinearLayout(context).apply {
@@ -152,6 +159,33 @@ class HomeView(
             content.addView(row)
             i += cols
         }
+        if (animateNext) { animateNext = false; fadeIn() }
+    }
+
+    private fun fadeIn() {
+        content.alpha = 0f
+        content.translationY = dp(10).toFloat()
+        content.animate().alpha(1f).translationY(0f).setDuration(220).start()
+    }
+
+    /** S28: search pill under the wordmark. Tap = focus the address bar. */
+    private fun searchPill(): View = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(16), 0, dp(16), 0)
+        background = squircle(context.getColor(R.color.mg_surface), context.getColor(R.color.mg_outline), false).apply { cornerRadius = dp(24).toFloat() }
+        isClickable = true
+        isFocusable = true
+        setOnClickListener { onSearch?.invoke() }
+        addView(ImageView(context).apply {
+            setImageResource(R.drawable.ic_search)
+            setColorFilter(context.getColor(R.color.mg_text_dim))
+        }, LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(12) })
+        addView(TextView(context).apply {
+            text = "Search or type address"
+            textSize = 15f
+            setTextColor(context.getColor(R.color.mg_text_dim))
+        })
     }
 
     private fun squircle(fill: Int, stroke: Int, dashed: Boolean) = GradientDrawable().apply {
@@ -184,6 +218,13 @@ class HomeView(
         setPadding(dp(4), dp(8), dp(4), dp(8))
         isClickable = true
         isFocusable = true
+        setOnTouchListener { v, e -> // S28: soft press
+            when (e.action) {
+                android.view.MotionEvent.ACTION_DOWN -> v.animate().scaleX(0.94f).scaleY(0.94f).setDuration(90).start()
+                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> v.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+            }
+            false
+        }
         addView(icon)
         addView(TextView(context).apply {
             text = label
@@ -201,7 +242,7 @@ class HomeView(
         val letter = name.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "?"
         val box = FrameLayout(context)
         box.addView(letterBox(letter), FrameLayout.LayoutParams(dp(56), dp(56), Gravity.CENTER))
-        if (editing) addBadge(box) { Bookmarks.removeBookmark(url); refresh() } // S24
+        if (editing && folder == null) addBadge(box) { Bookmarks.removeHome(url); refresh() } // S28: unpin only
         val c = cell(box, name)
         box.layoutParams = LinearLayout.LayoutParams(dp(64), dp(60))
         c.setOnClickListener { if (!editing) onOpen(url) }
@@ -209,12 +250,12 @@ class HomeView(
             val labels = ArrayList<String>()
             val acts = ArrayList<() -> Unit>()
             labels.add("Open in new tab"); acts.add { onOpenNew(url) }
-            if (folder != null) {
+            if (folder == null) {
+                labels.add("Remove from home"); acts.add { Bookmarks.removeHome(url); refresh() }
+            } else {
                 labels.add("Move out of folder"); acts.add { Bookmarks.setFolder(url, ""); refresh() }
-            } else if (Bookmarks.folders().isNotEmpty()) {
-                labels.add("Move to folder"); acts.add { askMove(url) }
+                labels.add("Remove bookmark"); acts.add { Bookmarks.removeBookmark(url); refresh() }
             }
-            labels.add("Remove"); acts.add { Bookmarks.removeBookmark(url); refresh() }
             MaterialAlertDialogBuilder(context)
                 .setTitle(name)
                 .setItems(labels.toTypedArray()) { _, which -> acts[which]() }
@@ -245,44 +286,49 @@ class HomeView(
             }, LayoutParams(dp(26), dp(26), Gravity.CENTER))
         }
         box.addView(inner, FrameLayout.LayoutParams(dp(56), dp(56), Gravity.CENTER))
-        if (editing) addBadge(box) { Bookmarks.removeFolder(name); refresh() }
+        if (editing) addBadge(box) { Bookmarks.removeHomeFolder(name); refresh() } // S28: unpin only
         val c = cell(box, name)
         box.layoutParams = LinearLayout.LayoutParams(dp(64), dp(60))
         c.setOnClickListener { if (!editing) { folder = name; rebuild() } }
         return c
     }
 
-    private fun newFolderTile(): View {
-        val b = addBox()
-        val c = cell(b, "Folder")
-        b.layoutParams = LinearLayout.LayoutParams(dp(56), dp(56))
-        c.setOnClickListener {
-            val et = EditText(context).apply { hint = "Folder name"; setSingleLine(); inputType = InputType.TYPE_CLASS_TEXT }
-            val box = LinearLayout(context).apply { setPadding(dp(24), dp(8), dp(24), 0); addView(et, LinearLayout.LayoutParams(MATCH, WRAP)) }
-            MaterialAlertDialogBuilder(context)
-                .setTitle("New folder")
-                .setView(box)
-                .setPositiveButton("Create") { _, _ -> Bookmarks.addFolder(et.text.toString()); refresh() }
-                .setNegativeButton("Cancel", null)
-                .show()
-        }
-        return c
-    }
-
-    private fun askMove(url: String) {
-        val names = Bookmarks.folders().toTypedArray()
-        MaterialAlertDialogBuilder(context)
-            .setTitle("Move to folder")
-            .setItems(names) { _, which -> Bookmarks.setFolder(url, names[which]); refresh() }
-            .show()
-    }
-
     private fun addTile(): View {
         val b = addBox()
         val c = cell(b, "Add")
         b.layoutParams = LinearLayout.LayoutParams(dp(56), dp(56))
-        c.setOnClickListener { askAdd() }
+        c.setOnClickListener { if (folder == null) chooseAdd() else askAdd() }
         return c
+    }
+
+    /** S28: top level: pick from bookmarks (many at once) or type a new address. */
+    private fun chooseAdd() {
+        MaterialAlertDialogBuilder(context)
+            .setTitle("Add to home")
+            .setItems(arrayOf("From bookmarks", "New address")) { _, which -> if (which == 0) pickFromBookmarks() else askAdd() }
+            .show()
+    }
+
+    private fun pickFromBookmarks() {
+        val labels = ArrayList<String>()
+        val acts = ArrayList<() -> Unit>()
+        for (f in Bookmarks.folders()) if (Bookmarks.home().none { it.folder == f }) {
+            labels.add("Folder: $f"); acts.add { Bookmarks.addHomeFolder(f) }
+        }
+        for (b in Bookmarks.bookmarks()) if (!Bookmarks.isHome(b.url)) {
+            labels.add(b.title.ifBlank { Util.host(b.url) }); acts.add { Bookmarks.addHome(b.title, b.url) }
+        }
+        if (labels.isEmpty()) { Util.toast(context, "Nothing to add"); return }
+        val checked = BooleanArray(labels.size)
+        MaterialAlertDialogBuilder(context)
+            .setTitle("Add to home")
+            .setMultiChoiceItems(labels.toTypedArray(), checked) { _, i, on -> checked[i] = on }
+            .setPositiveButton("Add") { _, _ ->
+                for (i in labels.indices) if (checked[i]) acts[i]()
+                refresh()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun askAdd() {
@@ -306,7 +352,9 @@ class HomeView(
                 if (!u.startsWith("http", true)) Util.toast(context, "Enter a web address")
                 else {
                     Bookmarks.addBookmark(name.text.toString().trim(), u)
-                    folder?.let { Bookmarks.setFolder(u, it) } // S26: add inside the open folder
+                    val fo = folder
+                    if (fo != null) Bookmarks.setFolder(u, fo) // S26: add inside the open folder
+                    else Bookmarks.addHome(name.text.toString().trim(), u) // S28: pin to home
                     refresh()
                 }
             }

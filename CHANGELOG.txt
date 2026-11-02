@@ -1,3 +1,9 @@
+MGB 0.0.31 (S28: home list, built-in player)
+- Home screen shows only what you pin (it no longer lists every bookmark, so a big import does not flood it). First run of this version pins your first 4 bookmarks. Edit (pencil): Add = pick many from bookmarks (or a folder) or type a new address; badge = unpin (the bookmark stays). A pinned folder opens in place and shows the real bookmark folder.
+- Bookmarks > select > More > Pin to home.
+- Home looks smoother: search pill under the wordmark (tap = address bar), fade-in, soft press on tiles.
+- Built-in video / audio player (Downloads > Open, and V77 history Open): top bar (back, title, rotate), seek bar, lock, -10 / +10, play / pause, speed 0.25x to 6x (sheet with - / + / slider / chips / reset). Tap = show or hide, double tap left / right = -10s / +10s. Other files still open in other apps.
+
 MGB 0.0.30 (S27: select + move/remove, new menu, Settings screen)
 - Bookmarks and History: multi-select. Long press a row (or 3-dot > Select) starts it; tap rows to pick; top bar: X cancel, "N selected", All, Move (bookmarks), Open in new tabs (max 10), Remove (asks first). Back closes selection first.
 - Menu sheet redesigned: two rounded cards. Card 1 = quick tiles + New private tab / Queue / Settings. Card 2 = site name + share, Find on page, Desktop/Mobile site, Ad blocker (ON/OFF + count), back / forward / bookmark / reload row. New vector icons.

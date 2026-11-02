@@ -321,6 +321,25 @@ object DownloadsApi {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
 
+    // ---------- S28: built-in player ----------
+
+    private val MEDIA_EXT = setOf("mp4", "m4v", "mkv", "webm", "mov", "3gp", "ts", "mp3", "m4a", "aac", "ogg", "opus", "wav", "flac")
+
+    private fun isMedia(i: DlItem): Boolean {
+        val m = i.mime.lowercase()
+        if (m.startsWith("video/") || m.startsWith("audio/")) return true
+        return i.rel.substringAfterLast('.', "").lowercase() in MEDIA_EXT
+    }
+
+    /** Plays a finished video / audio download in PlayerScreen. false = not media or not complete (caller opens it the old way). */
+    fun playIfMedia(a: Activity, id: Int): Boolean {
+        val i = synchronized(items) { items[id] } ?: return false
+        if (!isMedia(i)) return false
+        val u = contentUri(i) ?: return false
+        PlayerScreen.open(a, u, i.rel.substringAfterLast('/').ifEmpty { "Video" })
+        return true
+    }
+
     // ---------- permissions (asked once, on the first download) ----------
 
     private fun askPerms() {
@@ -465,6 +484,12 @@ object DownloadsApi {
 
         handle("downloads.open") { c ->
             val i = byId(c)
+            val pa = top?.get() // S28: media opens in the built-in player
+            if (pa != null && i.state == "complete" && isMedia(i) && contentUri(i) != null) {
+                pa.runOnUiThread { playIfMedia(pa, i.id) }
+                c.ok(null)
+                return@handle
+            }
             val intent = openIntent(i)
             if (intent == null) { c.fail("Download is not complete."); return@handle }
             try { app.startActivity(intent) } catch (e: Exception) { c.fail("No app can open this file."); return@handle }

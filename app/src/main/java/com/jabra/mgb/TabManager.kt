@@ -87,6 +87,8 @@ class TabManager(
 
     private val tabs = ArrayList<Tab>()
     private var homeView: HomeView? = null // S13
+    /** S28: set by MainActivity: tap on the home search pill focuses the address bar. */
+    var onHomeSearch: (() -> Unit)? = null
     private var customView: android.view.View? = null // S14: fullscreen video
     private var customHolder: FrameLayout? = null
     private var customCb: WebChromeClient.CustomViewCallback? = null
@@ -537,6 +539,7 @@ class TabManager(
             homeView = hv
         }
         hv.priv = a.priv // S26
+        hv.onSearch = { onHomeSearch?.invoke() } // S28
         hv.showTop()
         container.addView(hv, FrameLayout.LayoutParams(MATCH, MATCH))
         hv.refresh()
