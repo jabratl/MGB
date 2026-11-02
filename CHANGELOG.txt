@@ -1,3 +1,10 @@
+MGB 0.0.39 (S36: new built-in player = real Activity, subtitles)
+- FIX: the built-in player showed a stretched, wrongly turned picture and sideways buttons when you pressed rotate (the picture was turned inside a window, which a video surface does not follow). The player is now its own screen (like MX Player): it really rotates, the browser behind it is never touched, back returns to the page.
+- New engine (Media3 ExoPlayer): plays mkv / mp4 / webm / ts / mp3 and more, many files the old player refused.
+- Subtitles: a .srt / .vtt / .ass / .ssa / .ttml file with the same name next to the video (Downloads folder) is shown by itself; subtitle tracks inside the file; CC button: choose track, Off, Add subtitle file..., text size.
+- Audio track choice, speed 0.25x - 6x, Fit / Fill / Stretch, swipe left side = brightness, right side = volume, swipe sideways = seek, double tap = -/+10 s (middle = play / pause), hold = 2x, lock, resumes where you stopped.
+- Menu (3 dots in the player): Open in another app (MX Player etc.), Audio track, Subtitles. A file that cannot be played offers Open in another app.
+
 MGB 0.0.38 (S35: player fix + new player look)
 - FIX: rotating the phone closed the player and reloaded the whole browser. Cause (found by reading the code, not reproduced): MainActivity compared the SYSTEM theme with the app theme on every configuration change, so with a forced Dark/Light theme every rotation recreated the Activity. Now it compares the app's own colours. If the Activity is recreated anyway, an open player comes back at the same position.
 - The player no longer rotates the app. The rotate button (and wide videos automatically) turn the picture inside the player. The browser stays portrait on phones (Settings > General > Rotate browser with phone = ON to allow rotation; tablets are never locked). Fullscreen web video still follows the auto-rotate switch.
