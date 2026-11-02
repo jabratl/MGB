@@ -115,6 +115,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         UpdateManager.autoCheck(this)
         CrashLog.showLast(this) // FIX
         window.decorView.post { PlayerScreen.reopenPending(this) } // S35: player comes back if the Activity was recreated
+        window.decorView.postDelayed({ Backup.auto(this) }, 10000) // S42: daily auto backup (if ON)
     }
 
     /** S22: reload, or stop when the page is still loading (was the top bar button). */

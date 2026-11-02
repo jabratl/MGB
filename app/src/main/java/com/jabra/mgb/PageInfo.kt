@@ -38,6 +38,9 @@ object SiteConfig {
         return h.isNotEmpty() && (flags(h) and bit) != 0
     }
 
+    /** S42: hosts that have this flag set (sorted). */
+    fun hostsWith(bit: Int): List<String> = map.filter { (it.value and bit) != 0 }.keys.sorted()
+
     /** Flips one flag, returns the new state of that flag. */
     fun toggle(host: String, bit: Int): Boolean {
         val n = flags(host) xor bit

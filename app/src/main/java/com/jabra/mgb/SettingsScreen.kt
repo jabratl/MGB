@@ -233,6 +233,11 @@ object SettingsScreen {
                 }
             ))
             section("Data", listOf(
+                Row(R.drawable.ic_history, "Auto backup (daily)", if (Backup.autoOn(act)) "ON" else "OFF") { // S42
+                    Backup.setAuto(act, !Backup.autoOn(act))
+                    if (Backup.autoOn(act)) Util.toast(act, "Saves Downloads/mgb-auto-backup.json once a day")
+                    fill()
+                },
                 Row(R.drawable.ic_share, "Export data") { Backup.exportData(act) },
                 Row(R.drawable.ic_download, "Import data") { Backup.importData(act) },
                 Row(R.drawable.ic_history, "Recently closed tabs") { dismiss(); Backup.closedTabs(act, tabs) }
@@ -250,6 +255,17 @@ object SettingsScreen {
             section("Privacy and security", listOf(
                 Row(R.drawable.ic_shield, "Ad blocker", if (AdBlock.enabled) "ON · ${AdBlock.blocked} blocked" else "OFF") {
                     Util.toast(act, if (AdBlock.toggle()) "Ad blocker ON (reload the page)" else "Ad blocker OFF (reload the page)")
+                    fill()
+                },
+                Row(R.drawable.ic_shield, "Hide ad spaces on pages", if (CosmeticFilter.adsOn(act)) "ON" else "OFF") { // S42
+                    CosmeticFilter.setAds(act, !CosmeticFilter.adsOn(act))
+                    Util.toast(act, "Reload the page")
+                    fill()
+                },
+                Row(R.drawable.ic_list, "Sites with ads allowed") { CosmeticFilter.allowList(act) { fill() } }, // S42
+                Row(R.drawable.ic_shield, "Hide cookie banners", if (CosmeticFilter.cookieOn(act)) "ON" else "OFF") { // S42
+                    CosmeticFilter.setCookie(act, !CosmeticFilter.cookieOn(act))
+                    Util.toast(act, "Reload the page")
                     fill()
                 },
                 Row(R.drawable.ic_trash, "Clear browsing history") {

@@ -1,7 +1,10 @@
 package com.jabra.mgb
 
 import android.app.Activity
+import android.content.ContentValues
 import android.content.Context
+import android.os.Build
+import android.provider.MediaStore
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.json.JSONArray
 import org.json.JSONObject
@@ -95,6 +98,41 @@ object ClosedTabs {
 object Backup {
     private val NAMES = arrayOf("Bookmarks and folders", "Home pins", "Browsing history", "Settings (theme, ad blocker, sites)", "Recently closed tabs")
     private val SETTINGS = arrayOf("mgb_ui", "mgb_adblock", "mgb_site")
+
+    // S42: automatic backup. Once a day when the app starts, all five parts, one file that is replaced each time.
+    private const val AUTO_NAME = "mgb-auto-backup.json"
+    fun autoOn(ctx: Context): Boolean = ctx.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).getBoolean("auto_backup", false)
+    fun setAuto(ctx: Context, on: Boolean) { ctx.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).edit().putBoolean("auto_backup", on).apply() }
+
+    fun auto(act: Activity) {
+        val p = act.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
+        if (!p.getBoolean("auto_backup", false)) return
+        val now = System.currentTimeMillis()
+        if (now - p.getLong("auto_backup_t", 0L) < 24L * 3600L * 1000L) return
+        val text = try { build(act, booleanArrayOf(true, true, true, true, true)) } catch (e: Exception) { return }
+        p.edit().putLong("auto_backup_t", now).apply()
+        val app = act.applicationContext
+        Thread { try { writeAuto(app, text) } catch (e: Exception) { /* next start tries again after 24 h */ } }.start()
+    }
+
+    private fun writeAuto(ctx: Context, text: String) {
+        if (Build.VERSION.SDK_INT >= 29) {
+            val r = ctx.contentResolver
+            val coll = MediaStore.Downloads.EXTERNAL_CONTENT_URI
+            try {
+                r.delete(coll, MediaStore.MediaColumns.DISPLAY_NAME + "=? AND " + MediaStore.MediaColumns.RELATIVE_PATH + " LIKE ?", arrayOf(AUTO_NAME, "Download/%"))
+            } catch (e: Exception) { /* old copy stays, new one gets a (1) name */ }
+            val v = ContentValues()
+            v.put(MediaStore.MediaColumns.DISPLAY_NAME, AUTO_NAME)
+            v.put(MediaStore.MediaColumns.MIME_TYPE, "application/json")
+            v.put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/")
+            val u = r.insert(coll, v) ?: return
+            r.openOutputStream(u)?.use { it.write(text.toByteArray(Charsets.UTF_8)) }
+        } else {
+            val d = ctx.getExternalFilesDir(null) ?: return
+            File(d, AUTO_NAME).writeText(text)
+        }
+    }
 
     fun exportData(act: Activity) {
         val sel = booleanArrayOf(true, true, true, true, true)

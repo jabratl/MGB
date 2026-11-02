@@ -1,3 +1,9 @@
+MGB 0.0.45 (S42: cookie banners, ad spaces, preview, PiP button, subtitle colour, auto backup)
+- Settings > Privacy: "Hide cookie banners" (default ON) and "Hide ad spaces on pages" (default ON, follows the ad blocker). "Sites with ads allowed" lists the sites set in Page info > Site configuration; tap one to block ads there again.
+- Link long press > "Preview page": small window with the page; Open = new tab.
+- Player: PiP window has a Play / Pause button. Subtitles > Text colour (white, yellow, cyan, green, orange).
+- Settings > Data > "Auto backup (daily)" (default OFF): once a day, at app start, Downloads/mgb-auto-backup.json (bookmarks, home, history, settings, closed tabs; no passwords).
+
 MGB 0.0.44 (S41: translate, reader, text size, HTTPS-only, groups saved)
 - Menu > Translate page: the page opens through Google Translate in the same tab (Back = original). The language is asked the first time; change it in Settings > General > Translate to.
 - Menu > Reader view: clean article text (was only inside Page info).

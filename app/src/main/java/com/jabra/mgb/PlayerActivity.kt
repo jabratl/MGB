@@ -1,7 +1,13 @@
 package com.jabra.mgb
 
 import android.app.Dialog
+import android.app.PendingIntent
 import android.app.PictureInPictureParams
+import android.app.RemoteAction
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
+import android.graphics.drawable.Icon
+import androidx.core.content.ContextCompat
 import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
@@ -200,6 +206,7 @@ class PlayerActivity : AppCompatActivity() {
         installBackHandler()
         buildUi()
         startPlayer()
+        if (Build.VERSION.SDK_INT >= 26) ContextCompat.registerReceiver(this, pipReceiver, IntentFilter(PIP_ACTION), ContextCompat.RECEIVER_NOT_EXPORTED) // S42
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -232,6 +239,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        try { unregisterReceiver(pipReceiver) } catch (_: Exception) { } // S42
         main.removeCallbacksAndMessages(null)
         saveResume()
         try { playerView.player = null } catch (_: Exception) { }
@@ -261,7 +269,7 @@ class PlayerActivity : AppCompatActivity() {
         player = p
         playerView.player = p
         p.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) { refreshPlayIcon() }
+            override fun onIsPlayingChanged(isPlaying: Boolean) { refreshPlayIcon(); updatePipActions() }
 
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_ENDED) {
@@ -577,10 +585,16 @@ class PlayerActivity : AppCompatActivity() {
     private fun styleSubtitles() {
         val sv = playerView.subtitleView ?: return
         sv.setApplyEmbeddedStyles(true)
-        sv.setStyle(CaptionStyleCompat(Color.WHITE, 0x55000000, Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_OUTLINE, Color.BLACK, null))
+        sv.setStyle(CaptionStyleCompat(subColor(), 0x55000000, Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_OUTLINE, Color.BLACK, null))
         sv.setFractionalTextSize(0.0533f * subScale())
         sv.setBottomPaddingFraction(0.1f)
     }
+
+    // S42: subtitle colour (prefs mgb_ui sub_color 0..4)
+    private val subColorNames = arrayOf("White", "Yellow", "Cyan", "Green", "Orange")
+    private val subColors = intArrayOf(Color.WHITE, 0xFFFFEB3B.toInt(), 0xFF4DD0E1.toInt(), 0xFF76FF03.toInt(), 0xFFFFA726.toInt())
+    private fun subColorIdx(): Int = getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).getInt("sub_color", 0).coerceIn(0, subColors.size - 1)
+    private fun subColor(): Int = subColors[subColorIdx()]
 
     private fun subScale(): Float = when (getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).getInt("sub_size", 1)) { 0 -> 0.8f; 2 -> 1.35f; else -> 1f }
 
@@ -661,11 +675,39 @@ class PlayerActivity : AppCompatActivity() {
             val vs = player?.videoSize
             val w = if (vs != null && vs.width > 0) vs.width else 16
             val h = if (vs != null && vs.height > 0) vs.height else 9
-            val r = (w.toFloat() / h).coerceIn(0.5f, 2.0f)
-            enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(Rational((r * 1000).toInt(), 1000)).build())
+            pipRatio = (w.toFloat() / h).coerceIn(0.5f, 2.0f)
+            enterPictureInPictureMode(pipParams())
         } catch (e: Exception) {
             Util.toast(this, "Picture in picture is not available")
         }
+    }
+
+    // S42: play / pause button inside the PiP window
+    private var pipRatio = 16f / 9f
+    private val PIP_ACTION = "com.jabra.mgb.PIP_TOGGLE"
+    private val pipReceiver = object : BroadcastReceiver() {
+        override fun onReceive(c: Context?, i: Intent?) {
+            if (i?.action != PIP_ACTION) return
+            togglePlay()
+            updatePipActions()
+        }
+    }
+
+    private fun pipParams(): PictureInPictureParams {
+        val b = PictureInPictureParams.Builder().setAspectRatio(Rational((pipRatio * 1000).toInt(), 1000))
+        if (Build.VERSION.SDK_INT >= 26) {
+            val playing = player?.isPlaying == true
+            val pi = PendingIntent.getBroadcast(this, 7, Intent(PIP_ACTION).setPackage(packageName), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+            val label = if (playing) "Pause" else "Play"
+            val icon = Icon.createWithResource(this, if (playing) R.drawable.ic_pip_pause else R.drawable.ic_pip_play)
+            b.setActions(listOf(RemoteAction(icon, label, label, pi)))
+        }
+        return b.build()
+    }
+
+    private fun updatePipActions() {
+        if (Build.VERSION.SDK_INT < 26 || !isInPictureInPictureMode) return
+        try { setPictureInPictureParams(pipParams()) } catch (_: Exception) { }
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
@@ -792,6 +834,11 @@ class PlayerActivity : AppCompatActivity() {
         val cur = getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).getInt("sub_size", 1).coerceIn(0, 2)
         rows.add(SheetRow("Text size", sizeNames[cur] + "  (tap to change)", false) {
             getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).edit().putInt("sub_size", (cur + 1) % 3).apply()
+            styleSubtitles()
+            showSubtitleDialog()
+        })
+        rows.add(SheetRow("Text colour", subColorNames[subColorIdx()] + "  (tap to change)", false) { // S42
+            getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).edit().putInt("sub_color", (subColorIdx() + 1) % subColors.size).apply()
             styleSubtitles()
             showSubtitleDialog()
         })

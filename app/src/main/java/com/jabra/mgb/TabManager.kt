@@ -366,6 +366,7 @@ class TabManager(
             tab.progress = 100
             if (tab.desktop && !tab.isExt) view?.evaluateJavascript(BrowserExtras.DESKTOP_JS, null) // S14
             if (!tab.isExt && !tab.priv && tab.url.startsWith("http")) view?.evaluateJavascript(PasswordStore.HOOK_JS, null) // S30
+            if (!tab.isExt) CosmeticFilter.inject(ctx, view, tab.url) // S42
             // S13: browsing history (web pages only, not extension pages)
             if (!tab.isExt && !tab.priv && (tab.url.startsWith("http://") || tab.url.startsWith("https://")))
                 Bookmarks.addHistory(view?.title ?: tab.title, tab.url)
@@ -382,6 +383,7 @@ class TabManager(
     private fun chrome(tab: Tab) = object : WebChromeClient() {
         override fun onProgressChanged(view: WebView?, newProgress: Int) {
             tab.progress = newProgress
+            if (!tab.isExt && newProgress in 35..99) CosmeticFilter.inject(ctx, view, tab.url) // S42: early, so the banner does not flash
             listener.onPageInfo(tab)
         }
 
@@ -488,6 +490,7 @@ class TabManager(
         val ref = tab.url.takeIf { it.startsWith("http") }
         if (l.startsWith("http")) {
             rows.add(MenuSheet.Item("Open in new tab", R.drawable.ic_add) { newTab(l, tab.id) })
+            rows.add(MenuSheet.Item("Preview page", R.drawable.ic_search) { PagePreview.show(ctx, l) { newTab(l, tab.id) } }) // S42
             if (!tab.priv) rows.add(MenuSheet.Item("Open in new tab in group", R.drawable.ic_folder) { TabSwitcher.openInGroup(ctx, this, l, tab.id) })
             rows.add(MenuSheet.Item("Open in New Private Tab", R.drawable.ic_lock) { newTab(l, 0, true, true) })
             if (WebPlay.isMediaUrl(l)) rows.add(MenuSheet.Item("Play in player", R.drawable.ic_play) { WebPlay.play(ctx, l, null, ref, ua) })
