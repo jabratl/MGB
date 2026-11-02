@@ -41,6 +41,8 @@ object BrowserExtras {
     private var backupDone: ((String?) -> Unit)? = null // S29
     private var csvOut: ActivityResultLauncher<String>? = null // S40
     private var csvText: String? = null // S40
+    private var treeLauncher: ActivityResultLauncher<Uri?>? = null // S49
+    private var treeDone: (() -> Unit)? = null // S49
 
     /** Remembered Allow / Block answers for this run: "origin|kinds" -> answer. */
     private val decided = HashMap<String, Boolean>()
@@ -114,6 +116,24 @@ object BrowserExtras {
                 }.start()
             }
         }
+        // S49: download folder picker. Registered last so the keys of the launchers above stay the same.
+        treeLauncher = a.registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            val cb = treeDone
+            treeDone = null
+            if (uri != null) {
+                DownloadFolder.onPicked(a, uri)
+                cb?.invoke()
+            }
+        }
+    }
+
+    /** S49: let the user pick the download folder (system folder picker). */
+    fun pickFolder(done: () -> Unit) {
+        val l = treeLauncher
+        val a = act
+        if (l == null || a == null) return
+        treeDone = done
+        try { l.launch(null) } catch (e: Exception) { treeDone = null; Util.toast(a, "No folder picker found") }
     }
 
     /** S40: save text as a .csv file chosen by the user. */

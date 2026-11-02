@@ -124,8 +124,12 @@ object DownloadsApi {
         if (i.state != "complete") return true
         if (i.uri.isEmpty()) return false
         return try {
-            if (i.uri.startsWith("content:"))
-                app.contentResolver.query(Uri.parse(i.uri), arrayOf("_id"), null, null, null)?.use { it.count > 0 } ?: false
+            if (i.uri.startsWith("content:")) {
+                val u = Uri.parse(i.uri)
+                // S49: files in a picked folder are document uris (column document_id), Downloads files are media uris (_id)
+                val col = if (u.authority == "media") "_id" else android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID
+                app.contentResolver.query(u, arrayOf(col), null, null, null)?.use { it.count > 0 } ?: false
+            }
             else File(i.uri).exists()
         } catch (e: Exception) { false }
     }
@@ -537,7 +541,11 @@ object DownloadsApi {
             val i = byId(c)
             if (i.state != "complete") { c.fail("Download must be complete."); return@handle }
             try {
-                if (i.uri.startsWith("content:")) app.contentResolver.delete(Uri.parse(i.uri), null, null)
+                if (i.uri.startsWith("content:")) {
+                    val u = Uri.parse(i.uri)
+                    if (u.authority == "media") app.contentResolver.delete(u, null, null)
+                    else android.provider.DocumentsContract.deleteDocument(app.contentResolver, u) // S49
+                }
                 else File(i.uri).delete()
             } catch (e: Exception) { /* already gone */ }
             change(i) { exists = false }

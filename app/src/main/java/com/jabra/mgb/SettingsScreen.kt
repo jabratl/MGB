@@ -445,6 +445,12 @@ object SettingsScreen {
                 Row(R.drawable.ic_list, "Queue") { ext("queue.html") },
                 Row(R.drawable.ic_history, "Download history") { ext("history.html") },
                 Row(R.drawable.ic_settings, "Grabber settings") { ext("options.html") },
+                Sub("Save location"), // S49
+                Row(R.drawable.ic_folder, "Download folder", DownloadFolder.label(act)) { DownloadFolder.showDialog(act) { fill() } },
+                Row(R.drawable.ic_folder, "Sub-folders in the chosen folder", if (DownloadFolder.subfolders(act)) "ON" else "OFF") {
+                    DownloadFolder.setSubfolders(act, !DownloadFolder.subfolders(act))
+                    fill()
+                },
                 Sub("Player and buttons"),
                 Row(R.drawable.ic_play, "Play video links in built-in player", if (WebPlay.linksEnabled(act)) "ON" else "OFF") { // S39
                     WebPlay.setLinksEnabled(act, !WebPlay.linksEnabled(act))

@@ -1,3 +1,9 @@
+MGB 0.0.52 (S49: choose the download folder)
+- Settings > Downloads > Save location > Download folder: pick any folder of the phone (system folder picker) where new downloads are saved. "Use default" goes back to the Downloads folder.
+- Sub-folders in the chosen folder (ON / OFF, default OFF): OFF = files go straight into the folder you picked, ON = the grabber's sub-folders (like MGB/...) are created inside it.
+- If the chosen folder was deleted or the permission is lost, the file is saved in Downloads instead and nothing is lost.
+- Open, Share and Delete of downloaded files work for both places.
+
 MGB 0.0.51 (S48: settings search)
 - Settings has a search box under the title. Type a word: only matching settings show, with their group label. Clear with the X.
 - Long categories can fold their groups (nothing needs it yet).

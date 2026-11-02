@@ -399,6 +399,15 @@ object Downloader {
         val name = rel.substringAfterLast('/')
         val ext = name.substringAfterLast('.', "").lowercase()
         val mime = item.mime.ifEmpty { MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "application/octet-stream" }
+        // S49: a folder picked by the user (Settings > Downloads > Download folder) comes first; if it fails, use Downloads
+        DownloadFolder.treeUri(DownloadsApi.app)?.let { tree ->
+            try {
+                val r = DownloadFolder.publish(DownloadsApi.app, tree, item, part, dir, name, mime)
+                return Pub(r.first, r.second)
+            } catch (e: Exception) {
+                android.util.Log.e("MGB.dl", "picked folder failed, using Downloads", e)
+            }
+        }
         return if (Build.VERSION.SDK_INT >= 29) publishQ(item, part, dir, name, mime) else publishLegacy(item, part, rel, name)
     }
 
