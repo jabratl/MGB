@@ -1,6 +1,7 @@
 package com.jabra.mgb
 
 import android.app.AlertDialog
+import android.app.PictureInPictureParams
 import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
@@ -20,9 +21,11 @@ import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.provider.Settings
 import android.util.Log
+import android.util.Rational
 import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -101,10 +104,17 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var ccBtn: TextView
     private lateinit var flash: TextView
     private lateinit var unlockBtn: ImageView
+    private lateinit var titleTv: TextView
+    private lateinit var prevBtn: ImageView
+    private lateinit var nextBtn: ImageView
+    private lateinit var resumeBar: TextView
     private lateinit var audio: AudioManager
     private lateinit var prefs: android.content.SharedPreferences
 
     private val subs = ArrayList<MediaItem.SubtitleConfiguration>()
+    private val sibs = ArrayList<Pair<Uri, String>>() // S37: other media files of the same folder (previous / next episode)
+    private var sibIdx = -1
+    private var zoom = 1f
     private var wantAutoSub = false
     private var autoSubDone = false
     private var shown = true
@@ -199,6 +209,8 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun startPlayer() {
         findSidecars()
+        findSiblings()
+        updateNav()
         wantAutoSub = subs.isNotEmpty()
         val p = ExoPlayer.Builder(this).build()
         player = p
@@ -207,7 +219,14 @@ class PlayerActivity : AppCompatActivity() {
             override fun onIsPlayingChanged(isPlaying: Boolean) { refreshPlayIcon() }
 
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_ENDED) { ended = true; showControls(true) }
+                if (state == Player.STATE_ENDED) {
+                    ended = true
+                    showControls(true)
+                    if (sibIdx in 0 until sibs.size - 1) { // like MX Player: the next episode starts by itself
+                        flash("Next: " + sibs[sibIdx + 1].second.substringBeforeLast('.'))
+                        main.postDelayed({ if (ended && player?.playbackState == Player.STATE_ENDED) openSibling(1) }, 1800)
+                    }
+                }
                 else if (state == Player.STATE_READY) ended = false
                 refreshPlayIcon()
             }
@@ -253,8 +272,104 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun resumePos(): Long {
         val v = prefs.getLong(uri.toString(), 0L)
-        if (v > 5000) { main.postDelayed({ flash("Resumed " + fmt(v)) }, 600); return v }
+        if (v > 5000) { main.postDelayed({ showResumeBar(v) }, 500); return v }
         return 0L
+    }
+
+    private fun showResumeBar(pos: Long) {
+        resumeBar.text = "Continue from " + fmt(pos) + "     START OVER"
+        resumeBar.visibility = View.VISIBLE
+        resumeBar.setOnClickListener { player?.seekTo(0); resumeBar.visibility = View.GONE }
+        main.removeCallbacks(resumeOff)
+        main.postDelayed(resumeOff, 6000)
+    }
+
+    private val resumeOff = Runnable { resumeBar.visibility = View.GONE }
+
+    // ---------- S37: previous / next file of the same folder ----------
+
+    private fun natural(a: String, b: String): Int {
+        val re = Regex("\\d+|\\D+")
+        val ra = re.findAll(a.lowercase()).map { it.value }.toList()
+        val rb = re.findAll(b.lowercase()).map { it.value }.toList()
+        for (i in 0 until minOf(ra.size, rb.size)) {
+            val x = ra[i]
+            val y = rb[i]
+            val c = if (x[0].isDigit() && y[0].isDigit()) {
+                val xi = x.trimStart('0')
+                val yi = y.trimStart('0')
+                if (xi.length != yi.length) xi.length - yi.length else xi.compareTo(yi)
+            } else x.compareTo(y)
+            if (c != 0) return c
+        }
+        return ra.size - rb.size
+    }
+
+    private fun findSiblings() {
+        sibs.clear()
+        sibIdx = -1
+        try {
+            if (Build.VERSION.SDK_INT < 29 || uri.scheme != "content" || uri.authority != "media") return
+            var rel = ""
+            contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.RELATIVE_PATH), null, null, null)?.use {
+                if (it.moveToFirst()) rel = it.getString(0) ?: ""
+            }
+            if (rel.isEmpty()) return
+            val base = MediaStore.Downloads.EXTERNAL_CONTENT_URI
+            val me = ContentUris.parseId(uri)
+            val tmp = ArrayList<Triple<Long, String, String>>()
+            contentResolver.query(base, arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.MIME_TYPE),
+                MediaStore.MediaColumns.RELATIVE_PATH + "=?", arrayOf(rel), null)?.use { c ->
+                while (c.moveToNext()) {
+                    val n = c.getString(1) ?: continue
+                    val m = c.getString(2) ?: ""
+                    if (m.startsWith("video/") || m.startsWith("audio/")) tmp.add(Triple(c.getLong(0), n, m))
+                }
+            }
+            tmp.sortWith(Comparator { a, b -> natural(a.second, b.second) })
+            for ((i, t) in tmp.withIndex()) {
+                sibs.add(Pair(ContentUris.withAppendedId(base, t.first), t.second))
+                if (t.first == me) sibIdx = i
+            }
+            if (sibIdx < 0) { sibs.clear() }
+        } catch (e: Exception) {
+            Log.e(TAG, "siblings", e)
+            sibs.clear(); sibIdx = -1
+        }
+    }
+
+    private fun updateNav() {
+        if (!this::prevBtn.isInitialized) return
+        prevBtn.alpha = if (sibIdx > 0) 1f else 0.3f
+        nextBtn.alpha = if (sibIdx in 0 until sibs.size - 1) 1f else 0.3f
+    }
+
+    private fun openSibling(delta: Int) {
+        val idx = sibIdx + delta
+        if (sibIdx < 0 || idx < 0 || idx >= sibs.size) { flash(if (delta > 0) "No next file" else "No previous file"); return }
+        val p = player ?: return
+        saveResume()
+        sibIdx = idx
+        uri = sibs[idx].first
+        title = sibs[idx].second.substringBeforeLast('.')
+        titleTv.text = title
+        subs.clear()
+        findSidecars()
+        wantAutoSub = subs.isNotEmpty()
+        autoSubDone = false
+        ended = false
+        resumeBar.visibility = View.GONE
+        resetZoom()
+        setItem(resumePos())
+        p.prepare()
+        p.playWhenReady = true
+        updateNav()
+    }
+
+    private fun resetZoom() {
+        zoom = 1f
+        playerView.scaleX = 1f
+        playerView.scaleY = 1f
     }
 
     private fun saveResume() {
@@ -523,13 +638,33 @@ class PlayerActivity : AppCompatActivity() {
             else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
         }
         fitBtn.text = when (fitMode) { 1 -> "Fill"; 2 -> "Stretch"; else -> "Fit" }
+        resetZoom()
+        flash(when (fitMode) { 1 -> "FILL (CROP)"; 2 -> "STRETCH"; else -> "FIT TO SCREEN" })
     }
 
     private fun showMore() {
-        val items = arrayOf("Open in another app", "Audio track", "Subtitles")
+        val items = arrayOf("Open in another app", "Audio track", "Subtitles", "Picture in picture")
         AlertDialog.Builder(this).setItems(items) { _, i ->
-            when (i) { 0 -> openExternal(); 1 -> showAudioDialog(); else -> showSubtitleDialog() }
+            when (i) { 0 -> openExternal(); 1 -> showAudioDialog(); 2 -> showSubtitleDialog(); else -> enterPip() }
         }.setNegativeButton("Close", null).show()
+    }
+
+    private fun enterPip() {
+        if (Build.VERSION.SDK_INT < 26) { Util.toast(this, "Needs Android 8 or newer"); return }
+        try {
+            val vs = player?.videoSize
+            val w = if (vs != null && vs.width > 0) vs.width else 16
+            val h = if (vs != null && vs.height > 0) vs.height else 9
+            val r = (w.toFloat() / h).coerceIn(0.5f, 2.0f)
+            enterPictureInPictureMode(PictureInPictureParams.Builder().setAspectRatio(Rational((r * 1000).toInt(), 1000)).build())
+        } catch (e: Exception) {
+            Util.toast(this, "Picture in picture is not available")
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        if (isInPictureInPictureMode) { controls.visibility = View.GONE; resumeBar.visibility = View.GONE } else showControls(true)
     }
 
     // ---------- controls visibility ----------
@@ -651,7 +786,8 @@ class PlayerActivity : AppCompatActivity() {
                     if (dur <= 0) return true
                     dxAcc -= dx
                     seekTarget = (p.currentPosition + dxAcc / w * 90_000f).toLong().coerceIn(0L, dur)
-                    flash(fmt(seekTarget) + " / " + fmt(dur))
+                    val diff = seekTarget - p.currentPosition
+                    flash(fmt(seekTarget) + "\n[" + (if (diff < 0) "-" else "+") + fmt(abs(diff)) + "]")
                 } else if (swipeLeft) {
                     val lp = window.attributes
                     var br = lp.screenBrightness
@@ -674,7 +810,19 @@ class PlayerActivity : AppCompatActivity() {
                 return true
             }
         })
+        val sgd = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScale(d: ScaleGestureDetector): Boolean {
+                if (locked) return true
+                zoom = (zoom * d.scaleFactor).coerceIn(1f, 4f)
+                playerView.scaleX = zoom
+                playerView.scaleY = zoom
+                flash((zoom * 100).toInt().toString() + "%")
+                return true
+            }
+        })
         touch.setOnTouchListener { _, ev ->
+            sgd.onTouchEvent(ev)
+            if (sgd.isInProgress || ev.pointerCount > 1) return@setOnTouchListener true
             gd.onTouchEvent(ev)
             if (ev.actionMasked == MotionEvent.ACTION_UP || ev.actionMasked == MotionEvent.ACTION_CANCEL) {
                 if (boost) {
@@ -699,14 +847,15 @@ class PlayerActivity : AppCompatActivity() {
             background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0xB0000000.toInt(), 0x00000000))
         }
         top.addView(icon(R.drawable.ic_back, 48) { finish() })
-        top.addView(TextView(this).apply {
+        titleTv = TextView(this).apply {
             text = title
             setTextColor(Color.WHITE)
             textSize = 15f
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
             layoutParams = LinearLayout.LayoutParams(0, WRAP, 1f)
-        })
+        }
+        top.addView(titleTv)
         top.addView(icon(R.drawable.ic_screen, 48) { toggleRotate() })
         top.addView(icon(R.drawable.ic_more, 48) { showMore() })
         controls.addView(top, LinearLayout.LayoutParams(MATCH, WRAP))
@@ -743,16 +892,20 @@ class PlayerActivity : AppCompatActivity() {
         bottom.addView(seekRow, LinearLayout.LayoutParams(MATCH, WRAP))
 
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        row.addView(icon(R.drawable.ic_lock) { setLocked(true) })
+        row.addView(icon(R.drawable.ic_lock, 40) { setLocked(true) })
         row.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
-        row.addView(pill("-10") { seekBy(-10_000) }, LinearLayout.LayoutParams(WRAP, dp(40)))
-        playBtn = icon(R.drawable.ic_pause, 64) { togglePlay() }
+        prevBtn = icon(R.drawable.ic_skip_prev, 40) { openSibling(-1) }
+        row.addView(prevBtn)
+        row.addView(pill("-10") { seekBy(-10_000) }.apply { minimumWidth = dp(44); setPadding(dp(8), 0, dp(8), 0) }, LinearLayout.LayoutParams(WRAP, dp(40)).apply { setMargins(dp(6), 0, 0, 0) })
+        playBtn = icon(R.drawable.ic_pause, 56) { togglePlay() }
         playBtn.setColorFilter(getColor(R.color.mg_on_primary))
-        playBtn.background = round(getColor(R.color.mg_primary), 32)
-        row.addView(playBtn, LinearLayout.LayoutParams(dp(64), dp(64)).apply { setMargins(dp(14), 0, dp(14), 0) })
-        row.addView(pill("+10") { seekBy(10_000) }, LinearLayout.LayoutParams(WRAP, dp(40)))
+        playBtn.background = round(getColor(R.color.mg_primary), 28)
+        row.addView(playBtn, LinearLayout.LayoutParams(dp(56), dp(56)).apply { setMargins(dp(10), 0, dp(10), 0) })
+        row.addView(pill("+10") { seekBy(10_000) }.apply { minimumWidth = dp(44); setPadding(dp(8), 0, dp(8), 0) }, LinearLayout.LayoutParams(WRAP, dp(40)).apply { setMargins(0, 0, dp(6), 0) })
+        nextBtn = icon(R.drawable.ic_skip_next, 40) { openSibling(1) }
+        row.addView(nextBtn)
         row.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
-        row.addView(View(this), LinearLayout.LayoutParams(dp(44), dp(44)))
+        row.addView(View(this), LinearLayout.LayoutParams(dp(40), dp(40)))
         bottom.addView(row, LinearLayout.LayoutParams(MATCH, WRAP))
 
         val pills = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
@@ -788,6 +941,17 @@ class PlayerActivity : AppCompatActivity() {
             setOnClickListener { setLocked(false) }
         }
         rootView.addView(unlockBtn, FrameLayout.LayoutParams(dp(56), dp(56), Gravity.START or Gravity.CENTER_VERTICAL).apply { setMargins(dp(24), 0, 0, 0) })
+
+        resumeBar = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setPadding(dp(16), dp(10), dp(16), dp(10))
+            background = round(0xCC202020.toInt(), 20)
+            visibility = View.GONE
+        }
+        rootView.addView(resumeBar, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { setMargins(0, 0, 0, dp(190)) })
+        updateNav()
 
         // keep the controls out of a display cutout / camera hole
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { _, insets ->

@@ -1,3 +1,10 @@
+MGB 0.0.40 (S37: player like MX Player)
+- Previous / next file buttons: files of the same Downloads folder in natural order (Episode 2 before Episode 10). When a video ends, the next one starts by itself (message "Next: ...").
+- Pinch to zoom the picture (1x - 4x, shows the percent). Fit / Fill / Stretch now show a label on screen and reset the zoom.
+- Swiping sideways shows the target time and the jump, for example 00:29 [-00:20].
+- Resume: "Continue from 12:34   START OVER" bar for 6 seconds instead of a silent resume.
+- Picture in picture (3-dot menu, Android 8+).
+
 MGB 0.0.39 (S36: new built-in player = real Activity, subtitles)
 - FIX: the built-in player showed a stretched, wrongly turned picture and sideways buttons when you pressed rotate (the picture was turned inside a window, which a video surface does not follow). The player is now its own screen (like MX Player): it really rotates, the browser behind it is never touched, back returns to the page.
 - New engine (Media3 ExoPlayer): plays mkv / mp4 / webm / ts / mp3 and more, many files the old player refused.
