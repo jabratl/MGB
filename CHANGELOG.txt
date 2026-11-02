@@ -1,3 +1,10 @@
+MGB 0.0.41 (S38: built-in player redesign)
+- New neat layout: title with "3 of 12 - 1920x1080" under it, big round play button in the middle with previous / -10 / +10 / next around it, thin clean seek bar with a buffered part and a round thumb, and one icon toolbar at the bottom: Lock, Speed, Subtitles, Audio, Fit, PiP (no more cut-off pills).
+- All menus are now dark bottom sheets (speed, subtitles, audio track, more) with a tick on the chosen item, instead of the grey system dialogs.
+- Brightness / volume swipes show a level bar at the top. Double tap shows a round "10 s" mark on the tapped side. A spinner shows while the video is buffering. Controls fade in and out.
+- More menu: Repeat this video, Sleep timer (15 - 90 min), Video info (resolution, frame rate, codecs, bitrate, size).
+- Subtitle icon turns pink when subtitles are on, speed turns pink when it is not 1x.
+
 MGB 0.0.40 (S37: player like MX Player)
 - Previous / next file buttons: files of the same Downloads folder in natural order (Episode 2 before Episode 10). When a video ends, the next one starts by itself (message "Next: ...").
 - Pinch to zoom the picture (1x - 4x, shows the percent). Fit / Fill / Stretch now show a label on screen and reset the zoom.

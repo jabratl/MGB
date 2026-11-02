@@ -1,6 +1,6 @@
 package com.jabra.mgb
 
-import android.app.AlertDialog
+import android.app.Dialog
 import android.app.PictureInPictureParams
 import android.content.ContentUris
 import android.content.Context
@@ -10,7 +10,11 @@ import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.ClipDrawable
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
@@ -22,16 +26,20 @@ import android.provider.OpenableColumns
 import android.provider.Settings
 import android.util.Log
 import android.util.Rational
+import android.util.TypedValue
 import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewGroup
+import android.view.Window
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
@@ -63,6 +71,8 @@ import kotlin.math.abs
  * Media3 ExoPlayer: mkv / mp4 / webm / ts / mp3 ..., subtitles (srt, vtt, ass/ssa, ttml: embedded tracks, a file next to the
  * video, or a file you pick), audio track choice, speed 0.25x - 6x, Fit / Fill / Stretch, swipe brightness / volume / seek,
  * double tap -+10 s, hold = 2x, lock, resume position, Open in another app.
+ * S38: new look (centre buttons, clean seek bar, icon toolbar, dark bottom sheets, level bar for brightness / volume,
+ * buffering spinner, fades), repeat, sleep timer, video info.
  */
 @androidx.annotation.OptIn(UnstableApi::class)
 class PlayerActivity : AppCompatActivity() {
@@ -99,9 +109,16 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var tCur: TextView
     private lateinit var tTotal: TextView
     private lateinit var playBtn: ImageView
-    private lateinit var speedBtn: TextView
-    private lateinit var fitBtn: TextView
-    private lateinit var ccBtn: TextView
+    private lateinit var speedVal: TextView
+    private lateinit var fitLabel: TextView
+    private lateinit var ccIcon: ImageView
+    private lateinit var infoTv: TextView
+    private lateinit var hud: LinearLayout
+    private lateinit var hudText: TextView
+    private lateinit var hudBar: ProgressBar
+    private lateinit var tapL: TextView
+    private lateinit var tapR: TextView
+    private lateinit var spinner: ProgressBar
     private lateinit var flash: TextView
     private lateinit var unlockBtn: ImageView
     private lateinit var titleTv: TextView
@@ -130,6 +147,7 @@ class PlayerActivity : AppCompatActivity() {
     private var seekTarget = -1L
     private var volAcc = 0f
     private var dxAcc = 0f
+    private var sleepAt = 0L // S38: sleep timer end (ms), 0 = off
 
     private val openSub = registerForActivityResult(ActivityResultContracts.OpenDocument()) { u ->
         if (u != null) addSubtitleFile(u)
@@ -237,6 +255,7 @@ class PlayerActivity : AppCompatActivity() {
                     requestedOrientation = if (videoSize.width >= videoSize.height) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                     else ActivityInfo.SCREEN_ORIENTATION_USER
                 }
+                updateInfoLine()
             }
 
             override fun onTracksChanged(tracks: Tracks) {
@@ -247,12 +266,10 @@ class PlayerActivity : AppCompatActivity() {
             override fun onPlayerError(error: PlaybackException) {
                 Log.e(TAG, "play error", error)
                 try {
-                    AlertDialog.Builder(this@PlayerActivity)
-                        .setTitle("Cannot play this file here")
-                        .setMessage("Try another player app.")
-                        .setPositiveButton("Open in another app") { _, _ -> openExternal() }
-                        .setNegativeButton("Close") { _, _ -> finish() }
-                        .show()
+                    sheet("Cannot play this file here", "Try another player app.", listOf(
+                        SheetRow("Open in another app") { openExternal() },
+                        SheetRow("Close") { finish() }
+                    )).setCancelable(false)
                 } catch (_: Exception) { }
             }
         })
@@ -364,6 +381,7 @@ class PlayerActivity : AppCompatActivity() {
         p.prepare()
         p.playWhenReady = true
         updateNav()
+        updateInfoLine()
     }
 
     private fun resetZoom() {
@@ -386,6 +404,7 @@ class PlayerActivity : AppCompatActivity() {
             val p = player
             if (p != null) {
                 val dur = p.duration.let { if (it > 0) it else 0L }
+                seek.secondaryProgress = (p.bufferedPercentage * 10).coerceIn(0, 1000)
                 val pos = if (seekTarget >= 0) seekTarget else p.currentPosition
                 if (!dragging) {
                     seek.progress = if (dur > 0) (pos * 1000 / dur).toInt() else 0
@@ -502,79 +521,8 @@ class PlayerActivity : AppCompatActivity() {
         val off = p.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT)
         val any = textGroups(p.currentTracks).isNotEmpty()
         val on = any && !off && textGroups(p.currentTracks).any { it.isSelected }
-        ccBtn.text = if (on) "CC on" else "CC"
-        ccBtn.alpha = if (any) 1f else 0.6f
-    }
-
-    private fun showSubtitleDialog() {
-        val p = player ?: return
-        val groups = textGroups(p.currentTracks)
-        val names = ArrayList<String>()
-        val actions = ArrayList<() -> Unit>()
-        val off = p.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT) || groups.none { it.isSelected }
-        names.add((if (off) "● " else "○ ") + "Off")
-        actions.add {
-            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
-            updateCcLabel()
-        }
-        var n = 0
-        for (g in groups) for (i in 0 until g.length) {
-            if (!g.isTrackSupported(i)) continue
-            n++
-            val label = trackName(g.getTrackFormat(i), n)
-            val sel = g.isTrackSelected(i) && !off
-            names.add((if (sel) "● " else "○ ") + label)
-            val gg = g
-            val ii = i
-            actions.add {
-                p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
-                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                    .clearOverridesOfType(C.TRACK_TYPE_TEXT)
-                    .setOverrideForType(TrackSelectionOverride(gg.mediaTrackGroup, ii))
-                    .build()
-                updateCcLabel()
-            }
-        }
-        names.add("Add subtitle file...")
-        actions.add { openSub.launch(arrayOf("*/*")) }
-        val sizeNames = arrayOf("Small", "Medium", "Large")
-        val cur = getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).getInt("sub_size", 1).coerceIn(0, 2)
-        names.add("Text size: " + sizeNames[cur] + " (tap to change)")
-        actions.add {
-            getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).edit().putInt("sub_size", (cur + 1) % 3).apply()
-            styleSubtitles()
-        }
-        if (n == 0) Util.toast(this, "No subtitle in this video: add a file")
-        AlertDialog.Builder(this).setTitle("Subtitles")
-            .setItems(names.toTypedArray()) { _, which -> actions[which]() }
-            .setNegativeButton("Close", null).show()
-    }
-
-    private fun showAudioDialog() {
-        val p = player ?: return
-        val groups = p.currentTracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
-        val names = ArrayList<String>()
-        val acts = ArrayList<() -> Unit>()
-        var n = 0
-        for (g in groups) for (i in 0 until g.length) {
-            if (!g.isTrackSupported(i)) continue
-            n++
-            val f = g.getTrackFormat(i)
-            val extra = if (f.channelCount > 0) " (" + f.channelCount + "ch)" else ""
-            names.add((if (g.isTrackSelected(i)) "● " else "○ ") + trackName(f, n) + extra)
-            val gg = g
-            val ii = i
-            acts.add {
-                p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
-                    .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
-                    .setOverrideForType(TrackSelectionOverride(gg.mediaTrackGroup, ii))
-                    .build()
-            }
-        }
-        if (names.size < 2) { Util.toast(this, if (names.isEmpty()) "No audio track" else "Only one audio track"); return }
-        AlertDialog.Builder(this).setTitle("Audio track")
-            .setItems(names.toTypedArray()) { _, which -> acts[which]() }
-            .setNegativeButton("Close", null).show()
+        ccIcon.setColorFilter(if (on) getColor(R.color.mg_primary) else Color.WHITE)
+        ccIcon.alpha = if (any) 1f else 0.55f
     }
 
     // ---------- actions ----------
@@ -603,6 +551,9 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun refreshPlayIcon() {
         if (!this::playBtn.isInitialized) return
+        val buf = player?.playbackState == Player.STATE_BUFFERING && player?.playWhenReady == true
+        spinner.visibility = if (buf) View.VISIBLE else View.GONE
+        playBtn.visibility = if (buf) View.INVISIBLE else View.VISIBLE
         playBtn.setImageResource(if (player?.isPlaying == true) R.drawable.ic_pause else R.drawable.ic_play)
     }
 
@@ -616,18 +567,12 @@ class PlayerActivity : AppCompatActivity() {
         flash((if (ms > 0) "+" else "-") + abs(ms / 1000) + " s   " + fmt(t))
     }
 
+    private fun speedText(s: Float) = if (s == s.toInt().toFloat()) "${s.toInt()}x" else "${s}x"
+
     private fun setSpeed(s: Float) {
         player?.playbackParameters = PlaybackParameters(s)
-        speedBtn.text = if (s == s.toInt().toFloat()) "${s.toInt()}x" else "${s}x"
-    }
-
-    private fun showSpeedDialog() {
-        val vals = floatArrayOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f, 3f, 4f, 6f)
-        val cur = player?.playbackParameters?.speed ?: 1f
-        val names = vals.map { (if (abs(it - cur) < 0.01f) "● " else "○ ") + (if (it == it.toInt().toFloat()) "${it.toInt()}x" else "${it}x") }
-        AlertDialog.Builder(this).setTitle("Speed")
-            .setItems(names.toTypedArray()) { _, i -> setSpeed(vals[i]) }
-            .setNegativeButton("Close", null).show()
+        speedVal.text = speedText(s)
+        speedVal.setTextColor(if (abs(s - 1f) < 0.01f) Color.WHITE else getColor(R.color.mg_primary))
     }
 
     private fun cycleFit() {
@@ -637,16 +582,9 @@ class PlayerActivity : AppCompatActivity() {
             2 -> AspectRatioFrameLayout.RESIZE_MODE_FILL
             else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
         }
-        fitBtn.text = when (fitMode) { 1 -> "Fill"; 2 -> "Stretch"; else -> "Fit" }
+        fitLabel.text = when (fitMode) { 1 -> "Fill"; 2 -> "Stretch"; else -> "Fit" }
         resetZoom()
         flash(when (fitMode) { 1 -> "FILL (CROP)"; 2 -> "STRETCH"; else -> "FIT TO SCREEN" })
-    }
-
-    private fun showMore() {
-        val items = arrayOf("Open in another app", "Audio track", "Subtitles", "Picture in picture")
-        AlertDialog.Builder(this).setItems(items) { _, i ->
-            when (i) { 0 -> openExternal(); 1 -> showAudioDialog(); 2 -> showSubtitleDialog(); else -> enterPip() }
-        }.setNegativeButton("Close", null).show()
     }
 
     private fun enterPip() {
@@ -667,15 +605,248 @@ class PlayerActivity : AppCompatActivity() {
         if (isInPictureInPictureMode) { controls.visibility = View.GONE; resumeBar.visibility = View.GONE } else showControls(true)
     }
 
+    // ---------- S38: dark bottom sheets (replace the grey platform dialogs) ----------
+
+    private class SheetRow(
+        val label: String,
+        val sub: String? = null,
+        val checked: Boolean = false,
+        val onClick: (() -> Unit)? = null
+    )
+
+    private class MaxScroll(ctx: Context, private val maxH: Int) : ScrollView(ctx) {
+        override fun onMeasure(w: Int, h: Int) {
+            super.onMeasure(w, View.MeasureSpec.makeMeasureSpec(maxH, View.MeasureSpec.AT_MOST))
+        }
+    }
+
+    private fun sheet(title: String, note: String?, rows: List<SheetRow>): Dialog {
+        val d = Dialog(this)
+        d.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        val accent = getColor(R.color.mg_primary)
+        val r = dp(22).toFloat()
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                setColor(0xFF1B1C20.toInt())
+                cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f)
+            }
+            setPadding(0, dp(8), 0, dp(10))
+        }
+        box.addView(View(this).apply { background = round(0x40FFFFFF, 2) },
+            LinearLayout.LayoutParams(dp(36), dp(4)).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = dp(6) })
+        box.addView(TextView(this).apply {
+            text = title
+            setTextColor(Color.WHITE)
+            textSize = 17f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setPadding(dp(22), dp(8), dp(22), dp(6))
+        })
+        if (!note.isNullOrBlank()) box.addView(TextView(this).apply {
+            text = note
+            setTextColor(0xB3FFFFFF.toInt())
+            textSize = 13f
+            setPadding(dp(22), 0, dp(22), dp(8))
+        })
+        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val out = TypedValue()
+        val ripple = if (theme.resolveAttribute(android.R.attr.selectableItemBackground, out, true)) getDrawable(out.resourceId) else null
+        for (row in rows) {
+            val line = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(52)
+                setPadding(dp(22), dp(6), dp(22), dp(6))
+            }
+            val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            col.addView(TextView(this).apply {
+                text = row.label
+                textSize = 15.5f
+                setTextColor(if (row.checked) accent else Color.WHITE)
+            })
+            if (!row.sub.isNullOrBlank()) col.addView(TextView(this).apply {
+                text = row.sub
+                textSize = 12.5f
+                setTextColor(0x99FFFFFF.toInt())
+            })
+            line.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            if (row.checked) line.addView(TextView(this).apply { text = "✓"; textSize = 18f; setTextColor(accent) })
+            val click = row.onClick
+            if (click != null) {
+                if (ripple != null) line.foreground = ripple.constantState?.newDrawable()
+                line.setOnClickListener { d.dismiss(); click() }
+            }
+            list.addView(line, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        box.addView(MaxScroll(this, (resources.displayMetrics.heightPixels * 0.62f).toInt()).apply { addView(list) })
+        d.setContentView(box)
+        d.window?.let { w ->
+            w.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            w.setGravity(Gravity.BOTTOM)
+            w.setLayout(minOf(resources.displayMetrics.widthPixels, dp(460)), ViewGroup.LayoutParams.WRAP_CONTENT)
+            w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            w.attributes = w.attributes.also { it.dimAmount = 0.55f }
+            w.setWindowAnimations(android.R.style.Animation_InputMethod)
+        }
+        d.show()
+        d.window?.let { w -> WindowInsetsControllerCompat(w, w.decorView).hide(WindowInsetsCompat.Type.systemBars()) }
+        return d
+    }
+
+    private fun showSubtitleDialog() {
+        val p = player ?: return
+        val groups = textGroups(p.currentTracks)
+        val off = p.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT) || groups.none { it.isSelected }
+        val rows = ArrayList<SheetRow>()
+        rows.add(SheetRow("Off", null, off) {
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
+            updateCcLabel()
+        })
+        var n = 0
+        for (g in groups) for (i in 0 until g.length) {
+            if (!g.isTrackSupported(i)) continue
+            n++
+            val label = trackName(g.getTrackFormat(i), n)
+            val sel = g.isTrackSelected(i) && !off
+            val gg = g
+            val ii = i
+            rows.add(SheetRow(label, null, sel) {
+                p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                    .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                    .setOverrideForType(TrackSelectionOverride(gg.mediaTrackGroup, ii))
+                    .build()
+                updateCcLabel()
+            })
+        }
+        rows.add(SheetRow("Add subtitle file...", ".srt  .vtt  .ass  .ssa  .ttml", false) { openSub.launch(arrayOf("*/*")) })
+        val sizeNames = arrayOf("Small", "Medium", "Large")
+        val cur = getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).getInt("sub_size", 1).coerceIn(0, 2)
+        rows.add(SheetRow("Text size", sizeNames[cur] + "  (tap to change)", false) {
+            getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).edit().putInt("sub_size", (cur + 1) % 3).apply()
+            styleSubtitles()
+            showSubtitleDialog()
+        })
+        sheet("Subtitles", if (n == 0) "No subtitle in this video. Add a file, or put it next to the video with the same name." else null, rows)
+    }
+
+    private fun showAudioDialog() {
+        val p = player ?: return
+        val groups = p.currentTracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
+        val rows = ArrayList<SheetRow>()
+        var n = 0
+        for (g in groups) for (i in 0 until g.length) {
+            if (!g.isTrackSupported(i)) continue
+            n++
+            val f = g.getTrackFormat(i)
+            val extra = if (f.channelCount > 0) f.channelCount.toString() + " ch" else null
+            val gg = g
+            val ii = i
+            rows.add(SheetRow(trackName(f, n), extra, g.isTrackSelected(i)) {
+                p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                    .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+                    .setOverrideForType(TrackSelectionOverride(gg.mediaTrackGroup, ii))
+                    .build()
+            })
+        }
+        if (rows.isEmpty()) { Util.toast(this, "No audio track"); return }
+        sheet("Audio track", if (rows.size == 1) "This video has only one audio track." else null, rows)
+    }
+
+    private fun showSpeedDialog() {
+        val vals = floatArrayOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f, 3f, 4f, 6f)
+        val cur = player?.playbackParameters?.speed ?: 1f
+        val rows = vals.map { v ->
+            SheetRow(speedText(v) + (if (v == 1f) "   Normal" else ""), null, abs(v - cur) < 0.01f) { setSpeed(v) }
+        }
+        sheet("Playback speed", null, rows)
+    }
+
+    private fun showMore() {
+        val p = player
+        val rows = ArrayList<SheetRow>()
+        rows.add(SheetRow("Subtitles", null, false) { showSubtitleDialog() })
+        rows.add(SheetRow("Audio track", null, false) { showAudioDialog() })
+        val rep = p?.repeatMode == Player.REPEAT_MODE_ONE
+        rows.add(SheetRow("Repeat this video", if (rep) "On" else "Off", rep) {
+            player?.repeatMode = if (rep) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
+            flash(if (rep) "Repeat off" else "Repeat on")
+        })
+        val left = if (sleepAt > 0) ((sleepAt - System.currentTimeMillis()) / 60000 + 1).coerceAtLeast(1) else 0L
+        rows.add(SheetRow("Sleep timer", if (left > 0) "Pauses in $left min" else "Off", left > 0) { showSleepDialog() })
+        rows.add(SheetRow("Picture in picture", null, false) { enterPip() })
+        rows.add(SheetRow("Video info", null, false) { showInfo() })
+        rows.add(SheetRow("Open in another app", null, false) { openExternal() })
+        sheet("More", null, rows)
+    }
+
+    private fun showSleepDialog() {
+        val mins = intArrayOf(15, 30, 45, 60, 90)
+        val rows = ArrayList<SheetRow>()
+        rows.add(SheetRow("Off", null, sleepAt == 0L) { setSleep(0) })
+        for (m in mins) rows.add(SheetRow("$m minutes", null, false) { setSleep(m) })
+        sheet("Sleep timer", "Playback pauses when the time is up.", rows)
+    }
+
+    private val sleepTask = Runnable {
+        sleepAt = 0L
+        player?.pause()
+        flash("Sleep timer: paused")
+        showControls(true)
+    }
+
+    private fun setSleep(min: Int) {
+        main.removeCallbacks(sleepTask)
+        if (min <= 0) { sleepAt = 0L; flash("Sleep timer off"); return }
+        sleepAt = System.currentTimeMillis() + min * 60_000L
+        main.postDelayed(sleepTask, min * 60_000L)
+        flash("Sleep timer: $min min")
+    }
+
+    private fun showInfo() {
+        val p = player ?: return
+        val rows = ArrayList<SheetRow>()
+        rows.add(SheetRow("Name", title))
+        try {
+            val vs = p.videoSize
+            if (vs.width > 0) rows.add(SheetRow("Resolution", vs.width.toString() + " x " + vs.height))
+            val vf = p.videoFormat
+            if (vf != null) {
+                if (vf.frameRate > 0) rows.add(SheetRow("Frame rate", String.format("%.2f fps", vf.frameRate)))
+                val vc = (vf.codecs ?: vf.sampleMimeType ?: "").removePrefix("video/")
+                if (vc.isNotBlank()) rows.add(SheetRow("Video codec", vc))
+                if (vf.bitrate > 0) rows.add(SheetRow("Video bitrate", String.format("%.1f Mbps", vf.bitrate / 1e6)))
+            }
+            val af = p.audioFormat
+            if (af != null) {
+                val ac = (af.codecs ?: af.sampleMimeType ?: "").removePrefix("audio/")
+                if (ac.isNotBlank()) rows.add(SheetRow("Audio codec", ac + (if (af.channelCount > 0) "  " + af.channelCount + " ch" else "")))
+            }
+            if (p.duration > 0) rows.add(SheetRow("Duration", fmt(p.duration)))
+            var size = 0L
+            contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { if (it.moveToFirst()) size = it.getLong(0) }
+            if (size > 0) rows.add(SheetRow("File size", EngineApi.fmtSize(size)))
+        } catch (e: Exception) {
+            Log.e(TAG, "info", e)
+        }
+        sheet("Video info", null, rows)
+    }
+
     // ---------- controls visibility ----------
 
     private val hider = Runnable { if (player?.isPlaying == true && !dragging) showControls(false) }
 
     private fun showControls(on: Boolean) {
         shown = on && !locked
-        controls.visibility = if (shown) View.VISIBLE else View.INVISIBLE
         main.removeCallbacks(hider)
-        if (shown) main.postDelayed(hider, 3500)
+        controls.animate().cancel()
+        if (shown) {
+            controls.visibility = View.VISIBLE
+            controls.animate().alpha(1f).setDuration(160).start()
+            main.postDelayed(hider, 3500)
+        } else {
+            controls.animate().alpha(0f).setDuration(160).withEndAction { if (!shown) controls.visibility = View.INVISIBLE }.start()
+        }
     }
 
     private fun poke() { if (shown) showControls(true) }
@@ -701,31 +872,121 @@ class PlayerActivity : AppCompatActivity() {
 
     private val flashOff = Runnable { flash.visibility = View.GONE }
 
+    /** Brightness / volume: a small level bar at the top instead of plain text. */
+    private fun showHud(label: String, pct: Int) {
+        hudText.text = label
+        hudBar.progress = pct.coerceIn(0, 100)
+        hud.visibility = View.VISIBLE
+        main.removeCallbacks(hudOff)
+        main.postDelayed(hudOff, 900)
+    }
+
+    private val hudOff = Runnable { hud.visibility = View.GONE }
+
+    /** Double tap feedback: a round "10 s" mark on the side that was tapped. */
+    private fun tapFlash(left: Boolean) {
+        val v = if (left) tapL else tapR
+        v.animate().cancel()
+        v.alpha = 1f
+        v.visibility = View.VISIBLE
+        v.animate().alpha(0f).setStartDelay(350).setDuration(300).withEndAction { v.visibility = View.GONE }.start()
+    }
+
+    private fun updateInfoLine() {
+        if (!this::infoTv.isInitialized) return
+        val parts = ArrayList<String>()
+        if (sibs.size > 1 && sibIdx >= 0) parts.add((sibIdx + 1).toString() + " of " + sibs.size)
+        val vs = player?.videoSize
+        if (vs != null && vs.width > 0 && vs.height > 0) parts.add(vs.width.toString() + "x" + vs.height)
+        infoTv.text = parts.joinToString("  ·  ")
+        infoTv.visibility = if (parts.isEmpty()) View.GONE else View.VISIBLE
+    }
+
     // ---------- UI ----------
 
-    private fun icon(res: Int, size: Int = 44, on: () -> Unit) = ImageView(this).apply {
+    /** Round / plain icon button. pad = inner padding in dp (the icon is scaled to fit). */
+    private fun iconBtn(res: Int, size: Int, pad: Int, on: () -> Unit) = ImageView(this).apply {
         setImageResource(res)
         setColorFilter(Color.WHITE)
-        scaleType = ImageView.ScaleType.CENTER
+        scaleType = ImageView.ScaleType.FIT_CENTER
+        setPadding(dp(pad), dp(pad), dp(pad), dp(pad))
         setOnClickListener { on(); poke() }
         layoutParams = LinearLayout.LayoutParams(dp(size), dp(size))
     }
 
-    private fun pill(label: String, on: () -> Unit) = TextView(this).apply {
-        text = label
-        textSize = 14f
-        gravity = Gravity.CENTER
-        setTextColor(Color.WHITE)
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        background = round(0x2EFFFFFF, 20)
-        minimumWidth = dp(56)
-        setPadding(dp(14), 0, dp(14), 0)
-        setOnClickListener { on(); poke() }
+    /** "back 10 s" / "forward 10 s": arrow icon with the number inside. */
+    private fun skipBtn(res: Int, on: () -> Unit): FrameLayout {
+        val f = FrameLayout(this)
+        f.addView(ImageView(this).apply {
+            setImageResource(res)
+            setColorFilter(Color.WHITE)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setPadding(dp(9), dp(9), dp(9), dp(9))
+        }, FrameLayout.LayoutParams(dp(54), dp(54)))
+        f.addView(TextView(this).apply {
+            text = "10"
+            textSize = 10f
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+        }, FrameLayout.LayoutParams(dp(54), dp(54)).apply { topMargin = dp(2) })
+        f.setOnClickListener { on(); poke() }
+        f.layoutParams = LinearLayout.LayoutParams(dp(54), dp(54))
+        return f
+    }
+
+    /** Bottom toolbar item: 28 dp slot (icon or text) with a small label below. */
+    private fun cell(label: String, slot: View, on: () -> Unit): LinearLayout {
+        val c = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(0, dp(4), 0, dp(2))
+            setOnClickListener { on(); poke() }
+        }
+        c.addView(slot, LinearLayout.LayoutParams(dp(28), dp(28)))
+        c.addView(TextView(this).apply {
+            text = label
+            textSize = 10.5f
+            gravity = Gravity.CENTER
+            maxLines = 1
+            setTextColor(0xCCFFFFFF.toInt())
+        })
+        return c
+    }
+
+    private fun iconSlot(res: Int) = ImageView(this).apply {
+        setImageResource(res)
+        setColorFilter(Color.WHITE)
+        scaleType = ImageView.ScaleType.FIT_CENTER
+        setPadding(dp(2), dp(2), dp(2), dp(2))
+    }
+
+    private fun styledSeek(accent: Int): SeekBar {
+        val track = round(0x40FFFFFF, 2).apply { setSize(-1, dp(4)) }
+        val buf = ClipDrawable(round(0x66FFFFFF, 2).apply { setSize(-1, dp(4)) }, Gravity.START, ClipDrawable.HORIZONTAL)
+        val prog = ClipDrawable(round(accent, 2).apply { setSize(-1, dp(4)) }, Gravity.START, ClipDrawable.HORIZONTAL)
+        val ld = LayerDrawable(arrayOf<Drawable>(track, buf, prog))
+        ld.setId(0, android.R.id.background)
+        ld.setId(1, android.R.id.secondaryProgress)
+        ld.setId(2, android.R.id.progress)
+        return SeekBar(this).apply {
+            max = 1000
+            progressDrawable = ld
+            thumb = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(accent)
+                setSize(dp(16), dp(16))
+                setStroke(dp(2), Color.WHITE)
+            }
+            splitTrack = false
+            setPadding(dp(10), 0, dp(10), 0)
+        }
     }
 
     private fun buildUi() {
         val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
+        val accent = getColor(R.color.mg_primary)
         rootView = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         playerView = PlayerView(this).apply {
             useController = false
@@ -736,7 +997,7 @@ class PlayerActivity : AppCompatActivity() {
         }
         rootView.addView(playerView, FrameLayout.LayoutParams(MATCH, MATCH))
 
-        // touch layer: tap, double tap, hold, swipes
+        // touch layer: tap, double tap, hold, swipes, pinch
         val touch = View(this)
         val gd = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent): Boolean { swipe = 0; volAcc = 0f; dxAcc = 0f; return true }
@@ -753,8 +1014,8 @@ class PlayerActivity : AppCompatActivity() {
                 if (locked) return true
                 val w = touch.width.toFloat()
                 when {
-                    e.x < w / 3f -> seekBy(-10_000)
-                    e.x > w * 2f / 3f -> seekBy(10_000)
+                    e.x < w / 3f -> { seekBy(-10_000); tapFlash(true) }
+                    e.x > w * 2f / 3f -> { seekBy(10_000); tapFlash(false) }
                     else -> togglePlay()
                 }
                 return true
@@ -795,7 +1056,7 @@ class PlayerActivity : AppCompatActivity() {
                     br = (br + dy / h * 1.3f).coerceIn(0.02f, 1f)
                     lp.screenBrightness = br
                     window.attributes = lp
-                    flash("Brightness " + (br * 100).toInt() + "%")
+                    showHud("Brightness  " + (br * 100).toInt() + "%", (br * 100).toInt())
                 } else {
                     val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
                     volAcc += dy / h * max * 1.4f
@@ -805,7 +1066,8 @@ class PlayerActivity : AppCompatActivity() {
                         val v = (audio.getStreamVolume(AudioManager.STREAM_MUSIC) + step).coerceIn(0, max)
                         audio.setStreamVolume(AudioManager.STREAM_MUSIC, v, 0)
                     }
-                    flash("Volume " + (audio.getStreamVolume(AudioManager.STREAM_MUSIC) * 100 / max) + "%")
+                    val pc = audio.getStreamVolume(AudioManager.STREAM_MUSIC) * 100 / max
+                    showHud("Volume  $pc%", pc)
                 }
                 return true
             }
@@ -838,41 +1100,64 @@ class PlayerActivity : AppCompatActivity() {
         }
         rootView.addView(touch, FrameLayout.LayoutParams(MATCH, MATCH))
 
-        // controls: top bar + bottom block
+        // ----- controls: top bar, centre buttons, bottom block -----
         controls = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(4), dp(6), dp(4), dp(18))
-            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0xB0000000.toInt(), 0x00000000))
+            setPadding(dp(6), dp(6), dp(6), dp(22))
+            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0xCC000000.toInt(), 0x00000000))
         }
-        top.addView(icon(R.drawable.ic_back, 48) { finish() })
+        top.addView(iconBtn(R.drawable.ic_back, 48, 12) { finish() })
+        val titleCol = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(4), 0, dp(8), 0) }
         titleTv = TextView(this).apply {
             text = title
             setTextColor(Color.WHITE)
-            textSize = 15f
+            textSize = 16f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
-            layoutParams = LinearLayout.LayoutParams(0, WRAP, 1f)
         }
-        top.addView(titleTv)
-        top.addView(icon(R.drawable.ic_screen, 48) { toggleRotate() })
-        top.addView(icon(R.drawable.ic_more, 48) { showMore() })
+        infoTv = TextView(this).apply {
+            setTextColor(0xB3FFFFFF.toInt())
+            textSize = 11.5f
+            maxLines = 1
+            visibility = View.GONE
+        }
+        titleCol.addView(titleTv)
+        titleCol.addView(infoTv)
+        top.addView(titleCol, LinearLayout.LayoutParams(0, WRAP, 1f))
+        top.addView(iconBtn(R.drawable.ic_screen, 48, 12) { toggleRotate() })
+        top.addView(iconBtn(R.drawable.ic_more, 48, 12) { showMore() })
         controls.addView(top, LinearLayout.LayoutParams(MATCH, WRAP))
-        controls.addView(View(this), LinearLayout.LayoutParams(MATCH, 0, 1f))
+
+        // centre: previous, -10, play, +10, next
+        val mid = FrameLayout(this)
+        val midRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        prevBtn = iconBtn(R.drawable.ic_skip_prev, 46, 11) { openSibling(-1) }
+        nextBtn = iconBtn(R.drawable.ic_skip_next, 46, 11) { openSibling(1) }
+        playBtn = iconBtn(R.drawable.ic_pause, 72, 20) { togglePlay() }
+        playBtn.setColorFilter(getColor(R.color.mg_on_primary))
+        playBtn.background = round(accent, 36)
+        val gap = dp(10)
+        midRow.addView(prevBtn)
+        midRow.addView(skipBtn(R.drawable.ic_pl_back10) { seekBy(-10_000) }, LinearLayout.LayoutParams(dp(54), dp(54)).apply { setMargins(gap, 0, gap, 0) })
+        midRow.addView(playBtn, LinearLayout.LayoutParams(dp(72), dp(72)).apply { setMargins(gap, 0, gap, 0) })
+        midRow.addView(skipBtn(R.drawable.ic_pl_fwd10) { seekBy(10_000) }, LinearLayout.LayoutParams(dp(54), dp(54)).apply { setMargins(gap, 0, gap, 0) })
+        midRow.addView(nextBtn)
+        mid.addView(midRow, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
+        controls.addView(mid, LinearLayout.LayoutParams(MATCH, 0, 1f))
 
         val bottom = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(14), dp(18), dp(14), dp(12))
-            background = GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(0xB0000000.toInt(), 0x00000000))
+            setPadding(dp(14), dp(26), dp(14), dp(8))
+            background = GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(0xD9000000.toInt(), 0x00000000))
         }
         val seekRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        tCur = TextView(this).apply { setTextColor(Color.WHITE); textSize = 12f; text = "00:00" }
-        tTotal = TextView(this).apply { setTextColor(Color.WHITE); textSize = 12f; text = "00:00" }
-        seek = SeekBar(this).apply {
-            max = 1000
-            progressTintList = ColorStateList.valueOf(getColor(R.color.mg_primary))
-            thumbTintList = ColorStateList.valueOf(getColor(R.color.mg_primary))
+        tCur = TextView(this).apply { setTextColor(Color.WHITE); textSize = 12.5f; text = "00:00"; gravity = Gravity.CENTER; minWidth = dp(46) }
+        tTotal = TextView(this).apply { setTextColor(0xCCFFFFFF.toInt()); textSize = 12.5f; text = "00:00"; gravity = Gravity.CENTER; minWidth = dp(46) }
+        seek = styledSeek(accent).apply {
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, prog: Int, fromUser: Boolean) {
                     if (fromUser) tCur.text = fmt((player?.duration?.coerceAtLeast(0L) ?: 0L) * prog / 1000)
@@ -887,56 +1172,87 @@ class PlayerActivity : AppCompatActivity() {
             })
         }
         seekRow.addView(tCur)
-        seekRow.addView(seek, LinearLayout.LayoutParams(0, WRAP, 1f))
+        seekRow.addView(seek, LinearLayout.LayoutParams(0, dp(32), 1f))
         seekRow.addView(tTotal)
         bottom.addView(seekRow, LinearLayout.LayoutParams(MATCH, WRAP))
 
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        row.addView(icon(R.drawable.ic_lock, 40) { setLocked(true) })
-        row.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
-        prevBtn = icon(R.drawable.ic_skip_prev, 40) { openSibling(-1) }
-        row.addView(prevBtn)
-        row.addView(pill("-10") { seekBy(-10_000) }.apply { minimumWidth = dp(44); setPadding(dp(8), 0, dp(8), 0) }, LinearLayout.LayoutParams(WRAP, dp(40)).apply { setMargins(dp(6), 0, 0, 0) })
-        playBtn = icon(R.drawable.ic_pause, 56) { togglePlay() }
-        playBtn.setColorFilter(getColor(R.color.mg_on_primary))
-        playBtn.background = round(getColor(R.color.mg_primary), 28)
-        row.addView(playBtn, LinearLayout.LayoutParams(dp(56), dp(56)).apply { setMargins(dp(10), 0, dp(10), 0) })
-        row.addView(pill("+10") { seekBy(10_000) }.apply { minimumWidth = dp(44); setPadding(dp(8), 0, dp(8), 0) }, LinearLayout.LayoutParams(WRAP, dp(40)).apply { setMargins(0, 0, dp(6), 0) })
-        nextBtn = icon(R.drawable.ic_skip_next, 40) { openSibling(1) }
-        row.addView(nextBtn)
-        row.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
-        row.addView(View(this), LinearLayout.LayoutParams(dp(40), dp(40)))
-        bottom.addView(row, LinearLayout.LayoutParams(MATCH, WRAP))
-
-        val pills = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        speedBtn = pill("1x") { showSpeedDialog() }
-        ccBtn = pill("CC") { showSubtitleDialog() }
-        val audioBtn = pill("Audio") { showAudioDialog() }
-        fitBtn = pill("Fit") { cycleFit() }
-        val pl = LinearLayout.LayoutParams(WRAP, dp(36)).apply { setMargins(dp(5), dp(10), dp(5), 0) }
-        pills.addView(speedBtn, pl)
-        pills.addView(ccBtn, pl)
-        pills.addView(audioBtn, pl)
-        pills.addView(fitBtn, pl)
-        bottom.addView(pills, LinearLayout.LayoutParams(MATCH, WRAP))
+        // toolbar: lock, speed, subtitles, audio, fit, picture in picture
+        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        speedVal = TextView(this).apply {
+            text = "1x"
+            textSize = 15f
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+        }
+        ccIcon = iconSlot(R.drawable.ic_pl_cc)
+        val fitCell = cell("Fit", iconSlot(R.drawable.ic_pl_fit)) { cycleFit() }
+        fitLabel = fitCell.getChildAt(1) as TextView
+        val cw = LinearLayout.LayoutParams(0, WRAP, 1f)
+        bar.addView(cell("Lock", iconSlot(R.drawable.ic_lock)) { setLocked(true) }, cw)
+        bar.addView(cell("Speed", speedVal) { showSpeedDialog() }, cw)
+        bar.addView(cell("Subtitles", ccIcon) { showSubtitleDialog() }, cw)
+        bar.addView(cell("Audio", iconSlot(R.drawable.ic_pl_audio)) { showAudioDialog() }, cw)
+        bar.addView(fitCell, cw)
+        bar.addView(cell("PiP", iconSlot(R.drawable.ic_pl_pip)) { enterPip() }, cw)
+        bottom.addView(bar, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(2) })
         controls.addView(bottom, LinearLayout.LayoutParams(MATCH, WRAP))
         rootView.addView(controls, FrameLayout.LayoutParams(MATCH, MATCH))
 
+        // ----- overlays -----
         flash = TextView(this).apply {
             setTextColor(Color.WHITE)
             textSize = 20f
             gravity = Gravity.CENTER
-            setPadding(dp(18), dp(10), dp(18), dp(10))
-            background = round(0x99000000.toInt(), 14)
+            setPadding(dp(20), dp(10), dp(20), dp(10))
+            background = round(0xB3000000.toInt(), 16)
             visibility = View.GONE
         }
         rootView.addView(flash, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
 
+        hud = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(18), dp(10), dp(18), dp(12))
+            background = round(0xB3000000.toInt(), 16)
+            visibility = View.GONE
+        }
+        hudText = TextView(this).apply { setTextColor(Color.WHITE); textSize = 14f; gravity = Gravity.CENTER }
+        hudBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 100
+            progressTintList = ColorStateList.valueOf(accent)
+            progressBackgroundTintList = ColorStateList.valueOf(0x40FFFFFF)
+        }
+        hud.addView(hudText)
+        hud.addView(hudBar, LinearLayout.LayoutParams(dp(170), dp(6)).apply { topMargin = dp(8) })
+        rootView.addView(hud, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dp(60) })
+
+        fun tapMark(label: String) = TextView(this).apply {
+            text = label
+            setTextColor(Color.WHITE)
+            textSize = 15f
+            gravity = Gravity.CENTER
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+            background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0x44FFFFFF) }
+            visibility = View.GONE
+        }
+        tapL = tapMark("«\n10 s")
+        tapR = tapMark("»\n10 s")
+        rootView.addView(tapL, FrameLayout.LayoutParams(dp(92), dp(92), Gravity.START or Gravity.CENTER_VERTICAL).apply { setMargins(dp(40), 0, 0, 0) })
+        rootView.addView(tapR, FrameLayout.LayoutParams(dp(92), dp(92), Gravity.END or Gravity.CENTER_VERTICAL).apply { setMargins(0, 0, dp(40), 0) })
+
+        spinner = ProgressBar(this).apply {
+            indeterminateTintList = ColorStateList.valueOf(Color.WHITE)
+            visibility = View.GONE
+        }
+        rootView.addView(spinner, FrameLayout.LayoutParams(dp(60), dp(60), Gravity.CENTER))
+
         unlockBtn = ImageView(this).apply {
             setImageResource(R.drawable.ic_lock)
             setColorFilter(getColor(R.color.mg_on_primary))
-            scaleType = ImageView.ScaleType.CENTER
-            background = round(getColor(R.color.mg_primary), 28)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            background = round(accent, 28)
             visibility = View.GONE
             setOnClickListener { setLocked(false) }
         }
@@ -946,12 +1262,13 @@ class PlayerActivity : AppCompatActivity() {
             setTextColor(Color.WHITE)
             textSize = 14f
             gravity = Gravity.CENTER
-            setPadding(dp(16), dp(10), dp(16), dp(10))
-            background = round(0xCC202020.toInt(), 20)
+            setPadding(dp(18), dp(10), dp(18), dp(10))
+            background = round(0xE6202024.toInt(), 22)
             visibility = View.GONE
         }
-        rootView.addView(resumeBar, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { setMargins(0, 0, 0, dp(190)) })
+        rootView.addView(resumeBar, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { setMargins(0, 0, 0, dp(140)) })
         updateNav()
+        updateInfoLine()
 
         // keep the controls out of a display cutout / camera hole
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { _, insets ->
