@@ -1,3 +1,11 @@
+MGB 0.0.46 (S43: new tab switcher)
+- Tab cards: title bar on top (letter icon, title, X), page picture below, the open tab has a rose title bar. Cards fade in, shrink a little when pressed, and fade out when closed.
+- Long press a tab: menu (Select tab, Add tab to group, Add Favorite, Share, Close tab). Menus are small popups now, not plain list dialogs.
+- Search tabs (magnifier, top left): filters by title and address.
+- Groups: colour (10 colours), shown as cards with 2x2 pictures in the tab grid and as a list in the Groups pill. New group dialog = colour + name. Group menu: Select tabs, Edit group name, Edit group colour, Close group, Delete group. Colours are saved with the tabs.
+- Select mode: "N items", All / None, menu: Select all, Close tabs, Add to group, Ungroup tabs, Add Favorite, Share tabs.
+- Back button: closes search, then select mode, then the open group, then the switcher.
+
 MGB 0.0.45 (S42: cookie banners, ad spaces, preview, PiP button, subtitle colour, auto backup)
 - Settings > Privacy: "Hide cookie banners" (default ON) and "Hide ad spaces on pages" (default ON, follows the ad blocker). "Sites with ads allowed" lists the sites set in Page info > Site configuration; tap one to block ads there again.
 - Link long press > "Preview page": small window with the page; Open = new tab.
