@@ -59,6 +59,9 @@ class TabManager(
     class Tab(val id: Int, val web: WebView, val openerId: Int) {
         var url: String = ""
         var title: String = ""
+        /** S41: HTTPS-only: the http address we upgraded (guards a redirect loop, used for the fallback question). */
+        var httpsFrom: String? = null
+        var httpsAllow: String? = null
         var progress: Int = 100
         /** Restored tabs are loaded lazily, the first time they are selected. */
         var pending: String? = null
@@ -203,16 +206,19 @@ class TabManager(
 
     fun saveSession() {
         val arr = JSONArray()
+        val idx = HashMap<Int, Int>() // S41: tab id -> position in the saved list (groups)
         var activeIdx = 0
         for (t in tabs) {
             if (t.priv) continue // S26: private tabs are never saved
             val u = if (t.home) HOME_PAGE else (t.web.url ?: t.url)
             if (u.isBlank() || u == "about:blank" || u.startsWith(ContentInjector.EXT_ORIGIN)) continue
             if (t === active) activeIdx = arr.length()
+            idx[t.id] = arr.length()
             arr.put(u)
         }
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString("tabs", arr.toString())
+            .putString("groups", TabSwitcher.exportGroups(idx))
             .putInt("active", activeIdx)
             .apply()
     }
@@ -225,13 +231,16 @@ class TabManager(
         if (arr.length() == 0) return false
         val act = sp.getInt("active", 0).coerceIn(0, arr.length() - 1)
         var target: Tab? = null
+        val ids = ArrayList<Int>()
         for (i in 0 until arr.length()) {
             val t = newTab(null, 0, false) ?: break
+            ids.add(t.id)
             val u = arr.getString(i)
             t.url = u
             if (u == HOME_PAGE) t.home = true else t.pending = u // S13
             if (i == act) target = t
         }
+        sp.getString("groups", null)?.let { g -> TabSwitcher.importGroups(g) { i -> ids.getOrNull(i) } } // S41
         val sel = target ?: tabs.firstOrNull() ?: return false
         switchTo(sel)
         return true
@@ -292,6 +301,11 @@ class TabManager(
             val u = request?.url ?: return false
             // S6: a web page may not navigate to the extension origin (only our own code opens those)
             if (u.toString().startsWith(ContentInjector.EXT_ORIGIN) && !tab.isExt) return true
+            // S41: HTTPS-only mode
+            if (!tab.isExt && request.isForMainFrame && u.scheme == "http" && HttpsOnly.on(ctx) && tab.httpsAllow != u.host && tab.httpsFrom != u.toString()) {
+                val up = HttpsOnly.upgrade(u.toString())
+                if (up != null) { tab.httpsFrom = u.toString(); view?.loadUrl(up); return true }
+            }
             // S39: a link / redirect to a video file or stream opens the built-in player (not Chromium's media page)
             if (!tab.isExt && request.isForMainFrame && playLink(tab, u.toString())) return true
             when (u.scheme?.lowercase()) {
@@ -315,10 +329,29 @@ class TabManager(
             return EngineHost.ext(r.url)
         }
 
+        override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: android.webkit.WebResourceError?) {
+            super.onReceivedError(view, request, error)
+            val r = request ?: return
+            val from = tab.httpsFrom ?: return
+            if (!r.isForMainFrame || r.url.scheme != "https" || android.net.Uri.parse(from).host != r.url.host) return
+            container.post { // S41: no https on this site: ask once
+                com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
+                    .setTitle("No secure connection")
+                    .setMessage(r.url.host + " does not open with https. Open the unsecured http page?")
+                    .setPositiveButton("Open http") { _, _ -> tab.httpsAllow = r.url.host; tab.web.loadUrl(from) }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+        }
+
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
             tab.url = url ?: tab.url
             tab.progress = 0
             if (tab.home) { tab.home = false; syncHome() } // S13
+            if (!tab.isExt && view != null) { // S41: text size of this site
+                val z = TextZoom.get(ctx, Util.host(url ?: ""))
+                if (view.settings.textZoom != z) view.settings.textZoom = z
+            }
             if (!tab.isExt && view != null) { // S29: per-site switches
                 val jsOff = SiteConfig.has(url, SiteConfig.JS_OFF)
                 if (view.settings.javaScriptEnabled == jsOff) view.settings.javaScriptEnabled = !jsOff

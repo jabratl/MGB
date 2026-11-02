@@ -204,6 +204,11 @@ object SettingsScreen {
                     Orient.apply(act)
                     fill()
                 },
+                Row(R.drawable.ic_lock, "HTTPS-only mode", if (HttpsOnly.on(act)) "ON" else "OFF") { // S41
+                    HttpsOnly.set(act, !HttpsOnly.on(act))
+                    fill()
+                },
+                Row(R.drawable.ic_search, "Translate to", Translate.langName(act)) { Translate.pickLang(act) { fill() } }, // S41
                 Row(R.drawable.ic_theme, "Dark pages", if (UiMode.darkPages(act)) "ON" else "OFF") {
                     val on = !UiMode.darkPages(act)
                     UiMode.setDarkPages(act, on)

@@ -252,6 +252,13 @@ class FloatingDl(
                     go(it, JSONObject().put("variant", "best"))
                 })
             }
+            // S41: play the detected stream in the built-in player (no download)
+            val murl = it.optString("url")
+            if (murl.startsWith("http") && kind in listOf("hls", "dash", "video", "audio") && !info.optBoolean("protected", false)) {
+                val ref = tabs.active?.url?.takeIf { u -> u.startsWith("http") }
+                val ua = tabs.active?.web?.settings?.userAgentString
+                list.addView(row("Play in player", null, false) { WebPlay.play(act, murl, name, ref, ua); dlg.dismiss() })
+            }
         }
         dlg.setContentView(v)
         dlg.behavior.skipCollapsed = true

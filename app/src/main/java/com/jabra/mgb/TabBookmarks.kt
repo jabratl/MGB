@@ -27,6 +27,13 @@ object TabBookmarks {
         return out
     }
 
+    /** S41: one message with every open web tab (title + address). */
+    fun shareAll(ctx: Context, tm: TabManager) {
+        val items = list(tm)
+        if (items.isEmpty()) { Util.toast(ctx, "No web tabs to share"); return }
+        tm.shareText(items.joinToString("\n\n") { it.first + "\n" + it.second })
+    }
+
     fun dialog(ctx: Context, tm: TabManager) {
         val items = list(tm)
         if (items.isEmpty()) { Util.toast(ctx, "No web tabs to bookmark"); return }

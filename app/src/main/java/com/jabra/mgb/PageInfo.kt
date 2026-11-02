@@ -236,7 +236,7 @@ object PageInfo {
         "d.head.appendChild(st);d.body.innerHTML='';d.body.removeAttribute('class');d.body.removeAttribute('style');d.body.appendChild(out);" +
         "window.scrollTo(0,0);return 'ok';})()"
 
-    private fun reader(act: Activity, t: TabManager.Tab) {
+    fun reader(act: Activity, t: TabManager.Tab) { // S41: also a menu row
         val dark = (act.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
             android.content.res.Configuration.UI_MODE_NIGHT_YES
         val js = READER_JS.replace("__BG__", if (dark) "#0A0C10" else "#FFFFFF").replace("__FG__", if (dark) "#ECEFF4" else "#14171C")

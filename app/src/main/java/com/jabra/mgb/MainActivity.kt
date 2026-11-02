@@ -160,6 +160,9 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Item(if (cur?.desktop == true) "Mobile site" else "Desktop site", R.drawable.ic_desktop, cur != null && !cur.home && !cur.isExt) {
                 tabs.active?.let { tabs.setDesktop(it, !it.desktop) }
             },
+            MenuSheet.Item("Translate page", R.drawable.ic_search, canMark, if (Translate.hasLang(this)) Translate.lang(this) else "") { Translate.page(this, tabs) }, // S41
+            MenuSheet.Item("Reader view", R.drawable.ic_list, canMark) { tabs.active?.let { PageInfo.reader(this, it) } }, // S41
+            MenuSheet.Item("Text size", R.drawable.ic_edit, canMark, cur?.let { c -> TextZoom.get(this, Util.host(c.url)).takeIf { it != 100 }?.let { "$it%" } } ?: "") { TextZoom.dialog(this, tabs) }, // S41
             MenuSheet.Item("Page info", R.drawable.ic_info, canMark) { PageInfo.show(this, tabs) }, // S29
             MenuSheet.Item("Fill password", R.drawable.ic_lock, canMark && cur?.priv != true) { PasswordStore.fill(this, tabs) }, // S30
             MenuSheet.Item("Email alias", R.drawable.ic_share, true) { EmailAlias.create(this, cur?.url?.takeIf { canMark }?.let { Util.host(it) } ?: "") }, // S30
@@ -199,12 +202,16 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     // ---------- URL bar ----------
 
     private fun submitUrl() {
-        val target = Util.toUrlOrSearch(urlBar.text.toString())
+        var target = Util.toUrlOrSearch(urlBar.text.toString())
+        val upgraded = if (HttpsOnly.on(this)) HttpsOnly.upgrade(target) else null // S41
+        val httpFrom = if (upgraded != null) target else null
+        if (upgraded != null) target = upgraded
         leaveUrlBar()
         val t = tabs.active ?: tabs.newTab(null) ?: return
         if (t.home && target == "about:blank") return // S13: empty input on the speed dial = stay
         if (!t.isExt && tabs.playLink(t, target)) return // S39: typed video link = built-in player
         tabs.leaveHome(t) // S13
+        t.httpsFrom = httpFrom
         t.url = target
         t.web.loadUrl(target)
     }

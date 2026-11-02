@@ -38,6 +38,30 @@ object TabSwitcher {
     private val thumbs = HashMap<Int, Bitmap>()
     private val groups = LinkedHashMap<String, MutableSet<Int>>()
 
+    /** S41: groups saved with the session. indexOf = tab id -> position in the saved tab list. */
+    fun exportGroups(indexOf: Map<Int, Int>): String {
+        val o = org.json.JSONObject()
+        for ((n, ids) in groups) {
+            val a = org.json.JSONArray()
+            for (id in ids) indexOf[id]?.let { a.put(it) }
+            if (a.length() > 0) o.put(n, a)
+        }
+        return o.toString()
+    }
+
+    fun importGroups(json: String, idAt: (Int) -> Int?) {
+        try {
+            val o = org.json.JSONObject(json)
+            groups.clear()
+            for (n in o.keys()) {
+                val a = o.getJSONArray(n)
+                val s = LinkedHashSet<Int>()
+                for (i in 0 until a.length()) idAt(a.getInt(i))?.let { s.add(it) }
+                if (s.isNotEmpty()) groups[n] = s
+            }
+        } catch (e: Exception) { Log.e(TAG, "groups restore", e) }
+    }
+
     /** S40: long press menu "Open in new tab in group": pick a group (or make one), the new tab joins it. */
     fun openInGroup(ctx: Context, tm: TabManager, url: String, openerId: Int) {
         fun open(name: String) {
@@ -347,6 +371,7 @@ object TabSwitcher {
             items.add("New tab"); acts.add { newTab(false) }
             items.add("New private tab"); acts.add { newTab(true) }
             if (mode != 1 && !(mode == 2 && openGroup == null)) { items.add("Bookmark all tabs"); acts.add { TabBookmarks.dialog(act, tm) } } // S40
+            if (mode != 1 && !(mode == 2 && openGroup == null)) { items.add("Share all tabs"); acts.add { TabBookmarks.shareAll(act, tm) } } // S41
             if (!(mode == 2 && openGroup == null)) { items.add("Select tabs"); acts.add { startSelect(null) } }
             if (mode == 2 && openGroup != null) { items.add("Rename group"); acts.add { renameGroup() } }
             if (mode == 2 && openGroup != null) { items.add("Delete group (keep tabs)"); acts.add { openGroup?.let { g -> groups.remove(g) }; openGroup = null; render() } }

@@ -1,3 +1,12 @@
+MGB 0.0.44 (S41: translate, reader, text size, HTTPS-only, groups saved)
+- Menu > Translate page: the page opens through Google Translate in the same tab (Back = original). The language is asked the first time; change it in Settings > General > Translate to.
+- Menu > Reader view: clean article text (was only inside Page info).
+- Menu > Text size: 50% - 250% per site, saved for that site.
+- Settings > General > HTTPS-only mode (OFF by default): http links open as https; if the site has no https you are asked before the http page opens.
+- Tab groups are now saved with the open tabs and come back after a restart.
+- Tab switcher menu > Share all tabs (titles + addresses in one message).
+- Download sheet (grabber button): every detected video / audio / HLS / DASH stream has "Play in player".
+
 MGB 0.0.43 (S40: link menu, bookmark all tabs, password manager)
 - Long press on a link opens a new bottom sheet: header (letter, link text, address), then Open in new tab, Open in new tab in group, Open in New Private Tab, Play in player (video links), Bookmark link, Copy link, Copy text, Download link, Share. Images: open, copy address, download, share.
 - Bookmark all tabs: 3-dot menu and tab switcher menu. One dialog with the number of new bookmarks and a folder name (default "Tabs 02 Nov 17:05"); private tabs, home and duplicates are skipped.
