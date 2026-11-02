@@ -2,6 +2,7 @@ package com.jabra.mgb
 
 import android.app.Activity
 import android.app.Dialog
+import android.content.res.ColorStateList
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
@@ -13,16 +14,22 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebStorage
+import android.transition.AutoTransition
+import android.transition.TransitionManager
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.core.graphics.ColorUtils
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.materialswitch.MaterialSwitch
 
 /**
- * S27: native Settings screen (full-screen Dialog, no manifest entry). Grouped rounded cards with small
- * section labels: General, Downloads, Privacy and security, About. The V77 options page stays reachable
+ * S27: native Settings screen (full-screen Dialog, no manifest entry). The V77 options page stays reachable
  * as "Grabber settings".
+ * S46: categories are collapsed cards (accordion, one open at a time). Inside a category the rows are
+ * grouped by small sub labels, ON/OFF rows use a switch. Open category is kept while a toggle rebuilds.
  */
 object SettingsScreen {
     private const val TAG = "MGB.settings"
@@ -53,6 +60,9 @@ object SettingsScreen {
         private val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         private val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
         private var body: LinearLayout? = null
+        private var sv: ScrollView? = null
+        private var openCat: String? = null // S46
+        private val cats = LinkedHashMap<String, Pair<View, View>>() // key -> (content, chevron)
 
         private fun dp(v: Int) = Util.dp(act, v)
 
@@ -107,6 +117,7 @@ object SettingsScreen {
             }
             body = col
             val sv = ScrollView(act)
+            this.sv = sv
             sv.addView(col, ViewGroup.LayoutParams(MATCH, WRAP))
             root.addView(sv, LinearLayout.LayoutParams(MATCH, 0, 1f))
             setContentView(root)
@@ -115,53 +126,152 @@ object SettingsScreen {
 
         private class Row(val icon: Int, val label: String, val value: String = "", val onClick: (() -> Unit)? = null)
 
-        private fun section(title: String, rows: List<Row>) {
-            val col = body ?: return
-            col.addView(TextView(act).apply {
-                text = title.uppercase()
-                textSize = 12f
-                letterSpacing = 0.08f
-                setTextColor(act.getColor(R.color.mg_text_dim))
-                setPadding(dp(8), dp(20), 0, dp(8))
-            })
-            val card = LinearLayout(act).apply {
-                orientation = LinearLayout.VERTICAL
-                background = round(act.getColor(R.color.mg_surface), 24)
-                setPadding(0, dp(6), 0, dp(6))
-            }
-            for (r in rows) {
-                val line = LinearLayout(act).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER_VERTICAL
-                    setPadding(dp(16), 0, dp(16), 0)
-                    if (r.onClick != null) {
-                        isClickable = true
-                        isFocusable = true
-                        val out = TypedValue()
-                        if (act.theme.resolveAttribute(android.R.attr.selectableItemBackground, out, true)) {
-                            foreground = act.getDrawable(out.resourceId)
-                        }
-                        setOnClickListener { r.onClick.invoke() }
+        private class Sub(val title: String)
+
+        private fun switchFor(on: Boolean) = MaterialSwitch(act).apply {
+            isChecked = on
+            isClickable = false
+            isFocusable = false
+            val st = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
+            trackTintList = ColorStateList(st, intArrayOf(act.getColor(R.color.mg_primary), act.getColor(R.color.mg_surface_variant)))
+            thumbTintList = ColorStateList(st, intArrayOf(act.getColor(R.color.mg_on_primary), act.getColor(R.color.mg_text_dim)))
+        }
+
+        private fun subLabel(title: String) = TextView(act).apply {
+            text = title.uppercase()
+            textSize = 11f
+            letterSpacing = 0.08f
+            setTextColor(act.getColor(R.color.mg_text_dim))
+            setPadding(dp(18), dp(14), dp(16), dp(4))
+        }
+
+        private fun rowView(r: Row): View {
+            val line = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(52)
+                setPadding(dp(18), dp(6), dp(16), dp(6))
+                if (r.onClick != null) {
+                    isClickable = true
+                    isFocusable = true
+                    val out = TypedValue()
+                    if (act.theme.resolveAttribute(android.R.attr.selectableItemBackground, out, true)) {
+                        foreground = act.getDrawable(out.resourceId)
                     }
+                    setOnClickListener { r.onClick.invoke() }
                 }
-                line.addView(ImageView(act).apply {
-                    setImageResource(r.icon)
-                    setColorFilter(act.getColor(R.color.mg_text_dim))
-                }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(16) })
+            }
+            line.addView(ImageView(act).apply {
+                setImageResource(r.icon)
+                setColorFilter(act.getColor(R.color.mg_text_dim))
+            }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(16) })
+            line.addView(TextView(act).apply {
+                text = r.label
+                textSize = 15f
+                maxLines = 2
+                setTextColor(act.getColor(R.color.mg_text))
+            }, LinearLayout.LayoutParams(0, WRAP, 1f))
+            if (r.value == "ON" || r.value == "OFF") {
+                line.addView(switchFor(r.value == "ON"), LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(8) })
+            } else if (r.value.isNotEmpty()) {
                 line.addView(TextView(act).apply {
-                    text = r.label
-                    textSize = 16f
-                    maxLines = 1
-                    setTextColor(act.getColor(R.color.mg_text))
-                }, LinearLayout.LayoutParams(0, WRAP, 1f))
-                if (r.value.isNotEmpty()) line.addView(TextView(act).apply {
                     text = r.value
                     textSize = 13f
+                    setPadding(dp(8), 0, 0, 0)
                     setTextColor(act.getColor(if (r.value.startsWith("ON")) R.color.mg_primary else R.color.mg_text_dim))
                 })
-                card.addView(line, LinearLayout.LayoutParams(MATCH, dp(52)))
             }
-            col.addView(card, LinearLayout.LayoutParams(MATCH, WRAP))
+            return line
+        }
+
+        /** S46: one collapsible category card. items = Row or Sub (small group label). */
+        private fun category(key: String, icon: Int, title: String, subtitle: String, items: List<Any>) {
+            val col = body ?: return
+            val isOpen = openCat == key
+            val card = LinearLayout(act).apply {
+                orientation = LinearLayout.VERTICAL
+                background = round(act.getColor(R.color.mg_surface), 22)
+            }
+            val chev = ImageView(act).apply {
+                setImageResource(R.drawable.ic_chevron)
+                setColorFilter(act.getColor(R.color.mg_text_dim))
+                rotation = if (isOpen) 90f else 0f
+            }
+            val content = LinearLayout(act).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, 0, 0, dp(8))
+                visibility = if (isOpen) View.VISIBLE else View.GONE
+            }
+            content.addView(View(act).apply { setBackgroundColor(act.getColor(R.color.mg_outline)) },
+                LinearLayout.LayoutParams(MATCH, dp(1)).apply { marginStart = dp(16); marginEnd = dp(16) })
+            for (item in items) {
+                when (it) {
+                    is Sub -> content.addView(subLabel(item.title), LinearLayout.LayoutParams(MATCH, WRAP))
+                    is Row -> content.addView(rowView(item), LinearLayout.LayoutParams(MATCH, WRAP))
+                }
+            }
+            val header = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(14), dp(10), dp(14), dp(10))
+                isClickable = true
+                isFocusable = true
+                contentDescription = title
+                val out = TypedValue()
+                if (act.theme.resolveAttribute(android.R.attr.selectableItemBackground, out, true)) {
+                    foreground = act.getDrawable(out.resourceId)
+                }
+                setOnClickListener { toggle(key, card) }
+            }
+            val badge = FrameLayout(act).apply {
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(ColorUtils.setAlphaComponent(act.getColor(R.color.mg_primary), 0x26))
+                }
+            }
+            badge.addView(ImageView(act).apply {
+                setImageResource(icon)
+                setColorFilter(act.getColor(R.color.mg_primary))
+            }, FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER))
+            header.addView(badge, LinearLayout.LayoutParams(dp(40), dp(40)).apply { marginEnd = dp(14) })
+            val texts = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+            texts.addView(TextView(act).apply {
+                text = title
+                textSize = 16f
+                maxLines = 1
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                setTextColor(act.getColor(R.color.mg_text))
+            })
+            texts.addView(TextView(act).apply {
+                text = subtitle
+                textSize = 12f
+                maxLines = 1
+                setTextColor(act.getColor(R.color.mg_text_dim))
+            })
+            header.addView(texts, LinearLayout.LayoutParams(0, WRAP, 1f))
+            header.addView(chev, LinearLayout.LayoutParams(dp(24), dp(24)))
+            card.addView(header, LinearLayout.LayoutParams(MATCH, WRAP))
+            card.addView(content, LinearLayout.LayoutParams(MATCH, WRAP))
+            col.addView(card, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(10) })
+            cats[key] = Pair(content, chev)
+        }
+
+        /** S46: open one category, close the others (animated). */
+        private fun toggle(key: String, card: View) {
+            val col = body ?: return
+            val opening = openCat != key
+            try {
+                TransitionManager.beginDelayedTransition(col, AutoTransition().setDuration(200))
+            } catch (_: Exception) { }
+            openCat = if (opening) key else null
+            for ((k, v) in cats) {
+                val show = k == openCat
+                v.first.visibility = if (show) View.VISIBLE else View.GONE
+                v.second.animate().rotation(if (show) 90f else 0f).setDuration(200).start()
+            }
+            if (opening) card.postDelayed({
+                sv?.smoothScrollTo(0, (card.top - dp(8)).coerceAtLeast(0))
+            }, 240)
         }
 
         private fun hideBar(): Boolean =
@@ -182,21 +292,35 @@ object SettingsScreen {
                 .show()
         }
 
-        /** (Re)build the sections, used at start and after a toggle. */
+        /** (Re)build the categories, used at start and after a toggle. S46: accordion + sub groups. */
         private fun fill() {
             val col = body ?: return
+            val keepY = sv?.scrollY ?: 0
             col.removeAllViews()
+            cats.clear()
             val tabs = BookmarksScreen.tabsRef
+            val prefs = act.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE)
+            val fa = act as? androidx.fragment.app.FragmentActivity
 
-            section("General", listOf(
+            category("general", R.drawable.ic_settings, "General", "Theme, search, pages, display", listOf(
+                Sub("Appearance"),
                 Row(R.drawable.ic_theme, "Theme", UiMode.label(act)) { dismiss(); UiMode.pick(act) },
+                Row(R.drawable.ic_theme, "Dark pages", if (UiMode.darkPages(act)) "ON" else "OFF") {
+                    val on = !UiMode.darkPages(act)
+                    UiMode.setDarkPages(act, on)
+                    tabs?.applyDarkPages()
+                    Util.toast(act, if (on) "Dark pages ON (reload the page)" else "Dark pages OFF (reload the page)")
+                    fill()
+                },
+                Sub("Browsing"),
                 Row(R.drawable.ic_search, "Search engine", Util.engineName(act)) {
                     val names = Util.ENGINES.map { it.first }
                     MaterialAlertDialogBuilder(act).setTitle("Search engine")
                         .setItems(names.toTypedArray()) { _, i -> Util.setEngine(act, names[i]); fill() }.show()
                 },
+                Row(R.drawable.ic_search, "Translate to", Translate.langName(act)) { Translate.pickLang(act) { fill() } }, // S41
                 Row(R.drawable.ic_screen, "Hide bar while scrolling", if (hideBar()) "ON" else "OFF") {
-                    act.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE).edit().putBoolean("hide_bar", !hideBar()).apply()
+                    prefs.edit().putBoolean("hide_bar", !hideBar()).apply()
                     fill()
                 },
                 Row(R.drawable.ic_reload, "Pull down to refresh", if (PullRefresh.enabled(act)) "ON" else "OFF") { // S45
@@ -207,25 +331,15 @@ object SettingsScreen {
                     Orient.setRotateBrowser(act, !Orient.rotateBrowser(act))
                     Orient.apply(act)
                     fill()
-                },
-                Row(R.drawable.ic_lock, "HTTPS-only mode", if (HttpsOnly.on(act)) "ON" else "OFF") { // S41
-                    HttpsOnly.set(act, !HttpsOnly.on(act))
-                    fill()
-                },
-                Row(R.drawable.ic_search, "Translate to", Translate.langName(act)) { Translate.pickLang(act) { fill() } }, // S41
-                Row(R.drawable.ic_theme, "Dark pages", if (UiMode.darkPages(act)) "ON" else "OFF") {
-                    val on = !UiMode.darkPages(act)
-                    UiMode.setDarkPages(act, on)
-                    tabs?.applyDarkPages()
-                    Util.toast(act, if (on) "Dark pages ON (reload the page)" else "Dark pages OFF (reload the page)")
-                    fill()
                 }
             ))
-            section("Downloads", listOf(
+            category("downloads", R.drawable.ic_download, "Downloads", "Grabber, player, buttons", listOf(
+                Sub("Manage"),
                 Row(R.drawable.ic_download, "Downloads") { dismiss(); DownloadsScreen.open(act) },
                 Row(R.drawable.ic_list, "Queue") { ext("queue.html") },
                 Row(R.drawable.ic_history, "Download history") { ext("history.html") },
                 Row(R.drawable.ic_settings, "Grabber settings") { ext("options.html") },
+                Sub("Player and buttons"),
                 Row(R.drawable.ic_play, "Play video links in built-in player", if (WebPlay.linksEnabled(act)) "ON" else "OFF") { // S39
                     WebPlay.setLinksEnabled(act, !WebPlay.linksEnabled(act))
                     fill()
@@ -240,32 +354,13 @@ object SettingsScreen {
                     fill()
                 },
                 Row(R.drawable.ic_download, "Extra native download button", if (nativeBtn()) "ON" else "OFF") {
-                    act.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE).edit().putBoolean("native_btn", !nativeBtn()).apply()
+                    prefs.edit().putBoolean("native_btn", !nativeBtn()).apply()
                     Util.toast(act, "Changes in a few seconds")
                     fill()
                 }
             ))
-            section("Data", listOf(
-                Row(R.drawable.ic_history, "Auto backup (daily)", if (Backup.autoOn(act)) "ON" else "OFF") { // S42
-                    Backup.setAuto(act, !Backup.autoOn(act))
-                    if (Backup.autoOn(act)) Util.toast(act, "Saves Downloads/mgb-auto-backup.json once a day")
-                    fill()
-                },
-                Row(R.drawable.ic_share, "Export data") { Backup.exportData(act) },
-                Row(R.drawable.ic_download, "Import data") { Backup.importData(act) },
-                Row(R.drawable.ic_history, "Recently closed tabs") { dismiss(); Backup.closedTabs(act, tabs) }
-            ))
-            val fa = act as? androidx.fragment.app.FragmentActivity
-            section("Passwords and email", listOf(
-                Row(R.drawable.ic_lock, "Saved passwords") { fa?.let { PasswordStore.screen(it) } },
-                Row(R.drawable.ic_share, "addy.io API key", if (EmailAlias.hasKey(act)) "set" else "not set") { EmailAlias.keyDialog(act) { fill() } },
-                Row(R.drawable.ic_download, "Import passwords (file or paste)") { fa?.let { PasswordStore.importChoice(it) } },
-                Row(R.drawable.ic_share, "Export passwords (CSV)") { fa?.let { PasswordStore.exportCsv(it) } },
-                Row(R.drawable.ic_lock, "Password generator") { fa?.let { PasswordStore.generatorDialog(it) } },
-                Row(R.drawable.ic_add, "Create email alias") { EmailAlias.create(act, "") },
-                Row(R.drawable.ic_list, "My email aliases") { EmailAlias.manage(act) }
-            ))
-            section("Privacy and security", listOf(
+            category("privacy", R.drawable.ic_shield, "Privacy and security", "Lock, permissions, ads, HTTPS", listOf(
+                Sub("Security"),
                 Row(R.drawable.ic_lock, "App lock", if (AppLock.on(act)) "ON · ${AppLock.delayLabel(act)}" else "OFF") { // S45
                     fa?.let { AppLock.toggle(it) { fill() } }
                 },
@@ -273,6 +368,11 @@ object SettingsScreen {
                 Row(R.drawable.ic_shield, "Site permissions", "${SitePerms.count(act)} saved") { // S45
                     fa?.let { SitePerms.screen(it) { fill() } }
                 },
+                Row(R.drawable.ic_lock, "HTTPS-only mode", if (HttpsOnly.on(act)) "ON" else "OFF") { // S41
+                    HttpsOnly.set(act, !HttpsOnly.on(act))
+                    fill()
+                },
+                Sub("Ads and cookies"),
                 Row(R.drawable.ic_shield, "Ad blocker", if (AdBlock.enabled) "ON · ${AdBlock.blocked} blocked" else "OFF") {
                     Util.toast(act, if (AdBlock.toggle()) "Ad blocker ON (reload the page)" else "Ad blocker OFF (reload the page)")
                     fill()
@@ -287,7 +387,19 @@ object SettingsScreen {
                     CosmeticFilter.setCookie(act, !CosmeticFilter.cookieOn(act))
                     Util.toast(act, "Reload the page")
                     fill()
+                }
+            ))
+            category("data", R.drawable.ic_folder, "Data and backup", "Backup, history, cookies, cache", listOf(
+                Sub("Backup"),
+                Row(R.drawable.ic_history, "Auto backup (daily)", if (Backup.autoOn(act)) "ON" else "OFF") { // S42
+                    Backup.setAuto(act, !Backup.autoOn(act))
+                    if (Backup.autoOn(act)) Util.toast(act, "Saves Downloads/mgb-auto-backup.json once a day")
+                    fill()
                 },
+                Row(R.drawable.ic_share, "Export data") { Backup.exportData(act) },
+                Row(R.drawable.ic_download, "Import data") { Backup.importData(act) },
+                Sub("Clear data"),
+                Row(R.drawable.ic_history, "Recently closed tabs") { dismiss(); Backup.closedTabs(act, tabs) },
                 Row(R.drawable.ic_trash, "Clear browsing history") {
                     confirm("Clear all browsing history?", "Clear") { Bookmarks.clearHistory(); Util.toast(act, "History cleared") }
                 },
@@ -308,11 +420,23 @@ object SettingsScreen {
                     } catch (e: Exception) { Util.toast(act, "Could not clear") }
                 }
             ))
-            section("About", listOf(
+            category("passwords", R.drawable.ic_lock, "Passwords and email", "Saved logins, generator, aliases", listOf(
+                Sub("Passwords"),
+                Row(R.drawable.ic_lock, "Saved passwords") { fa?.let { PasswordStore.screen(it) } },
+                Row(R.drawable.ic_download, "Import passwords (file or paste)") { fa?.let { PasswordStore.importChoice(it) } },
+                Row(R.drawable.ic_share, "Export passwords (CSV)") { fa?.let { PasswordStore.exportCsv(it) } },
+                Row(R.drawable.ic_lock, "Password generator") { fa?.let { PasswordStore.generatorDialog(it) } },
+                Sub("Email alias"),
+                Row(R.drawable.ic_share, "addy.io API key", if (EmailAlias.hasKey(act)) "set" else "not set") { EmailAlias.keyDialog(act) { fill() } },
+                Row(R.drawable.ic_add, "Create email alias") { EmailAlias.create(act, "") },
+                Row(R.drawable.ic_list, "My email aliases") { EmailAlias.manage(act) }
+            ))
+            category("about", R.drawable.ic_info, "About", "Updates, engine, version", listOf(
                 Row(R.drawable.ic_reload, "Check for updates") { UpdateManager.check(act, false) },
                 Row(R.drawable.ic_info, "Engine status") { EngineHost.showStatus(act) },
                 Row(R.drawable.ic_info, "Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
             ))
+            sv?.post { sv?.scrollTo(0, keepY) }
         }
     }
 }
