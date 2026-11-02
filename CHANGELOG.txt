@@ -1,3 +1,14 @@
+MGB 0.0.36 (S33: search engine, hide bar on scroll, group rename, password import)
+- Settings > General: Search engine (Google, DuckDuckGo, Bing, Brave, Ecosia, Startpage) used by the address bar and speed-dial add.
+- Settings > General: Hide bar while scrolling (OFF by default). Bottom bar hides when you scroll down, comes back on scroll up, tab change or address focus.
+- Tab switcher: Rename group (in a group, 3-dot menu).
+- Settings > Passwords and email: Import passwords (paste CSV from Chrome / Firefox / Bitwarden; needs url + password columns).
+
+MGB 0.0.35 (S32: tab groups, select tabs, tab thumbnails, gradient)
+- Tab switcher: third switch = Groups. Select tabs (3-dot menu or long press a card): tick cards, All, then Group (existing or new name), Ungroup, Close. Group cards open in place (back arrow returns); menu has Delete group (keeps the tabs); + inside a group opens a tab in it. Groups are kept only until the app restarts. Private tabs cannot be grouped.
+- Tab cards show a small picture of the page (taken when you leave a tab or open the switcher; tabs not visited since the update show the colour avatar until then).
+- Soft plum gradient behind the switcher (dark and light versions).
+
 MGB 0.0.34 (S31: Thazir rename, new logo, new tab switcher)
 - The browser is now called Thazir (app name, home wordmark, menu, messages). Package / update channel are unchanged, so it installs over the old app.
 - New launcher icon: white T + one rose dot on deep plum (adaptive + themed icon on Android 13+; PNG for old phones).

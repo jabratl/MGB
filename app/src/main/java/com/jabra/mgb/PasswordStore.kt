@@ -198,6 +198,76 @@ return 'ok';
             .show()
     }
 
+    // ---- import (Chrome / Edge / Firefox / Bitwarden CSV, pasted)
+
+    private fun parseCsv(text: String): List<List<String>> {
+        val rows = ArrayList<List<String>>()
+        var row = ArrayList<String>()
+        val f = StringBuilder()
+        var q = false
+        var i = 0
+        while (i < text.length) {
+            val ch = text[i]
+            if (q) {
+                if (ch == '"') { if (i + 1 < text.length && text[i + 1] == '"') { f.append('"'); i++ } else q = false }
+                else f.append(ch)
+            } else when (ch) {
+                '"' -> q = true
+                ',' -> { row.add(f.toString()); f.setLength(0) }
+                '\n' -> { row.add(f.toString()); f.setLength(0); rows.add(row); row = ArrayList() }
+                '\r' -> { }
+                else -> f.append(ch)
+            }
+            i++
+        }
+        if (f.isNotEmpty() || row.isNotEmpty()) { row.add(f.toString()); rows.add(row) }
+        return rows
+    }
+
+    /** Returns how many logins were added / updated. */
+    fun importCsv(ctx: Context, text: String): Int {
+        val rows = parseCsv(text.trim().removePrefix("\uFEFF"))
+        if (rows.size < 2) return 0
+        val head = rows[0].map { it.trim().lowercase() }
+        val iu = head.indexOfFirst { it == "url" || it == "login_uri" || it == "origin" }
+        val iw = head.indexOfFirst { it == "username" || it == "login_username" }
+        val ip = head.indexOfFirst { it == "password" || it == "login_password" }
+        if (iu < 0 || ip < 0) return -1
+        var n = 0
+        load(ctx)
+        for (r in rows.drop(1)) {
+            val url = r.getOrNull(iu)?.trim().orEmpty()
+            val pass = r.getOrNull(ip).orEmpty()
+            if (pass.isEmpty() || !url.startsWith("http")) continue
+            val user = if (iw >= 0) r.getOrNull(iw).orEmpty().trim() else ""
+            val host = Util.host(url)
+            list.removeAll { it.host == host && it.user == user }
+            list.add(Entry(host, user.take(200), Vault.encrypt(pass.take(500))))
+            n++
+        }
+        save(ctx)
+        return n
+    }
+
+    fun importDialog(act: FragmentActivity) {
+        val et = android.widget.EditText(act).apply {
+            hint = "Paste the CSV file text here"
+            minLines = 6
+            gravity = android.view.Gravity.TOP
+            setPadding(Util.dp(act, 20), Util.dp(act, 12), Util.dp(act, 20), Util.dp(act, 12))
+        }
+        MaterialAlertDialogBuilder(act)
+            .setTitle("Import passwords")
+            .setMessage("Export a CSV from Chrome / Firefox / Bitwarden, open it, copy all, paste here. Needs a url and a password column. Delete the CSV afterwards: it is plain text.")
+            .setView(et)
+            .setPositiveButton("Import") { _, _ ->
+                val n = importCsv(act, et.text.toString())
+                Util.toast(act, if (n < 0) "No url / password columns found" else "$n logins imported")
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     // ---- saved list
 
     fun screen(act: FragmentActivity) {

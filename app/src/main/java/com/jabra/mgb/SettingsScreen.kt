@@ -164,6 +164,9 @@ object SettingsScreen {
             col.addView(card, LinearLayout.LayoutParams(MATCH, WRAP))
         }
 
+        private fun hideBar(): Boolean =
+            act.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE).getBoolean("hide_bar", false)
+
         private fun nativeBtn(): Boolean =
             act.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE).getBoolean("native_btn", false)
 
@@ -187,6 +190,15 @@ object SettingsScreen {
 
             section("General", listOf(
                 Row(R.drawable.ic_theme, "Theme", UiMode.label(act)) { dismiss(); UiMode.pick(act) },
+                Row(R.drawable.ic_search, "Search engine", Util.engineName(act)) {
+                    val names = Util.ENGINES.map { it.first }
+                    MaterialAlertDialogBuilder(act).setTitle("Search engine")
+                        .setItems(names.toTypedArray()) { _, i -> Util.setEngine(act, names[i]); fill() }.show()
+                },
+                Row(R.drawable.ic_screen, "Hide bar while scrolling", if (hideBar()) "ON" else "OFF") {
+                    act.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE).edit().putBoolean("hide_bar", !hideBar()).apply()
+                    fill()
+                },
                 Row(R.drawable.ic_theme, "Dark pages", if (UiMode.darkPages(act)) "ON" else "OFF") {
                     val on = !UiMode.darkPages(act)
                     UiMode.setDarkPages(act, on)
@@ -215,6 +227,7 @@ object SettingsScreen {
             section("Passwords and email", listOf(
                 Row(R.drawable.ic_lock, "Saved passwords") { fa?.let { PasswordStore.screen(it) } },
                 Row(R.drawable.ic_share, "addy.io API key", if (EmailAlias.hasKey(act)) "set" else "not set") { EmailAlias.keyDialog(act) { fill() } },
+                Row(R.drawable.ic_download, "Import passwords (paste CSV)") { fa?.let { PasswordStore.importDialog(it) } },
                 Row(R.drawable.ic_add, "Create email alias") { EmailAlias.create(act, "") },
                 Row(R.drawable.ic_list, "My email aliases") { EmailAlias.manage(act) }
             ))

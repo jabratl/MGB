@@ -11,6 +11,27 @@ object Util {
 
     const val DEFAULT_SEARCH = "https://www.google.com/search?q="
 
+    // S33: search engine setting (prefs mgb_ui "engine")
+    val ENGINES = listOf(
+        "Google" to "https://www.google.com/search?q=",
+        "DuckDuckGo" to "https://duckduckgo.com/?q=",
+        "Bing" to "https://www.bing.com/search?q=",
+        "Brave" to "https://search.brave.com/search?q=",
+        "Ecosia" to "https://www.ecosia.org/search?q=",
+        "Startpage" to "https://www.startpage.com/do/search?q="
+    )
+    var searchBase: String = DEFAULT_SEARCH
+    fun engineName(ctx: Context): String =
+        ctx.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).getString("engine", "Google") ?: "Google"
+    fun loadEngine(ctx: Context) {
+        val n = engineName(ctx)
+        searchBase = ENGINES.firstOrNull { it.first == n }?.second ?: DEFAULT_SEARCH
+    }
+    fun setEngine(ctx: Context, name: String) {
+        ctx.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).edit().putString("engine", name).apply()
+        loadEngine(ctx)
+    }
+
     fun dp(ctx: Context, v: Int): Int =
         (v * ctx.resources.displayMetrics.density).roundToInt()
 
@@ -43,7 +64,7 @@ object Util {
     private val SCHEME = Regex("^[a-zA-Z][a-zA-Z0-9+.-]*:.*")
 
     /** Address-bar logic: a real URL stays a URL, anything else becomes a search. */
-    fun toUrlOrSearch(input: String, searchBase: String = DEFAULT_SEARCH): String {
+    fun toUrlOrSearch(input: String, searchBase: String = this.searchBase): String {
         val t = input.trim()
         if (t.isEmpty()) return "about:blank"
         if (t.startsWith("localhost", true)) return "http://$t"

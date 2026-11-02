@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.os.Bundle
 import android.view.KeyEvent
+import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
@@ -47,6 +48,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         CrashLog.install(this) // FIX: save crash trace for the next start
         BrowserExtras.init(this) // S14: file chooser + permission launchers (before STARTED)
 
+        Util.loadEngine(this) // S33
         urlBar = findViewById(R.id.url_bar)
         btnHome = findViewById(R.id.btn_home)
         btnTabs = findViewById(R.id.btn_tabs)
@@ -59,6 +61,18 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             urlBar.requestFocus()
             urlBar.selectAll()
             (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(urlBar, 0)
+        }
+        val barView = findViewById<View>(R.id.bottom_bar) // S33: hide the bottom bar while scrolling down (Settings > General)
+        var acc = 0
+        tabs.onScroll = { dy ->
+            val on = getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).getBoolean("hide_bar", false)
+            if (!on || urlBar.hasFocus()) { if (barView.visibility != View.VISIBLE) barView.visibility = View.VISIBLE; acc = 0 }
+            else {
+                if ((dy > 0) != (acc > 0)) acc = 0
+                acc += dy
+                if (acc > Util.dp(this, 40) && barView.visibility == View.VISIBLE) barView.visibility = View.GONE
+                else if (acc < -Util.dp(this, 20) && barView.visibility != View.VISIBLE) barView.visibility = View.VISIBLE
+            }
         }
         floating = FloatingDl(this, findViewById<FrameLayout>(R.id.web_container).parent as FrameLayout, tabs) // S11
 
@@ -222,6 +236,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     override fun onActiveChanged(tab: TabManager.Tab?) {
         FindBar.close() // S21
+        findViewById<View>(R.id.bottom_bar).visibility = View.VISIBLE // S33
         refreshAll(tab)
         floating.poke() // S11
     }

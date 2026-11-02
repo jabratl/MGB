@@ -143,7 +143,7 @@ class TabManager(
     fun switchTo(tab: Tab) {
         if (active === tab) return
         exitFullscreen() // S14
-        active?.let { container.removeView(it.web) }
+        active?.let { TabSwitcher.snap(it); container.removeView(it.web) } // S32: thumbnail of the tab we leave
         active = tab
         container.addView(tab.web, FrameLayout.LayoutParams(MATCH, MATCH))
         tab.web.requestFocus()
@@ -271,6 +271,7 @@ class TabManager(
         val cm = CookieManager.getInstance()
         cm.setAcceptCookie(true)
         cm.setAcceptThirdPartyCookies(w, true)
+        w.setOnScrollChangeListener { _, _, y, _, oy -> onScroll?.invoke(y - oy) } // S33: hide bar on scroll
         ContentInjector.attach(ctx, w) // S5: V77 content scripts + chrome shim (before first load)
         if (!priv) w.addJavascriptInterface(PasswordStore.Bridge(this), "MGBPW") // S30: save-login hook (before first load)
         // S14: plain download links (and blob:/data: links) in a tab go to the native downloader
@@ -580,6 +581,9 @@ class TabManager(
     // ---------- tab switcher ----------
 
     fun allTabs(): List<Tab> = tabs.toList() // S31
+
+    /** S33: vertical scroll of any tab WebView (positive = page moves up, finger swipes up). */
+    var onScroll: ((Int) -> Unit)? = null
 
     fun showSwitcher() {
         (ctx as? android.app.Activity)?.let { TabSwitcher.show(it, this); return } // S31: Thazir switcher; old sheet below is the fallback
