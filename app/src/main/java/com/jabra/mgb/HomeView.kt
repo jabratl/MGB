@@ -1,6 +1,15 @@
 package com.jabra.mgb
 
 import android.content.Context
+import android.graphics.Color
+import android.os.Build
+import android.animation.ValueAnimator
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.widget.HorizontalScrollView
+import androidx.core.graphics.ColorUtils
+import java.util.Calendar
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.text.InputType
@@ -21,6 +30,8 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
  * Tiles = bookmarks. Tap = open here, long press = open in new tab / remove, add tile = add a site.
  * S22: wordmark + 4 column tiles. S24: quiet monochrome tiles (letter, no colours), vector icons,
  * edit mode (pencil, top right): tiles get a remove badge.
+ * S34: shows at once (never waits for a layout pass), greeting + rose-dot wordmark, tinted monogram tiles,
+ * "Jump back in" row (recent sites not pinned) and a quiet ads-blocked line.
  * Built in code (no layout xml), colours from the mg_* tokens so dark and light both follow the theme.
  */
 class HomeView(
@@ -77,6 +88,12 @@ class HomeView(
     /** S26: back to the top level (called when the home tab is shown). */
     fun showTop() { folder = null; editing = false; pencil.setImageResource(R.drawable.ic_edit); animateNext = true }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        // S34: if nothing was built yet (first layout not done), build now
+        post { if (isAttachedToWindow && content.childCount == 0) rebuild() }
+    }
+
     override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) {
         super.onSizeChanged(w, h, ow, oh)
         val c = (w / dp(84)).coerceIn(4, 8)
@@ -84,8 +101,10 @@ class HomeView(
     }
 
     private fun rebuild() {
-        val w = width
-        if (w <= 0) return
+        // S34: before the first layout width is 0: use the screen size so the home is never empty
+        val dm = resources.displayMetrics
+        val w = if (width > 0) width else dm.widthPixels
+        val h = if (height > 0) height else dm.heightPixels
         cols = (w / dp(84)).coerceIn(4, 8)
         content.removeAllViews()
 
@@ -94,20 +113,24 @@ class HomeView(
         val cur = folder
         if (cur == null) {
             content.addView(TextView(context).apply {
-                text = "Thazir"
-                setTextColor(context.getColor(R.color.mg_text))
-                textSize = 34f
-                letterSpacing = 0.32f
+                text = if (priv) "PRIVATE TAB" else greeting().uppercase()
+                setTextColor(context.getColor(R.color.mg_primary))
+                textSize = 11f
+                letterSpacing = 0.22f
                 gravity = Gravity.CENTER
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-                setPadding(0, (this@HomeView.height * 0.10f).toInt(), 0, if (priv) dp(8) else dp(28))
+                setPadding(0, (h * 0.09f).toInt(), 0, dp(6))
             }, LinearLayout.LayoutParams(MATCH, WRAP))
-            if (priv) content.addView(TextView(context).apply {
-                text = "Private tab"
-                setTextColor(context.getColor(R.color.mg_primary))
-                textSize = 13f
+            content.addView(TextView(context).apply {
+                val sb = SpannableStringBuilder("Thazir.")
+                sb.setSpan(ForegroundColorSpan(context.getColor(R.color.mg_primary)), 6, 7, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                text = sb
+                setTextColor(context.getColor(R.color.mg_text))
+                textSize = 34f
+                letterSpacing = 0.28f
                 gravity = Gravity.CENTER
-                setPadding(0, 0, 0, dp(20))
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                setPadding(0, 0, 0, dp(26))
             }, LinearLayout.LayoutParams(MATCH, WRAP))
             content.addView(searchPill(), LinearLayout.LayoutParams(MATCH, dp(48)).apply {
                 marginStart = dp(8); marginEnd = dp(8); bottomMargin = dp(32)
@@ -159,13 +182,134 @@ class HomeView(
             content.addView(row)
             i += cols
         }
+        if (cur == null && !editing && !priv) { // S34: smart extras (not in edit mode / private tab)
+            recentRow()?.let { content.addView(it, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(20) }) }
+            blockedLine()?.let { content.addView(it, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(28) }) }
+        }
         if (animateNext) { animateNext = false; fadeIn() }
     }
 
+    /** S34: children slide in one after the other; a timer makes sure nothing stays invisible. */
     private fun fadeIn() {
-        content.alpha = 0f
-        content.translationY = dp(10).toFloat()
-        content.animate().alpha(1f).translationY(0f).setDuration(220).start()
+        if (Build.VERSION.SDK_INT >= 26 && !ValueAnimator.areAnimatorsEnabled()) return
+        for (i in 0 until content.childCount) {
+            val v = content.getChildAt(i)
+            v.alpha = 0f
+            v.translationY = dp(12).toFloat()
+            v.animate().alpha(1f).translationY(0f).setStartDelay(i * 40L).setDuration(240)
+                .withEndAction { v.alpha = 1f; v.translationY = 0f }.start()
+        }
+        postDelayed({
+            for (i in 0 until content.childCount) { val v = content.getChildAt(i); v.alpha = 1f; v.translationY = 0f }
+        }, 900)
+    }
+
+    private fun greeting(): String {
+        val h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        return when {
+            h < 5 -> "Late night"
+            h < 12 -> "Good morning"
+            h < 17 -> "Good afternoon"
+            h < 22 -> "Good evening"
+            else -> "Late night"
+        }
+    }
+
+    /** S34: soft colour per site (from its name), blended into the theme surface so dark and light both work. */
+    private fun tint(seed: String): Int {
+        val hue = ((seed.lowercase().hashCode() % 360) + 360) % 360
+        return Color.HSVToColor(floatArrayOf(hue.toFloat(), 0.55f, 0.92f))
+    }
+
+    /** S34: recent sites that are not pinned: one tap to jump back. */
+    private fun recentRow(): View? {
+        val skip = HashSet<String>()
+        skip.add("appassets.androidplatform.net")
+        for (h in Bookmarks.home()) if (h.url.isNotBlank()) skip.add(Util.host(h.url))
+        val items = ArrayList<Bookmarks.Item>()
+        for (h in Bookmarks.history()) {
+            if (!h.url.startsWith("http", true)) continue
+            val host = Util.host(h.url)
+            if (host.isBlank() || !skip.add(host)) continue
+            items.add(h)
+            if (items.size >= 6) break
+        }
+        if (items.isEmpty()) return null
+        val col = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        col.addView(TextView(context).apply {
+            text = "JUMP BACK IN"
+            setTextColor(context.getColor(R.color.mg_text_dim))
+            textSize = 11f
+            letterSpacing = 0.16f
+            setPadding(dp(8), 0, 0, dp(10))
+        }, LinearLayout.LayoutParams(MATCH, WRAP))
+        val line = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(4), 0, dp(4), 0) }
+        for (r in items) line.addView(chip(r.title, r.url), LinearLayout.LayoutParams(WRAP, dp(44)).apply { marginEnd = dp(8) })
+        col.addView(HorizontalScrollView(context).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            addView(line, FrameLayout.LayoutParams(WRAP, WRAP))
+        }, LinearLayout.LayoutParams(MATCH, WRAP))
+        return col
+    }
+
+    private fun chip(title: String, url: String): View {
+        val name = title.ifBlank { Util.host(url) }
+        val letter = Util.host(url).firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "?"
+        val t = tint(Util.host(url))
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), 0, dp(16), 0)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(22).toFloat()
+                setColor(context.getColor(R.color.mg_surface))
+                setStroke(dp(1), context.getColor(R.color.mg_outline))
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { onOpen(url) }
+            setOnLongClickListener { onOpenNew(url); true }
+            addView(TextView(context).apply {
+                text = letter
+                gravity = Gravity.CENTER
+                textSize = 12f
+                setTextColor(context.getColor(R.color.mg_text))
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(ColorUtils.blendARGB(context.getColor(R.color.mg_surface_variant), t, 0.30f))
+                }
+            }, LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginEnd = dp(10) })
+            addView(TextView(context).apply {
+                text = name
+                setTextColor(context.getColor(R.color.mg_text))
+                textSize = 13f
+                maxLines = 1
+                maxWidth = dp(150)
+                ellipsize = TextUtils.TruncateAt.END
+            })
+        }
+    }
+
+    /** S34: quiet line at the bottom when the ad blocker stopped something in this run. */
+    private fun blockedLine(): View? {
+        val n = AdBlock.blocked
+        if (!AdBlock.enabled || n <= 0) return null
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            addView(ImageView(context).apply {
+                setImageResource(R.drawable.ic_shield)
+                setColorFilter(context.getColor(R.color.mg_text_dim))
+            }, LinearLayout.LayoutParams(dp(16), dp(16)).apply { marginEnd = dp(8) })
+            addView(TextView(context).apply {
+                text = "$n ads and trackers blocked"
+                textSize = 12f
+                setTextColor(context.getColor(R.color.mg_text_dim))
+            })
+        }
     }
 
     /** S28: search pill under the wordmark. Tap = focus the address bar. */
@@ -195,13 +339,24 @@ class HomeView(
         if (dashed) setStroke(dp(1), stroke, dp(4).toFloat(), dp(3).toFloat()) else setStroke(dp(1), stroke)
     }
 
-    private fun letterBox(letter: String): View = TextView(context).apply {
-        text = letter
-        gravity = Gravity.CENTER
-        setTextColor(context.getColor(R.color.mg_text))
-        textSize = 22f
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        background = squircle(context.getColor(R.color.mg_surface), context.getColor(R.color.mg_outline), false)
+    private fun letterBox(letter: String, seed: String): View {
+        val t = tint(seed) // S34: soft per-site colour
+        return TextView(context).apply {
+            text = letter
+            gravity = Gravity.CENTER
+            setTextColor(context.getColor(R.color.mg_text))
+            textSize = 22f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            val surf = context.getColor(R.color.mg_surface)
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(ColorUtils.blendARGB(surf, t, 0.26f), ColorUtils.blendARGB(surf, t, 0.07f))
+            ).apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = dp(20).toFloat()
+                setStroke(dp(1), ColorUtils.blendARGB(context.getColor(R.color.mg_outline), t, 0.30f))
+            }
+        }
     }
 
     private fun addBox(): View = FrameLayout(context).apply {
@@ -241,7 +396,7 @@ class HomeView(
         val name = title.ifBlank { Util.host(url) }
         val letter = name.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "?"
         val box = FrameLayout(context)
-        box.addView(letterBox(letter), FrameLayout.LayoutParams(dp(56), dp(56), Gravity.CENTER))
+        box.addView(letterBox(letter, Util.host(url).ifBlank { name }), FrameLayout.LayoutParams(dp(56), dp(56), Gravity.CENTER))
         if (editing && folder == null) addBadge(box) { Bookmarks.removeHome(url); refresh() } // S28: unpin only
         val c = cell(box, name)
         box.layoutParams = LinearLayout.LayoutParams(dp(64), dp(60))

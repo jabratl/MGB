@@ -1,3 +1,7 @@
+MGB 0.0.37 (S34: home screen shows at once + new look)
+- FIX: opening the app showed an empty home (only the pencil) until you tapped the pencil. The home now builds immediately (it no longer waits for the first layout pass), has a fallback build when attached, and the entrance animation can never leave it invisible.
+- New home look: greeting line (time of day, rose), wordmark with a rose dot, soft per-site coloured monogram tiles, "Jump back in" row (recent sites that are not pinned, tap = open, long press = new tab), quiet "ads and trackers blocked" line. Extras are hidden in edit mode and in private tabs.
+
 MGB 0.0.36 (S33: search engine, hide bar on scroll, group rename, password import)
 - Settings > General: Search engine (Google, DuckDuckGo, Bing, Brave, Ecosia, Startpage) used by the address bar and speed-dial add.
 - Settings > General: Hide bar while scrolling (OFF by default). Bottom bar hides when you scroll down, comes back on scroll up, tab change or address focus.
