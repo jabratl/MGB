@@ -1,30 +1,46 @@
 package com.jabra.mgb
 
 import android.app.Activity
+import android.content.Context
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
-import android.os.Handler
-import android.os.Looper
 
 /**
- * S29: screen orientation helper for the player and fullscreen web video.
- * Problem fixed: after a video forced landscape, the whole browser stayed landscape.
- * restore() goes back to the orientation the app had before the video, then hands control back to the system.
+ * S29 / S35: screen orientation policy.
+ *  - Phones: the browser stays PORTRAIT (setting "Rotate browser with phone" turns this off). Tablets are never locked.
+ *  - Built-in player: rotates its own picture (see PlayerScreen), the Activity never rotates for it.
+ *  - Web fullscreen video: follows the system auto-rotate setting while it is open (forVideo), then back to the policy (restore).
  */
 object Orient {
+    private const val PREFS = "mgb_ui"
+
     fun isPortrait(act: Activity): Boolean =
         act.resources.configuration.orientation != Configuration.ORIENTATION_LANDSCAPE
 
-    fun restore(act: Activity, wasPortrait: Boolean) {
+    private fun isPhone(act: Activity): Boolean = act.resources.configuration.smallestScreenWidthDp < 600
+
+    fun rotateBrowser(ctx: Context): Boolean =
+        ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("rotate_browser", false)
+
+    fun setRotateBrowser(ctx: Context, on: Boolean) {
+        ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("rotate_browser", on).apply()
+    }
+
+    /** Browser policy: portrait on phones unless the user allows rotation. Call in onCreate and after the setting changes. */
+    fun apply(act: Activity) {
         try {
-            if (wasPortrait) {
-                act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                Handler(Looper.getMainLooper()).postDelayed({
-                    try { act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED } catch (e: Exception) { /* activity gone */ }
-                }, 700)
-            } else {
-                act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-            }
+            act.requestedOrientation =
+                if (isPhone(act) && !rotateBrowser(act)) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         } catch (e: Exception) { /* activity gone */ }
     }
+
+    /** Fullscreen web video: let the phone rotate (the system auto-rotate switch decides). */
+    fun forVideo(act: Activity) {
+        try { act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER } catch (e: Exception) { /* activity gone */ }
+    }
+
+    /** Back to the browser policy (wasPortrait is kept only for the old call sites). */
+    @Suppress("UNUSED_PARAMETER")
+    fun restore(act: Activity, wasPortrait: Boolean) = apply(act)
 }

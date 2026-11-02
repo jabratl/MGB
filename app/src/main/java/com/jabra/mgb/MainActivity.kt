@@ -45,6 +45,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         setContentView(R.layout.activity_main)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE) // S22: bottom bar rides above the keyboard
         lastNight = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        Orient.apply(this) // S35: phones keep the browser in portrait (setting: Rotate browser with phone)
         CrashLog.install(this) // FIX: save crash trace for the next start
         BrowserExtras.init(this) // S14: file chooser + permission launchers (before STARTED)
 
@@ -113,6 +114,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         if (!tabs.restoreSession()) tabs.newTab(TabManager.HOME_PAGE) // S13
         UpdateManager.autoCheck(this)
         CrashLog.showLast(this) // FIX
+        window.decorView.post { PlayerScreen.reopenPending(this) } // S35: player comes back if the Activity was recreated
     }
 
     /** S22: reload, or stop when the page is still loading (was the top bar button). */
@@ -265,6 +267,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     }
 
     override fun onDestroy() {
+        PlayerScreen.onHostDestroy(this) // S35
         floating.stop() // S11
         DownloadsScreen.closeAll() // S12
         BookmarksScreen.closeAll() // S13
@@ -279,7 +282,10 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     // recreate so the XML colours re-resolve. Tabs come back from the saved session.
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        val n = newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        // S35 FIX: compare the colours the app really uses (resources, after AppCompat applied the saved theme),
+        // not newConfig (= the system theme). With a forced Dark/Light theme the old test was true on EVERY rotation,
+        // so rotating recreated the Activity: the player closed and every tab reloaded.
+        val n = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         if (n != lastNight) {
             lastNight = n
             recreate()

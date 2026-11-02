@@ -199,6 +199,11 @@ object SettingsScreen {
                     act.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE).edit().putBoolean("hide_bar", !hideBar()).apply()
                     fill()
                 },
+                Row(R.drawable.ic_screen, "Rotate browser with phone", if (Orient.rotateBrowser(act)) "ON" else "OFF") { // S35
+                    Orient.setRotateBrowser(act, !Orient.rotateBrowser(act))
+                    Orient.apply(act)
+                    fill()
+                },
                 Row(R.drawable.ic_theme, "Dark pages", if (UiMode.darkPages(act)) "ON" else "OFF") {
                     val on = !UiMode.darkPages(act)
                     UiMode.setDarkPages(act, on)

@@ -508,6 +508,7 @@ class TabManager(
         holder.addView(v, FrameLayout.LayoutParams(MATCH, MATCH))
         (act.window.decorView as ViewGroup).addView(holder, FrameLayout.LayoutParams(MATCH, MATCH))
         fsPortrait = Orient.isPortrait(act) // S29
+        Orient.forVideo(act) // S35: browser is portrait-locked; fullscreen video may rotate
         customView = v
         customHolder = holder
         customCb = cb

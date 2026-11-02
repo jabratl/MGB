@@ -1,8 +1,8 @@
 package com.jabra.mgb
 
 import android.app.Activity
+import android.app.Application
 import android.app.Dialog
-import android.content.pm.ActivityInfo
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
@@ -40,17 +40,39 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
  * and from chrome.downloads.open for media files.
  * Minimal on purpose: back + title + rotate on top; seek bar, lock, -10s, play / pause, +10s, speed on the bottom.
  * Tap = show / hide the controls, double tap left / right half = back / forward 10 s.
+ * S35: the player rotates its OWN picture (rotate button, or automatically for wide videos): the Activity never
+ * rotates for it, so the browser stays portrait and the player is not closed. Fit / Fill, hold = 2x, pauses when the app
+ * goes to the background, comes back if the Activity is recreated. Filled accent play button, balanced control row.
  * Speed 0.25x to 6x (MediaPlayer PlaybackParams, API 23+; the device may refuse very high speeds).
  */
 object PlayerScreen {
     private const val TAG = "MGB.player"
     private var current: Screen? = null
 
-    fun open(act: Activity, uri: Uri, title: String) {
+    private class Pend(val uri: Uri, val title: String, val land: Boolean, val at: Long = System.currentTimeMillis())
+    private var pending: Pend? = null
+
+    /** MainActivity.onDestroy: keep the player state when the Activity is only recreated. */
+    fun onHostDestroy(act: Activity) {
+        val s = current ?: return
+        pending = if (act.isFinishing) null else Pend(s.uri, s.title, s.landscapeWanted)
+        try { s.dismiss() } catch (_: Exception) { }
+        current = null
+    }
+
+    /** MainActivity.onCreate (posted): reopen the player that was open before a recreate. */
+    fun reopenPending(act: Activity) {
+        val p = pending ?: return
+        pending = null
+        if (System.currentTimeMillis() - p.at > 15_000) return // only a quick recreate, not a later start
+        open(act, p.uri, p.title, p.land)
+    }
+
+    fun open(act: Activity, uri: Uri, title: String, land: Boolean = false) {
         if (act.isFinishing || act.isDestroyed) return
         try { current?.dismiss() } catch (_: Exception) { }
         try {
-            val s = Screen(act, uri, title)
+            val s = Screen(act, uri, title, land)
             current = s
             s.show()
         } catch (e: Exception) {
@@ -60,7 +82,7 @@ object PlayerScreen {
         }
     }
 
-    private class Screen(private val act: Activity, private val uri: Uri, private val title: String) :
+    private class Screen(private val act: Activity, val uri: Uri, val title: String, startLand: Boolean) :
         Dialog(act, android.R.style.Theme_Black_NoTitleBar_Fullscreen) {
 
         private val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
@@ -81,9 +103,13 @@ object PlayerScreen {
         private var locked = false
         private var shown = true
         private var dragging = false
-        private var rotated = false
+        var landscapeWanted = startLand // S35: picture turned 90 degrees inside the dialog
+        private var userRot = false
+        private var fill = false
+        private var boost = false
+        private lateinit var rootView: FrameLayout
+        private lateinit var fitBtn: TextView
         private var ended = false // S29: video reached the end (stay open, show controls)
-        private val startPortrait = Orient.isPortrait(act) // S29
         // S30: swipe gestures (left half = brightness, right half = volume, horizontal = seek) + resume position
         private val audio = act.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         private val resumePrefs = act.getSharedPreferences("mgb_resume", Context.MODE_PRIVATE)
@@ -107,12 +133,26 @@ object PlayerScreen {
             }
         }
 
+        // S35: pause when the app leaves the screen (home, lock, another app)
+        private val life = object : Application.ActivityLifecycleCallbacks {
+            override fun onActivityPaused(a: Activity) {
+                if (a === act && this@Screen::vv.isInitialized && vv.isPlaying) { vv.pause(); updatePlay(); setControls(true) }
+            }
+            override fun onActivityCreated(a: Activity, b: Bundle?) {}
+            override fun onActivityStarted(a: Activity) {}
+            override fun onActivityResumed(a: Activity) {}
+            override fun onActivityStopped(a: Activity) {}
+            override fun onActivitySaveInstanceState(a: Activity, b: Bundle) {}
+            override fun onActivityDestroyed(a: Activity) {}
+        }
+
         init {
+            act.application.registerActivityLifecycleCallbacks(life)
             setOnDismissListener {
+                try { act.application.unregisterActivityLifecycleCallbacks(life) } catch (_: Exception) { }
                 main.removeCallbacksAndMessages(null)
                 saveResume()
                 try { vv.stopPlayback() } catch (_: Exception) { }
-                if (rotated) Orient.restore(act, startPortrait) // S29 FIX: browser stayed landscape
                 if (current === this) current = null
             }
         }
@@ -155,18 +195,76 @@ object PlayerScreen {
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            background = GradientDrawable().apply {
-                setColor(0)
-                setStroke(dp(1), 0x66FFFFFF)
-                cornerRadius = dp(20).toFloat()
-            }
+            background = round(0x2EFFFFFF, 20) // S35: soft filled pill (no outline)
             minimumWidth = dp(56)
-            setPadding(dp(12), 0, dp(12), 0)
+            setPadding(dp(14), 0, dp(14), 0)
             setOnClickListener { on(); poke() }
+        }
+
+        // ---- S35: own rotation + fit / fill
+
+        /** Turn the picture 90 degrees inside the dialog when landscape is wanted and the screen is portrait. */
+        private fun applyRotation() {
+            if (!this::rootView.isInitialized) return
+            val p = rootView.parent as? View ?: return
+            val pw = p.width
+            val ph = p.height
+            if (pw <= 0 || ph <= 0) return
+            val lp = rootView.layoutParams as? FrameLayout.LayoutParams ?: return
+            val fake = landscapeWanted && ph > pw
+            if (fake) {
+                if (lp.width != ph || lp.height != pw || rootView.rotation != 90f) {
+                    lp.width = ph; lp.height = pw; lp.gravity = Gravity.CENTER
+                    rootView.layoutParams = lp
+                    rootView.rotation = 90f
+                }
+            } else if (lp.width != MATCH || lp.height != MATCH || rootView.rotation != 0f) {
+                lp.width = MATCH; lp.height = MATCH
+                rootView.layoutParams = lp
+                rootView.rotation = 0f
+            }
+        }
+
+        private fun toggleLandscape() {
+            if (!Orient.isPortrait(act)) { Util.toast(act, "The screen is already landscape"); return }
+            landscapeWanted = !landscapeWanted
+            userRot = true
+            applyRotation()
+            showFlash(if (landscapeWanted) "Landscape" else "Portrait")
+        }
+
+        /** Fill: scale the (aspect-fitted) VideoView until it covers the whole screen. */
+        private fun applyFit() {
+            val mp = player
+            val box = vv.parent as? View
+            if (!fill || mp == null || box == null || mp.videoWidth <= 0 || mp.videoHeight <= 0 || box.width <= 0) {
+                vv.scaleX = 1f; vv.scaleY = 1f
+                return
+            }
+            val rw = box.width.toFloat()
+            val rh = box.height.toFloat()
+            val fit = minOf(rw / mp.videoWidth, rh / mp.videoHeight)
+            val cover = maxOf(rw / mp.videoWidth, rh / mp.videoHeight)
+            val sc = if (fit > 0f) cover / fit else 1f
+            vv.scaleX = sc; vv.scaleY = sc
+        }
+
+        private fun toggleFit() {
+            fill = !fill
+            fitBtn.text = if (fill) "Fill" else "Fit"
+            applyFit()
+            showFlash(if (fill) "Fill screen" else "Fit screen")
+        }
+
+        private fun endBoost() {
+            if (!boost) return
+            boost = false
+            applySpeed()
         }
 
         private fun build() {
             val root = FrameLayout(act).apply { setBackgroundColor(Color.BLACK) }
+            rootView = root
 
             vv = VideoView(act)
             root.addView(vv, FrameLayout.LayoutParams(MATCH, MATCH, Gravity.CENTER))
@@ -177,6 +275,12 @@ object PlayerScreen {
                 override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
                     if (locked) flashLock() else setControls(!shown)
                     return true
+                }
+                override fun onLongPress(e: MotionEvent) { // S35: hold = 2x while pressed
+                    if (locked || swipe != 0 || !vv.isPlaying) return
+                    boost = true
+                    try { player?.let { it.playbackParams = it.playbackParams.setSpeed(2f) } } catch (_: Exception) { }
+                    showFlash("2x")
                 }
                 override fun onDoubleTap(e: MotionEvent): Boolean {
                     if (locked) return true
@@ -215,6 +319,7 @@ object PlayerScreen {
                     }
                     swipe = 0
                     seekTarget = -1
+                    endBoost() // S35
                 }
                 true
             }
@@ -250,16 +355,12 @@ object PlayerScreen {
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
                 setPadding(dp(8), 0, dp(8), 0)
             }, LinearLayout.LayoutParams(0, WRAP, 1f))
-            top.addView(icon(R.drawable.ic_screen, 48) {
-                rotated = true
-                val land = act.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-                act.requestedOrientation = if (land) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT else ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-            })
+            top.addView(icon(R.drawable.ic_screen, 48) { toggleLandscape() }) // S35: turns the picture, not the Activity
             ctl.addView(top, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.TOP))
 
             val bottom = LinearLayout(act).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(dp(16), dp(24), dp(16), dp(20))
+                setPadding(dp(16), dp(28), dp(16), dp(18))
                 background = GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(0xCC000000.toInt(), 0))
             }
             val srow = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
@@ -282,15 +383,23 @@ object PlayerScreen {
 
             val brow = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
             lockBtn = icon(R.drawable.ic_lock) { setLocked(true) }
-            brow.addView(lockBtn)
-            brow.addView(View(act), LinearLayout.LayoutParams(0, 1, 1f))
-            brow.addView(pill("-10") { jump(-10000) }, LinearLayout.LayoutParams(WRAP, dp(40)))
+            val left = LinearLayout(act).apply { gravity = Gravity.START or Gravity.CENTER_VERTICAL }
+            left.addView(lockBtn)
+            val mid = LinearLayout(act).apply { gravity = Gravity.CENTER_VERTICAL }
+            mid.addView(pill("-10") { jump(-10000) }, LinearLayout.LayoutParams(WRAP, dp(40)))
             playBtn = icon(R.drawable.ic_pause, 64) { togglePlay() }
-            brow.addView(playBtn, LinearLayout.LayoutParams(dp(64), dp(64)).apply { marginStart = dp(12); marginEnd = dp(12) })
-            brow.addView(pill("+10") { jump(10000) }, LinearLayout.LayoutParams(WRAP, dp(40)))
-            brow.addView(View(act), LinearLayout.LayoutParams(0, 1, 1f))
+            playBtn.setColorFilter(act.getColor(R.color.mg_on_primary)) // S35: accent circle
+            playBtn.background = round(act.getColor(R.color.mg_primary), 32)
+            mid.addView(playBtn, LinearLayout.LayoutParams(dp(64), dp(64)).apply { marginStart = dp(14); marginEnd = dp(14) })
+            mid.addView(pill("+10") { jump(10000) }, LinearLayout.LayoutParams(WRAP, dp(40)))
+            val right = LinearLayout(act).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL }
+            fitBtn = pill("Fit") { toggleFit() }
+            right.addView(fitBtn, LinearLayout.LayoutParams(WRAP, dp(40)).apply { marginEnd = dp(8) })
             speedBtn = pill("1x") { showSpeed() }
-            brow.addView(speedBtn, LinearLayout.LayoutParams(WRAP, dp(40)))
+            right.addView(speedBtn, LinearLayout.LayoutParams(WRAP, dp(40)))
+            brow.addView(left, LinearLayout.LayoutParams(0, WRAP, 1f))
+            brow.addView(mid, LinearLayout.LayoutParams(WRAP, WRAP))
+            brow.addView(right, LinearLayout.LayoutParams(0, WRAP, 1f))
             bottom.addView(brow, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(4) })
             ctl.addView(bottom, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM))
             root.addView(ctl, FrameLayout.LayoutParams(MATCH, MATCH))
@@ -300,6 +409,12 @@ object PlayerScreen {
                 seek.max = vv.duration
                 tTotal.text = fmt(vv.duration)
                 applySpeed()
+                // S35: wide video on a portrait screen starts landscape (the rotate button undoes it)
+                if (!userRot && !landscapeWanted && mp.videoWidth > mp.videoHeight && Orient.isPortrait(act)) {
+                    landscapeWanted = true
+                    applyRotation()
+                }
+                applyFit()
                 val at = resumePrefs.getInt(uri.toString(), 0)
                 if (at > 5000 && at < vv.duration - 5000) {
                     vv.seekTo(at)
@@ -324,7 +439,11 @@ object PlayerScreen {
                 }
                 true
             }
-            setContentView(root)
+            setContentView(root, FrameLayout.LayoutParams(MATCH, MATCH)) // S35: FrameLayout params so applyRotation can resize it
+            (root.parent as? View)?.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                applyRotation() // S35: also handles the first layout (startLand) and a real rotation
+                applyFit()
+            }
             vv.setVideoURI(uri)
             main.post(tick)
         }
