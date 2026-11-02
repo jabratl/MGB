@@ -172,6 +172,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Item("Translate page", R.drawable.ic_search, canMark, if (Translate.hasLang(this)) Translate.lang(this) else "") { Translate.page(this, tabs) }, // S41
             MenuSheet.Item("Reader view", R.drawable.ic_list, canMark) { tabs.active?.let { PageInfo.reader(this, it) } }, // S41
             MenuSheet.Item("Text size", R.drawable.ic_edit, canMark, cur?.let { c -> TextZoom.get(this, Util.host(c.url)).takeIf { it != 100 }?.let { "$it%" } } ?: "") { TextZoom.dialog(this, tabs) }, // S41
+            MenuSheet.Item("Detected files", R.drawable.ic_download, canMark) { floating.openSheet() }, // S50
             MenuSheet.Item("Page info", R.drawable.ic_info, canMark) { PageInfo.show(this, tabs) }, // S29
             MenuSheet.Item("Fill password", R.drawable.ic_lock, canMark && cur?.priv != true) { PasswordStore.fill(this, tabs) }, // S30
             MenuSheet.Item("Email alias", R.drawable.ic_share, true) { EmailAlias.create(this, cur?.url?.takeIf { canMark }?.let { Util.host(it) } ?: "") }, // S30

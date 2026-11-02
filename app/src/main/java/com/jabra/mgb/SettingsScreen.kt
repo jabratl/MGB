@@ -451,6 +451,10 @@ object SettingsScreen {
                     DownloadFolder.setSubfolders(act, !DownloadFolder.subfolders(act))
                     fill()
                 },
+                Sub("Detected files"), // S50
+                Row(R.drawable.ic_download, "Convert .ts to .mp4", if (DetectedPanel.convertOn()) "ON" else "OFF") {
+                    DetectedPanel.convertDialog(act) { fill() }
+                },
                 Sub("Player and buttons"),
                 Row(R.drawable.ic_play, "Play video links in built-in player", if (WebPlay.linksEnabled(act)) "ON" else "OFF") { // S39
                     WebPlay.setLinksEnabled(act, !WebPlay.linksEnabled(act))

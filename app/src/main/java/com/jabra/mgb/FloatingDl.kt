@@ -185,6 +185,8 @@ class FloatingDl(
     // ---------- quality sheet ----------
 
     fun openSheet() {
+        // S50: the new "Files detected!" panel replaces the old quality sheet (showSheet stays for reference)
+        if (true) { DetectedPanel.open(act, tabs); return }
         val t = tabs.active ?: return
         val id = t.id
         EngineApi.ask(JSONObject().put("type", "get-state").put("tabId", id)) { r ->

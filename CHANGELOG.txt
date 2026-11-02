@@ -1,3 +1,13 @@
+MGB 0.0.53 (S50: Files detected! panel)
+- New "Files detected!" panel (menu > Detected files, the Grabber page button when the native button is on). Lists everything found on the page: format tag (HLS, DASH, MP4, AUDIO, SRT ...), "Experimental" tag for guessed links, size, resolution, audio language or "No audio", duration, and the source link. The list updates by itself while it is open.
+- Select files: tick files or "Select all to download", then DOWNLOAD (n).
+- Filter: file name, minimum / maximum size (MB), minimum / maximum time (SEC), Video / Audio / Image / Subtitle, show experimental links, show video links without audio, custom extensions. RESET / CANCEL / OK.
+- Sort: Default, Detected desc / asc, Size desc / asc, Name desc / asc, Video first, Audio first.
+- Menu of each file (three dots): Stream Video / Audio (built-in player), Preview Video / Audio (small player), Download (quality choice for streams), Remove link, Copy download link, Share link, Show download link.
+- Bottom bar: CLEAR ALL, SORT, CLOSE.
+- Convert .ts to .mp4 switch (panel gear icon and Settings > Downloads > Detected files). Turning it on shows the note that external subtitles might get out of sync in some cases.
+- Plain video / audio files are read in the background for resolution, duration and audio tracks.
+
 MGB 0.0.52 (S49: choose the download folder)
 - Settings > Downloads > Save location > Download folder: pick any folder of the phone (system folder picker) where new downloads are saved. "Use default" goes back to the Downloads folder.
 - Sub-folders in the chosen folder (ON / OFF, default OFF): OFF = files go straight into the folder you picked, ON = the grabber's sub-folders (like MGB/...) are created inside it.
