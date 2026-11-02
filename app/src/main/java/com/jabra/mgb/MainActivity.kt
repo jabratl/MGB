@@ -149,6 +149,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         // S27: general card (app level) and page card (this page)
         val general = listOf(
             MenuSheet.Item("New private tab", R.drawable.ic_lock) { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) }, // S26
+            MenuSheet.Item("Bookmark all tabs", R.drawable.ic_bookmark_border) { TabBookmarks.dialog(this, tabs) }, // S40
+            MenuSheet.Item("Passwords", R.drawable.ic_lock) { PasswordStore.screen(this) }, // S40
             MenuSheet.Item("Recently closed tabs", R.drawable.ic_history) { Backup.closedTabs(this, tabs) }, // S29
             MenuSheet.Item("Queue", R.drawable.ic_list) { openExt("queue.html") },
             MenuSheet.Item("Settings", R.drawable.ic_settings) { SettingsScreen.open(this) }
@@ -173,6 +175,9 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         val share: (() -> Unit)? = if (canMark) ({ tabs.active?.let { if (it.url.startsWith("http")) tabs.shareText(it.url) } }) else null
         MenuSheet.show(this, quick, general, title, share, page, acts, "Thazir ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
     }
+
+    /** S40: open a site in a new tab (Passwords > Open site). */
+    fun openSite(url: String) { tabs.newTab(url) }
 
     private fun openExt(page: String) {
         if (!ExtScreen.open(this, ContentInjector.EXT_BASE + page)) Util.toast(this, "Could not open $page")

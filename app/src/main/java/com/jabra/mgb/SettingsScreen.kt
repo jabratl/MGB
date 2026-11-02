@@ -236,7 +236,9 @@ object SettingsScreen {
             section("Passwords and email", listOf(
                 Row(R.drawable.ic_lock, "Saved passwords") { fa?.let { PasswordStore.screen(it) } },
                 Row(R.drawable.ic_share, "addy.io API key", if (EmailAlias.hasKey(act)) "set" else "not set") { EmailAlias.keyDialog(act) { fill() } },
-                Row(R.drawable.ic_download, "Import passwords (paste CSV)") { fa?.let { PasswordStore.importDialog(it) } },
+                Row(R.drawable.ic_download, "Import passwords (file or paste)") { fa?.let { PasswordStore.importChoice(it) } },
+                Row(R.drawable.ic_share, "Export passwords (CSV)") { fa?.let { PasswordStore.exportCsv(it) } },
+                Row(R.drawable.ic_lock, "Password generator") { fa?.let { PasswordStore.generatorDialog(it) } },
                 Row(R.drawable.ic_add, "Create email alias") { EmailAlias.create(act, "") },
                 Row(R.drawable.ic_list, "My email aliases") { EmailAlias.manage(act) }
             ))

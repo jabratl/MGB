@@ -192,4 +192,93 @@ object MenuSheet {
         dlg.behavior.state = BottomSheetBehavior.STATE_EXPANDED
         dlg.show()
     }
+
+    /** S40: long press menu of a link / image: header card (letter, title, address) and one card of icon rows. */
+    fun showLink(ctx: Context, title: String, url: String, rows: List<Item>) {
+        val dlg = BottomSheetDialog(ctx)
+        fun dp(v: Int) = Util.dp(ctx, v)
+        fun round(color: Int, r: Int) = GradientDrawable().apply { setColor(color); cornerRadius = dp(r).toFloat() }
+        val ripple = ctx.obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground)).let {
+            val d = it.getDrawable(0)
+            it.recycle()
+            d
+        }
+        val cText = ctx.getColor(R.color.mg_text)
+        val cDim = ctx.getColor(R.color.mg_text_dim)
+        val cCard = ctx.getColor(R.color.mg_surface)
+        val cTile = ctx.getColor(R.color.mg_surface_variant)
+        val cLine = ctx.getColor(R.color.mg_outline)
+
+        val col = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), dp(16), dp(12), dp(16)) }
+
+        // header: round letter + title + address
+        val head = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = round(cTile, 20)
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+        }
+        val host = Util.host(url)
+        val letter = (host.ifBlank { title }).trim().firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+        head.addView(TextView(ctx).apply {
+            text = letter
+            textSize = 22f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setTextColor(cText)
+            background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(cLine) }
+        }, LinearLayout.LayoutParams(dp(48), dp(48)).apply { marginEnd = dp(14) })
+        val tcol = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+        tcol.addView(TextView(ctx).apply {
+            text = title.ifBlank { host.ifBlank { url } }
+            textSize = 15f
+            setTextColor(cText)
+            maxLines = 2
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        })
+        tcol.addView(TextView(ctx).apply {
+            text = url
+            textSize = 12f
+            setTextColor(cDim)
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
+        })
+        head.addView(tcol, LinearLayout.LayoutParams(0, WRAP, 1f))
+        col.addView(head, LinearLayout.LayoutParams(MATCH, WRAP))
+
+        val card = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            background = round(cCard, 26)
+            setPadding(0, dp(6), 0, dp(6))
+        }
+        for (m in rows) {
+            val r = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(18), 0, dp(18), 0)
+                background = ripple?.constantState?.newDrawable()
+                isClickable = true
+                setOnClickListener { dlg.dismiss(); m.onClick() }
+            }
+            r.addView(TextView(ctx).apply { text = m.label; textSize = 16f; setTextColor(cText); maxLines = 1 }, LinearLayout.LayoutParams(0, WRAP, 1f))
+            if (m.icon != 0) r.addView(ImageView(ctx).apply { setImageResource(m.icon); setColorFilter(cDim) }, LinearLayout.LayoutParams(dp(22), dp(22)))
+            card.addView(r, LinearLayout.LayoutParams(MATCH, dp(50)))
+        }
+        col.addView(card, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
+
+        val sv = ScrollView(ctx)
+        sv.addView(col, ViewGroup.LayoutParams(MATCH, WRAP))
+        dlg.setContentView(sv)
+        dlg.setOnShowListener {
+            dlg.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.background =
+                GradientDrawable().apply {
+                    setColor(ctx.getColor(R.color.mg_bg))
+                    val rr = dp(28).toFloat()
+                    cornerRadii = floatArrayOf(rr, rr, rr, rr, 0f, 0f, 0f, 0f)
+                }
+        }
+        dlg.behavior.skipCollapsed = true
+        dlg.behavior.state = BottomSheetBehavior.STATE_EXPANDED
+        dlg.show()
+    }
 }

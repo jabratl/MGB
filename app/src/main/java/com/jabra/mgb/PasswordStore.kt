@@ -10,6 +10,17 @@ import android.util.Log
 import android.webkit.JavascriptInterface
 import androidx.fragment.app.FragmentActivity
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import android.text.InputType
+import android.view.View
+import android.view.ViewGroup
+import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.SeekBar
+import android.widget.TextView
+import com.google.android.material.snackbar.Snackbar
+import java.security.SecureRandom
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -100,6 +111,9 @@ if(!b)return;
 grab(b.form||b.closest('form')||document);
 },true);
 if(document.querySelector('input[type=password]')){try{MGBPW.onField();}catch(e){}}
+document.addEventListener('focusin',function(e){var t=e.target;
+if(t&&t.tagName==='INPUT'&&/^(text|email|tel|password)$/i.test(t.type||'text')&&document.querySelector('input[type=password]')){try{MGBPW.onFocus();}catch(x){}}
+},true);
 })();"""
 
     private const val FILL_JS = """function(u,p){
@@ -132,16 +146,32 @@ return 'ok';
         }
 
         @JavascriptInterface
-        fun onField() {
-            main.post {
-                val t = tm.active ?: return@post
-                if (t.priv || !t.url.startsWith("http")) return@post
-                val host = Util.host(t.url)
-                if (lastHint == host + t.id) return@post
-                if (forHost(tm.host(), host).isNotEmpty()) {
-                    lastHint = host + t.id
-                    Util.toast(tm.host(), "Saved login for this site: Menu > Fill password")
-                }
+        fun onField() { hint(tm) }
+
+        @JavascriptInterface
+        fun onFocus() { hint(tm) }
+    }
+
+    /** S40: a saved login for this site: a small bar above the address bar with a Fill button (once per page). */
+    private fun hint(tm: TabManager) {
+        main.post {
+            val t = tm.active ?: return@post
+            if (t.priv || t.isExt || !t.url.startsWith("http")) return@post
+            val act = tm.host() as? FragmentActivity ?: return@post
+            val host = Util.host(t.url)
+            val es = forHost(act, host)
+            if (es.isEmpty()) return@post
+            val key = t.id.toString() + "|" + t.url
+            if (lastHint == key) return@post
+            lastHint = key
+            val who = if (es.size == 1) es[0].user.ifBlank { host } else "${es.size} logins"
+            try {
+                val sb = Snackbar.make(act.findViewById<View>(android.R.id.content), "Fill login: $who", 8000)
+                act.findViewById<View>(R.id.bottom_bar)?.let { sb.setAnchorView(it) }
+                sb.setAction("Fill") { fillWith(act, t, host, es) }
+                sb.show()
+            } catch (e: Exception) {
+                Log.e(TAG, "hint failed", e)
             }
         }
     }
@@ -179,6 +209,10 @@ return 'ok';
         val host = Util.host(t.url)
         val es = forHost(act, host)
         if (es.isEmpty()) { Util.toast(act, "No saved login for $host"); return }
+        fillWith(act, t, host, es)
+    }
+
+    private fun fillWith(act: FragmentActivity, t: TabManager.Tab, host: String, es: List<Entry>) {
         val run = { e: Entry ->
             Vault.unlock(act, "Fill password for $host") {
                 val pass = Vault.decrypt(e.enc)
@@ -268,16 +302,82 @@ return 'ok';
             .show()
     }
 
-    // ---- saved list
+    // ---- saved list (S40: search, Add, Edit, Generate, file import / export)
 
     fun screen(act: FragmentActivity) {
-        val es = all(act)
-        if (es.isEmpty()) { Util.toast(act, "No saved passwords yet"); return }
-        MaterialAlertDialogBuilder(act)
-            .setTitle("Saved passwords")
-            .setItems(es.map { it.host + "  ·  " + it.user.ifBlank { "(no user name)" } }.toTypedArray()) { _, i -> entryMenu(act, es[i]) }
+        fun dp(v: Int) = Util.dp(act, v)
+        val cText = act.getColor(R.color.mg_text)
+        val cDim = act.getColor(R.color.mg_text_dim)
+        val rows = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+        val search = EditText(act).apply {
+            hint = "Search saved logins"
+            setSingleLine()
+            inputType = InputType.TYPE_CLASS_TEXT
+        }
+        val sv = ScrollView(act).apply { addView(rows, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)) }
+        val col = LinearLayout(act).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), 0)
+            addView(search)
+            addView(sv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(340)))
+        }
+        val ripple = act.obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground)).let {
+            val d = it.getDrawable(0); it.recycle(); d
+        }
+        val dlg = MaterialAlertDialogBuilder(act)
+            .setTitle("Passwords")
+            .setView(col)
+            .setPositiveButton("Add", null)
+            .setNeutralButton("More", null)
             .setNegativeButton("Close", null)
-            .show()
+            .create()
+        fun render() {
+            rows.removeAllViews()
+            val q = search.text.toString().trim().lowercase()
+            val es = all(act).filter { q.isEmpty() || it.host.lowercase().contains(q) || it.user.lowercase().contains(q) }
+            dlg.setTitle("Passwords (" + all(act).size + ")")
+            if (es.isEmpty()) {
+                rows.addView(TextView(act).apply {
+                    text = if (q.isEmpty()) "No saved logins yet.\nLog in to a site and tap Save, or use Add / More > Import." else "Nothing found."
+                    setTextColor(cDim)
+                    textSize = 14f
+                    setPadding(dp(4), dp(24), dp(4), dp(24))
+                })
+                return
+            }
+            for (e in es) {
+                val r = LinearLayout(act).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(8), dp(10), dp(8), dp(10))
+                    background = ripple?.constantState?.newDrawable()
+                    isClickable = true
+                    setOnClickListener { entryMenu(act, e, { dlg.dismiss() }) { render() } }
+                }
+                r.addView(TextView(act).apply { text = e.host; textSize = 16f; setTextColor(cText); maxLines = 1 })
+                r.addView(TextView(act).apply { text = e.user.ifBlank { "(no user name)" }; textSize = 13f; setTextColor(cDim); maxLines = 1 })
+                rows.addView(r)
+            }
+        }
+        search.addTextChangedListener(object : android.text.TextWatcher {
+            override fun afterTextChanged(s: android.text.Editable?) { render() }
+            override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) { }
+            override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) { }
+        })
+        dlg.show()
+        render()
+        // the dialog stays open after Add / More: the list refreshes when the work is done
+        dlg.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener { editDialog(act, null) { render() } }
+        dlg.getButton(android.app.AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+            val items = arrayOf("Generate a password", "Import from a CSV file", "Import by paste", "Export as CSV file")
+            MaterialAlertDialogBuilder(act).setItems(items) { _, i ->
+                when (i) {
+                    0 -> generatorDialog(act)
+                    1 -> importFile(act) { render() }
+                    2 -> importDialog(act)
+                    else -> exportCsv(act)
+                }
+            }.show()
+        }
     }
 
     private fun copy(act: Activity, label: String, text: String) {
@@ -286,10 +386,10 @@ return 'ok';
         Util.toast(act, "$label copied")
     }
 
-    private fun entryMenu(act: FragmentActivity, e: Entry) {
+    private fun entryMenu(act: FragmentActivity, e: Entry, close: () -> Unit, changed: () -> Unit) {
         MaterialAlertDialogBuilder(act)
-            .setTitle(e.host)
-            .setItems(arrayOf("Copy user name", "Copy password", "Show password", "Delete")) { _, i ->
+            .setTitle(e.host + (if (e.user.isBlank()) "" else "\n" + e.user))
+            .setItems(arrayOf("Copy user name", "Copy password", "Show password", "Open site", "Edit", "Delete")) { _, i ->
                 when (i) {
                     0 -> copy(act, "User name", e.user)
                     1 -> Vault.unlock(act, "Copy password") {
@@ -301,12 +401,156 @@ return 'ok';
                         MaterialAlertDialogBuilder(act).setTitle(e.host).setMessage(e.user + "\n" + (p ?: "(cannot read)"))
                             .setPositiveButton("Close", null).show()
                     }
+                    3 -> { close(); (act as? MainActivity)?.openSite("https://" + e.host) }
+                    4 -> Vault.unlock(act, "Edit login") { editDialog(act, e, changed) }
                     else -> MaterialAlertDialogBuilder(act)
                         .setMessage("Delete the saved login for ${e.host}?")
-                        .setPositiveButton("Delete") { _, _ -> remove(act, e); Util.toast(act, "Deleted") }
+                        .setPositiveButton("Delete") { _, _ -> remove(act, e); Util.toast(act, "Deleted"); changed() }
                         .setNegativeButton("Cancel", null).show()
                 }
             }
+            .show()
+    }
+
+    /** Add (e == null) or edit one login. Empty password while editing = keep the old one. */
+    private fun editDialog(act: FragmentActivity, e: Entry?, done: () -> Unit) {
+        fun dp(v: Int) = Util.dp(act, v)
+        val host = EditText(act).apply { hint = "Website (example.com)"; setSingleLine(); setText(e?.host ?: ""); if (e != null) isEnabled = false }
+        val user = EditText(act).apply { hint = "User name or email"; setSingleLine(); setText(e?.user ?: "") }
+        val pass = EditText(act).apply {
+            hint = if (e == null) "Password" else "New password (empty = keep)"
+            setSingleLine()
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+        }
+        val col = LinearLayout(act).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), 0)
+            addView(host); addView(user); addView(pass)
+        }
+        val dlg = MaterialAlertDialogBuilder(act)
+            .setTitle(if (e == null) "Add login" else "Edit login")
+            .setView(col)
+            .setPositiveButton("Save", null)
+            .setNeutralButton("Generate", null)
+            .setNegativeButton("Cancel", null)
+            .create()
+        dlg.show()
+        dlg.getButton(android.app.AlertDialog.BUTTON_NEUTRAL).setOnClickListener { pass.setText(generate(16)) }
+        dlg.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val h = normHost(host.text.toString())
+            val u = user.text.toString().trim().take(200)
+            var p = pass.text.toString().take(500)
+            if (h.isBlank()) { Util.toast(act, "Enter the website"); return@setOnClickListener }
+            if (e == null && p.isEmpty()) { Util.toast(act, "Enter a password or tap Generate"); return@setOnClickListener }
+            if (e != null && p.isEmpty()) {
+                p = Vault.decrypt(e.enc) ?: run { Util.toast(act, "Cannot read the old password"); return@setOnClickListener }
+            }
+            if (e != null) remove(act, e)
+            put(act, h, u, p)
+            Util.toast(act, "Saved")
+            dlg.dismiss()
+            done()
+        }
+    }
+
+    private fun normHost(s: String): String {
+        val t = s.trim()
+        if (t.startsWith("http://") || t.startsWith("https://")) return Util.host(t)
+        return t.substringBefore('/').lowercase()
+    }
+
+    // ---- generator
+
+    fun generate(len: Int): String {
+        val sets = listOf("abcdefghijkmnopqrstuvwxyz", "ABCDEFGHJKLMNPQRSTUVWXYZ", "23456789", "!@#\$%^&*-_=+?")
+        val r = SecureRandom()
+        val every = sets.joinToString("")
+        val out = ArrayList<Char>()
+        for (x in sets) out.add(x[r.nextInt(x.length)])
+        while (out.size < len) out.add(every[r.nextInt(every.length)])
+        out.shuffle(r)
+        return out.joinToString("")
+    }
+
+    fun generatorDialog(act: FragmentActivity) {
+        fun dp(v: Int) = Util.dp(act, v)
+        var cur = generate(16)
+        val tv = TextView(act).apply {
+            text = cur
+            textSize = 20f
+            typeface = android.graphics.Typeface.MONOSPACE
+            setTextColor(act.getColor(R.color.mg_text))
+            setTextIsSelectable(true)
+            setPadding(0, dp(8), 0, dp(8))
+        }
+        val lenTv = TextView(act).apply { text = "Length 16"; textSize = 13f; setTextColor(act.getColor(R.color.mg_text_dim)) }
+        val bar = SeekBar(act).apply { max = 24; progress = 8 }
+        bar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(s: SeekBar?, v: Int, fromUser: Boolean) {
+                lenTv.text = "Length " + (8 + v)
+                if (fromUser) { cur = generate(8 + v); tv.text = cur }
+            }
+            override fun onStartTrackingTouch(s: SeekBar?) { }
+            override fun onStopTrackingTouch(s: SeekBar?) { }
+        })
+        val col = LinearLayout(act).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(8), dp(24), 0)
+            addView(tv); addView(lenTv); addView(bar)
+        }
+        val dlg = MaterialAlertDialogBuilder(act)
+            .setTitle("Password generator")
+            .setView(col)
+            .setPositiveButton("Copy", null)
+            .setNeutralButton("New", null)
+            .setNegativeButton("Close", null)
+            .create()
+        dlg.show()
+        dlg.getButton(android.app.AlertDialog.BUTTON_NEUTRAL).setOnClickListener { cur = generate(8 + bar.progress); tv.text = cur }
+        dlg.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener { copy(act, "Password", cur) }
+    }
+
+    // ---- file import / export
+
+    fun importFile(act: FragmentActivity, done: () -> Unit = { }) {
+        BrowserExtras.loadBackup { text ->
+            if (text == null) Util.toast(act, "Could not read the file")
+            else {
+                val n = importCsv(act, text)
+                Util.toast(act, if (n < 0) "No url / password columns found" else "$n logins imported. Delete the CSV file now: it is plain text.")
+                done()
+            }
+        }
+    }
+
+    fun importChoice(act: FragmentActivity) {
+        MaterialAlertDialogBuilder(act)
+            .setTitle("Import passwords")
+            .setItems(arrayOf("From a CSV file (Chrome, Firefox, Bitwarden)", "Paste CSV text")) { _, i ->
+                if (i == 0) importFile(act) else importDialog(act)
+            }
+            .show()
+    }
+
+    private fun csv(s: String) = "\"" + s.replace("\"", "\"\"") + "\""
+
+    fun exportCsv(act: FragmentActivity) {
+        val es = all(act)
+        if (es.isEmpty()) { Util.toast(act, "No saved passwords yet"); return }
+        MaterialAlertDialogBuilder(act)
+            .setTitle("Export passwords")
+            .setMessage("The CSV file is plain text: anyone who gets it can read every password. Save it only where you trust, and delete it after use.")
+            .setPositiveButton("Export") { _, _ ->
+                Vault.unlock(act, "Export passwords") {
+                    val sb = StringBuilder("name,url,username,password\n")
+                    for (e in es) {
+                        val p = Vault.decrypt(e.enc) ?: continue
+                        sb.append(csv(e.host)).append(',').append(csv("https://" + e.host)).append(',').append(csv(e.user)).append(',').append(csv(p)).append('\n')
+                    }
+                    BrowserExtras.saveCsv("mgb-passwords.csv", sb.toString())
+                }
+            }
+            .setNegativeButton("Cancel", null)
             .show()
     }
 }

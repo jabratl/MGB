@@ -1,3 +1,10 @@
+MGB 0.0.43 (S40: link menu, bookmark all tabs, password manager)
+- Long press on a link opens a new bottom sheet: header (letter, link text, address), then Open in new tab, Open in new tab in group, Open in New Private Tab, Play in player (video links), Bookmark link, Copy link, Copy text, Download link, Share. Images: open, copy address, download, share.
+- Bookmark all tabs: 3-dot menu and tab switcher menu. One dialog with the number of new bookmarks and a folder name (default "Tabs 02 Nov 17:05"); private tabs, home and duplicates are skipped.
+- Passwords: 3-dot menu > Passwords. Search, Add, Edit, Delete, Open site, copy / show with unlock. More: password generator (8-32 characters), import from a CSV file or paste, export as CSV file (with a plain-text warning).
+- When a page has a saved login, a bar "Fill login: name" with a Fill button appears above the address bar (once per page, also when you tap a login field). Menu > Fill password still works.
+- Settings > Passwords: import (file or paste), export CSV, generator.
+
 MGB 0.0.42 (S39: videos from the browser play in the built-in player)
 - V77 "Play" (page list, overlay on a video, preview) now opens the built-in player (PlayerActivity) instead of the Chromium player.html tab. Works with web streams: mp4 / mkv / webm, HLS (.m3u8) and DASH (.mpd), with the page Referer, Origin, User-Agent and the browser cookies of each host.
 - A link / redirect / typed address that ends in a video or audio file or playlist (.mp4 .mkv .webm .m3u8 .mpd .mp3 ...) opens the player instead of Chromium's plain media page. Settings > Downloads > "Play video links in built-in player" (ON by default) turns this off.

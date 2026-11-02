@@ -433,7 +433,7 @@ class TabManager(
                 val h = android.os.Handler(android.os.Looper.getMainLooper(), android.os.Handler.Callback { m ->
                     val link = m.data?.getString("url") ?: extra
                     val img = if (type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE) m.data?.getString("src") else null
-                    showLinkMenu(tab, link, img)
+                    showLinkMenu(tab, link, img, m.data?.getString("title"))
                     true
                 })
                 w.requestFocusNodeHref(h.obtainMessage())
@@ -447,34 +447,38 @@ class TabManager(
         }
     }
 
-    private fun showLinkMenu(tab: Tab, link: String?, img: String?) {
+    private fun showLinkMenu(tab: Tab, link: String?, img: String?, text: String? = null) {
         val l = link ?: ""
         val i = img ?: ""
-        val labels = ArrayList<String>()
-        val acts = ArrayList<() -> Unit>()
-        if (WebPlay.isMediaUrl(l)) { // S39
-            labels.add("Play in player")
-            acts.add { WebPlay.play(ctx, l, null, tab.url.takeIf { it.startsWith("http") }, tab.web.settings.userAgentString) }
-            labels.add("Download")
-            acts.add { downloadImage(tab, l) }
-        }
+        val rows = ArrayList<MenuSheet.Item>()
+        val ua = tab.web.settings.userAgentString
+        val ref = tab.url.takeIf { it.startsWith("http") }
         if (l.startsWith("http")) {
-            labels.add("Open in new tab"); acts.add { newTab(l, tab.id) }
-            labels.add("Copy link"); acts.add { copyText(l) }
-            labels.add("Share link"); acts.add { shareText(l) }
+            rows.add(MenuSheet.Item("Open in new tab", R.drawable.ic_add) { newTab(l, tab.id) })
+            if (!tab.priv) rows.add(MenuSheet.Item("Open in new tab in group", R.drawable.ic_folder) { TabSwitcher.openInGroup(ctx, this, l, tab.id) })
+            rows.add(MenuSheet.Item("Open in New Private Tab", R.drawable.ic_lock) { newTab(l, 0, true, true) })
+            if (WebPlay.isMediaUrl(l)) rows.add(MenuSheet.Item("Play in player", R.drawable.ic_play) { WebPlay.play(ctx, l, null, ref, ua) })
+            if (!tab.priv) rows.add(MenuSheet.Item(if (Bookmarks.isBookmarked(l)) "Remove bookmark" else "Bookmark link",
+                if (Bookmarks.isBookmarked(l)) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border) {
+                if (Bookmarks.isBookmarked(l)) { Bookmarks.removeBookmark(l); Util.toast(ctx, "Bookmark removed") }
+                else { Bookmarks.addBookmark(text?.trim().orEmpty(), l); Util.toast(ctx, "Bookmark added") }
+            })
+            rows.add(MenuSheet.Item("Copy link", R.drawable.ic_list) { copyText(l) })
+            if (!text.isNullOrBlank()) rows.add(MenuSheet.Item("Copy text", R.drawable.ic_edit) { copyText(text.trim()) })
+            rows.add(MenuSheet.Item("Download link", R.drawable.ic_download) { downloadImage(tab, l) })
+            rows.add(MenuSheet.Item("Share...", R.drawable.ic_share) { shareText(l) })
         }
         if (i.startsWith("http") || i.startsWith("data:")) {
             if (i.startsWith("http")) {
-                labels.add("Open image in new tab"); acts.add { newTab(i, tab.id) }
-                labels.add("Copy image address"); acts.add { copyText(i) }
+                rows.add(MenuSheet.Item("Open image in new tab", R.drawable.ic_add) { newTab(i, tab.id) })
+                rows.add(MenuSheet.Item("Copy image address", R.drawable.ic_list) { copyText(i) })
             }
-            labels.add("Download image"); acts.add { downloadImage(tab, i) }
+            rows.add(MenuSheet.Item("Download image", R.drawable.ic_download) { downloadImage(tab, i) })
+            if (i.startsWith("http")) rows.add(MenuSheet.Item("Share image address", R.drawable.ic_share) { shareText(i) })
         }
-        if (labels.isEmpty()) return
-        com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
-            .setTitle(Util.host(if (l.isNotEmpty()) l else i).ifBlank { "Link" })
-            .setItems(labels.toTypedArray()) { _, which -> acts[which]() }
-            .show()
+        if (rows.isEmpty()) return
+        val shown = if (l.isNotEmpty()) l else i
+        MenuSheet.showLink(ctx, text?.trim().orEmpty().ifBlank { if (l.isEmpty()) "Image" else "" }, shown, rows)
     }
 
     private fun downloadImage(tab: Tab, url: String) {

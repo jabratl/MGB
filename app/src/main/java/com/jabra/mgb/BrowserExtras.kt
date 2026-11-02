@@ -39,6 +39,8 @@ object BrowserExtras {
     private var backupIn: ActivityResultLauncher<Array<String>>? = null // S29
     private var backupText: (() -> String)? = null // S29
     private var backupDone: ((String?) -> Unit)? = null // S29
+    private var csvOut: ActivityResultLauncher<String>? = null // S40
+    private var csvText: String? = null // S40
 
     /** Remembered Allow / Block answers for this run: "origin|kinds" -> answer. */
     private val decided = HashMap<String, Boolean>()
@@ -99,6 +101,28 @@ object BrowserExtras {
                 a.runOnUiThread { cb?.invoke(text) }
             }.start()
         }
+        // S40: CSV file (password export). Registered after the launchers above.
+        csvOut = a.registerForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+            val text = csvText
+            csvText = null
+            if (uri != null && text != null) {
+                Thread {
+                    val ok = try {
+                        a.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray(Charsets.UTF_8)) } != null
+                    } catch (e: Exception) { false }
+                    a.runOnUiThread { Util.toast(a, if (ok) "File saved" else "Could not save the file") }
+                }.start()
+            }
+        }
+    }
+
+    /** S40: save text as a .csv file chosen by the user. */
+    fun saveCsv(name: String, text: String) {
+        val l = csvOut
+        val a = act
+        if (l == null || a == null) return
+        csvText = text
+        try { l.launch(name) } catch (e: Exception) { csvText = null; Util.toast(a, "No file picker found") }
     }
 
     // ---------- S29: data backup ----------

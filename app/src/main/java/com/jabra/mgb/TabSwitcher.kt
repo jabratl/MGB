@@ -1,6 +1,7 @@
 package com.jabra.mgb
 
 import android.app.Activity
+import android.content.Context
 import android.app.Dialog
 import android.content.res.Configuration
 import android.graphics.Bitmap
@@ -36,6 +37,37 @@ object TabSwitcher {
     private var current: Screen? = null
     private val thumbs = HashMap<Int, Bitmap>()
     private val groups = LinkedHashMap<String, MutableSet<Int>>()
+
+    /** S40: long press menu "Open in new tab in group": pick a group (or make one), the new tab joins it. */
+    fun openInGroup(ctx: Context, tm: TabManager, url: String, openerId: Int) {
+        fun open(name: String) {
+            val t = tm.newTab(url, openerId, false) ?: return
+            groups.getOrPut(name) { LinkedHashSet() }.add(t.id)
+            Util.toast(ctx, "Opened in group $name")
+        }
+        val names = groups.keys.toList()
+        val et = android.widget.EditText(ctx).apply {
+            hint = "Group name"
+            setSingleLine()
+            setText(if (names.isEmpty()) "Group 1" else "")
+        }
+        val pad = Util.dp(ctx, 20)
+        val box = android.widget.FrameLayout(ctx).apply { setPadding(pad, Util.dp(ctx, 8), pad, 0); addView(et) }
+        val b = MaterialAlertDialogBuilder(ctx).setTitle("Open in group")
+        if (names.isEmpty()) {
+            b.setView(box).setPositiveButton("Open") { _, _ -> et.text.toString().trim().take(30).takeIf { it.isNotEmpty() }?.let { open(it) } }
+        } else {
+            val all = names + "New group..."
+            b.setItems(all.toTypedArray()) { _, i ->
+                if (i < names.size) open(names[i])
+                else MaterialAlertDialogBuilder(ctx).setTitle("New group").setView(box)
+                    .setPositiveButton("Open") { _, _ ->
+                        et.text.toString().trim().take(30).takeIf { it.isNotEmpty() && !groups.containsKey(it) }?.let { open(it) }
+                    }.setNegativeButton("Cancel", null).show()
+            }
+        }
+        b.setNegativeButton("Cancel", null).show()
+    }
 
     /** Small picture of the page in [t] (only possible while its WebView is attached, i.e. the active tab). */
     fun snap(t: TabManager.Tab) {
@@ -314,6 +346,7 @@ object TabSwitcher {
             val acts = ArrayList<() -> Unit>()
             items.add("New tab"); acts.add { newTab(false) }
             items.add("New private tab"); acts.add { newTab(true) }
+            if (mode != 1 && !(mode == 2 && openGroup == null)) { items.add("Bookmark all tabs"); acts.add { TabBookmarks.dialog(act, tm) } } // S40
             if (!(mode == 2 && openGroup == null)) { items.add("Select tabs"); acts.add { startSelect(null) } }
             if (mode == 2 && openGroup != null) { items.add("Rename group"); acts.add { renameGroup() } }
             if (mode == 2 && openGroup != null) { items.add("Delete group (keep tabs)"); acts.add { openGroup?.let { g -> groups.remove(g) }; openGroup = null; render() } }
