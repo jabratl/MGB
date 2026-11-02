@@ -6,7 +6,15 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
+import android.animation.ValueAnimator
 import android.graphics.Color
+import android.os.Build
+import android.view.HapticFeedbackConstants
+import android.view.WindowManager
+import android.widget.HorizontalScrollView
+import android.widget.ImageView
+import androidx.appcompat.widget.SwitchCompat
+import androidx.core.graphics.ColorUtils
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.media.MediaExtractor
@@ -47,7 +55,10 @@ import java.util.concurrent.Executors
  * Filter (size, time, type, extension, experimental, silent videos), Sort, and a menu per file (stream, preview,
  * download, remove, copy / share / show link). V77 still does the analysis and the download (start-job);
  * this only shows and starts. Plain video / audio files are read natively (MediaExtractor) for resolution,
- * duration and audio tracks. Also: the "Convert .ts to .mp4" switch (V77 setting convertMp4).
+ * duration and audio tracks.
+ * S51-design: same look as the menu sheet (quiet sheet, rounded cards, rose accent): card rows with a type tile that turns
+ * into a tick when selected, quick type chips (All / Video / Audio / Subtitle), sticky DOWNLOAD (n) button, bottom sheets for
+ * the file menu / quality / sort / filter, friendly empty state. Selecting a file only repaints that row (no list rebuild). Also: the "Convert .ts to .mp4" switch (V77 setting convertMp4).
  */
 @androidx.annotation.OptIn(UnstableApi::class)
 object DetectedPanel {
@@ -309,6 +320,57 @@ object DetectedPanel {
         private val cText = act.getColor(R.color.mg_text)
         private val cDim = act.getColor(R.color.mg_text_dim)
         private val cPrimary = act.getColor(R.color.mg_primary)
+        private val cOnPrimary = act.getColor(R.color.mg_on_primary)
+        private val cLine = act.getColor(R.color.mg_outline)
+        private val cCard = act.getColor(R.color.mg_surface)
+        private val cTile = act.getColor(R.color.mg_surface_variant)
+        private val cBg = act.getColor(R.color.mg_bg)
+        private val cWarn = 0xFFF57C00.toInt()
+        private val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
+        private val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
+        private lateinit var badge: TextView
+        private lateinit var selHint: TextView
+        private lateinit var chipRow: LinearLayout
+        private lateinit var chipScroll: HorizontalScrollView
+        private lateinit var dlWrap: View
+        private val rowUpd = HashMap<String, () -> Unit>()
+        private var firstDraw = true
+        private var lastSel = ""
+        private var chipSig = ""
+
+        private class SRow(val icon: Int, val label: String, val checked: Boolean = false, val run: () -> Unit)
+
+        /** Quiet sheet colour with a rounded top, like the menu sheet. */
+        private fun sheetStyle(d: BottomSheetDialog) {
+            d.setOnShowListener {
+                d.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.background = GradientDrawable().apply {
+                    setColor(cBg)
+                    val r = dp(28).toFloat()
+                    cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f)
+                }
+            }
+        }
+
+        private fun kindTint(e: DItem): Int {
+            val hue = when {
+                e.isStream -> 265f
+                e.group == "audio" -> 205f
+                e.group == "subtitle" -> 150f
+                e.group == "image" -> 40f
+                else -> 345f
+            }
+            return Color.HSVToColor(floatArrayOf(hue, 0.55f, 0.92f))
+        }
+
+        private fun iconBtn(res: Int, desc: String, on: () -> Unit) = ImageView(act).apply {
+            setImageResource(res)
+            setColorFilter(cText)
+            scaleType = ImageView.ScaleType.CENTER
+            background = round(cCard, 20)
+            contentDescription = desc
+            ripple(this)
+            setOnClickListener { on() }
+        }
 
         private fun dp(v: Int) = Util.dp(act, v)
         private fun removedKeys(): Set<String> = removed[tabId] ?: emptySet()
@@ -332,31 +394,53 @@ object DetectedPanel {
         fun show() {
             val root = LinearLayout(act).apply {
                 orientation = LinearLayout.VERTICAL
-                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (act.resources.displayMetrics.heightPixels * 0.9f).toInt())
+                layoutParams = ViewGroup.LayoutParams(MATCH, (act.resources.displayMetrics.heightPixels * 0.9f).toInt())
             }
-            // header
+            // grab handle
+            root.addView(View(act).apply { background = round(cLine, 3) },
+                LinearLayout.LayoutParams(dp(36), dp(4)).apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = dp(8) })
+
+            // header: title + count badge, page host, Filter, gear
             val head = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(16), dp(14), dp(10), dp(4))
+                setPadding(dp(18), dp(10), dp(12), dp(2))
             }
             val tcol = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
-            title = tv("Files detected!", 19f, cText, 1, true)
+            val trow = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            title = tv("Files detected!", 20f, cText, 1, true)
+            badge = tv("0", 12f, cOnPrimary, 1, true).apply {
+                background = round(cPrimary, 11)
+                gravity = Gravity.CENTER
+                setPadding(dp(8), dp(1), dp(8), dp(1))
+            }
+            trow.addView(title)
+            trow.addView(badge, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(8) })
             sub = tv("", 12f, cDim)
-            tcol.addView(title)
-            tcol.addView(sub)
-            head.addView(tcol, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            tcol.addView(trow)
+            tcol.addView(sub, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(2) })
+            head.addView(tcol, LinearLayout.LayoutParams(0, WRAP, 1f))
             filterBtn = pillBtn("Filter") { showFilter() }
             head.addView(filterBtn)
-            head.addView(pillBtn("⚙") { convertDialog(act) { } }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36)).apply { marginStart = dp(6) })
+            head.addView(iconBtn(R.drawable.ic_settings, "Convert TS to MP4") { convertDialog(act) { } },
+                LinearLayout.LayoutParams(dp(40), dp(40)).apply { marginStart = dp(8) })
             root.addView(head)
-            root.addView(tv("Select files to download", 12f, cDim).apply { setPadding(dp(16), dp(6), dp(16), 0) })
 
-            // select all + download selected
+            // quick type chips
+            chipRow = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(14), dp(10), dp(14), dp(2)) }
+            chipScroll = HorizontalScrollView(act).apply {
+                isHorizontalScrollBarEnabled = false
+                overScrollMode = View.OVER_SCROLL_NEVER
+                visibility = View.GONE
+                addView(chipRow)
+            }
+            root.addView(chipScroll, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            // select all + hint
             val selRow = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(8), 0, dp(12), 0)
+                setPadding(dp(10), dp(4), dp(18), 0)
             }
             selAll = CheckBox(act).apply {
                 text = "Select all to download"
@@ -368,46 +452,60 @@ object DetectedPanel {
                     for (e in visible) {
                         if (on) { if (!e.drm) selected.add(e.key) } else selected.remove(e.key)
                     }
-                    sig = ""
-                    render()
+                    performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                    refreshSelection(null)
                 }
             }
             selRow.addView(selAll, LinearLayout.LayoutParams(0, dp(48), 1f))
-            dlBtn = TextView(act).apply {
-                text = "DOWNLOAD"
-                textSize = 13f
-                gravity = Gravity.CENTER
-                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-                setTextColor(act.getColor(R.color.mg_on_primary))
-                background = round(cPrimary, 18)
-                setPadding(dp(16), 0, dp(16), 0)
-                visibility = View.GONE
-                setOnClickListener { downloadSelected() }
-            }
-            selRow.addView(dlBtn, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36)))
+            selHint = tv("", 12f, cDim)
+            selRow.addView(selHint)
             root.addView(selRow)
 
-            list = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
-            root.addView(ScrollView(act).apply { addView(list) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+            list = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), dp(2), dp(12), dp(8)) }
+            root.addView(ScrollView(act).apply { clipToPadding = false; addView(list) }, LinearLayout.LayoutParams(MATCH, 0, 1f))
 
-            // bottom bar
+            // sticky DOWNLOAD (n)
+            dlBtn = TextView(act).apply {
+                text = "DOWNLOAD (0)"
+                textSize = 15f
+                gravity = Gravity.CENTER
+                letterSpacing = 0.04f
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                setTextColor(cOnPrimary)
+                background = round(cPrimary, 26)
+                setOnClickListener { downloadSelected() }
+            }
+            dlWrap = FrameLayout(act).apply {
+                setPadding(dp(14), dp(6), dp(14), dp(4))
+                visibility = View.GONE
+                addView(dlBtn, FrameLayout.LayoutParams(MATCH, dp(52)))
+            }
+            root.addView(dlWrap, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            // bottom bar: one rounded card, three actions
             val bar = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
-                setBackgroundColor(act.getColor(R.color.mg_surface_variant))
+                background = round(cCard, 22)
+                setPadding(dp(4), dp(2), dp(4), dp(2))
             }
-            fun barBtn(label: String, on: () -> Unit) {
-                bar.addView(tv(label, 14f, cPrimary, 1, true).apply {
+            fun barBtn(icon: Int, label: String, on: () -> Unit) {
+                val cell = LinearLayout(act).apply {
+                    orientation = LinearLayout.VERTICAL
                     gravity = Gravity.CENTER
                     ripple(this)
                     setOnClickListener { on() }
-                }, LinearLayout.LayoutParams(0, dp(52), 1f))
+                }
+                cell.addView(ImageView(act).apply { setImageResource(icon); setColorFilter(cDim) }, LinearLayout.LayoutParams(dp(20), dp(20)))
+                cell.addView(tv(label, 11f, cDim, 1, true).apply { gravity = Gravity.CENTER_HORIZONTAL; setPadding(0, dp(2), 0, 0) })
+                bar.addView(cell, LinearLayout.LayoutParams(0, dp(52), 1f))
             }
-            barBtn("CLEAR ALL") { clearAll() }
-            barBtn("SORT") { showSort() }
-            barBtn("CLOSE") { dlg.dismiss() }
-            root.addView(bar)
+            barBtn(R.drawable.ic_trash, "CLEAR ALL") { confirmClear() }
+            barBtn(R.drawable.ic_list, "SORT") { showSort() }
+            barBtn(R.drawable.ic_close, "CLOSE") { dlg.dismiss() }
+            root.addView(bar, LinearLayout.LayoutParams(MATCH, WRAP).apply { setMargins(dp(12), dp(4), dp(12), dp(10)) })
 
             dlg.setContentView(root)
+            sheetStyle(dlg)
             dlg.behavior.skipCollapsed = true
             dlg.setOnDismissListener { open = false }
             dlg.show()
@@ -418,11 +516,12 @@ object DetectedPanel {
 
         private fun pillBtn(label: String, on: () -> Unit) = tv(label, 14f, cText, 1, true).apply {
             gravity = Gravity.CENTER
-            background = round(act.getColor(R.color.mg_surface_variant), 18)
+            background = round(cCard, 18)
             setPadding(dp(16), 0, dp(16), 0)
             minHeight = dp(36)
+            ripple(this)
             setOnClickListener { on() }
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36))
+            layoutParams = LinearLayout.LayoutParams(WRAP, dp(36))
         }
 
         // ---- live refresh while the panel is open ----
@@ -468,70 +567,199 @@ object DetectedPanel {
             for (e in all) ensureMeta(e, ref, ua) { render() }
             visible = sorted(all.filter { passes(it, filter, rk) })
             val shownKeys = visible.joinToString(",") { it.key + ":" + sizeOf(it).first + ":" + (metaCache[it.url]?.hasAudio ?: "?") + ":" + it.info.optDouble("dur", 0.0) }
-            val s = shownKeys + "|" + selected.joinToString(",") + "|" + sort + "|" + filter.active()
+            val s = shownKeys + "|" + sort + "|" + filter.active() // selection is NOT part of it: rows repaint themselves
             title.text = "Files detected!"
             val total = all.count { !it.j.optBoolean("hidden", false) && it.key !in rk }
-            sub.text = if (visible.size == total) "${visible.size} file" + (if (visible.size == 1) "" else "s")
-            else "${visible.size} of $total files (filter on)"
+            badge.text = visible.size.toString()
+            val host = Util.host(ref).ifBlank { "this page" }
+            sub.text = if (visible.size == total) host else "$host  ·  ${visible.size} of $total (filter on)"
             filterBtn.text = if (filter.active()) "Filter ●" else "Filter"
-            selAll.isChecked = visible.isNotEmpty() && visible.all { it.drm || selected.contains(it.key) }
-            val n = selected.size
-            dlBtn.visibility = if (n > 0) View.VISIBLE else View.GONE
-            dlBtn.text = "DOWNLOAD ($n)"
+            filterBtn.setTextColor(if (filter.active()) cPrimary else cText)
+            updateChips(rk)
+            refreshSelection(null)
             if (s == sig) return
             sig = s
             val keep = list.parent?.let { (it as? ScrollView)?.scrollY } ?: 0
             list.removeAllViews()
+            rowUpd.clear()
             if (visible.isEmpty()) {
-                list.addView(tv(
-                    if (all.isEmpty()) "Nothing found yet.\nPlay the video or reload the page, then look again."
-                    else "No file matches the filter.", 14f, cDim, 4
-                ).apply { gravity = Gravity.CENTER; setPadding(dp(24), dp(48), dp(24), dp(48)) })
-            } else for (e in visible) list.addView(rowFor(e))
+                list.addView(emptyView())
+            } else {
+                val anim = firstDraw && (Build.VERSION.SDK_INT < 26 || ValueAnimator.areAnimatorsEnabled())
+                firstDraw = false
+                var n = 0
+                for (e in visible) {
+                    val v = rowFor(e)
+                    list.addView(v, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) })
+                    if (anim && n < 10) {
+                        v.alpha = 0f
+                        v.translationY = dp(10).toFloat()
+                        v.animate().alpha(1f).translationY(0f).setStartDelay(n * 30L).setDuration(220)
+                            .withEndAction { v.alpha = 1f; v.translationY = 0f }.start()
+                        v.postDelayed({ v.alpha = 1f; v.translationY = 0f }, 800) // safety: never stay invisible
+                    }
+                    n++
+                }
+            }
             (list.parent as? ScrollView)?.post { (list.parent as? ScrollView)?.scrollTo(0, keep) }
         }
 
-        private fun chip(text: String, bg: Int, fg: Int) = tv(text, 11f, fg, 1, true).apply {
+        // ---- selection: only repaint what changed ----
+
+        private fun refreshSelection(only: String?) {
+            val n = selected.size
+            dlBtn.text = "DOWNLOAD ($n)"
+            setDlVisible(n > 0)
+            selAll.isChecked = visible.isNotEmpty() && visible.all { it.drm || selected.contains(it.key) }
+            selHint.text = if (n > 0) "$n selected" else if (visible.isEmpty()) "" else "Tap a file to select"
+            val ss = selected.joinToString(",")
+            if (only != null) rowUpd[only]?.invoke()
+            else if (ss != lastSel) for (u in rowUpd.values) u()
+            lastSel = ss
+        }
+
+        private fun setDlVisible(on: Boolean) {
+            val shown = dlWrap.visibility == View.VISIBLE
+            if (on == shown) return
+            dlWrap.animate().cancel()
+            if (on) {
+                dlWrap.alpha = 0f
+                dlWrap.visibility = View.VISIBLE
+                dlWrap.animate().alpha(1f).setDuration(160).start()
+            } else {
+                dlWrap.animate().alpha(0f).setDuration(120).withEndAction { if (selected.isEmpty()) dlWrap.visibility = View.GONE }.start()
+            }
+        }
+
+        // ---- quick type chips ----
+
+        private fun baseFilter(): Filter {
+            val f = Filter()
+            f.name = filter.name; f.minMb = filter.minMb; f.maxMb = filter.maxMb; f.minSec = filter.minSec; f.maxSec = filter.maxSec
+            f.experimental = filter.experimental; f.noAudio = filter.noAudio; f.ext = filter.ext
+            return f // all media types on
+        }
+
+        private fun setTypes(v: Boolean, a: Boolean, st: Boolean, im: Boolean) {
+            filter.video = v; filter.audio = a; filter.subtitle = st; filter.image = im
+            filter.save(act)
+            sig = ""
+            render()
+        }
+
+        private fun typeChip(label: String, on: Boolean, click: () -> Unit) = tv(label, 13f, if (on) cOnPrimary else cText, 1, true).apply {
+            gravity = Gravity.CENTER
+            background = if (on) round(cPrimary, 17) else GradientDrawable().apply {
+                setColor(cCard); cornerRadius = dp(17).toFloat(); setStroke(dp(1), cLine)
+            }
+            setPadding(dp(14), 0, dp(14), 0)
+            setOnClickListener { click() }
+        }
+
+        private fun updateChips(rk: Set<String>) {
+            val base = baseFilter()
+            val cAll = all.count { passes(it, base, rk) }
+            val cV = all.count { it.group == "video" && passes(it, base, rk) }
+            val cA = all.count { it.group == "audio" && passes(it, base, rk) }
+            val cS = all.count { it.group == "subtitle" && passes(it, base, rk) }
+            val types = (if (filter.video) 1 else 0) or (if (filter.audio) 2 else 0) or (if (filter.subtitle) 4 else 0) or (if (filter.image) 8 else 0)
+            val show = listOf(cV, cA, cS).count { it > 0 } >= 2 || types != 15
+            val sg = "$show|$types|$cAll|$cV|$cA|$cS"
+            if (sg == chipSig) return
+            chipSig = sg
+            chipScroll.visibility = if (show) View.VISIBLE else View.GONE
+            chipRow.removeAllViews()
+            if (!show) return
+            fun add(label: String, n: Int, on: Boolean, onTap: () -> Unit) {
+                chipRow.addView(typeChip("$label $n", on) { onTap() }, LinearLayout.LayoutParams(WRAP, dp(34)).apply { marginEnd = dp(8) })
+            }
+            add("All", cAll, types == 15) { setTypes(true, true, true, true) }
+            if (cV > 0 || types == 1) add("Video", cV, types == 1) { setTypes(true, false, false, false) }
+            if (cA > 0 || types == 2) add("Audio", cA, types == 2) { setTypes(false, true, false, false) }
+            if (cS > 0 || types == 4) add("Subtitle", cS, types == 4) { setTypes(false, false, true, false) }
+        }
+
+        // ---- rows ----
+
+        private fun chip(text: String, bg: Int, fg: Int) = tv(text, 10f, fg, 1, true).apply {
             background = round(bg, 6)
-            setPadding(dp(7), dp(1), dp(7), dp(1))
+            setPadding(dp(6), dp(1), dp(6), dp(1))
+        }
+
+        private fun emptyView(): View {
+            val rk = removedKeys()
+            val filtered = all.any { !it.j.optBoolean("hidden", false) && it.key !in rk }
+            val box = LinearLayout(act).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                setPadding(dp(28), dp(48), dp(28), dp(40))
+            }
+            box.addView(ImageView(act).apply {
+                setImageResource(R.drawable.ic_download)
+                setColorFilter(cDim)
+                scaleType = ImageView.ScaleType.CENTER
+                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(cTile) }
+            }, LinearLayout.LayoutParams(dp(72), dp(72)))
+            box.addView(tv(if (filtered) "No file matches" else "Nothing detected yet", 17f, cText, 1, true)
+                .apply { gravity = Gravity.CENTER_HORIZONTAL; setPadding(0, dp(16), 0, dp(6)) }, LinearLayout.LayoutParams(MATCH, WRAP))
+            box.addView(tv(
+                if (filtered) "Change or reset the filter to see the other files."
+                else "Play the video or reload the page. New files show up here by themselves.", 14f, cDim, 4
+            ).apply { gravity = Gravity.CENTER_HORIZONTAL }, LinearLayout.LayoutParams(MATCH, WRAP))
+            if (filtered && filter.active()) {
+                box.addView(pillBtn("Reset filter") { filter.reset(); filter.save(act); sig = ""; render() },
+                    LinearLayout.LayoutParams(WRAP, dp(40)).apply { topMargin = dp(16) })
+            }
+            return box
         }
 
         private fun rowFor(e: DItem): View {
             val meta = metaCache[e.url]
-            val line = LinearLayout(act).apply {
+            val card = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
-                setPadding(dp(8), dp(8), dp(2), dp(8))
+                gravity = Gravity.TOP
+                setPadding(dp(12), dp(12), dp(4), dp(12))
                 ripple(this)
             }
-            val cb = CheckBox(act).apply {
-                isChecked = selected.contains(e.key)
-                isEnabled = !e.drm
-                buttonTintList = ColorStateList.valueOf(cPrimary)
-                setOnClickListener {
-                    if (isChecked) selected.add(e.key) else selected.remove(e.key)
-                    val n = selected.size
-                    dlBtn.visibility = if (n > 0) View.VISIBLE else View.GONE
-                    dlBtn.text = "DOWNLOAD ($n)"
-                    selAll.isChecked = visible.isNotEmpty() && visible.all { it.drm || selected.contains(it.key) }
-                    sig = ""
-                }
+            // type tile: shows the format; turns into a rose tick when selected
+            val tile = FrameLayout(act)
+            val tag = tv(tagOf(e).take(5), 10f, cText, 1, true).apply { gravity = Gravity.CENTER; ellipsize = null }
+            val tick = ImageView(act).apply {
+                setImageResource(R.drawable.ic_check)
+                setColorFilter(cOnPrimary)
+                scaleType = ImageView.ScaleType.CENTER
             }
-            line.setOnClickListener { cb.performClick() }
-            line.addView(cb, LinearLayout.LayoutParams(dp(40), dp(40)))
+            tile.addView(tag, FrameLayout.LayoutParams(MATCH, MATCH))
+            tile.addView(tick, FrameLayout.LayoutParams(MATCH, MATCH))
+            val kt = kindTint(e)
+            fun paint() {
+                val on = selected.contains(e.key)
+                card.background = GradientDrawable().apply {
+                    cornerRadius = dp(18).toFloat()
+                    setColor(if (on) ColorUtils.blendARGB(cCard, cPrimary, 0.10f) else cCard)
+                    setStroke(dp(if (on) 2 else 1), if (on) cPrimary else cLine)
+                }
+                tile.background = round(if (on) cPrimary else ColorUtils.blendARGB(cTile, kt, 0.32f), 14)
+                tag.visibility = if (on) View.INVISIBLE else View.VISIBLE
+                tick.visibility = if (on) View.VISIBLE else View.GONE
+            }
+            paint()
+            rowUpd[e.key] = { paint() }
+            card.setOnClickListener {
+                if (e.drm) { toast("DRM protected: cannot be downloaded"); return@setOnClickListener }
+                if (!selected.add(e.key)) selected.remove(e.key)
+                card.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                refreshSelection(e.key)
+            }
+            card.setOnLongClickListener { itemMenu(e); true }
+            card.addView(tile, LinearLayout.LayoutParams(dp(46), dp(46)).apply { marginEnd = dp(12) })
 
             val col = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
-            val chips = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL }
-            chips.addView(chip(tagOf(e), act.getColor(R.color.mg_surface_variant), cText))
-            val lp = { LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(6) } }
-            if (isExperimental(e)) chips.addView(chip("Experimental", 0xFFF57C00.toInt(), Color.WHITE), lp())
-            if (e.info.optBoolean("live", false)) chips.addView(chip("LIVE", 0xFFE53935.toInt(), Color.WHITE), lp())
-            if (e.drm) chips.addView(chip("DRM", 0xFFE53935.toInt(), Color.WHITE), lp())
-            col.addView(chips)
-            col.addView(tv(e.name, 14f, cText, 2, true).apply { setPadding(0, dp(3), 0, 0) })
+            col.addView(tv(e.name, 14f, cText, 2, true))
 
             val bits = ArrayList<String>()
             val sz = sizeOf(e)
-            if (sz.first > 0) bits.add((if (sz.second) "~" else "-") + EngineApi.fmtSize(sz.first))
+            if (sz.first > 0) bits.add((if (sz.second) "~" else "") + EngineApi.fmtSize(sz.first))
             val vr = e.variants?.optJSONObject(0)
             val res = when {
                 e.isStream && vr != null && vr.optString("res").isNotBlank() -> vr.optString("res")
@@ -542,8 +770,9 @@ object DetectedPanel {
             if (res.isNotEmpty()) bits.add(res)
             val d = durOf(e)
             if (d > 0) bits.add("Duration: " + durLabel(d))
-            if (bits.isNotEmpty()) col.addView(tv(bits.joinToString("   "), 12f, cDim, 2))
+            if (bits.isNotEmpty()) col.addView(tv(bits.joinToString("  ·  "), 12f, cDim, 2).apply { setPadding(0, dp(3), 0, 0) })
 
+            var noAudio = false
             val audioText = when {
                 e.kind == "subtitle" -> {
                     val l = e.j.optString("lang").ifBlank { e.j.optString("label") }
@@ -553,27 +782,35 @@ object DetectedPanel {
                     val n = e.info.optInt("audioTracks", 0)
                     if (n > 0) "Audio tracks: $n" else ""
                 }
-                meta != null && meta.hasAudio == false -> "No audio"
+                meta != null && meta.hasAudio == false -> { noAudio = true; "No audio" }
                 meta != null && meta.hasAudio == true -> "Language: " + (if (meta.langs.isEmpty()) "Unknown" else meta.langs.joinToString(", "))
                 else -> ""
             }
-            if (audioText.isNotEmpty()) col.addView(tv(audioText, 12f, cDim))
-            col.addView(tv(e.url, 11f, cDim, 2).apply {
-                ellipsize = TextUtils.TruncateAt.MIDDLE
-                setPadding(0, dp(2), 0, 0)
-            })
-            line.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            if (audioText.isNotEmpty()) col.addView(tv(audioText, 12f, if (noAudio) cWarn else cDim).apply { setPadding(0, dp(1), 0, 0) })
 
-            line.addView(TextView(act).apply {
-                text = "⋮"
-                textSize = 22f
-                gravity = Gravity.CENTER
-                setTextColor(cDim)
+            val flags = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL }
+            val lp = { LinearLayout.LayoutParams(WRAP, WRAP).apply { marginEnd = dp(6) } }
+            if (isExperimental(e)) flags.addView(chip("Experimental", cWarn, Color.WHITE), lp())
+            if (e.info.optBoolean("live", false)) flags.addView(chip("LIVE", 0xFFE53935.toInt(), Color.WHITE), lp())
+            if (e.drm) flags.addView(chip("DRM", 0xFFE53935.toInt(), Color.WHITE), lp())
+            if (flags.childCount > 0) col.addView(flags, LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = dp(6) })
+
+            col.addView(tv(e.url, 11f, cDim, 1).apply {
+                ellipsize = TextUtils.TruncateAt.MIDDLE
+                alpha = 0.8f
+                setPadding(0, dp(6), 0, 0)
+            })
+            card.addView(col, LinearLayout.LayoutParams(0, WRAP, 1f))
+
+            card.addView(ImageView(act).apply {
+                setImageResource(R.drawable.ic_more)
+                setColorFilter(cDim)
+                scaleType = ImageView.ScaleType.CENTER
                 contentDescription = "More"
                 ripple(this)
                 setOnClickListener { itemMenu(e) }
             }, LinearLayout.LayoutParams(dp(40), dp(40)))
-            return line
+            return card
         }
 
         // ---- actions ----
@@ -617,9 +854,9 @@ object DetectedPanel {
                     names.add(label)
                     vals.add(q.optString("url").ifBlank { q.optString("id") })
                 }
-                MaterialAlertDialogBuilder(act).setTitle("Quality")
-                    .setItems(names.toTypedArray()) { _, i -> startJob(e, vals[i]); toast("Download started") }
-                    .setNegativeButton("Cancel", null).show()
+                sheet("Choose quality", null, names.indices.map { i ->
+                    SRow(0, names[i]) { startJob(e, vals[i]); toast("Download started") }
+                })
             } else {
                 startJob(e, "best")
                 toast(if (e.kind == "subtitle") "Subtitle download started" else "Download started")
@@ -695,97 +932,220 @@ object DetectedPanel {
             toast("List cleared")
         }
 
-        private fun itemMenu(e: DItem) {
-            val names = ArrayList<String>()
-            val acts = ArrayList<() -> Unit>()
-            val av = if (e.group == "audio") "Audio" else "Video"
-            if (e.kind != "subtitle") {
-                names.add("Stream $av"); acts.add { stream(e) }
-                names.add("Preview $av"); acts.add { preview(e) }
+        private fun confirmClear() {
+            MaterialAlertDialogBuilder(act).setMessage("Clear the whole list for this page?")
+                .setPositiveButton("Clear") { _, _ -> clearAll() }
+                .setNegativeButton("Cancel", null).show()
+        }
+
+        // ---- bottom sheets (same look as the menu sheet) ----
+
+        private fun sheet(title: String, header: View?, rows: List<SRow>) {
+            val d = BottomSheetDialog(act)
+            val col = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), dp(16), dp(12), dp(16)) }
+            if (header != null) col.addView(header, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(12) })
+            else col.addView(tv(title, 18f, cText, 1, true).apply { setPadding(dp(8), 0, dp(8), dp(10)) })
+            val card = LinearLayout(act).apply {
+                orientation = LinearLayout.VERTICAL
+                background = round(cCard, 26)
+                setPadding(0, dp(6), 0, dp(6))
             }
-            names.add("Download"); acts.add { download(e) }
-            names.add("Remove link"); acts.add { remove(e) }
-            names.add("Copy download link"); acts.add { copy(e) }
-            names.add("Share link"); acts.add { share(e) }
-            names.add("Show download link"); acts.add { showLink(e) }
-            MaterialAlertDialogBuilder(act).setTitle(e.name.take(60))
-                .setItems(names.toTypedArray()) { _, i -> acts[i]() }
-                .setNegativeButton("Close", null).show()
+            for (r in rows) {
+                val line = LinearLayout(act).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(16), 0, dp(16), 0)
+                    ripple(this)
+                    setOnClickListener { d.dismiss(); r.run() }
+                }
+                if (r.icon != 0) line.addView(ImageView(act).apply { setImageResource(r.icon); setColorFilter(cDim) },
+                    LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(16) })
+                line.addView(tv(r.label, 16f, if (r.checked) cPrimary else cText), LinearLayout.LayoutParams(0, WRAP, 1f))
+                if (r.checked) line.addView(ImageView(act).apply { setImageResource(R.drawable.ic_check); setColorFilter(cPrimary) },
+                    LinearLayout.LayoutParams(dp(22), dp(22)))
+                card.addView(line, LinearLayout.LayoutParams(MATCH, dp(52)))
+            }
+            col.addView(card, LinearLayout.LayoutParams(MATCH, WRAP))
+            d.setContentView(ScrollView(act).apply { addView(col) })
+            sheetStyle(d)
+            d.behavior.skipCollapsed = true
+            d.show()
+            d.behavior.state = BottomSheetBehavior.STATE_EXPANDED
+        }
+
+        private fun itemMenu(e: DItem) {
+            val rows = ArrayList<SRow>()
+            val av = if (e.group == "audio") "audio" else "video"
+            if (e.kind != "subtitle") {
+                rows.add(SRow(R.drawable.ic_play, "Stream $av") { stream(e) })
+                rows.add(SRow(R.drawable.ic_screen, "Preview $av") { preview(e) })
+            }
+            rows.add(SRow(R.drawable.ic_download, "Download") { download(e) })
+            rows.add(SRow(R.drawable.ic_trash, "Remove link") { remove(e) })
+            rows.add(SRow(R.drawable.ic_list, "Copy download link") { copy(e) })
+            rows.add(SRow(R.drawable.ic_share, "Share link") { share(e) })
+            rows.add(SRow(R.drawable.ic_info, "Show download link") { showLink(e) })
+            // header card like the link menu: type tile + name + address
+            val head = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                background = round(cTile, 20)
+                setPadding(dp(14), dp(12), dp(14), dp(12))
+            }
+            head.addView(tv(tagOf(e).take(5), 11f, cText, 1, true).apply {
+                gravity = Gravity.CENTER
+                ellipsize = null
+                background = round(ColorUtils.blendARGB(cCard, kindTint(e), 0.32f), 14)
+            }, LinearLayout.LayoutParams(dp(48), dp(48)).apply { marginEnd = dp(14) })
+            val hc = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+            hc.addView(tv(e.name, 15f, cText, 2, true))
+            hc.addView(tv(e.url, 12f, cDim, 1).apply { ellipsize = TextUtils.TruncateAt.MIDDLE })
+            head.addView(hc, LinearLayout.LayoutParams(0, WRAP, 1f))
+            sheet("", head, rows)
         }
 
         // ---- sort / filter ----
 
         private fun showSort() {
-            val names = arrayOf("Default", "Detected desc", "Detected asc", "Size desc", "Size asc", "Name desc", "Name asc", "Video first", "Audio first")
-            MaterialAlertDialogBuilder(act).setTitle("Sort")
-                .setSingleChoiceItems(names, sort) { d, i ->
+            val names = arrayOf("Default order", "Newest first", "Oldest first", "Largest first", "Smallest first", "Name Z to A", "Name A to Z", "Video first", "Audio first")
+            sheet("Sort", null, names.mapIndexed { i, n ->
+                SRow(0, n, i == sort) {
                     sort = i
                     act.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt("sort", i).apply()
                     sig = ""
                     render()
-                    d.dismiss()
                 }
-                .setNegativeButton("Cancel", null).show()
+            })
         }
 
         private fun showFilter() {
-            val box = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), dp(4)) }
-            fun field(label: String, hint: String, value: String, number: Boolean): EditText {
-                box.addView(tv(label, 12f, cDim).apply { setPadding(0, dp(10), 0, 0) })
-                val et = EditText(act).apply {
-                    setText(value)
-                    this.hint = hint
-                    textSize = 15f
-                    setSingleLine()
-                    setTextColor(cText)
-                    if (number) inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
-                }
-                box.addView(et)
-                return et
+            val d = BottomSheetDialog(act)
+            d.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            val root = LinearLayout(act).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = ViewGroup.LayoutParams(MATCH, (act.resources.displayMetrics.heightPixels * 0.85f).toInt())
             }
-            fun check(label: String, on: Boolean): CheckBox {
-                val c = CheckBox(act).apply { text = label; isChecked = on; setTextColor(cText); textSize = 14f; buttonTintList = ColorStateList.valueOf(cPrimary) }
-                box.addView(c)
-                return c
+            val box = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), dp(16), dp(12), dp(8)) }
+            box.addView(tv("Filter", 20f, cText, 1, true).apply { setPadding(dp(8), 0, dp(8), dp(4)) })
+            fun label(t: String) = box.addView(tv(t, 12f, cDim).apply { setPadding(dp(8), dp(14), 0, dp(6)) })
+            fun input(hint: String, value: String, number: Boolean) = EditText(act).apply {
+                setText(value)
+                this.hint = hint
+                textSize = 15f
+                setSingleLine()
+                setTextColor(cText)
+                setHintTextColor(cDim)
+                background = round(cTile, 14)
+                setPadding(dp(14), 0, dp(14), 0)
+                if (number) inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
             }
             fun num(f: Float) = if (f <= 0f) "" else if (f == f.toInt().toFloat()) f.toInt().toString() else f.toString()
-            val name = field("File name contains", "any", filter.name, false)
-            val minMb = field("Minimum size (MB)", "0", num(filter.minMb), true)
-            val maxMb = field("Maximum size (MB)", "no limit", num(filter.maxMb), true)
-            val minS = field("Minimum time (SEC)", "0", num(filter.minSec), true)
-            val maxS = field("Maximum time (SEC)", "no limit", num(filter.maxSec), true)
-            box.addView(tv("Media type", 12f, cDim).apply { setPadding(0, dp(14), 0, 0) })
-            val cv = check("Video", filter.video)
-            val ca = check("Audio", filter.audio)
-            val ci = check("Image", filter.image)
-            val cs = check("Subtitle", filter.subtitle)
-            box.addView(tv("More", 12f, cDim).apply { setPadding(0, dp(14), 0, 0) })
-            val ce = check("Show experimental links", filter.experimental)
-            val cn = check("Show video links which don't have audio", filter.noAudio)
-            val ext = field("Custom extensions (only these, empty = all)", "mp4, mkv, m3u8", filter.ext, false)
-            MaterialAlertDialogBuilder(act).setTitle("Filter")
-                .setView(ScrollView(act).apply { addView(box) })
-                .setPositiveButton("OK") { _, _ ->
+            fun pair(a: EditText, b: EditText) {
+                val r = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL }
+                r.addView(a, LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginEnd = dp(8) })
+                r.addView(b, LinearLayout.LayoutParams(0, dp(48), 1f))
+                box.addView(r, LinearLayout.LayoutParams(MATCH, WRAP))
+            }
+            label("File name contains")
+            val name = input("any", filter.name, false)
+            box.addView(name, LinearLayout.LayoutParams(MATCH, dp(48)))
+            label("Size (MB)")
+            val minMb = input("Min", num(filter.minMb), true)
+            val maxMb = input("Max", num(filter.maxMb), true)
+            pair(minMb, maxMb)
+            label("Time (SEC)")
+            val minS = input("Min", num(filter.minSec), true)
+            val maxS = input("Max", num(filter.maxSec), true)
+            pair(minS, maxS)
+
+            label("Media type")
+            var tv0 = filter.video; var ta0 = filter.audio; var ti0 = filter.image; var ts0 = filter.subtitle
+            val trow = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL }
+            fun toggleChip(text: String, get: () -> Boolean, set: (Boolean) -> Unit) {
+                lateinit var c: TextView
+                fun paint() {
+                    val on = get()
+                    c.setTextColor(if (on) cOnPrimary else cText)
+                    c.background = if (on) round(cPrimary, 17) else GradientDrawable().apply {
+                        setColor(cCard); cornerRadius = dp(17).toFloat(); setStroke(dp(1), cLine)
+                    }
+                }
+                c = tv(text, 13f, cText, 1, true).apply {
+                    gravity = Gravity.CENTER
+                    setPadding(dp(14), 0, dp(14), 0)
+                    setOnClickListener { set(!get()); paint() }
+                }
+                paint()
+                trow.addView(c, LinearLayout.LayoutParams(WRAP, dp(34)).apply { marginEnd = dp(8) })
+            }
+            toggleChip("Video", { tv0 }, { tv0 = it })
+            toggleChip("Audio", { ta0 }, { ta0 = it })
+            toggleChip("Image", { ti0 }, { ti0 = it })
+            toggleChip("Subtitle", { ts0 }, { ts0 = it })
+            box.addView(HorizontalScrollView(act).apply { isHorizontalScrollBarEnabled = false; addView(trow) }, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            label("More")
+            fun sw(text: String, on: Boolean): SwitchCompat {
+                val v = SwitchCompat(act).apply {
+                    this.text = text
+                    isChecked = on
+                    textSize = 15f
+                    setTextColor(cText)
+                    setPadding(dp(8), 0, dp(8), 0)
+                }
+                box.addView(v, LinearLayout.LayoutParams(MATCH, dp(48)))
+                return v
+            }
+            val ce = sw("Show experimental links", filter.experimental)
+            val cn = sw("Show video links which don't have audio", filter.noAudio)
+            label("Custom extensions (only these, empty = all)")
+            val ext = input("mp4, mkv, m3u8", filter.ext, false)
+            box.addView(ext, LinearLayout.LayoutParams(MATCH, dp(48)))
+
+            root.addView(ScrollView(act).apply { addView(box) }, LinearLayout.LayoutParams(MATCH, 0, 1f))
+
+            val btns = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(14), dp(8), dp(14), dp(12))
+            }
+            fun textBtn(label: String, on: () -> Unit) = tv(label, 14f, cDim, 1, true).apply {
+                gravity = Gravity.CENTER
+                setPadding(dp(14), 0, dp(14), 0)
+                ripple(this)
+                setOnClickListener { on() }
+            }
+            btns.addView(textBtn("RESET") {
+                filter.reset(); filter.save(act); sig = ""; render(); d.dismiss()
+            }, LinearLayout.LayoutParams(WRAP, dp(44)))
+            btns.addView(View(act), LinearLayout.LayoutParams(0, 1, 1f))
+            btns.addView(textBtn("CANCEL") { d.dismiss() }, LinearLayout.LayoutParams(WRAP, dp(44)))
+            btns.addView(tv("OK", 15f, cOnPrimary, 1, true).apply {
+                gravity = Gravity.CENTER
+                background = round(cPrimary, 22)
+                setPadding(dp(28), 0, dp(28), 0)
+                setOnClickListener {
                     filter.name = name.text.toString()
                     filter.minMb = minMb.text.toString().toFloatOrNull() ?: 0f
                     filter.maxMb = maxMb.text.toString().toFloatOrNull() ?: 0f
                     filter.minSec = minS.text.toString().toFloatOrNull() ?: 0f
                     filter.maxSec = maxS.text.toString().toFloatOrNull() ?: 0f
-                    filter.video = cv.isChecked; filter.audio = ca.isChecked; filter.image = ci.isChecked; filter.subtitle = cs.isChecked
+                    filter.video = tv0; filter.audio = ta0; filter.image = ti0; filter.subtitle = ts0
                     filter.experimental = ce.isChecked; filter.noAudio = cn.isChecked
                     filter.ext = ext.text.toString()
                     filter.save(act)
                     sig = ""
                     render()
+                    d.dismiss()
                 }
-                .setNegativeButton("CANCEL", null)
-                .setNeutralButton("RESET") { _, _ ->
-                    filter.reset()
-                    filter.save(act)
-                    sig = ""
-                    render()
-                }
-                .show()
+            }, LinearLayout.LayoutParams(WRAP, dp(44)).apply { marginStart = dp(6) })
+            root.addView(btns, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            d.setContentView(root)
+            sheetStyle(d)
+            d.behavior.skipCollapsed = true
+            d.show()
+            d.behavior.state = BottomSheetBehavior.STATE_EXPANDED
         }
     }
 }

@@ -1,3 +1,10 @@
+MGB 0.0.54 (S50d: Files detected! panel, new look)
+- Same panel and same features, redesigned to match the browser (quiet sheet, rounded cards, rose accent).
+- Each file is a card: a type tile (HLS / MP4 / MP3 / SRT ...) that turns into a rose tick when selected, name, size / resolution / duration, audio info ("No audio" in orange), Experimental / LIVE / DRM tags, source link. Tap = select, long press or the 3 dots = menu.
+- Quick chips with counts: All / Video / Audio / Subtitle (shown when there is more than one kind). Count badge next to the title, page name under it.
+- Selecting a file only repaints that card (no list rebuild, no jump). DOWNLOAD (n) is one big sticky rose button that fades in when something is selected. Bottom bar is one rounded card with CLEAR ALL (asks first) / SORT / CLOSE.
+- File menu, quality choice, Sort and Filter are now bottom sheets like the main menu (Filter: two-column min / max fields, type chips, switches, pinned RESET / CANCEL / OK). Friendly empty state with a Reset filter button.
+
 MGB 0.0.53 (S50: Files detected! panel)
 - New "Files detected!" panel (menu > Detected files, the Grabber page button when the native button is on). Lists everything found on the page: format tag (HLS, DASH, MP4, AUDIO, SRT ...), "Experimental" tag for guessed links, size, resolution, audio language or "No audio", duration, and the source link. The list updates by itself while it is open.
 - Select files: tick files or "Select all to download", then DOWNLOAD (n).
