@@ -79,6 +79,8 @@ object PlayerScreen {
         private var shown = true
         private var dragging = false
         private var rotated = false
+        private var ended = false // S29: video reached the end (stay open, show controls)
+        private val startPortrait = Orient.isPortrait(act) // S29
 
         private fun dp(v: Int) = Util.dp(act, v)
 
@@ -99,7 +101,7 @@ object PlayerScreen {
             setOnDismissListener {
                 main.removeCallbacksAndMessages(null)
                 try { vv.stopPlayback() } catch (_: Exception) { }
-                if (rotated) act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                if (rotated) Orient.restore(act, startPortrait) // S29 FIX: browser stayed landscape
                 if (current === this) current = null
             }
         }
@@ -259,10 +261,19 @@ object PlayerScreen {
                 updatePlay()
                 poke()
             }
-            vv.setOnCompletionListener { updatePlay(); setControls(true) }
+            vv.setOnCompletionListener { ended = true; updatePlay(); setControls(true) }
             vv.setOnErrorListener { _, _, _ ->
-                Util.toast(act, "Cannot play this file")
-                dismiss()
+                // S29 FIX: some phones report an error at the very end of a video: do not close the player then
+                val d = try { vv.duration } catch (e: Exception) { 0 }
+                val p = try { vv.currentPosition } catch (e: Exception) { 0 }
+                if (ended || (d > 0 && p >= d - 2500)) {
+                    ended = true
+                    updatePlay()
+                    setControls(true)
+                } else {
+                    Util.toast(act, "Cannot play this file")
+                    dismiss()
+                }
                 true
             }
             setContentView(root)
@@ -332,6 +343,7 @@ object PlayerScreen {
         }
 
         private fun togglePlay() {
+            if (ended) { ended = false; vv.seekTo(0) } // S29: play again from the start after the end
             if (vv.isPlaying) vv.pause() else vv.start()
             updatePlay()
         }

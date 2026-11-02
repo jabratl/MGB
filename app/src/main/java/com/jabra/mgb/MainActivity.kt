@@ -28,9 +28,18 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     private lateinit var floating: FloatingDl // S11
     private var lastNight = 0
 
+    // S29 FIX: the saved theme must be set BEFORE AppCompat reads it (attachBaseContext). Before, the first start
+    // after an update used the system theme for the home screen (white tiles on dark) until Light/Dark was toggled.
+    override fun attachBaseContext(newBase: Context) {
+        try { UiMode.apply(newBase) } catch (e: Exception) { /* keep default */ }
+        super.attachBaseContext(newBase)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         UiMode.apply(this) // S20: saved theme (System / Light / Dark), before the Activity is created
         AdBlock.init(this) // S19
+        SiteConfig.init(this) // S29
+        ClosedTabs.init(this) // S29
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE) // S22: bottom bar rides above the keyboard
@@ -124,6 +133,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         // S27: general card (app level) and page card (this page)
         val general = listOf(
             MenuSheet.Item("New private tab", R.drawable.ic_lock) { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) }, // S26
+            MenuSheet.Item("Recently closed tabs", R.drawable.ic_history) { Backup.closedTabs(this, tabs) }, // S29
             MenuSheet.Item("Queue", R.drawable.ic_list) { openExt("queue.html") },
             MenuSheet.Item("Settings", R.drawable.ic_settings) { SettingsScreen.open(this) }
         )
@@ -132,6 +142,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Item(if (cur?.desktop == true) "Mobile site" else "Desktop site", R.drawable.ic_desktop, cur != null && !cur.home && !cur.isExt) {
                 tabs.active?.let { tabs.setDesktop(it, !it.desktop) }
             },
+            MenuSheet.Item("Page info", R.drawable.ic_info, canMark) { PageInfo.show(this, tabs) }, // S29
             MenuSheet.Item("Ad blocker", R.drawable.ic_shield, true, if (AdBlock.enabled) "ON · ${AdBlock.blocked}" else "OFF") { // S19
                 Util.toast(this, if (AdBlock.toggle()) "Ad blocker ON (reload the page)" else "Ad blocker OFF (reload the page)")
             }

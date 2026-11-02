@@ -92,8 +92,9 @@ class TabManager(
     private var customView: android.view.View? = null // S14: fullscreen video
     private var customHolder: FrameLayout? = null
     private var customCb: WebChromeClient.CustomViewCallback? = null
+    private var fsPortrait = true // S29: orientation before fullscreen video
 
-    init { Bookmarks.init(ctx) } // S13
+    init { Bookmarks.init(ctx); ClosedTabs.init(ctx) } // S13, S29
 
     var active: Tab? = null
         private set
@@ -157,6 +158,10 @@ class TabManager(
         if (idx < 0) return
         val wasActive = active === tab
         if (wasActive) exitFullscreen() // S14
+        if (!tab.priv && !tab.isExt && !tab.home) { // S29: recently closed tabs
+            val cu = tab.web.url ?: tab.url
+            if (cu.startsWith("http")) ClosedTabs.add(tab.title, cu)
+        }
         tabs.removeAt(idx)
         TabsApi.onRemoved(tab) // S6
         if (wasActive) {
@@ -310,6 +315,11 @@ class TabManager(
             tab.url = url ?: tab.url
             tab.progress = 0
             if (tab.home) { tab.home = false; syncHome() } // S13
+            if (!tab.isExt && view != null) { // S29: per-site switches
+                val jsOff = SiteConfig.has(url, SiteConfig.JS_OFF)
+                if (view.settings.javaScriptEnabled == jsOff) view.settings.javaScriptEnabled = !jsOff
+                if (SiteConfig.has(url, SiteConfig.DESKTOP) && !tab.desktop) container.post { setDesktop(tab, true) }
+            }
             TabsApi.onUpdated(tab, JSONObject().put("status", "loading").put("url", tab.url)) // S6
             listener.onPageInfo(tab)
         }
@@ -494,6 +504,7 @@ class TabManager(
         holder.setBackgroundColor(Color.BLACK)
         holder.addView(v, FrameLayout.LayoutParams(MATCH, MATCH))
         (act.window.decorView as ViewGroup).addView(holder, FrameLayout.LayoutParams(MATCH, MATCH))
+        fsPortrait = Orient.isPortrait(act) // S29
         customView = v
         customHolder = holder
         customCb = cb
@@ -516,6 +527,7 @@ class TabManager(
         }
         (ctx as? Activity)?.let {
             WindowCompat.getInsetsController(it.window, it.window.decorView).show(WindowInsetsCompat.Type.systemBars())
+            Orient.restore(it, fsPortrait) // S29 FIX: browser stayed landscape after the video
         }
         cb?.onCustomViewHidden()
     }

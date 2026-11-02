@@ -35,6 +35,10 @@ object BrowserExtras {
     private var exportLauncher: ActivityResultLauncher<String>? = null // S18
     private var importLauncher: ActivityResultLauncher<Array<String>>? = null // S18
     private var pendingImport: ((Int) -> Unit)? = null // S18
+    private var backupOut: ActivityResultLauncher<String>? = null // S29
+    private var backupIn: ActivityResultLauncher<Array<String>>? = null // S29
+    private var backupText: (() -> String)? = null // S29
+    private var backupDone: ((String?) -> Unit)? = null // S29
 
     /** Remembered Allow / Block answers for this run: "origin|kinds" -> answer. */
     private val decided = HashMap<String, Boolean>()
@@ -69,6 +73,50 @@ object BrowserExtras {
             pendingImport = null
             if (uri != null) readBookmarks(a, uri, cb)
         }
+        // S29: data backup (JSON). Registered last so the keys of the launchers above stay the same.
+        backupOut = a.registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+            val supplier = backupText
+            backupText = null
+            if (uri != null && supplier != null) {
+                val text = try { supplier() } catch (e: Exception) { null }
+                Thread {
+                    val ok = text != null && try {
+                        a.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray(Charsets.UTF_8)) } != null
+                    } catch (e: Exception) { false }
+                    a.runOnUiThread { Util.toast(a, if (ok) "Backup saved" else "Backup failed") }
+                }.start()
+            }
+        }
+        backupIn = a.registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            val cb = backupDone
+            backupDone = null
+            if (uri == null) return@registerForActivityResult
+            Thread {
+                val text = try {
+                    val bytes = a.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    if (bytes != null && bytes.size <= 20 * 1024 * 1024) String(bytes, Charsets.UTF_8) else null
+                } catch (e: Exception) { null }
+                a.runOnUiThread { cb?.invoke(text) }
+            }.start()
+        }
+    }
+
+    // ---------- S29: data backup ----------
+
+    fun saveBackup(name: String, text: () -> String) {
+        val l = backupOut
+        val a = act
+        if (l == null || a == null) return
+        backupText = text
+        try { l.launch(name) } catch (e: Exception) { backupText = null; Util.toast(a, "No file picker found") }
+    }
+
+    fun loadBackup(cb: (String?) -> Unit) {
+        val l = backupIn
+        val a = act
+        if (l == null || a == null) return
+        backupDone = cb
+        try { l.launch(arrayOf("*/*")) } catch (e: Exception) { backupDone = null; Util.toast(a, "No file picker found") }
     }
 
     // ---------- S18: bookmarks import / export ----------

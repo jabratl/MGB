@@ -39,6 +39,7 @@ object AdBlock {
     /** Runs on the WebView network thread: only plain fields are read here. */
     fun shouldBlock(req: WebResourceRequest, pageUrl: String?): Boolean {
         if (!enabled || req.isForMainFrame) return false
+        if (SiteConfig.has(pageUrl, SiteConfig.ADS_OK)) return false // S29: site config "allow ads here"
         val host = req.url.host?.lowercase() ?: return false
         if (!listed(host)) return false
         val ph = try { android.net.Uri.parse(pageUrl ?: "").host?.lowercase() } catch (e: Exception) { null }

@@ -1,3 +1,12 @@
+MGB 0.0.32 (S29: fixes + Export/Import data + Page info)
+- FIX white home after an update: the saved theme is now applied before the Activity is built (attachBaseContext), so the home screen no longer uses light colours on a dark app. Dialogs (Theme picker) have readable title / text in dark mode (container colours added to Theme.MGB).
+- FIX two download buttons: the blue native button is now OFF by default (Settings > Downloads > Extra native download button). The Grabber page button stays.
+- FIX landscape: after the built-in player or a fullscreen web video the browser goes back to the orientation it had before (Orient.kt).
+- FIX player closing at the end of a video: it stays open, shows the controls, and Play starts again from 0.
+- Settings > Data: Export data (tick Bookmarks + folders, Home pins, History, Settings, Recently closed tabs -> one JSON file) and Import data (merges lists, no duplicates; settings overwrite).
+- Recently closed tabs (menu and Settings): last 30, tap = reopen.
+- Menu > Page info: View certificate, View cookies (tap = copy, Delete all), View scripts (tap = copy / show inline code), Site configuration (JavaScript off, Allow ads, Always desktop - per site), Show reader (simple reader view, reload to leave).
+
 MGB 0.0.31 (S28: home list, built-in player)
 - Home screen shows only what you pin (it no longer lists every bookmark, so a big import does not flood it). First run of this version pins your first 4 bookmarks. Edit (pencil): Add = pick many from bookmarks (or a folder) or type a new address; badge = unpin (the bookmark stays). A pinned folder opens in place and shows the real bookmark folder.
 - Bookmarks > select > More > Pin to home.

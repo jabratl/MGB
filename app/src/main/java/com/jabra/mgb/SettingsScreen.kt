@@ -164,6 +164,9 @@ object SettingsScreen {
             col.addView(card, LinearLayout.LayoutParams(MATCH, WRAP))
         }
 
+        private fun nativeBtn(): Boolean =
+            act.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE).getBoolean("native_btn", false)
+
         private fun ext(page: String) {
             if (!ExtScreen.open(act, ContentInjector.EXT_BASE + page)) Util.toast(act, "Could not open $page")
         }
@@ -196,7 +199,17 @@ object SettingsScreen {
                 Row(R.drawable.ic_download, "Downloads") { dismiss(); DownloadsScreen.open(act) },
                 Row(R.drawable.ic_list, "Queue") { ext("queue.html") },
                 Row(R.drawable.ic_history, "Download history") { ext("history.html") },
-                Row(R.drawable.ic_settings, "Grabber settings") { ext("options.html") }
+                Row(R.drawable.ic_settings, "Grabber settings") { ext("options.html") },
+                Row(R.drawable.ic_download, "Extra native download button", if (nativeBtn()) "ON" else "OFF") {
+                    act.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE).edit().putBoolean("native_btn", !nativeBtn()).apply()
+                    Util.toast(act, "Changes in a few seconds")
+                    fill()
+                }
+            ))
+            section("Data", listOf(
+                Row(R.drawable.ic_share, "Export data") { Backup.exportData(act) },
+                Row(R.drawable.ic_download, "Import data") { Backup.importData(act) },
+                Row(R.drawable.ic_history, "Recently closed tabs") { dismiss(); Backup.closedTabs(act, tabs) }
             ))
             section("Privacy and security", listOf(
                 Row(R.drawable.ic_shield, "Ad blocker", if (AdBlock.enabled) "ON · ${AdBlock.blocked} blocked" else "OFF") {

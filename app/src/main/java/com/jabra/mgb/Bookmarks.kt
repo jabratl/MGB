@@ -310,4 +310,90 @@ object Bookmarks {
     fun removeHomeFolder(name: String) {
         if (hm.removeAll { it.folder == name }) saveHome()
     }
+
+    // ---------- S29: backup (export / import data) ----------
+
+    @Synchronized
+    fun backupJson(withBm: Boolean, withHome: Boolean, withHist: Boolean): JSONObject {
+        val o = JSONObject()
+        fun arr(list: List<Item>): JSONArray {
+            val a = JSONArray()
+            for (x in list) a.put(JSONObject().put("t", x.title).put("u", x.url).put("w", x.time).put("f", x.folder))
+            return a
+        }
+        if (withBm) {
+            o.put("bookmarks", arr(bm))
+            o.put("folders", JSONArray(fol))
+        }
+        if (withHome) {
+            val a = JSONArray()
+            for (x in hm) a.put(JSONObject().put("t", x.title).put("u", x.url).put("f", x.folder))
+            o.put("home", a)
+        }
+        if (withHist) o.put("history", arr(hist))
+        return o
+    }
+
+    /** Merges a backup into the lists (no duplicates, never deletes). Returns a short summary text. */
+    @Synchronized
+    fun backupMerge(o: JSONObject, withBm: Boolean, withHome: Boolean, withHist: Boolean): String {
+        val out = ArrayList<String>()
+        if (withBm) {
+            var nb = 0
+            o.optJSONArray("folders")?.let { a ->
+                for (i in 0 until a.length()) {
+                    val n = a.optString(i).trim().take(40)
+                    if (n.isNotEmpty() && fol.none { it.equals(n, true) } && fol.size < 200) fol.add(n)
+                }
+            }
+            o.optJSONArray("bookmarks")?.let { a ->
+                for (i in 0 until a.length()) {
+                    val x = a.optJSONObject(i) ?: continue
+                    val u = x.optString("u")
+                    if (!u.startsWith("http") || bm.size >= 5000 || bm.any { it.url == u }) continue
+                    val f = x.optString("f")
+                    if (f.isNotEmpty() && fol.none { it == f } && fol.size < 200) fol.add(f)
+                    bm.add(Item(x.optString("t").ifBlank { Util.host(u) }, u, x.optLong("w"), f))
+                    nb++
+                }
+            }
+            saveAsync(F_BM, bm)
+            saveFolders()
+            out.add("$nb bookmarks")
+        }
+        if (withHome) {
+            var nh = 0
+            o.optJSONArray("home")?.let { a ->
+                for (i in 0 until a.length()) {
+                    val x = a.optJSONObject(i) ?: continue
+                    val u = x.optString("u")
+                    val f = x.optString("f")
+                    if (u.isEmpty() && f.isEmpty()) continue
+                    if (hm.any { it.url == u && it.folder == f }) continue
+                    hm.add(Home(x.optString("t"), u, f))
+                    nh++
+                }
+            }
+            saveHome()
+            out.add("$nh home pins")
+        }
+        if (withHist) {
+            var nh = 0
+            o.optJSONArray("history")?.let { a ->
+                for (i in 0 until a.length()) {
+                    val x = a.optJSONObject(i) ?: continue
+                    val u = x.optString("u")
+                    val w = x.optLong("w")
+                    if (u.isEmpty() || hist.any { it.url == u && it.time == w }) continue
+                    hist.add(Item(x.optString("t").ifBlank { Util.host(u) }, u, w))
+                    nh++
+                }
+            }
+            hist.sortByDescending { it.time }
+            while (hist.size > MAX_HISTORY) hist.removeAt(hist.size - 1)
+            saveAsync(F_HIST, hist)
+            out.add("$nh history entries")
+        }
+        return out.joinToString(", ")
+    }
 }

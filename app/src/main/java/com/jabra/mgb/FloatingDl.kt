@@ -164,6 +164,8 @@ class FloatingDl(
 
     fun refresh() {
         val t = tabs.active
+        // S29: the Grabber page button (V77) is the default; this native button is optional (Settings > Downloads)
+        if (!prefs.getBoolean("native_btn", false)) { btn.visibility = View.GONE; return }
         if (t == null || t.isExt || !t.url.startsWith("http")) { btn.visibility = View.GONE; return }
         if (busy) return
         busy = true
