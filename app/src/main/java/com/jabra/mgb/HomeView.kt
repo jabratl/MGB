@@ -94,7 +94,7 @@ class HomeView(
         val cur = folder
         if (cur == null) {
             content.addView(TextView(context).apply {
-                text = "MGB"
+                text = "Thazir"
                 setTextColor(context.getColor(R.color.mg_text))
                 textSize = 34f
                 letterSpacing = 0.32f

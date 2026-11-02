@@ -150,12 +150,12 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             }
         )
         val title = when {
-            cur == null -> "MGB"
+            cur == null -> "Thazir"
             cur.home -> if (cur.priv) "Private tab" else "Home"
             else -> Util.host(cur.url).ifBlank { "New tab" }
         }
         val share: (() -> Unit)? = if (canMark) ({ tabs.active?.let { if (it.url.startsWith("http")) tabs.shareText(it.url) } }) else null
-        MenuSheet.show(this, quick, general, title, share, page, acts, "MGB ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
+        MenuSheet.show(this, quick, general, title, share, page, acts, "Thazir ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
     }
 
     private fun openExt(page: String) {

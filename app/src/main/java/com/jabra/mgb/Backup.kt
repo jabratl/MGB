@@ -140,7 +140,7 @@ object Backup {
         BrowserExtras.loadBackup { text ->
             val o = try { if (text == null) null else JSONObject(text) } catch (e: Exception) { null }
             if (o == null || o.optInt("mgb") != 1) {
-                Util.toast(act, "This is not an MGB backup file")
+                Util.toast(act, "This is not a Thazir backup file")
                 return@loadBackup
             }
             val has = booleanArrayOf(

@@ -202,7 +202,7 @@ object ExtUpdater {
         if (a.isFinishing || a.isDestroyed) return
         MaterialAlertDialogBuilder(a)
             .setTitle("Restart needed")
-            .setMessage("$msg Close MGB now, then open it again to use the new files. (Running downloads stop if you close now.)")
+            .setMessage("$msg Close Thazir now, then open it again to use the new files. (Running downloads stop if you close now.)")
             .setPositiveButton("Close MGB") { _, _ ->
                 a.finishAffinity()
                 main.postDelayed({ android.os.Process.killProcess(android.os.Process.myPid()) }, 800)

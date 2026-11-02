@@ -1,3 +1,9 @@
+MGB 0.0.34 (S31: Thazir rename, new logo, new tab switcher)
+- The browser is now called Thazir (app name, home wordmark, menu, messages). Package / update channel are unchanged, so it installs over the old app.
+- New launcher icon: white T + one rose dot on deep plum (adaptive + themed icon on Android 13+; PNG for old phones).
+- New tab switcher (full screen): top switch Tabs | Private with counts, 3-dot menu (New tab, New private tab, Close all), 2-column cards with a colour avatar made from the site name, title, host, close; bottom bar: Back, big +, Close all (asks first). Opening + in Private mode makes a private tab.
+- No tab groups yet, no tab thumbnails.
+
 MGB 0.0.33 (S30: email alias, password manager, player extras)
 - Player: swipe up/down on the LEFT half = brightness, RIGHT half = volume, swipe left/right = seek (shows the target time, applies on release). Videos remember where you stopped (not near start/end) and resume next time ("Resumed 12:34").
 - Password manager: after you submit a login form MGB asks Save / Not now / Never here (also Update when the password changed). Passwords are AES-GCM encrypted with an Android Keystore key. Menu > Fill password fills the page (asks fingerprint / face / screen lock first, open for 2 minutes). Settings > Passwords and email > Saved passwords: copy user, copy / show password (unlock first), delete. Not in private tabs. Not part of Export data.

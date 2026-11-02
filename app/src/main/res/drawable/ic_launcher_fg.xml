@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Thazir mark: a white T (a doorway / "present") and one rose dot -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M32,34 h44 a5,5 0 0 1 5,5 a5,5 0 0 1 -5,5 h-14 v28 a5,5 0 0 1 -5,5 h-1 a5,5 0 0 1 -5,-5 v-28 h-14 a5,5 0 0 1 -5,-5 a5,5 0 0 1 5,-5 z" />
+    <path
+        android:fillColor="#F2708A"
+        android:pathData="M72,64 m-6,0 a6,6 0 1 0 12,0 a6,6 0 1 0 -12,0" />
+</vector>

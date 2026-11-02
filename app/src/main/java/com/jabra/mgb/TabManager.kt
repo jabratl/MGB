@@ -579,7 +579,10 @@ class TabManager(
 
     // ---------- tab switcher ----------
 
+    fun allTabs(): List<Tab> = tabs.toList() // S31
+
     fun showSwitcher() {
+        (ctx as? android.app.Activity)?.let { TabSwitcher.show(it, this); return } // S31: Thazir switcher; old sheet below is the fallback
         val dlg = BottomSheetDialog(ctx)
         val v = LayoutInflater.from(ctx).inflate(R.layout.sheet_tabs, null)
         val list = v.findViewById<LinearLayout>(R.id.tabs_list)
