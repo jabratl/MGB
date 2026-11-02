@@ -1,3 +1,7 @@
+MGB 0.0.47 (S44: drag a tab into a group)
+- Tab switcher: long press a tab and the card lifts. Drag it onto a group card = it moves into that group; drag it onto another tab = a new group (name + colour dialog) with both. The target gets a rose ring, the card flies in and shrinks. Let go on empty space = it springs back; let go without moving = the tab menu. The grid scrolls by itself near the top / bottom edge while dragging.
+- Drag works on the Tabs pill (no search, no select mode). Everywhere else long press still opens the menu.
+
 MGB 0.0.46 (S43: new tab switcher)
 - Tab cards: title bar on top (letter icon, title, X), page picture below, the open tab has a rose title bar. Cards fade in, shrink a little when pressed, and fade out when closed.
 - Long press a tab: menu (Select tab, Add tab to group, Add Favorite, Share, Close tab). Menus are small popups now, not plain list dialogs.

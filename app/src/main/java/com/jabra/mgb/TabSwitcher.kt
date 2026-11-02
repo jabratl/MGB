@@ -32,7 +32,10 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import android.view.ViewConfiguration
+import android.view.animation.OvershootInterpolator
 import kotlin.math.abs
+import kotlin.math.hypot
 
 /**
  * S31 + S32: Thazir tab switcher (full-screen Dialog). Own design, soft plum gradient background.
@@ -176,6 +179,13 @@ object TabSwitcher {
         private lateinit var empty: TextView
         private lateinit var bar: LinearLayout
         private lateinit var searchEt: EditText
+        private lateinit var scroll: ScrollView
+        private val targets = ArrayList<Pair<View, Any>>() // S44: drop targets of the current grid (group card -> String, tab card -> Tab)
+        private var dragView: View? = null
+        private var dragShift = 0f
+        private var lastX = 0f
+        private var lastY = 0f
+        private var hover: Pair<View, Any>? = null
 
         private fun dp(v: Int) = Util.dp(act, v)
         private fun c(res: Int) = act.getColor(res)
@@ -274,6 +284,9 @@ object TabSwitcher {
                 setPadding(dp(12), dp(4), dp(12), dp(16))
             }
             val sv = ScrollView(act)
+            scroll = sv
+            sv.clipChildren = false
+            grid.clipChildren = false
             sv.addView(grid, ViewGroup.LayoutParams(MATCH, WRAP))
             val bodyFrame = FrameLayout(act)
             bodyFrame.addView(sv, FrameLayout.LayoutParams(MATCH, MATCH))
@@ -501,6 +514,7 @@ object TabSwitcher {
 
         private fun renderList() {
             grid.removeAllViews()
+            targets.clear()
             val anim = animateNext
             animateNext = false
             if (mode == 2 && openGroup == null) { // list of groups
@@ -513,8 +527,8 @@ object TabSwitcher {
                 return
             }
             val cards = ArrayList<View>()
-            if (mode == 0 && query.isBlank() && !selecting) groupNames().forEach { cards.add(groupCard(it)) } // groups sit in the tab grid first
-            shown.forEach { cards.add(card(it)) }
+            if (mode == 0 && query.isBlank() && !selecting) groupNames().forEach { n -> val v = groupCard(n); cards.add(v); targets.add(v to n) } // groups sit in the tab grid first
+            shown.forEach { t -> val v = card(t); cards.add(v); targets.add(v to t) }
             empty.text = when {
                 query.isNotBlank() -> "No tab matches."
                 mode == 1 -> "No private tabs.\nTap + to open one."
@@ -536,7 +550,7 @@ object TabSwitcher {
         private fun layoutCards(cards: List<View>) {
             var i = 0
             while (i < cards.size) {
-                val line = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL }
+                val line = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false }
                 for (k in 0..1) {
                     val v = cards.getOrNull(i + k)
                     val lp = LinearLayout.LayoutParams(0, dp(CARD_H), 1f).apply { setMargins(dp(4), dp(4), dp(4), dp(4)) }
@@ -648,7 +662,7 @@ object TabSwitcher {
         private fun nextColor(): Int = PALETTE[(groups.size % (PALETTE.size - 1)) + 1]
 
         /** Colour circles (2 rows) + optional name field. [initName] null = colour only. */
-        private fun groupDialog(title: String, initName: String?, initColor: Int, ok: String, done: (String, Int) -> Unit) {
+        private fun groupDialog(title: String, initName: String?, initColor: Int, ok: String, onCancel: () -> Unit = {}, done: (String, Int) -> Unit) {
             var sel = PALETTE.indexOf(initColor).let { if (it >= 0) it else 1 }
             val dots = ArrayList<View>()
             fun paint() {
@@ -683,7 +697,9 @@ object TabSwitcher {
             paint()
             MaterialAlertDialogBuilder(act).setTitle(title).setView(box)
                 .setPositiveButton(ok) { _, _ -> done(et?.text?.toString()?.trim()?.take(40).orEmpty(), PALETTE[sel]) }
-                .setNegativeButton("Cancel", null).show()
+                .setNegativeButton("Cancel") { _, _ -> onCancel() }
+                .setOnCancelListener { onCancel() }
+                .show()
         }
 
         private fun askGroup(ids: Set<Int>) {
@@ -762,6 +778,175 @@ object TabSwitcher {
         private fun closeAll() = closeList(shown)
         private fun closePicked() = closeList(shown.filter { it.id in picked })
 
+
+        // ---- S44: drag a tab onto a group (or onto another tab = new group)
+
+        private fun canDrag() = mode == 0 && query.isBlank() && !selecting && !searching
+
+        private val scroller = object : Runnable {
+            override fun run() {
+                val d = dragView ?: return
+                val loc = IntArray(2)
+                scroll.getLocationOnScreen(loc)
+                val edge = dp(90)
+                val dy = when {
+                    lastY < loc[1] + edge -> -dp(9)
+                    lastY > loc[1] + scroll.height - edge -> dp(9)
+                    else -> 0
+                }
+                if (dy != 0) {
+                    val before = scroll.scrollY
+                    scroll.scrollBy(0, dy)
+                    val moved = scroll.scrollY - before
+                    if (moved != 0) { dragShift += moved; d.translationY += moved; updateHover(d) }
+                }
+                scroll.postDelayed(this, 16)
+            }
+        }
+
+        private fun hitTarget(rx: Float, ry: Float, self: View): Pair<View, Any>? {
+            val loc = IntArray(2)
+            for (p in targets) {
+                val v = p.first
+                if (v === self) continue
+                v.getLocationOnScreen(loc)
+                if (rx >= loc[0] && rx <= loc[0] + v.width && ry >= loc[1] && ry <= loc[1] + v.height) return p
+            }
+            return null
+        }
+
+        private fun ring(v: View) {
+            v.animate().scaleX(1.06f).scaleY(1.06f).setDuration(110).start()
+            (v as? FrameLayout)?.foreground = round(Color.TRANSPARENT, 18, 3, c(R.color.mg_primary))
+        }
+
+        private fun unring(v: View) {
+            v.animate().scaleX(1f).scaleY(1f).setDuration(110).start()
+            (v as? FrameLayout)?.foreground = null
+        }
+
+        private fun updateHover(self: View) {
+            val tg = hitTarget(lastX, lastY, self)
+            if (tg?.first === hover?.first) return
+            hover?.first?.let { unring(it) }
+            hover = tg
+            tg?.first?.let { ring(it) }
+        }
+
+        private fun dragTouch(box: View, t: TabManager.Tab) {
+            var downX = 0f
+            var downY = 0f
+            var armed = false
+            var dragging = false
+            val slop = ViewConfiguration.get(act).scaledTouchSlop
+            val lift = Runnable {
+                armed = true
+                box.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                if (canDrag()) {
+                    dragging = true
+                    dragView = box
+                    dragShift = 0f
+                    (box.parent as? View)?.translationZ = dp(10).toFloat() // this row draws above the other rows
+                    box.parent?.requestDisallowInterceptTouchEvent(true)
+                    box.translationZ = dp(12).toFloat()
+                    box.animate().scaleX(1.06f).scaleY(1.06f).alpha(0.92f).setDuration(120).start()
+                    scroll.post(scroller)
+                } else if (!selecting) tabMenu(box, t)
+            }
+            fun settle(v: View) {
+                v.animate().translationX(0f).translationY(0f).scaleX(1f).scaleY(1f).alpha(1f)
+                    .setInterpolator(OvershootInterpolator(1.1f)).setDuration(220)
+                    .withEndAction { v.translationZ = 0f; (v.parent as? View)?.translationZ = 0f }.start()
+            }
+            box.setOnTouchListener { v, e ->
+                when (e.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        downX = e.rawX; downY = e.rawY; lastX = downX; lastY = downY
+                        armed = false; dragging = false
+                        v.animate().scaleX(0.96f).scaleY(0.96f).setDuration(80).start()
+                        v.postDelayed(lift, ViewConfiguration.getLongPressTimeout().toLong())
+                        false
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        lastX = e.rawX; lastY = e.rawY
+                        if (dragging) {
+                            v.translationX = e.rawX - downX
+                            v.translationY = e.rawY - downY + dragShift
+                            updateHover(v)
+                            true
+                        } else {
+                            if (!armed && (abs(e.rawX - downX) > slop || abs(e.rawY - downY) > slop)) {
+                                v.removeCallbacks(lift)
+                                v.animate().scaleX(1f).scaleY(1f).setDuration(100).start()
+                            }
+                            armed // after the menu opened (no drag) swallow the rest
+                        }
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        v.removeCallbacks(lift)
+                        if (dragging) {
+                            dragging = false
+                            dragView = null
+                            scroll.removeCallbacks(scroller)
+                            val tg = hover
+                            hover = null
+                            if (tg != null) dropOn(v, t, tg)
+                            else if (hypot(e.rawX - downX, e.rawY - downY) < slop * 2) { settle(v); tabMenu(v, t) }
+                            else settle(v)
+                            true
+                        } else {
+                            if (!armed) v.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+                            armed // armed = the menu is open: no click
+                        }
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
+                        v.removeCallbacks(lift)
+                        if (dragging) {
+                            dragging = false
+                            dragView = null
+                            scroll.removeCallbacks(scroller)
+                            hover?.first?.let { unring(it) }
+                            hover = null
+                            settle(v)
+                        } else v.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+                        false
+                    }
+                    else -> false
+                }
+            }
+        }
+
+        /** The dragged card flies into the target and shrinks away, then the lists are rebuilt. */
+        private fun dropOn(v: View, t: TabManager.Tab, tg: Pair<View, Any>) {
+            val a = IntArray(2)
+            val b = IntArray(2)
+            v.getLocationOnScreen(a)
+            tg.first.getLocationOnScreen(b)
+            val dx = (b[0] + tg.first.width / 2f) - (a[0] + v.width / 2f)
+            val dy = (b[1] + tg.first.height / 2f) - (a[1] + v.height / 2f)
+            v.animate().translationX(v.translationX + dx).translationY(v.translationY + dy).scaleX(0.35f).scaleY(0.35f).alpha(0f)
+                .setDuration(170).withEndAction {
+                    val target = tg.second
+                    if (target is String) moveInto(target, setOf(t.id))
+                    else if (target is TabManager.Tab) {
+                        groupDialog("New tab group", "Group " + (groups.size + 1), nextColor(), "Save", { render() }) { n, col ->
+                            val name = n.ifBlank { "Group " + (groups.size + 1) }
+                            if (!groups.containsKey(name)) colors[name] = col
+                            moveInto(name, setOf(t.id, target.id))
+                        }
+                    } else render()
+                }.start()
+        }
+
+        /** Puts the tabs into a group and stays on the tab grid (no jump into the group). */
+        private fun moveInto(name: String, ids: Set<Int>) {
+            for (g in groups.values) g.removeAll(ids)
+            groups.getOrPut(name) { LinkedHashSet() }.addAll(ids)
+            Util.toast(act, "Moved to $name")
+            animateNext = false
+            render()
+        }
+
         // ---- cards
 
         private fun avatar(t: TabManager.Tab, sizeDp: Int, sp: Float): View {
@@ -810,12 +995,8 @@ object TabSwitcher {
                     if (selecting) { if (on) picked.remove(t.id) else picked.add(t.id); render() }
                     else { tm.switchTo(t); dismiss() }
                 }
-                setOnLongClickListener { v ->
-                    if (!selecting) { v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS); tabMenu(v, t) }
-                    true
-                }
             }
-            press(box)
+            dragTouch(box, t) // S44: long press = lift the card (drag into a group) or the menu
             box.addView(previewOf(t, cardW, true), FrameLayout.LayoutParams(MATCH, MATCH).apply { topMargin = dp(HEAD_H) })
             val fg = if (hi) c(R.color.mg_on_primary) else c(R.color.mg_text)
             val head = LinearLayout(act).apply {
