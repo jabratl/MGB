@@ -198,6 +198,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         leaveUrlBar()
         val t = tabs.active ?: tabs.newTab(null) ?: return
         if (t.home && target == "about:blank") return // S13: empty input on the speed dial = stay
+        if (!t.isExt && tabs.playLink(t, target)) return // S39: typed video link = built-in player
         tabs.leaveHome(t) // S13
         t.url = target
         t.web.loadUrl(target)

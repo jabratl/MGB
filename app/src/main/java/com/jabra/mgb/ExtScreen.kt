@@ -186,6 +186,7 @@ object ExtScreen {
         }
 
         private fun leaveFor(url: String) {
+            if (WebPlay.fromExtPlayerUrl(act, url, null)) { dismiss(); return } // S39
             TabsApi.openTab(url)
             dismiss()
         }

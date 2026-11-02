@@ -227,6 +227,11 @@ object TabsApi {
             val o = c.args.optJSONObject(0) ?: JSONObject()
             val opener = if (o.has("openerTabId")) o.optInt("openerTabId") else maxOf(c.ctx.tabId, 0)
             val u = fullUrl(o.optString("url", ""))
+            // S39: V77 "Play" (player.html?url=...) = built-in native player, not the Chromium page player
+            if (WebPlay.fromExtPlayerUrl(m.host(), u, (m.byId(opener) ?: m.active)?.web?.settings?.userAgentString)) {
+                c.ok(JSONObject().put("id", -1).put("windowId", 1).put("index", 0).put("active", true).put("url", u).put("status", "complete"))
+                return@handle
+            }
             // S10: popup / queue / manga / history / options open as a full-screen window, not as a tab
             if (ExtScreen.isScreenUrl(u) && ExtScreen.open(m.host(), u)) {
                 c.ok(JSONObject().put("id", -1).put("windowId", 1).put("index", 0).put("active", true).put("url", u).put("status", "complete"))

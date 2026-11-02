@@ -59,7 +59,12 @@ import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSpec
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
@@ -79,11 +84,22 @@ class PlayerActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "MGB.player"
         const val EXTRA_TITLE = "title"
+        const val EXTRA_REF = "ref"
+        const val EXTRA_UA = "ua"
         private val SUB_EXT = setOf("srt", "vtt", "ass", "ssa", "ttml", "dfxp")
 
         fun start(ctx: Context, uri: Uri, title: String) {
             val i = Intent(ctx, PlayerActivity::class.java).setData(uri).putExtra(EXTRA_TITLE, title)
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            if (ctx !is android.app.Activity) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            ctx.startActivity(i)
+        }
+
+        /** S39: play a web address (mp4 / mkv / HLS .m3u8 / DASH .mpd ...) with the page's Referer + User-Agent + cookies. */
+        fun startStream(ctx: Context, url: String, title: String, referer: String?, ua: String?) {
+            val i = Intent(ctx, PlayerActivity::class.java).setData(Uri.parse(url)).putExtra(EXTRA_TITLE, title)
+            if (!referer.isNullOrBlank()) i.putExtra(EXTRA_REF, referer)
+            if (!ua.isNullOrBlank()) i.putExtra(EXTRA_UA, ua)
             if (ctx !is android.app.Activity) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             ctx.startActivity(i)
         }
@@ -100,6 +116,8 @@ class PlayerActivity : AppCompatActivity() {
     private val main = Handler(Looper.getMainLooper())
     private lateinit var uri: Uri
     private var title = ""
+    private var refUrl = "" // S39: web streams
+    private var uaStr = ""
     private var player: ExoPlayer? = null
 
     private lateinit var rootView: FrameLayout
@@ -164,6 +182,8 @@ class PlayerActivity : AppCompatActivity() {
         if (u == null) { finish(); return }
         uri = u
         title = intent.getStringExtra(EXTRA_TITLE) ?: "Video"
+        refUrl = intent.getStringExtra(EXTRA_REF) ?: ""
+        uaStr = intent.getStringExtra(EXTRA_UA) ?: ""
         audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         prefs = getSharedPreferences("mgb_resume", Context.MODE_PRIVATE)
 
@@ -180,6 +200,13 @@ class PlayerActivity : AppCompatActivity() {
         installBackHandler()
         buildUi()
         startPlayer()
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        // S39: a new link from the browser while the player is open (e.g. in PiP): restart with the new address
+        val n = intent?.data ?: return
+        if (n != uri) { finish(); startActivity(intent) }
     }
 
     private fun hideBars() {
@@ -230,7 +257,7 @@ class PlayerActivity : AppCompatActivity() {
         findSiblings()
         updateNav()
         wantAutoSub = subs.isNotEmpty()
-        val p = ExoPlayer.Builder(this).build()
+        val p = buildPlayer()
         player = p
         playerView.player = p
         p.addListener(object : Player.Listener {
@@ -281,9 +308,50 @@ class PlayerActivity : AppCompatActivity() {
         showControls(true)
     }
 
+    private fun isWeb() = uri.scheme == "http" || uri.scheme == "https"
+
+    /** S39: a web address gets an HTTP data source with Referer / Origin / User-Agent and the WebView cookies of THAT host
+     *  (added per request, so HLS / DASH segments on other hosts only get their own cookies). Files keep the default player. */
+    private fun buildPlayer(): ExoPlayer {
+        if (!isWeb()) return ExoPlayer.Builder(this).build()
+        val ua = if (uaStr.isNotBlank()) uaStr else try { android.webkit.WebSettings.getDefaultUserAgent(this) } catch (_: Exception) { "Mozilla/5.0" }
+        val h = HashMap<String, String>()
+        if (refUrl.startsWith("http")) {
+            h["Referer"] = refUrl
+            try {
+                val r = Uri.parse(refUrl)
+                if (!r.scheme.isNullOrEmpty() && !r.authority.isNullOrEmpty()) h["Origin"] = r.scheme + "://" + r.authority
+            } catch (_: Exception) { }
+        }
+        val http = DefaultHttpDataSource.Factory()
+            .setUserAgent(ua)
+            .setAllowCrossProtocolRedirects(true)
+            .setConnectTimeoutMs(15000)
+            .setReadTimeoutMs(20000)
+            .setDefaultRequestProperties(h)
+        val withCookies = ResolvingDataSource.Factory(DefaultDataSource.Factory(this, http), object : ResolvingDataSource.Resolver {
+            override fun resolveDataSpec(dataSpec: DataSpec): DataSpec {
+                val s = dataSpec.uri.scheme
+                if (s != "http" && s != "https") return dataSpec
+                val ck = try { android.webkit.CookieManager.getInstance().getCookie(dataSpec.uri.toString()) } catch (_: Exception) { null }
+                if (ck.isNullOrEmpty()) return dataSpec
+                val m = HashMap(dataSpec.httpRequestHeaders)
+                m["Cookie"] = ck
+                return dataSpec.buildUpon().setHttpRequestHeaders(m).build()
+            }
+        })
+        return ExoPlayer.Builder(this).setMediaSourceFactory(DefaultMediaSourceFactory(withCookies)).build()
+    }
+
     private fun setItem(startMs: Long) {
         val p = player ?: return
-        val item = MediaItem.Builder().setUri(uri).setSubtitleConfigurations(ArrayList(subs)).build()
+        val ib = MediaItem.Builder().setUri(uri).setSubtitleConfigurations(ArrayList(subs))
+        if (isWeb()) { // links without a clear extension in the path (token / query) still need the right source type
+            val l = uri.toString().lowercase()
+            if (l.contains(".m3u8")) ib.setMimeType(MimeTypes.APPLICATION_M3U8)
+            else if (l.contains(".mpd")) ib.setMimeType(MimeTypes.APPLICATION_MPD)
+        }
+        val item = ib.build()
         if (startMs > 0) p.setMediaItem(item, startMs) else p.setMediaItem(item)
     }
 

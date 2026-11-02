@@ -1,3 +1,10 @@
+MGB 0.0.42 (S39: videos from the browser play in the built-in player)
+- V77 "Play" (page list, overlay on a video, preview) now opens the built-in player (PlayerActivity) instead of the Chromium player.html tab. Works with web streams: mp4 / mkv / webm, HLS (.m3u8) and DASH (.mpd), with the page Referer, Origin, User-Agent and the browser cookies of each host.
+- A link / redirect / typed address that ends in a video or audio file or playlist (.mp4 .mkv .webm .m3u8 .mpd .mp3 ...) opens the player instead of Chromium's plain media page. Settings > Downloads > "Play video links in built-in player" (ON by default) turns this off.
+- Long press on such a link: "Play in player" and "Download".
+- A new link while the player is open (for example in PiP) restarts the player with the new address.
+- Needs a new APK (two new libraries: media3 HLS + DASH). Popup "Player" button (empty list / pick files) still opens the V77 player page.
+
 MGB 0.0.41 (S38: built-in player redesign)
 - New neat layout: title with "3 of 12 - 1920x1080" under it, big round play button in the middle with previous / -10 / +10 / next around it, thin clean seek bar with a buffered part and a round thumb, and one icon toolbar at the bottom: Lock, Speed, Subtitles, Audio, Fit, PiP (no more cut-off pills).
 - All menus are now dark bottom sheets (speed, subtitles, audio track, more) with a tick on the chosen item, instead of the grey system dialogs.

@@ -217,6 +217,10 @@ object SettingsScreen {
                 Row(R.drawable.ic_list, "Queue") { ext("queue.html") },
                 Row(R.drawable.ic_history, "Download history") { ext("history.html") },
                 Row(R.drawable.ic_settings, "Grabber settings") { ext("options.html") },
+                Row(R.drawable.ic_play, "Play video links in built-in player", if (WebPlay.linksEnabled(act)) "ON" else "OFF") { // S39
+                    WebPlay.setLinksEnabled(act, !WebPlay.linksEnabled(act))
+                    fill()
+                },
                 Row(R.drawable.ic_download, "Extra native download button", if (nativeBtn()) "ON" else "OFF") {
                     act.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE).edit().putBoolean("native_btn", !nativeBtn()).apply()
                     Util.toast(act, "Changes in a few seconds")

@@ -20,6 +20,11 @@ object PlayerScreen {
         }
     }
 
+    /** S39: web address (stream) in the same player. */
+    fun openUrl(act: Activity, url: String, title: String, referer: String?, ua: String?) {
+        WebPlay.play(act, url, title, referer, ua)
+    }
+
     fun onHostDestroy(act: Activity) { }
 
     fun reopenPending(act: Activity) { }

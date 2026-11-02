@@ -292,6 +292,8 @@ class TabManager(
             val u = request?.url ?: return false
             // S6: a web page may not navigate to the extension origin (only our own code opens those)
             if (u.toString().startsWith(ContentInjector.EXT_ORIGIN) && !tab.isExt) return true
+            // S39: a link / redirect to a video file or stream opens the built-in player (not Chromium's media page)
+            if (!tab.isExt && request.isForMainFrame && playLink(tab, u.toString())) return true
             when (u.scheme?.lowercase()) {
                 null, "http", "https", "about", "data", "blob", "file", "javascript" -> return false
             }
@@ -409,6 +411,15 @@ class TabManager(
         }
     }
 
+    // ---------- S39: video / audio links go to the built-in player ----------
+
+    /** True (and the player starts) when url is a direct media file / playlist and the setting is ON. The tab is left as it is. */
+    fun playLink(tab: Tab?, url: String): Boolean {
+        if (!WebPlay.isMediaUrl(url) || !WebPlay.linksEnabled(ctx)) return false
+        val ref = tab?.url?.takeIf { it.startsWith("http") }
+        return WebPlay.play(ctx, url, null, ref, tab?.web?.settings?.userAgentString)
+    }
+
     // ---------- S21: long press on a link / image, copy, share ----------
 
     private fun longPress(tab: Tab) = View.OnLongClickListener { v ->
@@ -441,6 +452,12 @@ class TabManager(
         val i = img ?: ""
         val labels = ArrayList<String>()
         val acts = ArrayList<() -> Unit>()
+        if (WebPlay.isMediaUrl(l)) { // S39
+            labels.add("Play in player")
+            acts.add { WebPlay.play(ctx, l, null, tab.url.takeIf { it.startsWith("http") }, tab.web.settings.userAgentString) }
+            labels.add("Download")
+            acts.add { downloadImage(tab, l) }
+        }
         if (l.startsWith("http")) {
             labels.add("Open in new tab"); acts.add { newTab(l, tab.id) }
             labels.add("Copy link"); acts.add { copyText(l) }
@@ -571,6 +588,7 @@ class TabManager(
     /** Load url in the active tab (an extension page tab gets a new tab instead). */
     fun openUrl(url: String) {
         val t = active
+        if (t != null && !t.isExt && playLink(t, url)) return // S39
         if (t == null || t.isExt) { newTab(url); return }
         t.pending = null
         t.url = url
