@@ -119,6 +119,8 @@ object ExtScreen {
     ) : Dialog(act, com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar) {
         var web: WebView? = null
         var tucked = false
+        // shouldInterceptRequest runs on a background thread, where WebView.getUrl() throws: keep the url here (written on the main thread)
+        @Volatile private var curUrl: String? = null
         private var pill: android.view.View? = null
         private var box: FrameLayout? = null
         private var titleView: TextView? = null
@@ -193,10 +195,20 @@ object ExtScreen {
                 ): Boolean = BrowserExtras.chooseFile(filePathCallback, fileChooserParams)
             }
             w.webViewClient = object : WebViewClient() {
+                override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                    super.onPageStarted(view, url, favicon)
+                    if (!url.isNullOrEmpty()) curUrl = url
+                }
+
+                override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+                    super.doUpdateVisitedHistory(view, url, isReload)
+                    if (!url.isNullOrEmpty()) curUrl = url
+                }
+
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                     EngineHost.ext(request.url)?.let { return it }
                     // S4: pages of an installed extension only get the CORS-free proxy for the sites in its host permissions
-                    val xid = extIdOf(view.url ?: startUrl)
+                    val xid = extIdOf(curUrl ?: startUrl)
                     if (xid != null && !ExtSafety.proxyAllowed(xid, request.url.toString())) return null // S8: same rule as extension pages in a tab
                     return EngineHost.proxyFor(request, -1, xid ?: ContentInjector.EXT_ID) // S7: header rules of that extension
                 }
