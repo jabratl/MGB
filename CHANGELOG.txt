@@ -1,3 +1,11 @@
+MGB 0.0.84 (S81: V77 per-video menu in the native Detected panel)
+- Checked first: the native panel file menu only had Stream / Preview / Download / Copy / Share / Show link. V77's "Download only a part", "Start later", "Copy as yt-dlp / ffmpeg / cURL", "Open", "Preview here" marks and "Save subtitle as" were only in the V77 page overlay. Now they are native too.
+- File menu (3 dots on a file): new "Download only a part..." (streams only), "Start later...", "Copy as yt-dlp / ffmpeg / cURL...", "Open in new tab", and on a subtitle "Save subtitle as..." (.srt .vtt .txt original).
+- "Download only a part" sheet: From / To boxes (90, 1:30 or 1:02:30), quick picks (First minute, First 5 min, Last 5 min, Clear), quality chips (Auto or a height), live "Clip length + about size", Download clip / Full video, clear error lines.
+- Preview: streams get Start here / End here / Download part under the player (opens the sheet with the times filled).
+- V77 is untouched: clip = start-job {clip: "start-end"}, Start later = schedule-job, subtitle format = start-job {fmt}.
+- Files: DetectedPanel.kt, ic_cut.xml, ic_clock.xml, ic_code.xml, ic_open.xml, build.gradle.kts.
+
 MGB 0.0.83 (S80: Novel grabber files in Downloads, page picker works)
 - Files saved by the Novel grabber (EPUB, DOCX, TXT, ZIP, chapter list) now appear in the Downloads screen under "Saved files" with Open / Show / Share (the grabber writes the same history record as the Media Grabber).
 - "Pick chapter text on the page": the Novel grabber window hides while you tap the text on the page, and a "Back to Novel grabber" pill brings it back (also after a cancel).

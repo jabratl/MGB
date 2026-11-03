@@ -1063,9 +1063,10 @@ object DetectedPanel {
         private var subThis: Boolean? = null // S67: subtitle choice for the download being started (null = follow the V77 setting)
         private fun subEff(): Boolean = subThis ?: subsOn()
 
-        private fun startJob(e: DItem, variant: String?) {
+        private fun startJob(e: DItem, variant: String?, clip: String? = null, fmt: String? = null) {
             val m = JSONObject().put("type", "start-job").put("tabId", tabId).put("key", e.key)
-            if (e.kind == "subtitle") m.put("fmt", "srt") else m.put("variant", variant ?: "best")
+            if (e.kind == "subtitle") m.put("fmt", fmt ?: "srt") else m.put("variant", variant ?: "best")
+            if (clip != null && e.kind != "subtitle") m.put("clip", clip) // S81: V77 "Download only a part" (start-end seconds, end may be empty)
             if (e.kind != "subtitle" && subThis == false) m.put("noSubs", true) // S67: V77 background.js startJob skips the subtitle
             EngineApi.send(m)
         }
@@ -1182,15 +1183,40 @@ object DetectedPanel {
                 p.setMediaItem(MediaItem.fromUri(e.url))
                 p.prepare()
                 p.playWhenReady = true
-                val box = FrameLayout(act).apply {
+                val vid = FrameLayout(act).apply {
                     setBackgroundColor(Color.BLACK)
                     addView(pv, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(240)))
+                }
+                val box = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; addView(vid, LinearLayout.LayoutParams(MATCH, WRAP)) }
+                var dRef: androidx.appcompat.app.AlertDialog? = null
+                if (e.kind == "hls") { // S81: find the part while it plays (V77 "Preview here": Start here / End here / Download part)
+                    val mk = doubleArrayOf(-1.0, -1.0)
+                    val bar = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(16), dp(12), dp(16), dp(4)) }
+                    fun pill(t: String, prim: Boolean, on: (TextView) -> Unit) = tv(t, 14f, if (prim) Color.WHITE else cText, 1, true).apply {
+                        gravity = Gravity.CENTER
+                        background = round(if (prim) cPrimary else cTile, 22)
+                        ripple(this)
+                        setOnClickListener { on(this) }
+                    }
+                    val ps = pill("Start here", false) { b -> mk[0] = p.currentPosition / 1000.0; b.text = "Start " + fmtT(mk[0]) }
+                    val pe = pill("End here", false) { b -> mk[1] = p.currentPosition / 1000.0; b.text = "End " + fmtT(mk[1]) }
+                    val pd = pill("Download part", true) { _ ->
+                        val a = if (mk[0] >= 0) mk[0] else null
+                        val z = if (mk[1] >= 0) mk[1] else null
+                        if (a == null && z == null) toast("Play, then press Start here and End here")
+                        else { dRef?.dismiss(); clipSheet(e, a, z) }
+                    }
+                    bar.addView(ps, LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginEnd = dp(8) })
+                    bar.addView(pe, LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginEnd = dp(8) })
+                    bar.addView(pd, LinearLayout.LayoutParams(0, dp(44), 1.3f))
+                    box.addView(bar, LinearLayout.LayoutParams(MATCH, WRAP))
                 }
                 val d = MaterialAlertDialogBuilder(act)
                     .setTitle("Preview " + (if (e.group == "audio") "audio" else "video"))
                     .setView(box)
                     .setNegativeButton("Close", null)
                     .create()
+                dRef = d
                 d.setOnDismissListener { try { pv.player = null; p.release() } catch (x: Exception) { } }
                 d.show()
             } catch (x: Exception) {
@@ -1282,10 +1308,15 @@ object DetectedPanel {
                 rows.add(SRow(R.drawable.ic_screen, "Preview $av") { preview(e) })
             }
             rows.add(SRow(R.drawable.ic_download, "Download") { download(e) })
-            rows.add(SRow(R.drawable.ic_trash, "Remove link") { remove(e) })
+            if (e.kind == "subtitle") rows.add(SRow(R.drawable.ic_list, "Save subtitle as...") { subFmtSheet(e) }) // S81
+            if (e.kind == "hls" && !e.drm) rows.add(SRow(R.drawable.ic_cut, "Download only a part...") { clipSheet(e) }) // S81
+            if (e.kind != "subtitle" && !e.drm) rows.add(SRow(R.drawable.ic_clock, "Start later...") { pickSchedule(e) }) // S81
             rows.add(SRow(R.drawable.ic_list, "Copy download link") { copy(e) })
+            if (e.kind != "subtitle") rows.add(SRow(R.drawable.ic_code, "Copy as yt-dlp / ffmpeg / cURL...") { cmdSheet(e) }) // S81
+            rows.add(SRow(R.drawable.ic_open, "Open in new tab") { tabs.openUrl(e.url); dlg.dismiss() }) // S81
             rows.add(SRow(R.drawable.ic_share, "Share link") { share(e) })
             rows.add(SRow(R.drawable.ic_info, "Show download link") { showLink(e) })
+            rows.add(SRow(R.drawable.ic_trash, "Remove link") { remove(e) })
             // header card like the link menu: type tile + name + address
             val head = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -1303,6 +1334,233 @@ object DetectedPanel {
             hc.addView(tv(e.url, 12f, cDim, 1).apply { ellipsize = TextUtils.TruncateAt.MIDDLE })
             head.addView(hc, LinearLayout.LayoutParams(0, WRAP, 1f))
             sheet("", head, rows)
+        }
+
+        // ---- S81: V77 per-video menu in the native panel (only a part, start later, copy commands, subtitle format) ----
+
+        /** null = empty, -1.0 = not understood. Accepts 90, 1:30, 1:02:30. */
+        private fun parseT(s: String): Double? {
+            val t = s.trim()
+            if (t.isEmpty()) return null
+            val p = t.split(":")
+            if (p.size > 3) return -1.0
+            var v = 0.0
+            for (x in p) { val n = x.trim().toDoubleOrNull() ?: return -1.0; if (n < 0) return -1.0; v = v * 60 + n }
+            return v
+        }
+
+        private fun fmtT(sec: Double): String {
+            val s = sec.toLong(); val h = s / 3600; val m = (s % 3600) / 60; val r = s % 60
+            return if (h > 0) String.format("%d:%02d:%02d", h, m, r) else String.format("%d:%02d", m, r)
+        }
+
+        private fun itemHead(e: DItem, sub: String): View {
+            val head = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                background = round(cTile, 20)
+                setPadding(dp(14), dp(12), dp(14), dp(12))
+            }
+            head.addView(tv(tagOf(e).take(5), 11f, cText, 1, true).apply {
+                gravity = Gravity.CENTER
+                ellipsize = null
+                background = round(ColorUtils.blendARGB(cCard, kindTint(e), 0.32f), 14)
+            }, LinearLayout.LayoutParams(dp(48), dp(48)).apply { marginEnd = dp(14) })
+            val hc = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+            hc.addView(tv(e.name, 15f, cText, 2, true))
+            hc.addView(tv(sub, 12f, cDim, 1))
+            head.addView(hc, LinearLayout.LayoutParams(0, WRAP, 1f))
+            return head
+        }
+
+        /** Download only a part: from / to boxes, quick picks, quality chips, live length + size, Download clip / Full video. */
+        private fun clipSheet(e: DItem, from: Double? = null, to: Double? = null) {
+            if (e.drm) { toast("DRM protected: cannot be downloaded"); return }
+            val dur = durOf(e)
+            val v = e.variants
+            val d = BottomSheetDialog(act)
+            d.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            val col = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(18), dp(16), dp(18)) }
+            col.addView(tv("Download only a part", 20f, cText, 1, true).apply { setPadding(dp(4), 0, dp(4), dp(10)) })
+            col.addView(itemHead(e, if (dur > 0) "Video length " + fmtT(dur) else "Video length not known yet"), LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(14) })
+
+            fun box(hint: String, init: Double?) = EditText(act).apply {
+                setText(if (init != null) fmtT(init) else "")
+                this.hint = hint
+                textSize = 22f
+                gravity = Gravity.CENTER
+                setSingleLine()
+                setTextColor(cText)
+                setHintTextColor(cDim)
+                background = round(cTile, 16)
+                inputType = InputType.TYPE_CLASS_TEXT
+                setPadding(dp(8), 0, dp(8), 0)
+            }
+            val fFrom = box("0:00", from)
+            val fTo = box("end", to)
+            val row = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            fun lab(t: String, f: EditText): View = LinearLayout(act).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(tv(t, 12f, cDim).apply { setPadding(dp(6), 0, 0, dp(4)) })
+                addView(f, LinearLayout.LayoutParams(MATCH, dp(56)))
+            }
+            row.addView(lab("From", fFrom), LinearLayout.LayoutParams(0, WRAP, 1f))
+            row.addView(tv("to", 14f, cDim).apply { gravity = Gravity.CENTER; setPadding(dp(12), dp(18), dp(12), 0) })
+            row.addView(lab("To", fTo), LinearLayout.LayoutParams(0, WRAP, 1f))
+            col.addView(row, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            val info = tv("", 13f, cDim, 2).apply { setPadding(dp(6), dp(10), dp(6), 0) }
+            val err = tv("", 13f, Color.parseColor("#FF6B6B"), 3).apply { setPadding(dp(6), dp(6), dp(6), 0); visibility = View.GONE }
+
+            // quick picks
+            val quick = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(12), 0, 0) }
+            fun chip(t: String, on: () -> Unit) = tv(t, 13f, cText, 1, true).apply {
+                gravity = Gravity.CENTER
+                background = round(cTile, 18)
+                setPadding(dp(14), 0, dp(14), 0)
+                ripple(this)
+                setOnClickListener { on() }
+            }
+            fun setBoth(a: Double?, b: Double?) { fFrom.setText(if (a != null) fmtT(a) else ""); fTo.setText(if (b != null) fmtT(b) else "") }
+            quick.addView(chip("First minute") { setBoth(null, 60.0) }, LinearLayout.LayoutParams(WRAP, dp(36)).apply { marginEnd = dp(8) })
+            quick.addView(chip("First 5 min") { setBoth(null, 300.0) }, LinearLayout.LayoutParams(WRAP, dp(36)).apply { marginEnd = dp(8) })
+            if (dur > 330) quick.addView(chip("Last 5 min") { setBoth(dur - 300, null) }, LinearLayout.LayoutParams(WRAP, dp(36)).apply { marginEnd = dp(8) })
+            quick.addView(chip("Clear") { setBoth(null, null) }, LinearLayout.LayoutParams(WRAP, dp(36)))
+            col.addView(HorizontalScrollView(act).apply { isHorizontalScrollBarEnabled = false; addView(quick) }, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            // quality chips (Auto + heights found in the stream)
+            var sel = "best"
+            val qChips = ArrayList<Pair<TextView, String>>()
+            val hs = if (v != null) heightsOf(v) else emptyList()
+            if (hs.size > 1) {
+                col.addView(tv("Quality", 12f, cDim).apply { setPadding(dp(6), dp(16), 0, dp(6)) })
+                val qr = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL }
+                fun addQ(t: String, value: String) {
+                    val c = chip(t) { }
+                    qChips.add(Pair(c, value))
+                    qr.addView(c, LinearLayout.LayoutParams(WRAP, dp(36)).apply { marginEnd = dp(8) })
+                }
+                addQ(if (maxQ() > 0) "Auto (" + maxQLabel() + ")" else "Best (auto)", "best")
+                for (h in hs) {
+                    var value = ""
+                    if (v != null) for (i in 0 until v.length()) { val q = v.optJSONObject(i) ?: continue; if (q.optInt("h", 0) == h) { value = q.optString("url").ifBlank { q.optString("id") }; break } }
+                    if (value.isNotBlank()) addQ(h.toString() + "p", value)
+                }
+                col.addView(HorizontalScrollView(act).apply { isHorizontalScrollBarEnabled = false; addView(qr) }, LinearLayout.LayoutParams(MATCH, WRAP))
+            }
+            col.addView(info, LinearLayout.LayoutParams(MATCH, WRAP))
+            col.addView(err, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            fun bwSel(): Long {
+                if (v == null) return 0L
+                if (sel == "best") {
+                    val h = pickH(heightsOf(v), maxQ())
+                    for (i in 0 until v.length()) { val q = v.optJSONObject(i) ?: continue; if (h <= 0 || q.optInt("h", 0) == h) return q.optLong("bw", 0) }
+                    return v.optJSONObject(0)?.optLong("bw", 0) ?: 0L
+                }
+                for (i in 0 until v.length()) { val q = v.optJSONObject(i) ?: continue; if (q.optString("url").ifBlank { q.optString("id") } == sel) return q.optLong("bw", 0) }
+                return 0L
+            }
+            fun refresh() {
+                for ((c, value) in qChips) {
+                    val on = value == sel
+                    c.background = round(if (on) cPrimary else cTile, 18)
+                    c.setTextColor(if (on) Color.WHITE else cText)
+                }
+                val a = parseT(fFrom.text.toString()); val b = parseT(fTo.text.toString())
+                if (a == -1.0 || b == -1.0 || (a == null && b == null)) { info.text = "Type a start and / or an end time. Use 90, 1:30 or 1:02:30."; return }
+                val st = a ?: 0.0
+                val en = b ?: if (dur > 0) dur else -1.0
+                if (en > 0 && en > st) {
+                    val len = en - st
+                    val bw = bwSel()
+                    info.text = "Clip length " + fmtT(len) + (if (bw > 0) "  ·  about " + EngineApi.fmtSize((bw * len / 8).toLong()) else "")
+                } else info.text = ""
+            }
+            for ((c, value) in qChips) c.setOnClickListener { sel = value; refresh() }
+            val tw = object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) { }
+                override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) { }
+                override fun afterTextChanged(s: android.text.Editable?) { err.visibility = View.GONE; refresh() }
+            }
+            fFrom.addTextChangedListener(tw)
+            fTo.addTextChangedListener(tw)
+            refresh()
+
+            fun go() {
+                val a = parseT(fFrom.text.toString()); val b = parseT(fTo.text.toString())
+                fun bad(m: String) { err.text = m; err.visibility = View.VISIBLE }
+                if (a == -1.0 || b == -1.0) { bad("Time not understood. Use 90, 1:30 or 1:02:30"); return }
+                if (a == null && b == null) { bad("Type a start and / or an end time first"); return }
+                val st = a ?: 0.0
+                if (b != null && b <= st) { bad("The end must be after the start"); return }
+                if (dur > 0 && st >= dur) { bad("The start is after the end of the video (" + fmtT(dur) + ")"); return }
+                val clip = Math.floor(st).toLong().toString() + "-" + (if (b == null) "" else Math.ceil(b).toLong().toString())
+                val sb = subEff()
+                startJob(e, sel, clip)
+                subThis = null
+                d.dismiss()
+                toast("Clip download started" + (if (sb && all.any { it.kind == "subtitle" }) " (subtitle too)" else "") + ", see Downloads")
+            }
+            val btns = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(16), 0, 0) }
+            btns.addView(tv("Full video", 15f, cText, 1, true).apply {
+                gravity = Gravity.CENTER
+                background = round(cTile, 24)
+                ripple(this)
+                setOnClickListener { d.dismiss(); download(e) }
+            }, LinearLayout.LayoutParams(0, dp(52), 1f).apply { marginEnd = dp(10) })
+            btns.addView(tv("Download clip", 15f, Color.WHITE, 1, true).apply {
+                gravity = Gravity.CENTER
+                background = round(cPrimary, 24)
+                ripple(this)
+                setOnClickListener { go() }
+            }, LinearLayout.LayoutParams(0, dp(52), 1.5f))
+            col.addView(btns, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            d.setContentView(ScrollView(act).apply { addView(col) })
+            sheetStyle(d)
+            d.behavior.skipCollapsed = true
+            d.show()
+            d.behavior.state = BottomSheetBehavior.STATE_EXPANDED
+        }
+
+        /** Start later: one file at a chosen time (V77 schedule-job, same as TOOLS > Scheduled downloads). */
+        private fun pickSchedule(e: DItem) {
+            if (e.drm) { toast("DRM protected: cannot be downloaded"); return }
+            val now = java.util.Calendar.getInstance()
+            android.app.TimePickerDialog(act, { _, h, m ->
+                val hhmm = String.format("%02d:%02d", h, m)
+                val job = JSONObject().put("itemUrl", e.url).put("kind", e.kind).put("ref", ref).put("title", e.name).put("variant", "best")
+                EngineApi.send(JSONObject().put("type", "schedule-job").put("hhmm", hhmm).put("job", job))
+                toast("Scheduled for $hhmm (tomorrow if the time has passed). The browser must be running.")
+            }, now.get(java.util.Calendar.HOUR_OF_DAY), now.get(java.util.Calendar.MINUTE), true).show()
+        }
+
+        private fun cmdSheet(e: DItem) {
+            fun q(s: String) = "'" + s.replace("'", "'\\''") + "'"
+            val base = e.name.substringBeforeLast('.', e.name).replace(Regex("[\\\\/:*?\"<>|]"), "_").trim().take(80).ifBlank { "video" }
+            val r = ref
+            val audio = e.kind == "audio"
+            val ytdlp = "yt-dlp " + (if (r.isNotEmpty()) "--referer " + q(r) + " " else "") + "-o " + q("$base.%(ext)s") + " " + q(e.url)
+            val ffmpeg = "ffmpeg " + (if (r.isNotEmpty()) "-referer " + q(r) + " " else "") + "-i " + q(e.url) + " -c copy " + q(base + (if (audio) ".m4a" else ".mp4"))
+            val cext = if (e.kind == "hls") "ts" else e.ext.ifBlank { "mp4" }
+            val curl = "curl -L " + (if (r.isNotEmpty()) "-e " + q(r) + " " else "") + "-o " + q("$base.$cext") + " " + q(e.url)
+            fun put(t: String) { (act.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("command", t)); toast("Copied") }
+            sheet("Copy as command", itemHead(e, "Paste it in a terminal on your computer"), listOf(
+                SRow(R.drawable.ic_code, "yt-dlp") { put(ytdlp) },
+                SRow(R.drawable.ic_code, "ffmpeg") { put(ffmpeg) },
+                SRow(R.drawable.ic_code, "cURL") { put(curl) }
+            ))
+        }
+
+        private fun subFmtSheet(e: DItem) {
+            fun go(f: String) { startJob(e, null, null, f); toast("Subtitle download started") }
+            sheet("Save subtitle as", itemHead(e, "Subtitle"), listOf(
+                SRow(R.drawable.ic_list, ".srt  (works in most players)") { go("srt") },
+                SRow(R.drawable.ic_list, ".vtt") { go("vtt") },
+                SRow(R.drawable.ic_list, ".txt  (only the words, no times)") { go("txt") },
+                SRow(R.drawable.ic_list, "Original file") { go("orig") }
+            ))
         }
 
         // ---- sort / filter ----

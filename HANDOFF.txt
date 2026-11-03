@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.84 (S81: V77 per-video menu in the native panel, see the S81 note at the end; before: S80)
+
 CURRENT VERSION 0.0.83 (S80: Novel grabber in Downloads + picker, see the S80 note at the end; before: S79)
 
 CURRENT VERSION 0.0.82 (S79: Novel grabber = Web2EPUB Studio inside the browser, see the S79 note at the end; before: S78)
@@ -525,3 +527,16 @@ Audit (script): studio.js differs from the original only in init() (tab id), sav
 Checks: node --check studio.js (module) OK; NOT compiled (Kotlin: Dialog.hide()/show(), GradientDrawable(Orientation, IntArray), FrameLayout.LayoutParams gravity); UI NOT rendered.
 NOT tested: Saved files row appears right after Build (Downloads screen refreshes by signature); Open on .epub chooses an app; tuck / pill / untuck on a phone; picker result (executeScript 180 s limit); "Merge chapter links from open tabs" needs the other tabs opened BEFORE opening the grabber (window covers the browser).
 Next ideas: unchanged from S79 + foreground service for long builds.
+
+
+S81 (0.0.84) - native panel gets V77's per-video features
+Goal: check if the native downloader has V77's video menu (Download only a part etc.); if not add it with a good design.
+Check result: NOT there before. Native menu = Stream, Preview, Download, Remove, Copy / Share / Show link only.
+Changed:
+- DetectedPanel.kt: startJob(e, variant, clip, fmt); itemMenu rows; clipSheet(); pickSchedule(); cmdSheet(); subFmtSheet(); parseT/fmtT/itemHead helpers; preview() has Start here / End here / Download part for HLS.
+- res/drawable: ic_cut, ic_clock, ic_code, ic_open (new vectors).
+- build.gradle.kts 0.0.84, CHANGELOG.txt.
+Checks: braces/parens balanced, 4 new XML parse, anchors replaced exactly once. NOT compiled (no Kotlin SDK here), UI NOT rendered at 360 / 1280 px, no dark/light render.
+NOT tested: clip file really starts/ends at the times (V77 clip logic is segment based, so +/- a few seconds is normal); Start later alarm; keyboard hides nothing in the clip sheet; TimePickerDialog look; ExoPlayer currentPosition on HLS.
+Not done (V77 has, native not): "Preview here" scrubber inside the panel is the dialog above, not the in-row player; "Save as" for audio; per-row quality dropdown stays in the Download button sheet.
+Next: S82 = compile fixes from CI if any, then render check of the clip sheet.
