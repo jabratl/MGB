@@ -27,12 +27,17 @@ object DiagReport {
     /** group = the S85 screen group: Video / Novel / Manga / Browser / Download / Device. */
     class Section(val id: String, val group: String, val title: String, val level: String, val lines: List<String>)
 
-    class Report(val time: Long, val verdictLevel: String, val verdict: String, val sections: List<Section>) {
+    class Report(val time: Long, val verdictLevel: String, val verdict: String, val sections: List<Section>,
+                 val findings: List<DiagRules.Finding> = emptyList()) { // S86: findings from DiagRules
         fun text(): String {
             val sb = StringBuilder()
             sb.append("MGB diagnose report\n")
             sb.append("Time: ").append(java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date(time))).append('\n')
             sb.append("Verdict (").append(verdictLevel).append("): ").append(verdict).append("\n")
+            if (findings.isNotEmpty()) {
+                sb.append("\n== Findings\n")
+                for (f in findings) sb.append("- [").append(f.level).append("] ").append(f.what).append(" -> ").append(f.todo).append('\n')
+            }
             for (s in sections) {
                 sb.append("\n== ").append(s.title).append(" [").append(s.level).append("]\n")
                 for (l in s.lines) sb.append(if (l.startsWith("  ")) l else "- $l").append('\n')
@@ -107,18 +112,21 @@ object DiagReport {
         // ---- Network
         val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
         var online = true
+        var hasNet = true // S86
+        var vpnOn = false // S86
         val netLines = ArrayList<String>()
         safe(Unit) {
             val net = cm?.activeNetwork
             val caps = if (net == null) null else cm?.getNetworkCapabilities(net)
-            if (caps == null) { online = false; netLines.add("No active network") } else {
+            if (caps == null) { online = false; hasNet = false; netLines.add("No active network") } else {
                 online = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
                 netLines.add("Type: " + (if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) "Wi-Fi" else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) "Mobile data" else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) "VPN" else "other"))
                 val valid = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
                 netLines.add("Internet reachable (validated): " + (if (valid) "yes" else "NO (captive portal or no data)"))
                 if (!valid) online = false
                 netLines.add("Metered: " + (if (cm?.isActiveNetworkMetered == true) "yes" else "no"))
-                netLines.add("VPN: " + (if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) "on" else "off"))
+                vpnOn = caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+                netLines.add("VPN: " + (if (vpnOn) "on" else "off"))
             }
         }
         secs.add(Section("network", "Download", "Network", if (online) INFO else BAD, netLines.ifEmpty { listOf("unknown") }))
@@ -198,16 +206,30 @@ object DiagReport {
         secs.add(Section("errors", "Device", "Recent errors", if (errs.any { it.ts >= now - FIVE_MIN }) WARN else INFO,
             if (errs.isEmpty()) listOf("No errors logged") else errs.map { fmtEvent(it) }))
 
-        // ---- verdict (basic, 5 checks; S86 replaces it with the rule engine)
-        val v: Pair<String, String> = when {
-            !online -> BAD to "No working internet connection. Connect to Wi-Fi or mobile data and try again."
-            lowStore -> BAD to "Free storage is under 200 MB. Free some space, downloads and merges can fail."
-            crashed -> BAD to "A tab crashed in the last 5 minutes. Reload the page; if it repeats, close other tabs (low memory)."
-            Diag.countSince("engine", now - FIVE_MIN, "E") > 0 -> WARN to "Media Grabber logged an error in the last 5 minutes. Check Recent errors below."
-            ramLow -> WARN to "The phone is low on memory. Close other tabs / apps."
-            else -> OK to "No problem found by the basic checks."
-        }
-        return Report(now, v.first, v.second, secs)
+        // ---- verdict (S86: rule engine, DiagRules.kt)
+        val x = DiagRules.Facts()
+        val TEN_MIN = 10 * 60 * 1000L
+        x.online = online; x.hasNetwork = hasNet; x.vpn = vpnOn
+        x.freeBytes = free; x.ramLow = ramLow; x.wvMajor = wvMajor; x.tabCrashed = crashed
+        x.pageIsWeb = tab != null && !tab.priv && !tab.isExt && !tab.home && tab.url.startsWith("http")
+        x.pageLoading = tab?.loading == true
+        val pageEv = Diag.recent(30, "page", false).filter { it.ts >= now - TEN_MIN }
+        x.pageErrors = pageEv.map { it.msg }
+        x.pageErrorUrls = pageEv.map { it.extra }
+        x.httpsOnly = safe(false) { HttpsOnly.on(ctx) }
+        x.adblock = AdBlock.enabled
+        x.folderSet = tree != null
+        x.engineAnswered = state != null
+        x.engineErrors = Diag.countSince("engine", now - FIVE_MIN, "E")
+        x.detected = items?.length() ?: 0
+        x.dlCodes = Diag.recent(30, "download", false).filter { it.ts >= now - TEN_MIN && it.msg.startsWith("failed ") }.map { it.msg.removePrefix("failed ").trim() }
+        x.sniffFails = Diag.recent(40, "sniffer", false).filter { it.ts >= now - TEN_MIN && it.msg.startsWith("probe failed") }.sumOf { maxOf(1, it.n) }
+        x.notifDenied = safe(false) { Build.VERSION.SDK_INT >= 33 && androidx.core.content.ContextCompat.checkSelfPermission(ctx, "android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED }
+        x.bgRestricted = safe(false) { Build.VERSION.SDK_INT >= 28 && am?.isBackgroundRestricted == true }
+        val findings = safe(emptyList<DiagRules.Finding>()) { DiagRules.diagnose(x) }
+        val top = findings.firstOrNull()
+        val v: Pair<String, String> = if (top == null) OK to "No problem found by the rules." else top.level to (top.what + " " + top.todo)
+        return Report(now, v.first, v.second, secs, findings)
     }
 
     private fun fmtEvent(e: Diag.Event): String {

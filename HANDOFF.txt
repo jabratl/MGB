@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.89 (S86: DiagRules.kt rules 1-20 + Why? + crash Full report, see the S86 note at the end; before: S85)
+
 CURRENT VERSION 0.0.88 (S85: DiagScreen.kt Report center + entry points, see the S85 note at the end; before: S84)
 
 CURRENT VERSION 0.0.87 (S84: DiagReport.kt report engine, see the S84 note at the end; before: S83)
@@ -610,3 +612,17 @@ Checks: every anchor replaced exactly once; every symbol used grepped to exist (
 NOT tested: 360 px look, dark mode amber warn colour (code colour, not in colors.xml); Save .txt on a SAF tree / Android 10+ MediaStore / Android 7; Share chooser; Settings row refresh after Clear; Tools sheet row closes panel then opens the screen on top.
 Not done / limits: warn colour is hard-coded (no mg_warn token); V77 page report (buildDiag) not merged; report is built again on every Refresh (one get-state call).
 Next: S86 = DiagRules.kt rules 1-20 (Finding), verdict card shows the top finding + list, "Why?" on a failed download row (DownloadsScreen), "Full report" in the Last crash dialog (CrashLog.kt).
+
+
+S86 (0.0.89) - Diagnose part 5a: rule engine 1-20
+Goal: DiagRules.diagnose + findings in the verdict card, "Why?" on a failed download row, "Full report" in the Last crash dialog. No rules 21-40, no pill (S87).
+Changed:
+- DiagRules.kt (new): Finding(id, level, what, todo, fix?, fixLabel?), Facts (plain data), diagnose(Facts) sorted Problem / Warning / Info, explain(text) for one failed download. Fix ids: wifi, storage, webview, reload, settings, downloads, notif, appinfo.
+- DiagReport.kt: Report(..., findings = emptyList()); assemble fills Facts (page events 10 min, download codes "failed CODE", sniffer "probe failed" count, notification permission, background restricted, VPN / network flags) and the verdict = top finding.
+- DiagScreen.kt: open(host, tabs, tabId, focusText, focusUrl); verdictCard has fix button; findingCard; focusCard; runFix.
+- DownloadsScreen.kt jobRow: "Why?" (state not run / done). CrashLog.kt: neutral button "Full report" -> DiagScreen.open(act).
+- build.gradle.kts 0.0.89, CHANGELOG.txt, HANDOFF.txt.
+Checks: braces / parens / brackets balanced in the 5 Kotlin files (script); every anchor replaced exactly once; symbols grepped (Diag.recent / countSince / mask / maskUrl, HttpsOnly.on, AdBlock.enabled, SettingsScreen.open, DownloadsScreen.open, TabManager.byId / active, Tab.web). NOT compiled (no Kotlin SDK), UI NOT rendered at 360 / 1280 px, not run on a phone.
+NOT tested: compile (CI); fix intents on real devices (ACTION_INTERNAL_STORAGE_SETTINGS, market://, notification settings); Why? text for real V77 job errors (rules match on words in j.text / j.error); https-only rule assumes maskUrl keeps "http://"; Diag.recent order (newest vs oldest first) only changes which error is shown first; crash dialog neutral button layout.
+Not done: V77 job error wording not checked against rules (see NOT tested); rules 21-40.
+Next: S87 = rules 21-40 (novel / manga / HLS / DRM / expired token / subtitle / convert / schedule / duplicate), auto Diagnose pill + Settings switch, real phone check list. Files: DiagRules.kt, DiagScreen.kt, SettingsScreen.kt, MainActivity.kt, Diag.kt.

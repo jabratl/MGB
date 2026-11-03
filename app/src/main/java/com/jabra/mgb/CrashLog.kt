@@ -57,6 +57,7 @@ object CrashLog {
                     .setPrimaryClip(ClipData.newPlainText("MGB crash", text))
                 Util.toast(act, "Copied")
             }
+            .setNeutralButton("Full report") { _, _ -> DiagScreen.open(act) } // S86: events + device + rules
             .setNegativeButton("Close", null)
             .show()
     }

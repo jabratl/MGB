@@ -1,3 +1,11 @@
+MGB 0.0.89 (S86: Diagnose part 5a/5 - rule engine 1-20, Why?, crash full report)
+- New DiagRules.kt: 20 rules (no network / captive portal, VPN, low storage, no space, low memory, tab crash, old WebView, HTTP 401/403, 404/410, 429/5xx, page load error by code, HTTPS-only, download timeout / network / file write, sniffer probe fails, Media Grabber not answering / errors, ad blocker too strict, download folder not set, notifications off, background restricted). Each finding = what happened + what to do + optional one tap fix (Wi-Fi / storage / Play Store / reload / Settings / Downloads / notification settings / app info).
+- DiagReport.kt: the basic 5-check verdict is replaced by the rule engine; Report.findings; Findings block in Copy / Share text.
+- DiagScreen.kt: verdict card shows the top finding with its fix button, the other findings follow as small cards; open(..., focusText, focusUrl) adds a "This download" card.
+- DownloadsScreen.kt: "Why?" button on a failed / cancelled job row opens that card.
+- CrashLog.kt: Last crash dialog has a "Full report" button.
+- Rules 21-40, auto Diagnose pill and Settings switch come in S87.
+
 MGB 0.0.88 (S85: Diagnose part 4/5 - Report center screen + 3 entry points)
 - New DiagScreen.kt: full-screen "Report center" window (same style as Bookmarks / Downloads). Verdict card on top (All OK / Warning / Problem colour), buttons Copy, Share, Save .txt, then fold cards Video / Novel / Manga / Browser / Download / Device (groups with a warning or problem open by themselves). Refresh button in the header. Light + dark through mg_* colours, all text wraps, no horizontal scroll.
 - Save .txt: into the chosen download folder, else Downloads (MediaStore on Android 10+), else the app folder. File name mgb-report-DATE-TIME.txt.

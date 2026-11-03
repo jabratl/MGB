@@ -285,6 +285,9 @@ object DownloadsScreen {
                 })
                 actions.addView(button("Cancel") { EngineApi.send(JSONObject().put("type", "job-cancel").put("key", key)) })
             } else {
+                if (state != "done") actions.addView(button("Why?") { // S86: explain this failure
+                    DiagScreen.open(act, null, -1, j.optString("text").ifBlank { j.optString("error") }, j.optString("url"))
+                })
                 actions.addView(button("Remove") {
                     EngineApi.send(JSONObject().put("type", "job-remove").put("key", key))
                     main.postDelayed({ sig = ""; render() }, 400)

@@ -41,11 +41,11 @@ object DiagScreen {
     private var current: Screen? = null
 
     /** tabId < 0 = the active tab. [tabs] null = the shared one from BookmarksScreen.tabsRef. */
-    fun open(host: Activity, tabs: TabManager? = null, tabId: Int = -1) {
+    fun open(host: Activity, tabs: TabManager? = null, tabId: Int = -1, focusText: String? = null, focusUrl: String = "") {
         if (host.isFinishing || host.isDestroyed) return
         closeAll()
         try {
-            val s = Screen(host, tabs ?: BookmarksScreen.tabsRef, tabId)
+            val s = Screen(host, tabs ?: BookmarksScreen.tabsRef, tabId, focusText, focusUrl) // S86: focus = one failed download ("Why?")
             current = s
             s.show()
         } catch (e: Exception) {
@@ -134,7 +134,9 @@ object DiagScreen {
     private class Screen(
         private val act: Activity,
         private val tabs: TabManager?,
-        private val tabId: Int
+        private val tabId: Int,
+        private val focusText: String? = null,
+        private val focusUrl: String = ""
     ) : Dialog(act, com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar) {
 
         private val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
@@ -274,7 +276,9 @@ object DiagScreen {
                 seeded = true
                 for (g in GROUPS) if (r.sections.any { it.group == g && (it.level == DiagReport.BAD || it.level == DiagReport.WARN) }) open.add(g)
             }
-            box.addView(verdictCard(r), LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(4) })
+            if (focusText != null) box.addView(focusCard(), LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(4) })
+            box.addView(verdictCard(r), LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(if (focusText != null) 12 else 4) })
+            for (f in r.findings.drop(1)) box.addView(findingCard(f), LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) })
             box.addView(buttons(r), LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
             for (g in GROUPS) {
                 val secs = r.sections.filter { it.group == g }
@@ -319,8 +323,101 @@ object DiagScreen {
                 setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14f)
                 setPadding(0, dp(3), 0, 0)
             })
+            r.findings.firstOrNull()?.let { f -> fixButton(f)?.let { b -> t.addView(b, LinearLayout.LayoutParams(WRAP, dp(40)).apply { topMargin = dp(10) }) } }
             card.addView(t, LinearLayout.LayoutParams(0, WRAP, 1f))
             return card
+        }
+
+        // ---------------------------------------------------------- S86 findings
+
+        private fun fixButton(f: DiagRules.Finding): View? {
+            val id = f.fix ?: return null
+            return TextView(act).apply {
+                text = f.fixLabel ?: "Fix"
+                gravity = Gravity.CENTER
+                maxLines = 1
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14f)
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(act.getColor(R.color.mg_on_primary))
+                background = round(act.getColor(R.color.mg_primary), 20)
+                setPadding(dp(18), 0, dp(18), 0)
+                setOnClickListener { runFix(id) }
+            }
+        }
+
+        /** One compact finding (the top one lives in the verdict card). */
+        private fun findingCard(f: DiagRules.Finding): View {
+            val c = levelColor(f.level)
+            val card = LinearLayout(act).apply {
+                orientation = LinearLayout.VERTICAL
+                background = round(act.getColor(R.color.mg_surface), 16, act.getColor(R.color.mg_outline))
+                setPadding(dp(14), dp(12), dp(14), dp(12))
+            }
+            val head = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            head.addView(View(act).apply { background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(c) } },
+                LinearLayout.LayoutParams(dp(10), dp(10)).apply { marginEnd = dp(10) })
+            head.addView(TextView(act).apply {
+                text = f.what
+                setTextColor(act.getColor(R.color.mg_text))
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14f)
+                typeface = Typeface.DEFAULT_BOLD
+            }, LinearLayout.LayoutParams(0, WRAP, 1f))
+            card.addView(head)
+            card.addView(TextView(act).apply {
+                text = f.todo
+                setTextColor(act.getColor(R.color.mg_text_dim))
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13f)
+                setPadding(dp(20), dp(4), 0, 0)
+            })
+            fixButton(f)?.let { card.addView(it, LinearLayout.LayoutParams(WRAP, dp(38)).apply { topMargin = dp(8); marginStart = dp(20) }) }
+            return card
+        }
+
+        /** "Why?" from a failed download row: its own text + masked url + the matching findings. */
+        private fun focusCard(): View {
+            val card = LinearLayout(act).apply {
+                orientation = LinearLayout.VERTICAL
+                background = round(act.getColor(R.color.mg_surface), 20, act.getColor(R.color.mg_primary))
+                setPadding(dp(16), dp(14), dp(16), dp(14))
+            }
+            card.addView(TextView(act).apply {
+                text = "This download"
+                setTextColor(act.getColor(R.color.mg_primary))
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13f)
+                typeface = Typeface.DEFAULT_BOLD
+            })
+            val info = listOfNotNull(
+                focusText?.takeIf { it.isNotBlank() }?.let { "Result: " + Diag.mask(it).take(160) },
+                focusUrl.takeIf { it.isNotBlank() }?.let { "Link: " + Diag.maskUrl(it) }
+            ).joinToString("\n")
+            if (info.isNotEmpty()) card.addView(TextView(act).apply {
+                text = info
+                setTextColor(act.getColor(R.color.mg_text_dim))
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 12f)
+                typeface = Typeface.MONOSPACE
+                setTextIsSelectable(true)
+                setPadding(0, dp(4), 0, dp(4))
+            })
+            for (f in DiagRules.explain(focusText ?: "")) card.addView(findingCard(f).apply { background = null; setPadding(0, dp(6), 0, 0) })
+            return card
+        }
+
+        private fun runFix(id: String) {
+            fun go(i: Intent) { try { act.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Throwable) { Util.toast(act, "Cannot open this setting") } }
+            when (id) {
+                "wifi" -> go(Intent(android.provider.Settings.ACTION_WIFI_SETTINGS))
+                "storage" -> go(Intent(android.provider.Settings.ACTION_INTERNAL_STORAGE_SETTINGS))
+                "webview" -> go(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=com.google.android.webview")))
+                "notif" -> go(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, act.packageName))
+                "appinfo" -> go(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:" + act.packageName)))
+                "reload" -> {
+                    val t = try { if (tabId >= 0) tabs?.byId(tabId) else tabs?.active } catch (e: Throwable) { null }
+                    try { t?.web?.reload() } catch (e: Throwable) { }
+                    dismiss()
+                }
+                "settings" -> { dismiss(); SettingsScreen.open(act) }
+                "downloads" -> { dismiss(); DownloadsScreen.open(act) }
+            }
         }
 
         private fun buttons(r: DiagReport.Report): View {
