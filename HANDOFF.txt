@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.74 (S70: blocker stats sheet, see the S70 note at the end; before: S69)
+
 CURRENT VERSION 0.0.73 (S69: search engine picker popup, see the S69 note at the end; before: S68)
 
 CURRENT VERSION 0.0.72 (S68: Privacy Guard shield sheet, see the S68 note at the end; before: S67)
@@ -400,3 +402,12 @@ NOT tested: popup opens upwards right above the bar (position with keyboard open
 Could break: while typing, the address bar loses 28 dp + margins; the popup is not focusable so the back button closes the keyboard first, not the popup.
 Still missing (from the video): Ads and Trackers Blocker stats screen (per-day history in AdBlock), menu sheet look, tab switcher look.
 Next: S70 = blocker stats screen, or menu sheet look.
+
+======== S70 note (0.0.74) ========
+Assumption: S70 = blocker stats (first NEXT of S69), as a bottom sheet (not a full screen), no "percent of pages" (needs page counts, not kept).
+Changed: BlockerStats.kt (NEW: show(act), Bars chart view) / AdBlock.kt (unsaved is now AtomicInteger, days map saved as prefs mgb_adblock "days", lastDays(n), topSites(n), flushTotal synchronized + writes today) / PrivacyGuard.kt (linkRow helper, "Blocker stats" row above Certificate row) / app/build.gradle.kts (0.0.74) / CHANGELOG.txt / HANDOFF.txt. No layout, no JS change.
+Checks: Kotlin braces/parens balance on 3 changed .kt; NOT compiled; UI NOT rendered at 360/1280 dark/light.
+NOT tested: chart draws 21 bars at 360 px and both themes; today bar grows after blocking on a page and reopening; days survive an app restart; Blocker stats row opens after the Privacy Guard sheet closes (it reloads the page first if a switch was changed); top sites list.
+Could break: flushTotal now runs a prefs write every 25 blocks (apply, async); per-day data starts empty after update.
+Still missing (from the video): menu sheet look, tab switcher look.
+Next: S71 = menu sheet look, or tab switcher look.

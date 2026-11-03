@@ -182,16 +182,21 @@ object PrivacyGuard {
         // ---- page info link (certificate, cookies, scripts)
         col.addView(label("This site"))
         val more = card()
-        val infoRow = LinearLayout(act).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = dp(52); setPadding(dp(18), dp(8), dp(12), dp(8))
-            val tv = TypedValue()
-            if (act.theme.resolveAttribute(android.R.attr.selectableItemBackground, tv, true)) setBackgroundResource(tv.resourceId)
-            setOnClickListener { d.dismiss(); PageInfo.show(act, tabs) }
+        fun linkRow(title: String, go: () -> Unit): LinearLayout {
+            val r = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(52); setPadding(dp(18), dp(8), dp(12), dp(8))
+                val tv = TypedValue()
+                if (act.theme.resolveAttribute(android.R.attr.selectableItemBackground, tv, true)) setBackgroundResource(tv.resourceId)
+                setOnClickListener { d.dismiss(); go() }
+            }
+            r.addView(TextView(act).apply { text = title; setTextColor(cText); sp(this, 15f) }, LinearLayout.LayoutParams(0, WRAP, 1f))
+            r.addView(ImageView(act).apply { setImageResource(R.drawable.ic_chevron); setColorFilter(cDim) }, LinearLayout.LayoutParams(dp(20), dp(20)))
+            return r
         }
-        infoRow.addView(TextView(act).apply { text = "Certificate, cookies and scripts"; setTextColor(cText); sp(this, 15f) }, LinearLayout.LayoutParams(0, WRAP, 1f))
-        infoRow.addView(ImageView(act).apply { setImageResource(R.drawable.ic_chevron); setColorFilter(cDim) }, LinearLayout.LayoutParams(dp(20), dp(20)))
-        more.addView(infoRow, LinearLayout.LayoutParams(MATCH, WRAP))
+        more.addView(linkRow("Blocker stats") { BlockerStats.show(act) }, LinearLayout.LayoutParams(MATCH, WRAP)) // S70
+        line(more)
+        more.addView(linkRow("Certificate, cookies and scripts") { PageInfo.show(act, tabs) }, LinearLayout.LayoutParams(MATCH, WRAP))
         col.addView(more, LinearLayout.LayoutParams(MATCH, WRAP))
 
         d.setOnDismissListener {

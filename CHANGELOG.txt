@@ -1,3 +1,7 @@
+MGB 0.0.74 (S70: Ads and trackers blocker stats)
+- Privacy Guard > "Blocker stats": numbers for today, last 7 days and total, a 21 day bar chart (today in rose), and the 5 sites with most blocked requests since the app started.
+- The blocker now keeps a count per day (last 30 days, saved with the total). Counting starts with this version, older days show 0.
+
 MGB 0.0.73 (S69: search engine picker)
 - New rose letter badge (G, D, B ...) at the left of the address bar on the home page and while typing. Tap it: a popup card opens just above the bar with every engine (name + address), tick on the current one.
 - One tap sets the engine at once (same setting as Settings > Search engine, which still works). The badge letter updates.

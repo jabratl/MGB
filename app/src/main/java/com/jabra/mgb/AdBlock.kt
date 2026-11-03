@@ -24,14 +24,39 @@ object AdBlock {
     /** S68: blocked per page host (this app run) + lifetime total (saved) for the Privacy Guard sheet. */
     private val perSite = java.util.concurrent.ConcurrentHashMap<String, AtomicInteger>()
     @Volatile private var total0 = 0
-    @Volatile private var unsaved = 0
+    private val unsaved = AtomicInteger(0)
+    /** S70: blocked per day (yyyyMMdd -> n), last 30 days, saved with the total. */
+    private val days = java.util.concurrent.ConcurrentHashMap<String, Int>()
     fun blockedOn(host: String): Int = perSite[host]?.get() ?: 0
-    val totalBlocked: Int get() = total0 + unsaved
-    fun flushTotal() { // called when the sheet opens or the app stops
-        if (unsaved == 0) return
-        total0 += unsaved; unsaved = 0
-        prefs?.edit()?.putInt("total", total0)?.apply()
+    val totalBlocked: Int get() = total0 + unsaved.get()
+
+    private fun dayKey(c: java.util.Calendar) = "%04d%02d%02d".format(c.get(java.util.Calendar.YEAR), c.get(java.util.Calendar.MONTH) + 1, c.get(java.util.Calendar.DAY_OF_MONTH))
+
+    @Synchronized fun flushTotal() { // called when a sheet opens, every 25 blocks and when the app stops
+        val u = unsaved.getAndSet(0)
+        if (u == 0) return
+        total0 += u
+        val k = dayKey(java.util.Calendar.getInstance())
+        days[k] = (days[k] ?: 0) + u
+        if (days.size > 30) days.keys.sorted().dropLast(30).forEach { days.remove(it) }
+        prefs?.edit()?.putInt("total", total0)?.putString("days", days.entries.joinToString(",") { it.key + ":" + it.value })?.apply()
     }
+
+    /** S70: blocked per day, oldest first, ending today (n values). */
+    fun lastDays(n: Int): IntArray {
+        flushTotal()
+        val c = java.util.Calendar.getInstance()
+        c.add(java.util.Calendar.DAY_OF_YEAR, -(n - 1))
+        return IntArray(n) { i ->
+            val v = days[dayKey(c)] ?: 0
+            if (i < n - 1) c.add(java.util.Calendar.DAY_OF_YEAR, 1)
+            v
+        }
+    }
+
+    /** S70: the sites with most blocked requests in this app run. */
+    fun topSites(n: Int): List<Pair<String, Int>> =
+        perSite.entries.map { it.key to it.value.get() }.sortedByDescending { it.second }.take(n)
 
     private var prefs: android.content.SharedPreferences? = null
 
@@ -40,6 +65,11 @@ object AdBlock {
         prefs = p
         enabled = p.getBoolean("on", true)
         total0 = p.getInt("total", 0)
+        days.clear() // S70
+        (p.getString("days", "") ?: "").split(",").forEach { e ->
+            val a = e.split(":")
+            if (a.size == 2) a[1].toIntOrNull()?.let { days[a[0]] = it }
+        }
     }
 
     fun toggle(): Boolean {
@@ -57,9 +87,9 @@ object AdBlock {
         val ph = try { android.net.Uri.parse(pageUrl ?: "").host?.lowercase() } catch (e: Exception) { null }
         if (ph != null && (ph == host || ph.endsWith(".$host") || host.endsWith(".$ph"))) return false
         count.incrementAndGet()
-        unsaved++
+        unsaved.incrementAndGet()
         if (ph != null) perSite.getOrPut(ph.removePrefix("www.")) { AtomicInteger(0) }.incrementAndGet() // S68
-        if (unsaved >= 25) flushTotal()
+        if (unsaved.get() >= 25) flushTotal()
         return true
     }
 
