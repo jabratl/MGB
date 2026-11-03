@@ -80,6 +80,10 @@ object ExtScreen {
 
     fun isScreen(w: WebView): Boolean = current?.web === w
 
+    /** N2: hide the window (it stays alive) and show a "Back" pill, so a page of the browser can be used (Novel grabber: pick chapter text). */
+    fun tuck() { current?.tuck() }
+    fun untuck() { current?.untuck() }
+
     /** Url the window shows now ("" if w is not a window WebView). */
     fun urlOf(w: WebView): String = if (current?.web === w) (w.url ?: "") else ""
 
@@ -92,6 +96,8 @@ object ExtScreen {
         private val fallbackTitle: String
     ) : Dialog(act, com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar) {
         var web: WebView? = null
+        var tucked = false
+        private var pill: android.view.View? = null
         private var box: FrameLayout? = null
         private var titleView: TextView? = null
         private var bar: LinearProgressIndicator? = null
@@ -186,6 +192,41 @@ object ExtScreen {
             w.loadUrl(startUrl)
         }
 
+        fun tuck() {
+            if (tucked) return
+            tucked = true
+            hide()
+            val root = act.findViewById<ViewGroup>(android.R.id.content) ?: return
+            val tv = TextView(act).apply {
+                text = "\u2039  Back to $fallbackTitle"
+                setTextColor(android.graphics.Color.WHITE)
+                textSize = 14f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                setPadding(Util.dp(act, 18), Util.dp(act, 12), Util.dp(act, 18), Util.dp(act, 12))
+                background = android.graphics.drawable.GradientDrawable(
+                    android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                    intArrayOf(act.getColor(R.color.mg_primary), 0xFF8B5CFF.toInt())
+                ).apply { cornerRadius = Util.dp(act, 24).toFloat() }
+                elevation = Util.dp(act, 8).toFloat()
+                setOnClickListener { untuck() }
+            }
+            root.addView(tv, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = Util.dp(act, 96) })
+            pill = tv
+        }
+
+        private fun dropPill() {
+            pill?.let { (it.parent as? ViewGroup)?.removeView(it) }
+            pill = null
+        }
+
+        fun untuck() {
+            if (!tucked) return
+            tucked = false
+            dropPill()
+            try { show() } catch (_: Exception) { }
+        }
+
         private fun leaveFor(url: String) {
             if (WebPlay.fromExtPlayerUrl(act, url, null)) { dismiss(); return } // S39
             TabsApi.openTab(url)
@@ -201,6 +242,8 @@ object ExtScreen {
         override fun onBackPressed() { goBackOrClose() }
 
         private fun cleanup() {
+            dropPill()
+            tucked = false
             val w = web ?: return
             web = null
             if (current === this) current = null

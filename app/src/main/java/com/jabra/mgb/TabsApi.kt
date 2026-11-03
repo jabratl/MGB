@@ -263,7 +263,10 @@ object TabsApi {
                 t.url = u
                 t.web.loadUrl(u)
             }
-            if (props.optBoolean("active", false)) m.switchTo(t)
+            if (props.optBoolean("active", false)) {
+                m.switchTo(t)
+                if (ExtScreen.urlOf(c.ctx.web).contains("/novel/")) ExtScreen.tuck() // N2: picker needs the page on screen
+            }
             c.ok(tabJson(t))
         }
 
@@ -343,7 +346,10 @@ object TabsApi {
         }
         ChromeBridge.onSync("windows.get") { windowJson() }
         ChromeBridge.onSync("windows.getCurrent") { windowJson() }
-        ChromeBridge.onSync("windows.update") { windowJson() }
+        handle("windows.update") { c -> // N2: {focused:true} = bring the tucked extension window back
+            if (c.args.optJSONObject(1)?.optBoolean("focused", false) == true) ExtScreen.untuck()
+            c.ok(windowJson())
+        }
 
         // alarms
         handle("alarms.create") { c ->

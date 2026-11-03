@@ -1,3 +1,7 @@
+MGB 0.0.83 (S80: Novel grabber files in Downloads, page picker works)
+- Files saved by the Novel grabber (EPUB, DOCX, TXT, ZIP, chapter list) now appear in the Downloads screen under "Saved files" with Open / Show / Share (the grabber writes the same history record as the Media Grabber).
+- "Pick chapter text on the page": the Novel grabber window hides while you tap the text on the page, and a "Back to Novel grabber" pill brings it back (also after a cancel).
+
 MGB 0.0.82 (S79: Novel grabber = Web2EPUB Studio inside the browser)
 - New "Novel grabber" (3-dot menu, Tools sheet of the Detected panel, Settings > Downloads): turns a web-novel chapter, a "Next" chain, a chapter list or a whole catalog into EPUB, DOCX, TXT or a ZIP of .txt files. It is the full Web2EPUB Studio v1.8.0 (catalog finder, load-more / pagination / dropdown / feeds / sitemap, auto order, volumes, smart chapter titles, locked-chapter stop, cache + resume, image compress, reading style) running as a full-screen window like Queue / Manga.
 - New look made for Thazir: live book card (generated cover, title, author, chapter count, format), six bottom tabs (Source, Chapters, Book, Extract, Style, Build), a floating Build strip with progress, same accent gradient and light / dark as the Grabber pages.

@@ -23,9 +23,23 @@ async function saveBlob(blob, name) {
   const url = URL.createObjectURL(blob);
   const later = () => setTimeout(() => URL.revokeObjectURL(url), 600000);
   try {
-    if (chrome.downloads && chrome.downloads.download) { await chrome.downloads.download({ url, filename: name, saveAs: false }); later(); return; }
+    if (chrome.downloads && chrome.downloads.download) {
+      const id = await chrome.downloads.download({ url, filename: name, saveAs: false });
+      later();
+      await addHistory({ id: id || 0, title: name.split('/').pop(), kind: 'novel', site: host(srcUrlNow()), src: srcUrlNow(), size: blob.size });
+      return;
+    }
   } catch (e) { log('Save through Thazir downloads failed (' + ((e && e.message) || e) + ') - trying a direct link.', 'warn'); }
   const a = document.createElement('a'); a.href = url; a.download = name; document.body.append(a); a.click(); a.remove(); later();
+}
+const srcUrlNow = () => { const e = document.getElementById('srcUrl'); return (e && e.value) || ''; };
+// same record V77 writes, so the file shows in the Thazir Downloads screen (Saved files) with Open / Show / Share
+async function addHistory(e) {
+  try {
+    const r = await chrome.storage.local.get('mgHist'), a = r.mgHist || [];
+    a.unshift({ ...e, time: Date.now() });
+    await chrome.storage.local.set({ mgHist: a.slice(0, 500) });
+  } catch { }
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const host = u => { try { return new URL(u).hostname; } catch { return 'default'; } };
@@ -287,7 +301,7 @@ let rtab = null, rlock = Promise.resolve();
 const CAN_HIDE = !/Android|Mobile/i.test(navigator.userAgent);
 const mayRender = o => o.fetchMode === 'rendered' || (o.fetchMode !== 'fast' && CAN_HIDE);
 let selfTabId = null; chrome.tabs.getCurrent().then(t => { if (t) selfTabId = t.id; }).catch(() => { });
-const backToStudio = () => { if (selfTabId != null) chrome.tabs.update(selfTabId, { active: true }).catch(() => { }); };
+const backToStudio = () => { if (selfTabId != null) chrome.tabs.update(selfTabId, { active: true }).catch(() => { }); else chrome.windows.update(1, { focused: true }).catch(() => { }); }; // Thazir: window was tucked away while the page is shown
 function renderDoc(url, o) { const run = rlock.then(() => renderDoc0(url, o)); rlock = run.catch(() => { }); return run; }
 async function renderDoc0(url, o) {
   if (!rtab) rtab = await chrome.tabs.create({ url: 'about:blank', active: false });

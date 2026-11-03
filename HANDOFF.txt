@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.83 (S80: Novel grabber in Downloads + picker, see the S80 note at the end; before: S79)
+
 CURRENT VERSION 0.0.82 (S79: Novel grabber = Web2EPUB Studio inside the browser, see the S79 note at the end; before: S78)
 
 CURRENT VERSION 0.0.81 (S78: favicons in Bookmarks / History, see the S78 note at the end; before: S77)
@@ -512,3 +514,14 @@ Checks: node --check on studio.js (as module), ui.js, chrome-shim.js = OK; all 1
 NOT tested (needs the phone): build; Novel grabber opens from the 3 places; source tab detected (and the manual path on the Home tab); Find catalog on a real novel site (fetch goes through EngineHost.proxyFor = CORS-free); executeScript with the big snap() result (MBs through evaluateJavascript); Build EPUB then the file appears in the Thazir download folder / Downloads screen (blob download path); chrome.tabs.onUpdated status "complete" for the hidden render tab; "Rendered browser" mode: a tab created with active:false may not run JS while detached; IndexedDB chapter cache inside the ExtScreen WebView; the window staying alive during a long build (Dialog: do not close; app in background may pause the WebView).
 Could break: the shim change touches every extension page (V77 popup / queue...): they never called executeScript, so no change expected; hot update (ExtUpdater) does not know the novel/ folder (built-in assets are used); Smart headings / large catalogs on low RAM.
 Next ideas: keep the build running as a foreground service + notification, "Send to Novel grabber" in the page long-press menu, share target for chapter URLs, open the finished EPUB directly from the Downloads screen, bookmarks of followed novels (reuse Follow.kt for new-chapter alerts), allFrames + world:MAIN for executeScript, real httpOnly cookies via CookieManager flags.
+
+======== S80 note (0.0.83) ========
+Goal (user): files made by the Novel grabber did not show in the browser Downloads screen; also check that ALL Web2EPUB settings / functions exist.
+Cause: DownloadsScreen lists only V77 jobs (session mgJobs) and "Saved files" = storage.local mgHist. chrome.downloads.download alone creates a DownloadsApi item but no mgHist record.
+Changed:
+- novel/studio.js: saveBlob() now awaits the download id and calls addHistory({id, title, kind:'novel', site, src, size}) = same record as shared.js addHistory (newest first, max 500). Open / Show / Share use DownloadsApi with that id.
+- Picker (btnPick): the Dialog covered the page. ExtScreen.tuck() hides the window (stays alive) and adds a gradient "Back to Novel grabber" pill on android.R.id.content; untuck() restores. TabsApi: tabs.update(active:true) from a window whose url contains /novel/ calls tuck(); new handle("windows.update") with {focused:true} calls untuck() (studio backToStudio() uses chrome.windows.update(1,{focused:true}) when it has no tab id). Pill is removed in cleanup().
+Audit (script): studio.js differs from the original only in init() (tab id), saveBlob/addHistory, backToStudio, 3 anchor downloads; lib/*.js byte-identical (cmp); 25 onclick/onchange handlers + 47 saved FIELDS + 106 ids all exist in the new studio.html; 25 buttons.
+Checks: node --check studio.js (module) OK; NOT compiled (Kotlin: Dialog.hide()/show(), GradientDrawable(Orientation, IntArray), FrameLayout.LayoutParams gravity); UI NOT rendered.
+NOT tested: Saved files row appears right after Build (Downloads screen refreshes by signature); Open on .epub chooses an app; tuck / pill / untuck on a phone; picker result (executeScript 180 s limit); "Merge chapter links from open tabs" needs the other tabs opened BEFORE opening the grabber (window covers the browser).
+Next ideas: unchanged from S79 + foreground service for long builds.
