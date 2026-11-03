@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.86 (S83: Diag hooks in native handlers, see the S83 note at the end; before: S82)
+
 CURRENT VERSION 0.0.85 (S82: Diag.kt event log foundation, see the S82 note at the end; before: S81)
 
 CURRENT VERSION 0.0.84 (S81: V77 per-video menu in the native panel, see the S81 note at the end; before: S80)
@@ -560,3 +562,20 @@ Checks: braces / parens / brackets balanced (script); masking logic (URL, uuid, 
 NOT tested: Kotlin regex raw strings compile; Diag file really appears after a crash and reloads; multithreaded log() under load.
 Note: the folder MGB/ inside the zip is an old copy (0.0.20), ignore it, the real project is app/.
 Next: S83 = add the Diag.e/w/i hooks (one line each, no logic change) in the handlers listed above. Find them with: grep -n "onRenderProcessGone\|onReceivedError\|onReceivedHttpError\|onConsoleMessage" and in Sniffer.kt, DownloadService.kt, NativeBatch.kt, TabsApi.kt / ExtScreen.kt (novel, manga).
+
+
+S83 (0.0.86) - Diagnose part 2 of 5: event hooks
+Goal: one-line Diag.e/w hooks in native handlers, no logic change. Plan S82-S86 unchanged (S84 report, S85 UI, S86 rules).
+Changed (all one-liners tagged "S83"):
+- TabManager.kt: onReceivedError logs main-frame load errors (before the https-only return); new onReceivedHttpError (main frame); new onRenderProcessGone logs + returns false (= old default). Private tab = no URL.
+- EngineHost.kt / OffscreenHost.kt: console ERROR -> Diag.e("engine"); offscreen load error + render gone.
+- ExtScreen.kt: console ERROR -> tag novel (/novel/), manga (/manga), else engine.
+- DownloadService.kt: fail() -> Diag.w("download", "failed CODE", url).
+- Sniffer.kt: probe failed (only real probes, not guesses) + inspect crash.
+- NativeBatch.kt: mgNativeCh / mgNativeMg unreadable.
+- TabsApi.kt: handler exception; executeScript error / file missing / page reloaded / timeout (tag novel).
+- build.gradle.kts 0.0.86, CHANGELOG.txt, HANDOFF.txt.
+Checks: every anchor replaced exactly once; braces / parens balance unchanged in all 8 files; Diag overloads match (e with Throwable, w/e with String). No JS / XML / JSON changed. NOT compiled (no Kotlin SDK), not run on a phone.
+NOT tested: onRenderProcessGone override really still returns false behaviour (app kill on crash as before); log volume on a busy page (probe failed folds only identical repeats); ExtScreen console tag by sourceId.
+Not hooked (not found as separate handlers): download retry reason (no retry code in DownloadService; resume is in DownloadsApi), NativeBatch queue / batch failures (they come from V77 console errors, so they appear as engine errors), Manga has no native handler of its own.
+Next: S84 = Diag.report(tabId): app / WebView / device / RAM / storage / network, settings health, V77 mgLog, detected items, queue / jobs, recent errors, basic verdict; plus buildDiag Novel / Manga check in content.js (node --check).

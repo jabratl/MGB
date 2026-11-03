@@ -83,6 +83,7 @@ object EngineHost {
             override fun onConsoleMessage(m: ConsoleMessage): Boolean {
                 val line = "${m.message()}  (${m.sourceId()?.substringAfterLast('/')}:${m.lineNumber()})"
                 addLog(line)
+                if (m.messageLevel() == ConsoleMessage.MessageLevel.ERROR) Diag.e("engine", line) // S83
                 Log.d(TAG, line.take(500))
                 return true
             }

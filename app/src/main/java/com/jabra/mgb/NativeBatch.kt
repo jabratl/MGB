@@ -55,6 +55,7 @@ object NativeBatch {
             if (list.isEmpty()) return null
             return Found(o.optString("book").ifBlank { "video" }, list)
         } catch (e: Exception) {
+            Diag.e("novel", "mgNativeCh unreadable", e) // S83
             return null
         }
     }
@@ -69,6 +70,7 @@ object NativeBatch {
             if (!o.optBoolean("has", false)) return null
             return Mg(o.optInt("n", 0), o.optString("site"))
         } catch (e: Exception) {
+            Diag.e("manga", "mgNativeMg unreadable", e) // S83
             return null
         }
     }

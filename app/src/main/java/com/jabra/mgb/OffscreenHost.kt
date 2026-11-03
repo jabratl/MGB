@@ -92,6 +92,7 @@ object OffscreenHost {
             override fun onConsoleMessage(m: ConsoleMessage): Boolean {
                 val line = "off: ${m.message()}  (${m.sourceId()?.substringAfterLast('/')}:${m.lineNumber()})"
                 EngineHost.addLog(line)
+                if (m.messageLevel() == ConsoleMessage.MessageLevel.ERROR) Diag.e("engine", line) // S83
                 Log.d(TAG, line.take(500))
                 return true
             }
@@ -120,12 +121,14 @@ object OffscreenHost {
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                 if (view === web && request.isForMainFrame) {
                     EngineHost.addLog("offscreen: load error " + error.description)
+                    Diag.e("engine", "offscreen load error " + error.description) // S83
                     main.post { if (view === web) close("load error") }
                 }
             }
 
             override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
                 EngineHost.addLog("offscreen: render process gone")
+                Diag.e("engine", "offscreen render process gone") // S83
                 main.post { if (view === web) close("render process gone") }
                 return true
             }

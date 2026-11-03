@@ -334,6 +334,7 @@ class TabManager(
         override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: android.webkit.WebResourceError?) {
             super.onReceivedError(view, request, error)
             val r = request ?: return
+            if (r.isForMainFrame) Diag.w("page", "load error " + (error?.errorCode ?: 0) + " " + (error?.description ?: ""), if (tab.priv) "(private tab)" else r.url.toString()) // S83
             val from = tab.httpsFrom ?: return
             if (!r.isForMainFrame || r.url.scheme != "https" || android.net.Uri.parse(from).host != r.url.host) return
             container.post { // S41: no https on this site: ask once
@@ -344,6 +345,16 @@ class TabManager(
                     .setNegativeButton("Cancel", null)
                     .show()
             }
+        }
+
+        override fun onReceivedHttpError(view: WebView?, request: WebResourceRequest?, errorResponse: WebResourceResponse?) { // S83
+            super.onReceivedHttpError(view, request, errorResponse)
+            if (request?.isForMainFrame == true) Diag.w("page", "http " + (errorResponse?.statusCode ?: 0), if (tab.priv) "(private tab)" else request.url.toString())
+        }
+
+        override fun onRenderProcessGone(view: WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean { // S83: same result as the default (false), only logged
+            Diag.e("tab", if (detail?.didCrash() == true) "tab crashed (render process)" else "tab killed by the system (low memory?)", if (tab.priv) "(private tab)" else tab.url)
+            return false
         }
 
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {

@@ -92,7 +92,7 @@ object Sniffer {
 
     /** Called from TabManager.shouldInterceptRequest (any thread) for every request of a web page tab. */
     fun onRequest(tab: TabManager.Tab, r: WebResourceRequest) {
-        try { inspect(tab, r) } catch (e: Exception) { /* sniffing must never break page loading */ }
+        try { inspect(tab, r) } catch (e: Exception) { Diag.e("sniffer", "inspect crashed", e) /* S83; sniffing must never break page loading */ }
     }
 
     private fun inspect(tab: TabManager.Tab, r: WebResourceRequest) {
@@ -175,6 +175,7 @@ object Sniffer {
             val p = probe(url, rh, ref)
             if (p == null) {
                 probeFail.incrementAndGet()
+                if (!guess) Diag.w("sniffer", "probe failed", url) // S83
                 if (guess) return@execute
                 // could not ask the server: report a plain 200 so V77 still lists the file
                 val res = JSONArray().put(JSONObject().put("name", "Content-Type").put("value", mimeOf(ext)))

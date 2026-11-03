@@ -56,7 +56,7 @@ object TabsApi {
     private fun handle(api: String, h: (ChromeBridge.Call) -> Unit) {
         ChromeBridge.on(api) { c ->
             ui {
-                try { h(c) } catch (e: Exception) { c.fail(e.message ?: e.toString()) }
+                try { h(c) } catch (e: Exception) { Diag.w("engine", "api " + c.api + " threw", e.message ?: e.toString()); c.fail(e.message ?: e.toString()) } // S83
             }
         }
     }
@@ -413,7 +413,7 @@ object TabsApi {
                 for (i in 0 until files.length()) {
                     val p = files.optString(i).trimStart('/')
                     try { sb.append(app?.assets?.open("ext/$p")?.bufferedReader()?.use { it.readText() } ?: "").append("\n;") }
-                    catch (e: Exception) { c.fail("Could not load file: $p"); return }
+                    catch (e: Exception) { Diag.w("novel", "executeScript: could not load file " + p); c.fail("Could not load file: $p"); return } // S83
                 }
                 "(function(){" + sb + "\n})()"
             }
@@ -433,13 +433,13 @@ object TabsApi {
                 var s: String? = null
                 if (v != null && v != "null") s = try { JSONTokener(v).nextValue() as? String } catch (e: Exception) { null }
                 when {
-                    s == "gone" -> c.fail("The page was reloaded before the script finished.")
+                    s == "gone" -> { Diag.w("novel", "executeScript: page reloaded before the script finished"); c.fail("The page was reloaded before the script finished.") } // S83
                     s != null -> try {
                         val x = JSONObject(s)
-                        if (x.has("e")) c.fail(x.optString("e"))
+                        if (x.has("e")) { Diag.w("novel", "executeScript error", x.optString("e")); c.fail(x.optString("e")) } // S83
                         else c.ok(JSONArray().put(JSONObject().put("frameId", 0).put("result", if (x.isNull("r")) JSONObject.NULL else x.get("r"))))
                     } catch (e: Exception) { c.fail("Bad script result") }
-                    System.currentTimeMillis() > deadline -> c.fail("Script timed out.")
+                    System.currentTimeMillis() > deadline -> { Diag.w("novel", "executeScript timed out (180 s)"); c.fail("Script timed out.") } // S83
                     else -> main.postDelayed({ pollOnce() }, 200)
                 }
             }

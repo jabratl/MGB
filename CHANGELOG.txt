@@ -1,3 +1,7 @@
+MGB 0.0.86 (S83: Diagnose part 2/5 - event hooks, no visible change)
+- One-line Diag hooks (no logic change) so native errors reach the S82 event log: tab main-frame load error + HTTP error, tab crash / killed (onRenderProcessGone, still returns false = same as before), engine / offscreen / extension-window console errors (tag novel / manga for /novel/ and /manga pages), offscreen load error + render gone, download failed (code + masked url), Sniffer probe failed + inspect crash, NativeBatch unreadable chapter / manga data, chrome.* handler exceptions, executeScript errors (novel grabber): script error, file missing, page reloaded, 180 s timeout.
+- Private tabs log no URL.
+
 MGB 0.0.85 (S82: Diagnose part 1/5 - event log foundation, no visible change yet)
 - New Diag.kt: ring-buffer event log (last 500 events, saved to filesDir/mgb_diag.jsonl, survives a crash). Identical repeats within 5 s fold into one line with a count.
 - Everything is masked before it is stored: URLs keep host + path (query values dropped, only parameter names like [token,exp] kept, long id / uuid path parts become {id}); cookies, Authorization, Bearer, JWT, token / password / session / key values, e-mails and long blobs never reach the log.

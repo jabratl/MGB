@@ -154,6 +154,7 @@ object ExtScreen {
                 override fun onConsoleMessage(m: ConsoleMessage): Boolean {
                     val line = "ui: ${m.message()}  (${m.sourceId()?.substringAfterLast('/')}:${m.lineNumber()})"
                     EngineHost.addLog(line)
+                    if (m.messageLevel() == ConsoleMessage.MessageLevel.ERROR) Diag.e(if ((m.sourceId() ?: "").contains("/novel/")) "novel" else if ((m.sourceId() ?: "").contains("/manga")) "manga" else "engine", line) // S83
                     Log.d(TAG, line.take(500))
                     return true
                 }

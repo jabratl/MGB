@@ -146,6 +146,7 @@ object Downloader {
     }
 
     private fun fail(item: DlItem, code: String) {
+        Diag.w("download", "failed " + code, item.url) // S83
         DownloadsApi.change(item) {
             state = "interrupted"; error = code; paused = false; end = System.currentTimeMillis()
             canResume = canResume && partFile(id).exists() && url.startsWith("http", true)
