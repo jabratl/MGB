@@ -56,6 +56,18 @@
             android:scaleType="fitCenter"
             android:src="@drawable/ic_home" />
 
+        <ImageView
+            android:id="@+id/btn_shield"
+            android:layout_width="34dp"
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="Privacy Guard"
+            android:focusable="true" android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_shield"
+            android:visibility="gone" />
+
         <EditText
             android:id="@+id/url_bar"
             android:layout_width="0dp"

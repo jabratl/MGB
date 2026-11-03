@@ -21,6 +21,17 @@ object AdBlock {
         private set
     private val count = AtomicInteger(0)
     val blocked: Int get() = count.get()
+    /** S68: blocked per page host (this app run) + lifetime total (saved) for the Privacy Guard sheet. */
+    private val perSite = java.util.concurrent.ConcurrentHashMap<String, AtomicInteger>()
+    @Volatile private var total0 = 0
+    @Volatile private var unsaved = 0
+    fun blockedOn(host: String): Int = perSite[host]?.get() ?: 0
+    val totalBlocked: Int get() = total0 + unsaved
+    fun flushTotal() { // called when the sheet opens or the app stops
+        if (unsaved == 0) return
+        total0 += unsaved; unsaved = 0
+        prefs?.edit()?.putInt("total", total0)?.apply()
+    }
 
     private var prefs: android.content.SharedPreferences? = null
 
@@ -28,6 +39,7 @@ object AdBlock {
         val p = ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         prefs = p
         enabled = p.getBoolean("on", true)
+        total0 = p.getInt("total", 0)
     }
 
     fun toggle(): Boolean {
@@ -45,6 +57,9 @@ object AdBlock {
         val ph = try { android.net.Uri.parse(pageUrl ?: "").host?.lowercase() } catch (e: Exception) { null }
         if (ph != null && (ph == host || ph.endsWith(".$host") || host.endsWith(".$ph"))) return false
         count.incrementAndGet()
+        unsaved++
+        if (ph != null) perSite.getOrPut(ph.removePrefix("www.")) { AtomicInteger(0) }.incrementAndGet() // S68
+        if (unsaved >= 25) flushTotal()
         return true
     }
 

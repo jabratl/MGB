@@ -1,3 +1,9 @@
+MGB 0.0.72 (S68: Privacy Guard - one shield sheet per site)
+- New shield button in the address bar (web pages only, hides while typing). Rose = guarding this site, grey = blocker off here.
+- Tap it: Privacy Guard sheet with a count-up of ads and trackers blocked on this site, the total blocked ever, the Ads and trackers blocker switch (all sites), and "Blocker on this site".
+- Privacy control switches in one place: Hide distracting items, Hide cookie banners, Always use HTTPS, Scripts on this site, Desktop site. They act at once; the page reloads once when the sheet closes (only if needed). Link to Certificate / cookies / scripts (Page info).
+- Same switches as Settings and Page info (nothing moved or removed). New saved value: lifetime blocked total (prefs mgb_adblock "total").
+
 MGB 0.0.71 (S67: smarter download buttons + subtitle per download)
 - Native floating download button: theme accent circle with a soft gradient and ring, vector icon, badge with a ring, small pop when it appears or the count changes.
 - Files detected panel: the DOWNLOAD bar is now a gradient pill with an icon, e.g. "Download 3 files · ~420 MB" (total of the known sizes).

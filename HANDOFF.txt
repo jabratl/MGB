@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.72 (S68: Privacy Guard shield sheet, see the S68 note at the end; before: S67)
+
 CURRENT VERSION 0.0.71 (S67: download button design + subtitle per download, see the S67 note at the end; before: S66)
 
 CURRENT VERSION 0.0.70 (S66: Downloads screen search + Share / Remove / Delete, see the S66 note at the end; before: S65)
@@ -378,3 +380,12 @@ Checks: Kotlin braces/parens balance; NOT compiled; UI NOT rendered at 360/1280 
 NOT tested: floating button look on a real page (only shows when Button mode = Native only or per-site Native); pop animation; bar text fits at 360 px with a long size; subtitle row skips the subtitle for one download only; Download all / batches still follow the V77 setting.
 Still missing natively: subtitle ON for one download when the V77 setting is OFF (needs a V77 change), Pick pages (manga.html), native queue page, DASH variants beyond 10, schedule of a single file.
 Next: S68 = fix from the first run of 0.0.69-0.0.71, or native queue page.
+
+======== S68 note (0.0.72) ========
+Source: user screen recording of the Quetta browser (Privacy Guard sheet, Ads and Trackers Blocker, search engine picker, menu). Assumption: S68 = the Privacy Guard sheet only (made in MGB style: rose accent, ToolsSheet-like rounded cards, no copy of Quetta look). The other parts go to NEXT.
+Changed: PrivacyGuard.kt (NEW: state(tab), show(act,tabs,onClose)) / AdBlock.kt (blockedOn(host), totalBlocked, flushTotal; per-host counter + saved total) / MainActivity.kt (btnShield, refreshShield, click, focus + onStop flush) / res/layout/activity_main.xml (NEW id btn_shield, gone by default) / app/build.gradle.kts (0.0.72) / CHANGELOG.txt / HANDOFF.txt. No JS change.
+Checks: Kotlin braces/parens balance on 3 changed .kt; activity_main.xml parses; no duplicate ids; NOT compiled (no kotlinc here); UI NOT rendered at 360/1280 dark/light.
+NOT tested: shield fits in the bar at 360 px (url text gets 34 dp less); sheet scrolls at 360 px; switches reload once on close; Desktop row does not double reload; Scripts row really stops JS; count-up shows the right number after a reload; shield colour updates after toggling the blocker; shield hides while typing and returns.
+Could break: bottom bar is 34 dp tighter on web pages; "Scripts on this site" sets javaScriptEnabled live (same as Page info > Site configuration); per-host counts reset at app start (total is saved).
+Still missing (from the video): Ads and Trackers Blocker stats screen (graph, last 3 weeks, percent of pages), search engine picker popup on the home search bar, menu sheet look, tab switcher look.
+Next: S69 = search engine picker popup on home / address bar, or the blocker stats screen (needs a per-day blocked history in AdBlock).

@@ -24,6 +24,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     private lateinit var urlBar: EditText
     private lateinit var btnHome: ImageView // S22
     private lateinit var btnTabs: MaterialButton
+    private lateinit var btnShield: ImageView // S68: Privacy Guard
     private lateinit var progress: LinearProgressIndicator
     private lateinit var backCb: OnBackPressedCallback
     private lateinit var floating: FloatingDl // S11
@@ -54,6 +55,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         urlBar = findViewById(R.id.url_bar)
         btnHome = findViewById(R.id.btn_home)
         btnTabs = findViewById(R.id.btn_tabs)
+        btnShield = findViewById(R.id.btn_shield) // S68
         progress = findViewById(R.id.progress)
         EngineHost.start(this) // S6: background.js engine (hidden WebView)
         tabs = TabManager(this, findViewById<FrameLayout>(R.id.web_container), this)
@@ -88,6 +90,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
         btnHome.setOnClickListener { if (tabs.active?.home != true) tabs.newTab(TabManager.HOME_PAGE) } // S22
         btnTabs.setOnClickListener { tabs.showSwitcher() }
+        btnShield.setOnClickListener { PrivacyGuard.show(this, tabs) { refreshShield() } } // S68
         findViewById<ImageView>(R.id.btn_menu).setOnClickListener { showMenu() } // S22
 
         urlBar.setOnEditorActionListener { _, actionId, event ->
@@ -101,6 +104,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                 urlBar.setText(if (tabs.active?.home == true) "" else (tabs.active?.url ?: "")) // S13
                 urlBar.post { urlBar.selectAll() }
             } else refreshUrlField()
+            refreshShield() // S68: shield hides while typing
         }
 
         backCb = object : OnBackPressedCallback(true) {
@@ -253,6 +257,18 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         } else progress.visibility = android.view.View.GONE
         btnTabs.setTextColor(getColor(if (tab?.priv == true) R.color.mg_primary else R.color.mg_text)) // S26
         refreshUrlField()
+        refreshShield()
+    }
+
+    /** S68: shield shows on web pages only (not while typing); rose = guarding, grey = blocker off here. */
+    private fun refreshShield() {
+        val st = PrivacyGuard.state(tabs.active)
+        val show = st != 0 && !urlBar.hasFocus()
+        if (show && btnShield.visibility != View.VISIBLE) {
+            btnShield.alpha = 0f; btnShield.visibility = View.VISIBLE
+            btnShield.animate().alpha(1f).setDuration(160).start()
+        } else if (!show) btnShield.visibility = View.GONE
+        btnShield.setColorFilter(getColor(if (st == 2) R.color.mg_text_dim else R.color.mg_primary))
     }
 
     // ---------- TabManager.Listener ----------
@@ -284,6 +300,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     override fun onStop() {
         AppLock.onStop(this) // S45
+        AdBlock.flushTotal() // S68
         super.onStop()
     }
 
