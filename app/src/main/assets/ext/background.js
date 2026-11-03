@@ -1321,6 +1321,10 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
     return;
   }
   if (msg.type === 'batch-stop') { if (batchState[tabId]) batchState[tabId].stop = true; return; }
+  if (msg.type === 'grab-pages') { // MGB S55: native panel manga block (CBZ / ZIP / PDF / EPUB / Read / Pick pages)
+    chrome.tabs.sendMessage(tabId, { type: 'grab-pages', how: msg.how || 'cbz' }, { frameId: 0 }).catch(() => {});
+    return;
+  }
   if (msg.type === 'open-panel' || msg.type === 'toggle-panel') {
     chrome.tabs.sendMessage(tabId, { type: msg.type }, { frameId: 0 }).catch(() => {});
     return;

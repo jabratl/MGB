@@ -59,10 +59,42 @@ object NativeBatch {
         }
     }
 
+    class Mg(val n: Int, val site: String)
+
+    /** S55: manga / gallery info the page script published (storage.local mgNativeMg); null = not a manga page. */
+    fun manga(ref: String): Mg? {
+        try {
+            val o = ChromeBridge.local.get("mgNativeMg").optJSONObject("mgNativeMg") ?: return null
+            if (noFrag(o.optString("url")) != noFrag(ref)) return null
+            if (!o.optBoolean("has", false)) return null
+            return Mg(o.optInt("n", 0), o.optString("site"))
+        } catch (e: Exception) {
+            return null
+        }
+    }
+
+    /** S55: V77 does the work: how = cbz / zip / pdf / epub / read / view (pages screen). */
+    fun grab(act: Activity, tabId: Int, how: String) {
+        EngineApi.send(JSONObject().put("type", "grab-pages").put("tabId", tabId).put("how", how))
+        Util.toast(act, "Loading all pages...")
+    }
+
+    private fun mangaMenu(act: Activity, tabId: Int, closePanel: () -> Unit) {
+        val how = arrayOf("cbz", "zip", "pdf", "epub", "read", "view")
+        MaterialAlertDialogBuilder(act).setTitle("Manga pages")
+            .setItems(arrayOf("Save as CBZ", "Save as ZIP", "Save as PDF", "Save as EPUB", "Read", "Pick pages")) { _, i ->
+                grab(act, tabId, how[i])
+                closePanel()
+            }
+            .setNegativeButton("Cancel", null).show()
+    }
+
     fun tools(act: Activity, tabId: Int, ref: String, subCount: Int, closePanel: () -> Unit) {
         val f = found(ref)
+        val mg = manga(ref)
         val names = ArrayList<String>()
         val runs = ArrayList<() -> Unit>()
+        if (mg != null) { names.add("Manga pages" + (if (mg.n > 0) " (${mg.n})" else "")); runs.add { mangaMenu(act, tabId, closePanel) } }
         if (f != null) { names.add("Episodes / chapters (${f.eps.size})"); runs.add { episodes(act, tabId, f) } }
         if (subCount > 0) { names.add("All subtitles of this page ($subCount)"); runs.add { subFormat(act, tabId) } }
         names.add("Subtitles from the player"); runs.add { subsCapture(act, tabId) }

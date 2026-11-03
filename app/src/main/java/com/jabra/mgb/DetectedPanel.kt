@@ -697,7 +697,8 @@ object DetectedPanel {
             val vidsN = all.count { it.group == "video" && !it.j.optBoolean("hidden", false) && it.key !in rk }
             for (e in visible.take(30)) ensureThumb(e, if (vidsN == 1) poster else "", ref, ua) { b -> thumbUpd[e.key]?.invoke(b) } // S52
             val shownKeys = visible.joinToString(",") { it.key + ":" + sizeOf(it).first + ":" + (metaCache[it.url]?.hasAudio ?: "?") + ":" + it.info.optDouble("dur", 0.0) }
-            val s = shownKeys + "|" + sort + "|" + filter.active() // selection is NOT part of it: rows repaint themselves
+            val mg = NativeBatch.manga(ref) // S55
+            val s = shownKeys + "|" + sort + "|" + filter.active() + "|" + (mg?.let { it.n.toString() + it.site } ?: "") // selection is NOT part of it: rows repaint themselves
             title.text = "Files detected!"
             val total = all.count { !it.j.optBoolean("hidden", false) && it.key !in rk }
             badge.text = visible.size.toString()
@@ -713,8 +714,9 @@ object DetectedPanel {
             list.removeAllViews()
             rowUpd.clear()
             thumbUpd.clear()
+            if (mg != null) list.addView(mangaCard(mg), LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) }) // S55
             if (visible.isEmpty()) {
-                list.addView(emptyView())
+                if (mg == null) list.addView(emptyView())
             } else {
                 val anim = firstDraw && (Build.VERSION.SDK_INT < 26 || ValueAnimator.areAnimatorsEnabled())
                 firstDraw = false
@@ -815,6 +817,33 @@ object DetectedPanel {
         private fun chip(text: String, bg: Int, fg: Int) = tv(text, 10f, fg, 1, true).apply {
             background = round(bg, 6)
             setPadding(dp(6), dp(1), dp(6), dp(1))
+        }
+
+        /** S55: manga pages block (V77 does the work through the grab-pages message). */
+        private fun mangaCard(mg: NativeBatch.Mg): View {
+            val box = LinearLayout(act).apply {
+                orientation = LinearLayout.VERTICAL
+                background = round(cCard, 16)
+                setPadding(dp(14), dp(12), dp(14), dp(12))
+            }
+            val cnt = if (mg.n > 0) mg.n.toString() else "all"
+            box.addView(tv("Page images ($cnt)", 15f, cText, 1, true), LinearLayout.LayoutParams(MATCH, WRAP))
+            box.addView(tv(
+                if (mg.site.isNotBlank()) "Reads the ${mg.site} page list, original quality" else "Loads all pages, original quality",
+                12f, cDim, 2
+            ).apply { setPadding(0, dp(2), 0, dp(4)) }, LinearLayout.LayoutParams(MATCH, WRAP))
+            fun rowOf(vararg b: Pair<String, String>) {
+                val r = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL }
+                for ((i, p) in b.withIndex()) {
+                    val v = pillBtn(p.first) { NativeBatch.grab(act, tabId, p.second); dlg.dismiss() }
+                    v.background = round(cTile, 18)
+                    r.addView(v, LinearLayout.LayoutParams(0, dp(36), 1f).apply { if (i > 0) marginStart = dp(6) })
+                }
+                box.addView(r, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(6) })
+            }
+            rowOf("CBZ" to "cbz", "ZIP" to "zip", "PDF" to "pdf", "EPUB" to "epub")
+            rowOf("Read" to "read", "Pick pages" to "view")
+            return box
         }
 
         private fun emptyView(): View {

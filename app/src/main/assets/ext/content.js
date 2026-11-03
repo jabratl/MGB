@@ -57,7 +57,8 @@
     const sig = (a) => a.map((x) => x.url).sort().join('|');
     let chg = false;
     if (sig(chs) !== sig(chapters)) { chapters = chs; chg = true; }
-    if (cnt !== mangaN || chg || adsN !== adsShown) { mangaN = cnt; adsShown = adsN; renderAll(); if (chg) pubNative(); }
+    const mgChg = cnt !== mangaN; // MGB S55
+    if (cnt !== mangaN || chg || adsN !== adsShown) { mangaN = cnt; adsShown = adsN; renderAll(); if (chg || mgChg) pubNative(); }
   }
 
   // MGB S53: the native Files detected panel reads the episode / chapter list from here (storage.local mgNativeCh)
@@ -66,6 +67,7 @@
     try {
       let book = '';
       try { book = (S.cleanTitles !== false ? pickSeriesTitle('video') : seriesName(document.title || 'video')) || ''; } catch (e) { book = document.title || ''; }
+      chrome.storage.local.set({ mgNativeMg: { url: location.href, t: Date.now(), has: mangaN >= 3 || !!siteTask, n: mangaN >= 3 ? mangaN : ((siteTask && siteTask.pages) || 0), site: siteTask ? (siteTask.label || '') : '' } }); // MGB S55: manga block of the native panel
       chrome.storage.local.set({ mgNativeCh: { url: location.href, t: Date.now(), book, chapters: chapters.slice(0, 300).map((c) => ({ url: c.url, label: c.label })) } });
     } catch (e) { /* optional */ }
   }
@@ -264,6 +266,7 @@
       if (r.chapters && r.chapters.length) siteChapters = r.chapters;
       scan();
       renderAll();
+      pubNative(); // MGB S55
     });
   }
   let cpSig = '', cpVal = 0;
@@ -1137,7 +1140,7 @@ document.documentElement.append(pillHost);
         const side = (drag.x2 || innerWidth) < innerWidth / 2 ? 'left' : 'right';
         const top = Math.round((parseFloat(pill.style.top) / innerHeight) * 100);
         try { chrome.storage.sync.set({ pillSide: side, pillTop: top }); } catch (e) { /* ignore */ }
-      } else if (S.nativePanel !== false && !open && visible().length && !(mangaN >= 3 || siteTask || chapters.length)) send({ type: 'native-panel' }); // MGB S51
+      } else if (S.nativePanel !== false && !open && ((visible().length && !chapters.length) || mangaN >= 3 || siteTask)) send({ type: 'native-panel' }); // MGB S51, S55: manga pages open the native panel too
       else setOpen(!open);
       drag = null;
     });
@@ -2061,7 +2064,7 @@ document.documentElement.append(ovHost);
     else if (msg.type === 'items-changed') refresh();
     else if (msg.type === 'batch-status' && IS_TOP) { ensurePill(); if (pillRoot) toast(pillRoot, msg.text, 6000); }
     else if (msg.type === 'toggle-panel' && IS_TOP) { refresh().then(() => { ensurePill(); if (pillHost) { pillHost.style.display = ''; setOpen(!open); } }); }
-    else if (msg.type === 'grab-pages' && IS_TOP) { ensurePill(); if (pillRoot) startManga('cbz', pillRoot); }
+    else if (msg.type === 'grab-pages' && IS_TOP) { ensurePill(); if (pillRoot) startManga(/^(cbz|zip|pdf|epub|read|view)$/.test(msg.how || '') ? msg.how : 'cbz', pillRoot); } // MGB S55: msg.how from the native panel
     else if (msg.type === 'diagnose' && IS_TOP) { diagOn = true; refresh().then(() => { ensurePill(); if (pillHost) { pillHost.style.display = ''; setOpen(true); showDiag(); } }); }
     else if (msg.type === 'open-panel' && IS_TOP) { refresh().then(() => { ensurePill(); if (pillHost) { pillHost.style.display = ''; setOpen(true); } }); }
     else if (msg.type === 'batch-ep' && IS_TOP) { epSt[msg.url] = { st: msg.state, key: msg.key || (epSt[msg.url] || {}).key, why: msg.why || '', plain: msg.plain || '', q: msg.q || (epSt[msg.url] || {}).q || '' }; renderSoon(); }

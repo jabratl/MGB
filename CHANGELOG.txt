@@ -1,3 +1,9 @@
+MGB 0.0.59 (S55: manga pages block in the native panel)
+- Files detected panel: on manga / gallery pages a "Page images (N)" card shows at the top with CBZ, ZIP, PDF, EPUB, Read and Pick pages. V77 does the work (same as its own page row).
+- Tapping the Grabber button on a manga / gallery page now opens the native panel (before: the V77 panel). Episode pages with videos still open the V77 panel.
+- TOOLS has a "Manga pages" entry on those pages.
+- Page script publishes the page count to storage.local mgNativeMg; message grab-pages now takes how (cbz, zip, pdf, epub, read, view).
+
 MGB 0.0.58 (S54: Smart download buttons)
 - Settings > Downloads > Download buttons > Button mode: Smart (default), Grabber only, Native only, Manual.
   - Smart: one Grabber button per page (tap opens the Files detected panel), the Grabber button on video players and the extra native button are off, and the in-page video button hides itself while the Grabber button is showing on that page, so buttons never pile up.

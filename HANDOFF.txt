@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.59 (S55: manga pages block in the native panel, see the S55 note at the end; before: S54: Smart download buttons)
+
 CURRENT VERSION 0.0.58 (S54: Smart download buttons, see the S54 note at the end; before: S53: V77 tools in the native panel, see the S53 note at the end; before: S52: thumbnails + download quality, see the S52 note at the end; before: S51: download buttons on/off + Grabber button opens the panel + removed links kept, see the S51 note at the end; on top of 0.0.54 = S50d panel design pass).
 
 CURRENT VERSION 0.0.52 (S49: download folder, see the S49 note at the end).
@@ -260,3 +262,10 @@ LESSON (S18-S20): the attached build_gradle.kts was the OLD 0.0.20 file (no nati
 - S54 NOT tested (needs build + phone): build; first start after update = Smart and the single switches follow (existing users' showOverlay becomes OFF, native_btn OFF); mode dialog text fits at 360 px, dark + light; the in-page video button really hides while the Grabber pill is visible and comes back when the pill is gone (pill shows only when V77 found items); V77 pill / overlay appear and disappear at once after a mode change (storage.onChanged reaches content.js); Native-only mode: V77 menu item Media Grabber still works; engine not ready at the very first start (storageSet in try/catch: if it fails the switches keep old values but dl_mode says Smart: reopen Settings > Button mode and choose again).
 - S54 gaps: no per-site mode; the mode only changes the page buttons, not the menu items (Detected files / Media Grabber stay in the menu); Smart does not look at the number of items.
 - S55 NEXT (user decides): per-site button mode, native manga pages block, paste-links batch, Download all, S17 final check on a real phone.
+
+======== S55 note (0.0.59) ========
+Done: S0-S55. Current version 0.0.59.
+Changed: content.js (publishes mgNativeMg {url,t,has,n,site}; grab-pages takes msg.how; pill tap opens the native panel on manga pages) / background.js (new message grab-pages from native, forwards to the tab) / NativeBatch.kt (manga(), grab(), TOOLS entry Manga pages) / DetectedPanel.kt (mangaCard at the top of the list, in the list signature) / app/build.gradle.kts (0.0.59) / CHANGELOG.txt.
+Checks: node --check content.js + background.js OK; Kotlin braces/parens balance; Kotlin NOT compiled; UI NOT rendered (360/1280, dark/light).
+NOT tested (needs real use): card shows on a manga page after the page count appears; CBZ/ZIP/PDF/EPUB save; Read; Pick pages opens manga.html; pill tap on manga pages opens the native panel; episode video pages still open V77 panel.
+Next: paste-links batch + Download all in TOOLS (NEXT #2), per-site button mode, or fix from the first CI log.
