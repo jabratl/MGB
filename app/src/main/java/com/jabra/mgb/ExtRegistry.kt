@@ -20,7 +20,7 @@ import java.util.concurrent.Executors
  *    prefs mgb_exts, key "off" = set of disabled ids. New installs are enabled.
  *  - Folders whose name starts with "." are staging leftovers and are removed at init.
  *  - Nothing here runs extension code. S2+ read all()/enabled() and file().
- *  - Not done here on purpose: MV2 / nativeMessaging block (S8), per-extension storage wipe on remove (S3).
+ *  - Not done here on purpose: MV2 / nativeMessaging block is in prepareSync via ExtSafety (S8); per-extension storage wipe on remove (S3).
  */
 object ExtRegistry {
 
@@ -170,6 +170,7 @@ object ExtRegistry {
             }
             val id = crxId ?: idFromKey(man.optString("key")) ?: idFromText("name:" + man.optString("name"))
             val info = parse(id, base, man, false)
+            ExtSafety.blockReason(info)?.let { throw Exception(info.name + " was not added. " + it) } // S8: manifest v2 / nativeMessaging, staging is deleted below
             return Staged(info, get(id), stage, base)
         } catch (e: Throwable) {
             stage.deleteRecursively()

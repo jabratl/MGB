@@ -1,5 +1,19 @@
 HANDOFF_EXT (newest on top)
 
+== after S8b, version 0.0.102 ==
+Files: changed ExtRegistry.kt (prepareSync: ExtSafety.blockReason(info) -> throws, staging deleted by the existing catch), build.gradle.kts. ExtRegistry.kt now seen (S0 zip). Earlier S8 note "ExtRegistry.prepare still accepts such a file" is obsolete; ExtListScreen check is a second guard only. ExtRegistry.remove still does not wipe storage / call ExtApi.sync: callers do it (ExtListScreen).
+
+== after S8, version 0.0.101 ==
+Files: NEW ExtSafety.kt; changed ExtListScreen.kt, ExtScreen.kt, TabManager.kt, ExtBackground.kt, ContentInjector.kt, DiagRules.kt, DiagReport.kt, build.gradle.kts. ExtRegistry.kt NOT seen / NOT changed (S0 zip was not attached).
+- Block lives in ExtSafety.blockReason(info) (manifestVersion != 3, permission nativeMessaging), not in ExtRegistry.prepareSync. Enforced at: ExtListScreen.install (after prepare: discard + error dialog, before the permission dialog), ExtListScreen toggle (cannot turn on), ExtSafety.sweep(app) at ContentInjector.init (turns off an older blocked install via ExtRegistry.setEnabled). ExtRegistry.prepare / commit themselves still accept such a file: any NEW install caller must call ExtSafety.blockReason itself (or move the check into prepareSync later; ask for ExtRegistry.kt by name).
+- ExtSafety.proxyAllowed(xid, url) = host permission filter (enabled + hostPermissions + url-like permissions). Used by TabManager.shouldInterceptRequest (extension page in a tab: not allowed -> return null = normal load, same as ExtScreen window) and ExtScreen. V77 pages (extIdOf null) unchanged.
+- ExtScreen.onRenderProcessGone: installed extension window -> Diag.w ext, toast, dismiss, return true. Built-in pages: return false (as before). TabManager.onRenderProcessGone NOT changed (extension page in a tab still behaves like any tab).
+- Diag tag "ext" (new). Messages: "worker error" (console ERROR of a worker), "worker did not start" (load error / timeout), "worker parked", "extension page crashed", "blocked extension turned off", "install refused"; extra = extension name + detail. ExtBackground.log(id, line, diag = true): console WARNINGs stay in the engine log only.
+- DiagRules: Facts.extMsgs (last 10 min, lower case), rules88to92: ext-parked W, ext-nostart W, ext-page-crash W, ext-worker-error I, ext-blocked I. Fix button only "settings" (existing code). No extension name in finding text.
+- Add dialog: permText shows "Not supported: <reason>" for a blocked extension in the details dialog and a note for ExtSafety.ignored permissions (webRequest, downloads, offscreen, sidePanel, history, bookmarks, ...).
+- Known limits: blocked check does not look at optional_permissions (permissions.request returns false anyway); MV2 is refused by manifest_version only; an extension that is turned off by sweep stays installed (user can remove it); sweep runs once per app start; Diag rules only see events of the last 10 min; no Diag line for the list of installed extensions.
+- S9 todo: 360 / 410 / 1280 px, light + dark check of Settings > Extensions + dialogs; merge CHANGELOG_EXT / HANDOFF_EXT into CHANGELOG.txt / HANDOFF.txt; docs/PHONE_CHECK.txt group F; S17 check.
+
 == after S7, version 0.0.100 ==
 Files: changed HeaderModes.kt, EngineHost.kt, ExtApi.kt, ExtBackground.kt, ExtScreen.kt, TabManager.kt, assets/shim/chrome-shim.js, build.gradle.kts. DownloadsApi.kt NOT seen / NOT changed.
 - HeaderModes is per extension now. Maps sessionBy / dynamicBy / staticBy keyed by extension id (V77 = ContentInjector.EXT_ID, prefs key dnr_dynamic as before; installed = dnr_dynamic_<id>). The bridge handlers read c.extId, so one handler set serves V77 and every extension.

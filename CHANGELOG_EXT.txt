@@ -1,3 +1,11 @@
+0.0.102 (S8b) manifest v2 / nativeMessaging are refused inside ExtRegistry.prepare too (ExtRegistry.kt), so any caller is covered; ExtListScreen check stays as a second guard
+0.0.101 (S8) extension safety
+- NEW ExtSafety.kt: manifest v2 and nativeMessaging extensions are refused when added (message shows the reason, nothing is installed); an older install of such an extension is turned off at app start and cannot be turned on
+- Extension pages opened in a tab only use the CORS-free proxy (and their header rules) for sites in their host permissions, like extension windows already did
+- Crash isolation: if the render process of an installed extension window dies, only that window closes (before: the app could be killed); background workers were already isolated in S5
+- Add dialog says which permissions are accepted but do nothing in MGB yet (webRequest, downloads, ...)
+- Diagnose: new rules 88-92 (worker parked, worker did not start, extension window crashed, worker errors, extension refused / turned off)
+- ExtSafety.kt, ExtListScreen.kt, ExtScreen.kt, TabManager.kt, ExtBackground.kt, ContentInjector.kt, DiagRules.kt, DiagReport.kt
 0.0.100 (S7) declarativeNetRequest for installed extensions
 - Header rules (modifyHeaders) per extension: updateSessionRules / updateDynamicRules / getSessionRules / getDynamicRules, own list and own saved dynamic rules for every extension (the built-in extension is unchanged)
 - Static rulesets from manifest declarative_net_request.rule_resources, getEnabledRulesets / updateEnabledRulesets
