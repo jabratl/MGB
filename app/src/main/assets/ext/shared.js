@@ -4,6 +4,7 @@ const DEFAULTS = {
   enabled: true,
   showPill: true,          // floating button with item count
   showOverlay: true,       // button on top of <video> players
+  nativePanel: true,       // MGB S51: tapping the page button opens the native Files detected! panel (not for manga / episode pages)
   pillSide: 'right',
   pillTop: 45,             // % from top
   overlayCorner: 'tl',     // tl | tr

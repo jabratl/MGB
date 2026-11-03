@@ -37,9 +37,11 @@ object TabsApi {
     private val CONTENT_MSG = setOf(
         "batch-ask-answer", "batch-episodes", "batch-stop", "dom-items", "download-all", "dup-check",
         "get-state", "job-cancel", "job-pause", "job-remove", "jobs-get", "notify", "open-manga",
-        "open-options", "open-panel", "open-player", "play-scan", "reanalyze", "rescan",
+        "native-panel", "open-options", "open-panel", "open-player", "play-scan", "reanalyze", "rescan",
         "schedule-job", "site-probe", "start-job", "subs-all", "subs-capture", "video-info", "whoami"
     )
+
+    var onNativePanel: (() -> Unit)? = null // MGB S51: set by MainActivity
 
     fun attach(t: TabManager?) { tm = t }
 
@@ -185,6 +187,7 @@ object TabsApi {
             if (c.ctx.kind == ChromeBridge.Kind.CONTENT) {
                 val type = (msg as? JSONObject)?.optString("type") ?: ""
                 if (type !in CONTENT_MSG) { c.fail("Not allowed: message type"); return@handle }
+                if (type == "native-panel") { ui { onNativePanel?.invoke() }; c.ok(null); return@handle } // MGB S51: handled here, never forwarded
             }
             val targets = ChromeBridge.contexts().filter {
                 it.kind == ChromeBridge.Kind.EXT && it !== c.ctx && listens(it, "runtime.onMessage")

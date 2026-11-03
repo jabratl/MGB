@@ -59,6 +59,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         tabs = TabManager(this, findViewById<FrameLayout>(R.id.web_container), this)
         TabsApi.attach(tabs)
         BookmarksScreen.tabsRef = tabs // S25
+        TabsApi.onNativePanel = { floating.openSheet() } // MGB S51: Grabber page button -> Files detected! panel
         tabs.onHomeSearch = { // S28
             urlBar.requestFocus()
             urlBar.selectAll()
@@ -306,6 +307,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         DownloadsScreen.closeAll() // S12
         BookmarksScreen.closeAll() // S13
         BookmarksScreen.tabsRef = null // S25
+        TabsApi.onNativePanel = null // MGB S51
         FindBar.close() // S21
         tabs.destroyAll()
         TabsApi.attach(null)

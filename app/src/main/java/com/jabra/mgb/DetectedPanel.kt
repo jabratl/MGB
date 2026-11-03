@@ -67,7 +67,37 @@ object DetectedPanel {
 
     private val main = Handler(Looper.getMainLooper())
     private val pool = Executors.newFixedThreadPool(2)
-    private val removed = HashMap<Int, HashSet<String>>()          // tab id -> keys the user removed from the list
+    private val removed = HashMap<Int, HashSet<String>>()          // tab id -> keys the user removed from the list (this run)
+    private var rmSaved: LinkedHashSet<String>? = null              // S51: removed keys kept across restarts (prefs mgb_detected, rm_keys, max 1000)
+    private const val RM_MAX = 1000
+
+    private fun rmLoad(ctx: android.content.Context): LinkedHashSet<String> {
+        rmSaved?.let { return it }
+        val s = LinkedHashSet<String>()
+        try {
+            val a = org.json.JSONArray(ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getString("rm_keys", "[]"))
+            for (i in 0 until a.length()) s.add(a.optString(i))
+        } catch (e: Exception) { /* start empty */ }
+        rmSaved = s
+        return s
+    }
+
+    private fun rmAdd(ctx: android.content.Context, key: String) {
+        val s = rmLoad(ctx)
+        s.remove(key); s.add(key)
+        while (s.size > RM_MAX) { val it = s.iterator(); it.next(); it.remove() }
+        val a = org.json.JSONArray()
+        for (k in s) a.put(k)
+        ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().putString("rm_keys", a.toString()).apply()
+    }
+
+    fun rmCount(ctx: android.content.Context): Int = rmLoad(ctx).size
+
+    fun rmForget(ctx: android.content.Context) {
+        rmLoad(ctx).clear()
+        removed.clear()
+        ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().remove("rm_keys").apply()
+    }
     private val metaCache = ConcurrentHashMap<String, Meta>()
     private val probing: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
@@ -373,7 +403,7 @@ object DetectedPanel {
         }
 
         private fun dp(v: Int) = Util.dp(act, v)
-        private fun removedKeys(): Set<String> = removed[tabId] ?: emptySet()
+        private fun removedKeys(): Set<String> = (removed[tabId] ?: emptySet<String>()) + rmLoad(act) // S51: + kept across restarts
 
         private fun round(color: Int, r: Int) = GradientDrawable().apply { setColor(color); cornerRadius = dp(r).toFloat() }
 
@@ -917,6 +947,7 @@ object DetectedPanel {
 
         private fun remove(e: DItem) {
             removed.getOrPut(tabId) { HashSet() }.add(e.key)
+            rmAdd(act, e.key) // S51
             selected.remove(e.key)
             sig = ""
             render()

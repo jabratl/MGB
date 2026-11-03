@@ -383,6 +383,12 @@ object SettingsScreen {
         private fun hideBar(): Boolean =
             act.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE).getBoolean("hide_bar", false)
 
+        // MGB S51: V77 settings (chrome.storage.sync) read / written from native
+        private fun v77On(key: String, def: Boolean): Boolean =
+            try { ChromeBridge.sync.get(key).optBoolean(key, def) } catch (e: Exception) { def }
+
+        private fun v77Set(key: String, v: Boolean) { ChromeBridge.storageSet("sync", org.json.JSONObject().put(key, v)) }
+
         private fun nativeBtn(): Boolean =
             act.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE).getBoolean("native_btn", false)
 
@@ -468,6 +474,27 @@ object SettingsScreen {
                 Row(R.drawable.ic_play, "Background audio in player", if (PlayerService.on(act)) "ON" else "OFF") { // S45
                     PlayerService.setOn(act, !PlayerService.on(act))
                     fill()
+                },
+                Sub("Download buttons (turn off what you do not need)"), // MGB S51
+                Row(R.drawable.ic_download, "Grabber button on pages", if (v77On("showPill", true)) "ON" else "OFF") {
+                    v77Set("showPill", !v77On("showPill", true))
+                    Util.toast(act, "Applies at once on open pages")
+                    fill()
+                },
+                Row(R.drawable.ic_download, "Grabber button opens Files detected panel", if (v77On("nativePanel", true)) "ON" else "OFF") {
+                    v77Set("nativePanel", !v77On("nativePanel", true))
+                    fill()
+                },
+                Row(R.drawable.ic_play, "Grabber button on video players", if (v77On("showOverlay", true)) "ON" else "OFF") {
+                    v77Set("showOverlay", !v77On("showOverlay", true))
+                    Util.toast(act, "Reload the page")
+                    fill()
+                },
+                Row(R.drawable.ic_trash, "Forget removed links", "${DetectedPanel.rmCount(act)} saved") {
+                    confirm("Show every link you removed from the Files detected list again?", "Forget") {
+                        DetectedPanel.rmForget(act)
+                        fill()
+                    }
                 },
                 Row(R.drawable.ic_download, "Extra native download button", if (nativeBtn()) "ON" else "OFF") {
                     prefs.edit().putBoolean("native_btn", !nativeBtn()).apply()

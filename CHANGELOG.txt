@@ -1,3 +1,8 @@
+MGB 0.0.55 (S51: download buttons on/off, Grabber button opens the new panel, removed links remembered)
+- The Grabber button on pages (V77) now opens the "Files detected!" panel when you tap it. Manga / episode pages keep the old list (batch tools). Turn this off in Settings > Downloads > Download buttons.
+- Settings > Downloads > Download buttons: separate ON / OFF for the Grabber button on pages, "opens Files detected panel", the Grabber button on video players, the video button (in-page) and the extra native button, so duplicates can be switched off.
+- Links you remove from the Files detected list stay removed after reload and app restart (max 1000). Settings > Downloads > Forget removed links brings them back.
+
 MGB 0.0.54 (S50d: Files detected! panel, new look)
 - Same panel and same features, redesigned to match the browser (quiet sheet, rounded cards, rose accent).
 - Each file is a card: a type tile (HLS / MP4 / MP3 / SRT ...) that turns into a rose tick when selected, name, size / resolution / duration, audio info ("No audio" in orange), Experimental / LIVE / DRM tags, source link. Tap = select, long press or the 3 dots = menu.

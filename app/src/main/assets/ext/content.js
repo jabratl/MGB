@@ -1126,7 +1126,8 @@ document.documentElement.append(pillHost);
         const side = (drag.x2 || innerWidth) < innerWidth / 2 ? 'left' : 'right';
         const top = Math.round((parseFloat(pill.style.top) / innerHeight) * 100);
         try { chrome.storage.sync.set({ pillSide: side, pillTop: top }); } catch (e) { /* ignore */ }
-      } else setOpen(!open);
+      } else if (S.nativePanel !== false && !open && visible().length && !(mangaN >= 3 || siteTask || chapters.length)) send({ type: 'native-panel' }); // MGB S51
+      else setOpen(!open);
       drag = null;
     });
 
