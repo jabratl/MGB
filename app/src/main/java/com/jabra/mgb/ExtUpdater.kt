@@ -77,7 +77,7 @@ object ExtUpdater {
 
     // ---------- serving (used by ContentInjector and EngineHost) ----------
 
-    private fun safeFile(d: File, rel: String): File? {
+    internal fun safeFile(d: File, rel: String): File? { // S0: reused by ExtRegistry
         if (rel.isEmpty() || rel.contains("..") || rel.contains('\\')) return null
         val f = File(d, rel)
         return if (f.isFile && f.canonicalPath.startsWith(d.canonicalPath + File.separator)) f else null
@@ -268,7 +268,7 @@ object ExtUpdater {
         }
     }
 
-    private fun unzip(zip: File, dest: File) {
+    internal fun unzip(zip: File, dest: File) { // S0: reused by ExtRegistry
         val base = dest.canonicalPath + File.separator
         var total = 0L
         var count = 0

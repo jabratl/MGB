@@ -1,0 +1,20 @@
+HANDOFF_EXT (newest on top)
+
+== after S0, version 0.0.93 ==
+API (object ExtRegistry, package com.jabra.mgb):
+- init(ctx)  call once before use (idempotent). Cleans .stage_*/.old_* folders.
+- all() / enabled() / get(id) -> Info(id,name,version,manifestVersion,description,permissions,hostPermissions,
+  contentScriptCount,popup,options,background,enabled,dir)
+- prepare(ctx, uri, cb: (Result<Staged>) -> Unit)   uri from file picker; cb on main thread; Staged.info / Staged.existing (update?)
+- commit(staged, cb: (Result<Info>) -> Unit) / discard(staged)   always call one of them after a successful prepare
+- setEnabled(id, on), remove(id), file(id, rel) (safe path), isValidId(id)
+Storage: filesDir/exts/<id>/ ; enabled flag = prefs "mgb_exts" key "off" (set of disabled ids). Not inside ext folder.
+Notes for next steps:
+- S1: picker = ActivityResultContracts.OpenDocument with mime "application/zip","application/x-chrome-extension","application/octet-stream"
+  (.crx mime is unreliable). Show Staged.info permissions + hostPermissions in dialog, then commit or discard.
+- S3: remove() does NOT wipe per-extension storage yet; add the wipe there when storage exists.
+- S8: MV2 / nativeMessaging are parsed (manifestVersion, permissions) but NOT blocked yet. Block in prepareSync.
+- Backup.kt not touched: backup is JSON-based, files/exts not included (decide later if wanted).
+- ExtUpdater hot-update dir (files/ext_hot) is separate from files/exts; no clash.
+- manifest __MSG_x__ names resolved from _locales (default_locale, then en) only.
+- Zip limits come from ExtUpdater.unzip: 2000 files, 64 MB unpacked; paths containing ".." are rejected (even "a..b.js").

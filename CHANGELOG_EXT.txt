@@ -1,0 +1,6 @@
+0.0.93 (S0) multi-extension foundation
+- NEW ExtRegistry.kt: install (.zip / .crx) into files/exts/<id>/, manifest parse, id, enable flag, remove
+- .crx header cut (CRX2 + CRX3); Chrome id from crx header, else manifest "key", else hash of name
+- two-phase install: prepare (unpack to hidden .stage_*, read manifest) -> commit / discard (for S1 permission dialog)
+- ExtUpdater.kt: safeFile + unzip made internal (reused, logic unchanged)
+- No UI yet, nothing calls ExtRegistry yet (S1 does), so app behaviour is unchanged
