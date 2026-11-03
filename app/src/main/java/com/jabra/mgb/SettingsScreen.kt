@@ -458,6 +458,9 @@ object SettingsScreen {
                     fill()
                 },
                 Sub("Detected files"), // S50
+                Row(R.drawable.ic_download, "Download quality (auto select)", DetectedPanel.maxQLabel()) { // S52: V77 maxHeight
+                    DetectedPanel.maxQDialog(act) { fill() }
+                },
                 Row(R.drawable.ic_download, "Convert .ts to .mp4", if (DetectedPanel.convertOn()) "ON" else "OFF") {
                     DetectedPanel.convertDialog(act) { fill() }
                 },

@@ -1,3 +1,7 @@
+MGB 0.0.56 (S52: thumbnails + download quality)
+- Files detected panel: video rows show a small picture instead of only the format tag. Plain video files: a real frame (about 1 s in). HLS / DASH: the page poster, only when the page has exactly one video (so two streams never get the same wrong picture). The picture appears by itself a moment after the list opens; selecting a row shows the tick as before.
+- Settings > Downloads > Detected files > Download quality (auto select): Best available / up to 1080p / 720p / 480p / 360p. It sets the Media Grabber "preferred max video quality", so DOWNLOAD (n), Best and Download all pick the best stream under the limit (the lowest one if nothing is under it). The quality sheet of a stream shows "Auto (up to 720p)" in the first row.
+
 MGB 0.0.55 (S51: download buttons on/off, Grabber button opens the new panel, removed links remembered)
 - The Grabber button on pages (V77) now opens the "Files detected!" panel when you tap it. Manga / episode pages keep the old list (batch tools). Turn this off in Settings > Downloads > Download buttons.
 - Settings > Downloads > Download buttons: separate ON / OFF for the Grabber button on pages, "opens Files detected panel", the Grabber button on video players, the video button (in-page) and the extra native button, so duplicates can be switched off.

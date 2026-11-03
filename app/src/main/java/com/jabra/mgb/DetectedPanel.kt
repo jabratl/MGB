@@ -7,7 +7,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.animation.ValueAnimator
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.media.MediaMetadataRetriever
+import android.view.ViewOutlineProvider
 import android.os.Build
 import android.view.HapticFeedbackConstants
 import android.view.WindowManager
@@ -231,6 +235,95 @@ object DetectedPanel {
         }
     }
 
+    // ---------- S52: thumbnails + quality cap ----------
+
+    private val thumbCache = android.util.LruCache<String, Bitmap>(60)
+    private val thumbTried: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    private val thumbPool = Executors.newFixedThreadPool(2)
+
+    private fun scaleDown(b: Bitmap, maxSide: Int): Bitmap {
+        val m = maxOf(b.width, b.height)
+        if (m <= maxSide || m <= 0) return b
+        val f = maxSide.toFloat() / m
+        return Bitmap.createScaledBitmap(b, maxOf(1, (b.width * f).toInt()), maxOf(1, (b.height * f).toInt()), true)
+    }
+
+    /** One frame (about 1 s in) of a plain http video file. Streams (HLS / DASH) have no readable frame here. */
+    private fun frameOf(url: String, ref: String?, ua: String?): Bitmap? {
+        val r = MediaMetadataRetriever()
+        try {
+            val hd = HashMap<String, String>()
+            if (!ref.isNullOrEmpty()) hd["Referer"] = ref
+            if (!ua.isNullOrEmpty()) hd["User-Agent"] = ua
+            try { CookieManager.getInstance().getCookie(url)?.let { hd["Cookie"] = it } } catch (e: Exception) { }
+            r.setDataSource(url, hd)
+            val b = r.getFrameAtTime(1_000_000L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC) ?: return null
+            return scaleDown(b, 160)
+        } catch (e: Exception) {
+            return null
+        } finally {
+            try { r.release() } catch (e: Exception) { }
+        }
+    }
+
+    /** The page poster image (V77 hint.poster), max 2 MB, scaled to a small picture. */
+    private fun posterOf(url: String, ref: String?, ua: String?): Bitmap? {
+        try {
+            val c = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+            c.connectTimeout = 8000
+            c.readTimeout = 8000
+            if (!ref.isNullOrEmpty()) c.setRequestProperty("Referer", ref)
+            if (!ua.isNullOrEmpty()) c.setRequestProperty("User-Agent", ua)
+            try { CookieManager.getInstance().getCookie(url)?.let { c.setRequestProperty("Cookie", it) } } catch (e: Exception) { }
+            if (c.contentLength > 2_000_000) return null
+            val bytes = c.inputStream.use { it.readBytes() }
+            if (bytes.isEmpty() || bytes.size > 2_000_000) return null
+            val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)
+            var ss = 1
+            while (o.outWidth / (ss * 2) >= 320 && o.outHeight / (ss * 2) >= 320) ss *= 2
+            val b = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = ss }) ?: return null
+            return scaleDown(b, 160)
+        } catch (e: Exception) {
+            return null
+        }
+    }
+
+    /** Video rows get a small picture: a real frame for plain files, else the page poster (only if the page has ONE video). */
+    private fun ensureThumb(e: DItem, poster: String, ref: String?, ua: String?, done: (Bitmap) -> Unit) {
+        if (e.group != "video" || !e.url.startsWith("http") || thumbCache.get(e.url) != null) return
+        if (!thumbTried.add(e.url)) return
+        thumbPool.execute {
+            var b: Bitmap? = if (e.kind == "video") frameOf(e.url, ref, ua) else null
+            if (b == null && poster.startsWith("http")) b = posterOf(poster, ref, ua)
+            if (b != null) {
+                thumbCache.put(e.url, b)
+                main.post { done(b) }
+            }
+        }
+    }
+
+    /** Max video height for \"best\" = the V77 setting maxHeight (0 = highest). Used by every download that says best, also DOWNLOAD (n). */
+    fun maxQ(): Int = try { ChromeBridge.sync.get("maxHeight").optInt("maxHeight", 0) } catch (e: Exception) { 0 }
+
+    fun maxQLabel(): String = maxQ().let { if (it > 0) "up to ${it}p" else "Best available" }
+
+    fun maxQDialog(act: Activity, done: () -> Unit) {
+        val vals = intArrayOf(0, 1080, 720, 480, 360)
+        val names = arrayOf("Best available", "Up to 1080p", "Up to 720p", "Up to 480p", "Up to 360p")
+        val cur = vals.indexOf(maxQ()).let { if (it < 0) 0 else it }
+        MaterialAlertDialogBuilder(act)
+            .setTitle("Download quality")
+            .setSingleChoiceItems(names, cur) { d, i ->
+                ChromeBridge.storageSet("sync", JSONObject().put("maxHeight", vals[i]))
+                Util.toast(act, "Quality: " + names[i])
+                d.dismiss()
+                done()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     private fun ensureMeta(e: DItem, ref: String?, ua: String?, changed: () -> Unit) {
         if (e.kind != "video" && e.kind != "audio") return
         if (!e.url.startsWith("http") || metaCache.containsKey(e.url)) return
@@ -318,7 +411,9 @@ object DetectedPanel {
         val ua = t.web.settings.userAgentString
         EngineApi.ask(JSONObject().put("type", "get-state").put("tabId", tabId)) { r ->
             if (r == null) { Util.toast(act, "Media Grabber is not ready yet"); return@ask }
-            Panel(act, tabId, ref, ua, tabs, itemsOf(r)).show()
+            val p = Panel(act, tabId, ref, ua, tabs, itemsOf(r))
+            p.poster = r.optJSONObject("rec")?.optJSONObject("hint")?.optString("poster") ?: "" // S52
+            p.show()
         }
     }
 
@@ -364,6 +459,8 @@ object DetectedPanel {
         private lateinit var chipScroll: HorizontalScrollView
         private lateinit var dlWrap: View
         private val rowUpd = HashMap<String, () -> Unit>()
+        private val thumbUpd = HashMap<String, (Bitmap) -> Unit>() // S52: row key -> set picture
+        var poster: String = "" // S52: page poster (V77 hint.poster), set by open()
         private var firstDraw = true
         private var lastSel = ""
         private var chipSig = ""
@@ -596,6 +693,8 @@ object DetectedPanel {
             selected.retainAll(keysNow)
             for (e in all) ensureMeta(e, ref, ua) { render() }
             visible = sorted(all.filter { passes(it, filter, rk) })
+            val vidsN = all.count { it.group == "video" && !it.j.optBoolean("hidden", false) && it.key !in rk }
+            for (e in visible.take(30)) ensureThumb(e, if (vidsN == 1) poster else "", ref, ua) { b -> thumbUpd[e.key]?.invoke(b) } // S52
             val shownKeys = visible.joinToString(",") { it.key + ":" + sizeOf(it).first + ":" + (metaCache[it.url]?.hasAudio ?: "?") + ":" + it.info.optDouble("dur", 0.0) }
             val s = shownKeys + "|" + sort + "|" + filter.active() // selection is NOT part of it: rows repaint themselves
             title.text = "Files detected!"
@@ -612,6 +711,7 @@ object DetectedPanel {
             val keep = list.parent?.let { (it as? ScrollView)?.scrollY } ?: 0
             list.removeAllViews()
             rowUpd.clear()
+            thumbUpd.clear()
             if (visible.isEmpty()) {
                 list.addView(emptyView())
             } else {
@@ -753,12 +853,20 @@ object DetectedPanel {
             }
             // type tile: shows the format; turns into a rose tick when selected
             val tile = FrameLayout(act)
+            val img = ImageView(act).apply { // S52: thumbnail under the tag
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                background = round(cTile, 14)
+                outlineProvider = ViewOutlineProvider.BACKGROUND
+                clipToOutline = true
+                visibility = View.GONE
+            }
             val tag = tv(tagOf(e).take(5), 10f, cText, 1, true).apply { gravity = Gravity.CENTER; ellipsize = null }
             val tick = ImageView(act).apply {
                 setImageResource(R.drawable.ic_check)
                 setColorFilter(cOnPrimary)
                 scaleType = ImageView.ScaleType.CENTER
             }
+            tile.addView(img, FrameLayout.LayoutParams(MATCH, MATCH))
             tile.addView(tag, FrameLayout.LayoutParams(MATCH, MATCH))
             tile.addView(tick, FrameLayout.LayoutParams(MATCH, MATCH))
             val kt = kindTint(e)
@@ -771,10 +879,19 @@ object DetectedPanel {
                 }
                 tile.background = round(if (on) cPrimary else ColorUtils.blendARGB(cTile, kt, 0.32f), 14)
                 tag.visibility = if (on) View.INVISIBLE else View.VISIBLE
+                val hasT = img.drawable != null // S52
+                img.visibility = if (hasT && !on) View.VISIBLE else View.GONE
+                tag.setTextColor(if (hasT && !on) Color.WHITE else cText)
                 tick.visibility = if (on) View.VISIBLE else View.GONE
             }
+            fun setThumb(b: Bitmap) { // S52
+                img.setImageBitmap(b)
+                tag.setShadowLayer(4f, 0f, 0f, 0xDD000000.toInt())
+            }
+            thumbCache.get(e.url)?.let { setThumb(it) }
             paint()
             rowUpd[e.key] = { paint() }
+            thumbUpd[e.key] = { b -> setThumb(b); paint() }
             card.setOnClickListener {
                 if (e.drm) { toast("DRM protected: cannot be downloaded"); return@setOnClickListener }
                 if (!selected.add(e.key)) selected.remove(e.key)
@@ -873,7 +990,7 @@ object DetectedPanel {
             if (e.isStream && v != null && v.length() > 0) {
                 val names = ArrayList<String>()
                 val vals = ArrayList<String>()
-                names.add("Best quality (auto)"); vals.add("best")
+                names.add(if (maxQ() > 0) "Auto (" + maxQLabel() + ")" else "Best quality (auto)"); vals.add("best")
                 val dur = e.info.optDouble("dur", 0.0)
                 for (i in 0 until minOf(v.length(), 10)) {
                     val q = v.optJSONObject(i) ?: continue
