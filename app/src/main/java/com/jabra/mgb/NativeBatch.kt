@@ -90,12 +90,15 @@ object NativeBatch {
     }
 
     // ---- S58: batch options (quality = V77 maxHeight, if missing = batch-episodes miss, parallel = V77 batchParallel) ----
-    private val MISS = arrayOf("near", "low", "high", "skip")
-    private val MISS_NAMES = arrayOf("Closest quality", "Lower quality", "Higher quality", "Skip the episode")
+    private val MISS = arrayOf("near", "low", "high", "ask", "skip")
+    private val MISS_NAMES = arrayOf("Closest quality", "Lower quality", "Higher quality", "Ask me for each episode", "Skip the episode")
 
     private fun prefs(c: android.content.Context) = c.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE)
     private fun missOf(c: android.content.Context): String = (prefs(c).getString("nb_miss", "near") ?: "near").let { if (it in MISS) it else "near" }
     private fun parOf(): Int = try { ChromeBridge.sync.get("batchParallel").optInt("batchParallel", 1).coerceIn(1, 4) } catch (e: Exception) { 1 }
+    private fun boolOf(k: String, def: Boolean): Boolean = try { ChromeBridge.sync.get(k).optBoolean(k, def) } catch (e: Exception) { def }
+    private fun intOf(k: String, def: Int): Int = try { ChromeBridge.sync.get(k).optInt(k, def) } catch (e: Exception) { def }
+    private fun delayText(): String = intOf("requestDelayMs", 0).let { if (it <= 0) "None" else (it / 1000f).toString().removeSuffix(".0") + " s" }
     private fun qOf(): String = DetectedPanel.maxQ().let { if (it > 0) "up to ${it}p" else "Best" }
 
     fun optionsText(act: Activity): String =
@@ -111,7 +114,9 @@ object NativeBatch {
         val items = arrayOf(
             "Video quality:  " + qOf(),
             "If the quality is missing:  " + MISS_NAMES[MISS.indexOf(missOf(act))],
-            "Episodes searched at the same time:  " + parOf()
+            "Episodes searched at the same time:  " + parOf(),
+            "Skip chapters already downloaded:  " + (if (boolOf("skipDone", true)) "On" else "Off"),
+            "Pause between page requests:  " + delayText()
         )
         val again = { changed(); batchOptions(act, changed) }
         MaterialAlertDialogBuilder(act).setTitle("Batch options")
@@ -125,14 +130,20 @@ object NativeBatch {
                     }
                     1 -> choice(act, "If the quality is missing", MISS_NAMES, MISS.indexOf(missOf(act)),
                         { k -> prefs(act).edit().putString("nb_miss", MISS[k]).apply() }, again)
-                    else -> choice(act, "Episodes at the same time", arrayOf("1 (in order, safest)", "2", "3", "4"), parOf() - 1,
+                    2 -> choice(act, "Episodes at the same time", arrayOf("1 (in order, safest)", "2", "3", "4"), parOf() - 1,
                         { k -> ChromeBridge.storageSet("sync", JSONObject().put("batchParallel", k + 1)) }, again)
+                    3 -> { ChromeBridge.storageSet("sync", JSONObject().put("skipDone", !boolOf("skipDone", true))); again() }
+                    else -> {
+                        val dv = intArrayOf(0, 500, 1000, 2000, 5000)
+                        choice(act, "Pause between page requests", arrayOf("None", "0.5 s", "1 s", "2 s", "5 s"), dv.indexOf(intOf("requestDelayMs", 0)).let { if (it < 0) 0 else it },
+                            { k -> ChromeBridge.storageSet("sync", JSONObject().put("requestDelayMs", dv[k])) }, again)
+                    }
                 }
             }
             .setPositiveButton("Done") { _, _ -> changed() }.show()
     }
 
-    fun tools(act: Activity, tabId: Int, ref: String, subCount: Int, shownCount: Int, downloadAll: (() -> Unit)?, closePanel: () -> Unit) {
+    fun tools(act: Activity, tabId: Int, ref: String, subCount: Int, shownCount: Int, downloadAll: (() -> Unit)?, shownJobs: () -> List<JSONObject>, openUrl: (String) -> Unit, closePanel: () -> Unit) {
         val f = found(ref)
         val mg = manga(ref)
         val names = ArrayList<String>()
@@ -144,6 +155,8 @@ object NativeBatch {
         names.add("Subtitles and file names"); runs.add { SubName.open(act) } // S59
         names.add("Download engine (speed, retries, limits)"); runs.add { DlEngine.open(act) } // S60
         names.add("Paste links (batch)"); runs.add { pasteLinks(act, tabId, ref) } // S56
+        names.add(Follow.label(ref)); runs.add { Follow.open(act, ref, f, openUrl) } // S61
+        names.add(Sched.label()); runs.add { Sched.open(act, shownJobs) } // S61
         if (subCount > 0) { names.add("All subtitles of this page ($subCount)"); runs.add { subFormat(act, tabId) } }
         names.add("Subtitles from the player"); runs.add { subsCapture(act, tabId) }
         names.add("Play and scan (find hidden videos)"); runs.add {
@@ -324,9 +337,51 @@ object NativeBatch {
         upd()
 
         val rows = HashMap<String, TextView>()
+        var askShown = ""
+        var askBusy = false
+        fun askQuality(q: JSONObject) {
+            val id = q.optString("id")
+            val want = q.optInt("want", 0)
+            val av = q.optJSONArray("avail")
+            val hs = ArrayList<Int>()
+            if (av != null) for (i in 0 until av.length()) hs.add(av.optInt(i))
+            hs.sortWith(compareBy({ Math.abs(it - want) }, { it }))
+            askBusy = true
+            askShown = id
+            val rest = booleanArrayOf(false)
+            fun answer(h: Int) {
+                askBusy = false
+                val mode = if (!rest[0]) "" else if (h == 0) "skip" else if (h < want) "low" else "high"
+                EngineApi.send(JSONObject().put("type", "batch-ask-answer").put("id", id).put("h", h).put("mode", mode))
+            }
+            val pad = Util.dp(act, 20)
+            val box = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(pad, Util.dp(act, 8), pad, 0) }
+            val group = android.widget.RadioGroup(act)
+            val vals = ArrayList<Int>()
+            hs.forEachIndexed { i, h ->
+                group.addView(android.widget.RadioButton(act).apply { text = h.toString() + "p"; id = 1000 + i; setTextColor(act.getColor(R.color.mg_text)) })
+                vals.add(h)
+            }
+            group.addView(android.widget.RadioButton(act).apply { text = "Skip this episode"; id = 1000 + hs.size; setTextColor(act.getColor(R.color.mg_text)) })
+            vals.add(0)
+            group.check(1000)
+            box.addView(group)
+            val same = CheckBox(act).apply { text = "Do the same for the rest of this batch"; setTextColor(act.getColor(R.color.mg_text_dim)) }
+            box.addView(same)
+            MaterialAlertDialogBuilder(act).setTitle(q.optString("label") + ": " + want + "p is not available")
+                .setView(box)
+                .setCancelable(false)
+                .setPositiveButton("OK") { _, _ ->
+                    rest[0] = same.isChecked
+                    answer(vals.getOrElse(group.checkedRadioButtonId - 1000) { 0 })
+                }
+                .show()
+        }
         fun pollOnce(picks: List<Ep>) {
             val b = try { ChromeBridge.local.get("mgBatchLive").optJSONObject("mgBatchLive") } catch (e: Exception) { null } ?: return
             if (b.optInt("tab", -1) != tabId) return
+            val q = b.optJSONObject("ask") // S61: "Ask me" quality question
+            if (q != null && q.optString("id") != askShown && !askBusy) askQuality(q)
             val total = b.optInt("total", picks.size)
             status.text = b.optString("text") + "   (" + b.optInt("ok", 0) + "/" + total + ")"
             val eps = b.optJSONObject("eps")

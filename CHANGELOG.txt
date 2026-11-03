@@ -1,3 +1,9 @@
+MGB 0.0.65 (S61: ask per episode, Follow manga, schedule, chapter batch options in the native panel)
+- Episodes / chapters batch > Batch options: "If the quality is missing" now has "Ask me for each episode". A question box shows the heights that episode has, with "Do the same for the rest of this batch" (answers V77 batch-ask).
+- Batch options also: Skip chapters already downloaded (V77 skipDone) and Pause between page requests (V77 requestDelayMs).
+- Panel > TOOLS > Followed manga: follow / unfollow this chapter list, Check now, check interval (never ... every 2 days), list with new-chapter count, Open, Mark read, Unfollow. Same data as the V77 follow page.
+- Panel > TOOLS > Scheduled downloads: pick a time for all files shown now (best quality), list of scheduled jobs with Cancel. Live HLS streams record until "Stop recording after" (Download engine).
+
 MGB 0.0.64 (S60: download engine options in the native panel)
 - Panel > TOOLS > Download engine: one screen for the V77 engine settings.
   - Speed: downloads at the same time, parts at the same time, speed limit, pause between page requests.

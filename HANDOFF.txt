@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.65 (S61: ask per episode + Follow manga + schedule, see the S61 note at the end; before: S60)
+
 CURRENT VERSION 0.0.64 (S60: download engine options, see the S60 note at the end; before: S59)
 
 CURRENT VERSION 0.0.63 (S59: subtitle options + file names, see the S59 note at the end; before: S58)
@@ -312,3 +314,9 @@ Checks: Kotlin braces/parens balance; NOT compiled; UI NOT rendered at 360/1280 
 NOT tested: each row writes the V77 key and V77 uses it; values set in V77 options stay in the list.
 Still missing natively: ask-per-episode quality (miss=ask), schedule job, Follow manga, manga pages options (siteFormats, per-site rules), site modules switch, native UI for queue / history pages (V77 pages still used).
 Next: S61 = Follow manga + schedule job in TOOLS (or fix from the first CI log).
+
+======== S61 note (0.0.65) ========
+Changed: Follow.kt (NEW: storage.local mgFollow, V77 follow-check, followHours) / Sched.kt (NEW: storage.local mgSched, V77 schedule-job + sched-cancel) / NativeBatch.kt (MISS has "ask"; ask dialog from mgBatchLive.ask answered with batch-ask-answer {id,h,mode}; batch options skipDone + requestDelayMs; tools() takes shownJobs + openUrl; TOOLS entries Followed manga + Scheduled downloads) / DetectedPanel.kt (tools call passes shownJobs + openUrl) / build.gradle.kts / CHANGELOG.txt. No JS change.
+Checks: Kotlin braces/parens balance (DetectedPanel paren +1 is old); Kotlin NOT compiled; UI NOT rendered.
+NOT tested: ask dialog appears while the batch runs (V77 also shows its own box in the page: first answer wins); Follow list + Check now; schedule alarm really fires in the shim (chrome.alarms) and job starts; time picker; Cancel.
+Still missing natively: manga pages options (siteFormats, per-site rules), site modules switch, native queue / history pages.
