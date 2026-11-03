@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.81 (S78: favicons in Bookmarks / History, see the S78 note at the end; before: S77)
+
 CURRENT VERSION 0.0.80 (S77: group panel overlay + reorder, see the S77 note at the end; before: S76)
 
 CURRENT VERSION 0.0.79 (S76: switcher menu rows, see the S76 note at the end; before: S75)
@@ -483,3 +485,11 @@ Checks: Kotlin braces/parens balance = 0; all R.color / R.drawable used exist; N
 NOT tested (needs real use): build first (cornerRadii float arrays, listOf<View>, emptySet<Int>() in the when branch); panel look in dark + light (scrim strength, panel colour vs card colour mg_surface: cards may blend into the panel, if so use mg_surface_variant for the panel); grow animation from the tapped group card (pivot maths uses rootV screen position); panel with search / select mode; drag a tab onto another tab inside a group = reorder, drop on empty space settles back; order survives force-stop + restart (exportGroups keeps set order); undo bar and drop zone still sit inside the panel body.
 Could break: while the panel is open the bottom pill bar stays full width under the scrim; a tab dropped on a tab card of the group list view of mode 0 still makes a new group (unchanged).
 Brave recording: all items are done now. Still open elsewhere (older NEXT lists): in-page video buttons inside iframes, MediaSession for background audio, favicons in Bookmarks / History lists, S17 final check on a real phone.
+
+======== S78 note (0.0.81) ========
+Goal (user): favicons in the Bookmarks / History lists (old NEXT item).
+Changed: Favicons.kt (fetch(host, done): one https://<host>/favicon.ico try per host per run, waiters map so many rows of one host all update, pool of 2 threads, 300 KB cap, budget 150 hosts per run, host regex, save() then main-thread callbacks; clear() also resets tried) / BookmarksScreen.kt (favTile(url) = 34 dp tile, hue tint from host + letter, icon from Favicons.get or fetch; row() adds it after the select check box) / app/build.gradle.kts (0.0.81) / CHANGELOG.txt / HANDOFF.txt. The zip also holds TabSwitcher.kt (S75-S77 changes), so it works alone. No layout, no JS change.
+Checks: Kotlin braces/parens balance = 0 on both .kt; no nested comment opener; NOT compiled; UI NOT rendered at 360/1280 dark/light.
+NOT tested: build (Regex escape, non-local return inside synchronized / use, local fun showIcon); icons appear in Bookmarks + History after a moment; ICO files decode with BitmapFactory on the phone (PNG/ICO yes, SVG-only sites keep the letter); sites without /favicon.ico (icon only via a visited page's <link rel=icon> = onReceivedIcon) keep the letter; list scroll smooth with 500 history rows (get() reads a file per new host on the main thread); privacy: opening the screen makes HTTPS requests to bookmarked / visited hosts (never private tabs: history excludes them).
+Could break: slow DNS sites take 5 s timeouts in the 2 threads (icons come late, UI not blocked); Settings > Clear cache does not clear icons (old S45 gap).
+Next ideas: Settings switch "Download site icons" (default ON), favicons on folder rows, <link rel=icon> parsing for sites without favicon.ico, MediaSession, iframes video button, S17 final check.

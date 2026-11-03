@@ -471,6 +471,39 @@ object BookmarksScreen {
                 .show()
         }
 
+        /** S78: site icon (saved by the tabs or downloaded once from the site) on a soft tile; first letter until then. */
+        private fun favTile(url: String): View {
+            val host = Util.host(url)
+            val hue = (kotlin.math.abs(host.hashCode()) % 360).toFloat()
+            val tint = android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.45f, 0.85f))
+            val box = android.widget.FrameLayout(act)
+            box.background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(androidx.core.graphics.ColorUtils.blendARGB(act.getColor(R.color.mg_surface), tint, 0.25f))
+                cornerRadius = dp(10).toFloat()
+            }
+            val letter = TextView(act).apply {
+                text = host.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "?"
+                textSize = 15f
+                gravity = Gravity.CENTER
+                setTextColor(act.getColor(R.color.mg_text))
+            }
+            val iv = ImageView(act).apply {
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                setPadding(dp(6), dp(6), dp(6), dp(6))
+                visibility = View.GONE
+            }
+            box.addView(letter, android.widget.FrameLayout.LayoutParams(MATCH, MATCH))
+            box.addView(iv, android.widget.FrameLayout.LayoutParams(MATCH, MATCH))
+            fun showIcon(bm: android.graphics.Bitmap) {
+                iv.setImageBitmap(bm)
+                iv.visibility = View.VISIBLE
+                letter.visibility = View.GONE
+            }
+            val have = Favicons.get(host)
+            if (have != null) showIcon(have) else Favicons.fetch(host) { bm -> showIcon(bm) }
+            return box
+        }
+
         private fun row(b: Bookmarks.Item, sub: String): View {
             val key = keyOf(b)
             val isOn = selecting && picked.contains(key)
@@ -504,6 +537,7 @@ object BookmarksScreen {
                     }
                 }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(14) })
             }
+            r.addView(favTile(b.url), LinearLayout.LayoutParams(dp(34), dp(34)).apply { marginEnd = dp(14) }) // S78
             val col = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
             col.addView(TextView(act).apply {
                 text = b.title.ifBlank { Util.host(b.url) }
