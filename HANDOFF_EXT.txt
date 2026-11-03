@@ -1,5 +1,8 @@
 HANDOFF_EXT (newest on top)
 
+== after S8 merged, version 0.0.103 ==
+Zip MGB_S8_S8b_v0_0_103 = all files of S8 (0.0.101) + S8b (0.0.102). Apply this ONE zip; do not apply the 0.0.101 / 0.0.102 zips.
+
 == after S8b, version 0.0.102 ==
 Files: changed ExtRegistry.kt (prepareSync: ExtSafety.blockReason(info) -> throws, staging deleted by the existing catch), build.gradle.kts. ExtRegistry.kt now seen (S0 zip). Earlier S8 note "ExtRegistry.prepare still accepts such a file" is obsolete; ExtListScreen check is a second guard only. ExtRegistry.remove still does not wipe storage / call ExtApi.sync: callers do it (ExtListScreen).
 

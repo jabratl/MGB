@@ -1,3 +1,4 @@
+0.0.103 (S8 + S8b merged zip) same content as 0.0.101 + 0.0.102; fixes CI error Unresolved reference ExtSafety (S8 zip had not been applied)
 0.0.102 (S8b) manifest v2 / nativeMessaging are refused inside ExtRegistry.prepare too (ExtRegistry.kt), so any caller is covered; ExtListScreen check stays as a second guard
 0.0.101 (S8) extension safety
 - NEW ExtSafety.kt: manifest v2 and nativeMessaging extensions are refused when added (message shows the reason, nothing is installed); an older install of such an extension is turned off at app start and cannot be turned on

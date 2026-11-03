@@ -202,6 +202,12 @@ object ExtListScreen {
                 trackTintList = ColorStateList(st, intArrayOf(act.getColor(R.color.mg_primary), act.getColor(R.color.mg_surface_variant)))
                 thumbTintList = ColorStateList(st, intArrayOf(act.getColor(R.color.mg_on_primary), act.getColor(R.color.mg_text_dim)))
                 setOnCheckedChangeListener { _, on ->
+                    val why = if (on) ExtSafety.blockReason(e) else null // S8: a blocked extension cannot be turned on
+                    if (why != null) {
+                        Util.toast(act, why)
+                        fill()
+                        return@setOnCheckedChangeListener
+                    }
                     if (!ExtRegistry.setEnabled(e.id, on)) Util.toast(act, "Could not change")
                     ExtApi.sync(act) // S5: stop / wake its background worker, alarms
                     fill()
@@ -281,6 +287,13 @@ object ExtListScreen {
                     ExtRegistry.discard(st)
                     return@prepare
                 }
+                val why = ExtSafety.blockReason(st.info) // S8: manifest v2 / nativeMessaging are refused before the permission dialog
+                if (why != null) {
+                    ExtRegistry.discard(st)
+                    Diag.w("ext", "install refused", st.info.name + ": " + why)
+                    fail(st.info.name + " was not added.\n\n" + why)
+                    return@prepare
+                }
                 confirmInstall(st)
             }
         }
@@ -337,12 +350,10 @@ object ExtListScreen {
                 sb.append("\nPermissions:\n")
                 e.permissions.forEach { sb.append("  ").append(permLabel(it)).append('\n') }
             }
-            val bad = e.permissions.filter { it == "nativeMessaging" }
-            if (bad.isNotEmpty() || e.manifestVersion == 2) {
-                sb.append("\nNote: some features of this extension may not work in MGB")
-                if (e.manifestVersion == 2) sb.append(" (older manifest v2)")
-                sb.append('.')
-            }
+            val why = ExtSafety.blockReason(e) // S8: shown for an already installed (turned off) blocked extension
+            if (why != null) sb.append("\nNot supported: ").append(why)
+            val ign = ExtSafety.ignored(e)
+            if (ign.isNotEmpty()) sb.append("\nNote: ").append(ign.joinToString(", ")).append(" is accepted but does nothing in MGB yet.")
             return sb.toString().trimEnd()
         }
 

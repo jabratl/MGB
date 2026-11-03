@@ -197,12 +197,19 @@ object ExtScreen {
                     EngineHost.ext(request.url)?.let { return it }
                     // S4: pages of an installed extension only get the CORS-free proxy for the sites in its host permissions
                     val xid = extIdOf(view.url ?: startUrl)
-                    if (xid != null) {
-                        val inf = ExtRegistry.get(xid)
-                        val pats = (inf?.hostPermissions ?: emptyList()) + (inf?.permissions ?: emptyList()).filter { it.contains("://") || it == "<all_urls>" }
-                        if (!ContentInjector.urlAllowed(pats, request.url.toString())) return null
-                    }
+                    if (xid != null && !ExtSafety.proxyAllowed(xid, request.url.toString())) return null // S8: same rule as extension pages in a tab
                     return EngineHost.proxyFor(request, -1, xid ?: ContentInjector.EXT_ID) // S7: header rules of that extension
+                }
+
+                // S8: crash isolation. A render process that dies in an installed extension's window closes only that window
+                // (default = the app is killed). Built-in pages keep the old behaviour.
+                override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                    val xid = extIdOf(view.url ?: startUrl) ?: return false
+                    if (view !== web) return true // an old, already closed window
+                    Diag.w("ext", "extension page crashed", (ExtRegistry.get(xid)?.name ?: xid.take(8)) + (if (detail.didCrash()) " (render process crashed)" else " (killed by the system)"))
+                    Util.toast(act, "The extension page stopped working and was closed")
+                    dismiss()
+                    return true
                 }
 
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {

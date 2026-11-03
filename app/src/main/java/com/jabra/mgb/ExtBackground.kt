@@ -199,7 +199,7 @@ object ExtBackground {
                 override fun onConsoleMessage(m: ConsoleMessage): Boolean {
                     val line = "${m.message()}  (${m.sourceId()?.substringAfterLast('/')}:${m.lineNumber()})"
                     val lv = m.messageLevel()
-                    if (lv == ConsoleMessage.MessageLevel.ERROR || lv == ConsoleMessage.MessageLevel.WARNING) log(id, line)
+                    if (lv == ConsoleMessage.MessageLevel.ERROR || lv == ConsoleMessage.MessageLevel.WARNING) log(id, line, lv == ConsoleMessage.MessageLevel.ERROR)
                     Log.d(TAG, line.take(300))
                     return true
                 }
@@ -300,7 +300,9 @@ object ExtBackground {
         for (id in bgs.keys.toList()) stop(id, why)
     }
 
-    private fun log(id: String, line: String) {
+    /** diag = also goes to the Diagnose report (tag "ext", S8). Warnings of the worker stay in the engine log only. */
+    private fun log(id: String, line: String, diag: Boolean = true) {
+        if (diag) Diag.w("ext", if (line.startsWith("worker parked")) "worker parked" else if (line.startsWith("load error") || line.startsWith("did not load")) "worker did not start" else "worker error", nameOf(id) + ": " + line.take(160))
         val l = logs.getOrPut(id) { ArrayList() }
         l.add(line.take(300))
         if (l.size > 30) l.removeAt(0)

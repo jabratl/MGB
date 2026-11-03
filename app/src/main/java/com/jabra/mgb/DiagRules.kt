@@ -2,7 +2,7 @@ package com.jabra.mgb
 
 /**
  * S86: Diagnose part 5a. Rule engine: facts about the app / page / downloads -> list of Finding
- * (what happened + what to do + optional one tap fix). Rules 1-20 (S86) + rules 21-40 (S87.1, see rules21to40) + rules 41-54 (S89.4, manga page list codes, see rules41to54) + rules 55-72 (S89.5, manga page load codes, see rules55to72) + rules 73-87 (S89.6, manga reader / save codes, see rules73to87).
+ * (what happened + what to do + optional one tap fix). Rules 1-20 (S86) + rules 21-40 (S87.1, see rules21to40) + rules 41-54 (S89.4, manga page list codes, see rules41to54) + rules 55-72 (S89.5, manga page load codes, see rules55to72) + rules 73-87 (S89.6, manga reader / save codes, see rules73to87) + rules 88-92 (S8, installed extensions, see rules88to92).
  * Pure logic, no UI, no Android calls (DiagReport collects the Facts).
  *
  * fix ids (DiagScreen.runFix): wifi, storage, webview, reload, settings, downloads, notif, appinfo.
@@ -51,6 +51,7 @@ object DiagRules {
         var failedJobUrls: List<String> = emptyList() // masked url of each failed job / failed download (last 10 min)
         var runningJobs = 0
         var scheduleMsgs: List<String> = emptyList() // Diag tag schedule, last 24 h
+        var extMsgs: List<String> = emptyList()      // S8: Diag tag ext (worker errors / parked / not started, extension page crash, blocked or refused extension), last 10 min
         // ---- S89.0: stable codes from V77 mgLog lines "[area] code=<id> ..." (written by dbgc in shared.js)
         var mgCodes: Map<String, Int> = emptyMap()         // key "area:code" (e.g. "manga:403-blocked") -> times seen in the last 30 min (repeats=N counted)
         var mgCodeNotes: Map<String, String> = emptyMap()  // same key -> detail of the newest line (masked, lower-case, max 200)
@@ -127,6 +128,7 @@ object DiagRules {
         rules41to54(x, out)
         rules55to72(x, out)
         rules73to87(x, out)
+        rules88to92(x, out)
 
         return out.sortedBy { when (it.level) { DiagReport.BAD -> 0; DiagReport.WARN -> 1; else -> 2 } }
     }
@@ -186,7 +188,7 @@ object DiagRules {
             val n = x.code("manga:$code")
             if (n <= 0) return
             val note = x.mgCodeNotes["manga:$code"].orEmpty()
-            val host = note.substringBefore(":", "").trim().take(60).takeIf { Regex("[a-z0-9.-]+").matches(it) } ?: ""
+            val host = if (note.contains(":")) note.substringBefore(":").trim().take(60) else ""
             val tail = " (" + n + "x" + (if (host.isNotEmpty()) ", " + host else "") + ")"
             if (rescuable && note.contains("rescued=tab")) out.add(f(id, I, what + tail + " The open tab still got the page list, so the grab worked.", "Nothing to do. Keep the manga page open in its tab while grabbing."))
             else out.add(f(id, level, what + tail, todo, fix, label))
@@ -218,7 +220,7 @@ object DiagRules {
         val W = DiagReport.WARN
         val I = DiagReport.INFO
         fun tailOf(n: Int, note: String): String {
-            val host = note.substringBefore(":", "").trim().take(60).takeIf { Regex("[a-z0-9.-]+").matches(it) } ?: ""
+            val host = if (note.contains(":")) note.substringBefore(":").trim().take(60) else ""
             return " (" + n + "x" + (if (host.isNotEmpty()) ", " + host else "") + ")"
         }
         fun mg(code: String, id: String, level: String, what: String, todo: String, fix: String? = null, label: String? = null) {
@@ -265,14 +267,14 @@ object DiagRules {
     /**
      * S89.6 rules 73-87: manga READER / SAVE / DOWNLOAD codes (S89.3, written by manga.js and background.js).
      * Same pattern as rules55to72. The exact detail text of these lines was not in the attached files, so the only thing read from a note is the host
-     * (before the first ":") and, for pages-missing-saved, the number after "missing=" (real text, checked in S90: "chapter done: ok=true missing=3").
+     * (before the first ":") and, for pages-missing-saved, the first number followed by "page" (if none is found the text has no number).
      */
     private fun rules73to87(x: Facts, out: ArrayList<Finding>) {
         val B = DiagReport.BAD
         val W = DiagReport.WARN
         val I = DiagReport.INFO
         fun tailOf(n: Int, note: String): String {
-            val host = note.substringBefore(":", "").trim().take(60).takeIf { Regex("[a-z0-9.-]+").matches(it) } ?: ""
+            val host = if (note.contains(":")) note.substringBefore(":").trim().take(60) else ""
             return " (" + n + "x" + (if (host.isNotEmpty()) ", " + host else "") + ")"
         }
         fun mg(code: String, id: String, level: String, what: String, todo: String, fix: String? = null, label: String? = null) {
@@ -290,7 +292,7 @@ object DiagRules {
             val n = x.code("manga:pages-missing-saved")
             if (n > 0) {
                 val note = x.mgCodeNotes["manga:pages-missing-saved"].orEmpty()
-                val cnt = Regex("""missing=(\d+)""").find(note)?.groupValues?.get(1)
+                val cnt = Regex("""(\d+)\s*page""").find(note)?.groupValues?.get(1)
                 val what = if (cnt != null) "The chapter was saved with $cnt page(s) missing." else "The chapter was saved with some pages missing."
                 out.add(f("manga-saved-missing", W, what + tailOf(n, note), "Press Retry failed in the Manga window until no page is missing, then save the chapter again."))
             }
@@ -303,6 +305,19 @@ object DiagRules {
         mg("reader-empty", "manga-reader-empty", I, "The reader was opened with no page selected.", "Select the pages you want in the Manga window, then open the reader.")
         mg("resume-failed", "manga-resume", I, "The saved reading position is past the end of the chapter, so the reader started at the first page.", "Nothing to do.")
         mg("bookmark-failed", "manga-bookmark", I, "The reading position could not be saved or loaded.", "Nothing to do for the file itself. If it repeats, clear site data for MGB or copy the report.")
+    }
+
+    /** S8 rules 88-92: installed extensions (Diag tag "ext"). Names of extensions are not put in the finding text. */
+    private fun rules88to92(x: Facts, out: ArrayList<Finding>) {
+        val W = DiagReport.WARN
+        val I = DiagReport.INFO
+        fun n(vararg k: String) = x.extMsgs.count { m -> k.any { m.contains(it) } }
+        fun tail(c: Int) = if (c > 1) " (" + c + "x)" else ""
+        n("worker parked").let { if (it > 0) out.add(f("ext-parked", W, "An extension's background worker was stopped after it crashed again and again." + tail(it), "Open Settings > Extensions and turn that extension off and on again to retry. Remove it if this keeps happening.", "settings", "Open Settings")) }
+        n("worker did not start").let { if (it > 0) out.add(f("ext-nostart", W, "An extension's background worker could not start." + tail(it), "Open Settings > Extensions and turn it off and on again. If it repeats, the extension file may be broken: remove it and add it again.", "settings", "Open Settings")) }
+        n("extension page crashed").let { if (it > 0) out.add(f("ext-page-crash", W, "An extension window stopped working and was closed." + tail(it), "Only that window was closed, MGB and the other extensions are fine. Open it again; if it repeats, free memory or turn the extension off.")) }
+        n("worker error").let { if (it > 0) out.add(f("ext-worker-error", I, "An extension's background worker reported errors." + tail(it), "This is usually a problem inside the extension. If it does not work as expected, turn it off in Settings > Extensions or copy the report.")) }
+        n("blocked extension turned off", "install refused").let { if (it > 0) out.add(f("ext-blocked", I, "An extension was refused or turned off: it uses manifest v2 or nativeMessaging." + tail(it), "MGB runs manifest v3 extensions without native apps only. Look for a manifest v3 version of the extension.")) }
     }
 
     /** "Why?" on one failed download row: the row's own text / code + the masked url. Always returns at least one Finding. */

@@ -229,6 +229,7 @@ object DiagReport {
         x.novelMsgs = evTxt("novel", TEN_MIN)
         x.mangaMsgs = evTxt("manga", TEN_MIN)
         x.scheduleMsgs = evTxt("schedule", 24 * 60 * 60 * 1000L)
+        x.extMsgs = evTxt("ext", TEN_MIN) // S8
         x.logLines = if (log == null) emptyList() else (maxOf(0, log.length() - 30) until log.length()).map { Diag.mask(log.optString(it)).lowercase() }
         if (items != null) for (i in 0 until items.length()) {
             val j = items.optJSONObject(i) ?: continue

@@ -56,6 +56,7 @@ object ContentInjector {
         val app = ctx.applicationContext
         ExtUpdater.init(app)
         ExtRegistry.init(app) // S4: installed extensions must be known at start (content scripts, /ext/<id>/ files), not only after Settings > Extensions was opened
+        ExtSafety.sweep(app) // S8: an installed manifest v2 / nativeMessaging extension (older install) is turned off
         ChromeBridge.init(app)
         val b = ByteArray(16).also { SecureRandom().nextBytes(it) }
         token = b.joinToString("") { "%02x".format(it) }
