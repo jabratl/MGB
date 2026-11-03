@@ -20,6 +20,9 @@ object WebVideo {
 
     class Bridge(private val tm: TabManager) {
         @JavascriptInterface
+        fun smart(): Boolean = DlMode.smartOn // S54
+
+        @JavascriptInterface
         fun play(src: String, title: String) {
             Handler(Looper.getMainLooper()).post {
                 val now = System.currentTimeMillis()
@@ -51,6 +54,7 @@ return b;
 function place(){
 if(!btn.isConnected&&document.documentElement)document.documentElement.appendChild(btn);
 if(document.fullscreenElement||document.webkitFullscreenElement){btn.style.display='none';return;}
+try{if(MGBVID.smart()){var ph=document.querySelector('[data-mgb-pill]');if(ph&&ph.isConnected&&ph.style.display!=='none'){btn.style.display='none';return;}}}catch(x){}
 var v=best();
 if(!v){btn.style.display='none';cur=null;return;}
 if(v!==cur){cur=v;shown=Date.now();}

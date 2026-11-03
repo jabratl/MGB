@@ -470,7 +470,7 @@ object SettingsScreen {
                     fill()
                 },
                 Row(R.drawable.ic_play, "Video button on pages", if (WebVideo.on(act)) "ON" else "OFF") { // S45
-                    WebVideo.setOn(act, !WebVideo.on(act))
+                    DlMode.manual(act); WebVideo.setOn(act, !WebVideo.on(act))
                     Util.toast(act, "Reload the page")
                     fill()
                 },
@@ -478,18 +478,19 @@ object SettingsScreen {
                     PlayerService.setOn(act, !PlayerService.on(act))
                     fill()
                 },
-                Sub("Download buttons (turn off what you do not need)"), // MGB S51
+                Sub("Download buttons"), // MGB S51
+                Row(R.drawable.ic_download, "Button mode", DlMode.label(act)) { DlMode.dialog(act) { fill() } }, // S54
                 Row(R.drawable.ic_download, "Grabber button on pages", if (v77On("showPill", true)) "ON" else "OFF") {
-                    v77Set("showPill", !v77On("showPill", true))
+                    DlMode.manual(act); v77Set("showPill", !v77On("showPill", true)) // S54
                     Util.toast(act, "Applies at once on open pages")
                     fill()
                 },
                 Row(R.drawable.ic_download, "Grabber button opens Files detected panel", if (v77On("nativePanel", true)) "ON" else "OFF") {
-                    v77Set("nativePanel", !v77On("nativePanel", true))
+                    DlMode.manual(act); v77Set("nativePanel", !v77On("nativePanel", true))
                     fill()
                 },
                 Row(R.drawable.ic_play, "Grabber button on video players", if (v77On("showOverlay", true)) "ON" else "OFF") {
-                    v77Set("showOverlay", !v77On("showOverlay", true))
+                    DlMode.manual(act); v77Set("showOverlay", !v77On("showOverlay", true))
                     Util.toast(act, "Reload the page")
                     fill()
                 },
@@ -500,7 +501,7 @@ object SettingsScreen {
                     }
                 },
                 Row(R.drawable.ic_download, "Extra native download button", if (nativeBtn()) "ON" else "OFF") {
-                    prefs.edit().putBoolean("native_btn", !nativeBtn()).apply()
+                    DlMode.manual(act); prefs.edit().putBoolean("native_btn", !nativeBtn()).apply()
                     Util.toast(act, "Changes in a few seconds")
                     fill()
                 }

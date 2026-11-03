@@ -707,6 +707,7 @@
   function ensurePill() {
     if (pillHost || !IS_TOP) return;
     pillHost = document.createElement('div');
+    pillHost.setAttribute('data-mgb-pill', '1'); // MGB S54: lets the native video button hide while this button shows
     pillHost.style.cssText = 'all:initial';
     pillRoot = pillHost.attachShadow({ mode: 'open' });
     pillRoot.innerHTML = `<style>${CSS}${typeof MG_TOKENS === 'string' ? MG_TOKENS : ''}

@@ -1,3 +1,10 @@
+MGB 0.0.58 (S54: Smart download buttons)
+- Settings > Downloads > Download buttons > Button mode: Smart (default), Grabber only, Native only, Manual.
+  - Smart: one Grabber button per page (tap opens the Files detected panel), the Grabber button on video players and the extra native button are off, and the in-page video button hides itself while the Grabber button is showing on that page, so buttons never pile up.
+  - Grabber only: the Media Grabber (V77) buttons only. Native only: the native video button and native download button only, V77 page buttons off.
+  - Manual: use the single switches under it. Changing any single switch by hand moves the mode to Manual.
+- On first start of this version the mode is set to Smart (the single switches follow it; choose Manual to keep your own).
+
 MGB 0.0.57 (S53: Media Grabber tools inside the Files detected panel)
 - New TOOLS button in the panel's bottom bar:
   - Episodes / chapters: pick many episodes of a show page (filter by name, range like 1-12, select all shown), DOWNLOAD (n) starts the same batch as the Grabber page list, with live status for each episode and a STOP button. Uses the Download quality setting as the quality limit; if an episode lacks it, the closest quality is taken.

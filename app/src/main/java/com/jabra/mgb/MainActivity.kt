@@ -60,6 +60,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         TabsApi.attach(tabs)
         BookmarksScreen.tabsRef = tabs // S25
         TabsApi.onNativePanel = { floating.openSheet() } // MGB S51: Grabber page button -> Files detected! panel
+        window.decorView.post { DlMode.init(this) } // S54: Smart download buttons on first start
         tabs.onHomeSearch = { // S28
             urlBar.requestFocus()
             urlBar.selectAll()
