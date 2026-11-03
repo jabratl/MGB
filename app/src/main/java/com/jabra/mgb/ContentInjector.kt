@@ -27,6 +27,11 @@ object ContentInjector {
     lateinit var token: String
         private set
 
+    // ChromeBridge asks for the token of a given extension (id, ctx ... any args). Until per-extension
+    // tokens exist (S3) every extension shares the one token, so the arguments are ignored.
+    @Suppress("UNUSED_PARAMETER")
+    fun tokenFor(vararg who: Any?): String = token
+
     private class Entry(val origins: Set<String>, val script: String)
 
     private var inited = false
