@@ -120,14 +120,23 @@ object ExtListScreen {
             }, LinearLayout.LayoutParams(dp(44), dp(48)))
             root.addView(head, LinearLayout.LayoutParams(MATCH, dp(56)))
 
-            val col = LinearLayout(act).apply {
+            // S9: on wide screens (1280 px / tablet / landscape) the list stays 640 dp wide and centered
+            val cap = dp(640)
+            val col = object : LinearLayout(act) {
+                override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+                    val w = View.MeasureSpec.getSize(widthMeasureSpec)
+                    super.onMeasure(
+                        if (w > cap) View.MeasureSpec.makeMeasureSpec(cap, View.MeasureSpec.EXACTLY) else widthMeasureSpec,
+                        heightMeasureSpec)
+                }
+            }.apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(12), dp(4), dp(12), dp(24))
             }
             body = col
             root.addView(ScrollView(act).apply {
                 isFillViewport = true
-                addView(col, ViewGroup.LayoutParams(MATCH, WRAP))
+                addView(col, android.widget.FrameLayout.LayoutParams(MATCH, WRAP, Gravity.CENTER_HORIZONTAL))
             }, LinearLayout.LayoutParams(MATCH, 0, 1f))
             setContentView(root)
             fill()
@@ -366,7 +375,7 @@ object ExtListScreen {
             "downloads" -> "downloads (start downloads)"
             "webRequest", "webRequestBlocking" -> "$p (watch network requests)"
             "declarativeNetRequest" -> "declarativeNetRequest (block or change requests)"
-            "contextMenus" -> "contextMenus (long-press menu items)"
+            "contextMenus" -> "contextMenus (menu items, not shown in MGB yet)"
             "notifications" -> "notifications (show notifications)"
             "alarms" -> "alarms (timers)"
             "clipboardWrite" -> "clipboardWrite (copy text)"

@@ -1,12 +1,4 @@
-CURRENT VERSION 0.0.92 + S90 (DiagRules.kt: pages-missing-saved count + host parse fix; waiting for the first CI log and the phone check lines; see the S90 note at the end)
-
-CURRENT VERSION 0.0.92 (S89.7: manga failures in Diagnose complete, S89.0-S89.6 codes + rules, see the S89.7 note at the end; before: 0.0.91 + S89.6)
-
-CURRENT VERSION 0.0.91 + S89.0 + S89.1 + S89.2 + S89.3 + S89.4 + S89.5 + S89.6 (manga reader / save rules, version bump in S89.7, see the S89.6 note at the end; before: S89.5)
-
-CURRENT VERSION 0.0.91 + S89.0 + S89.1 + S89.2 + S89.3 + S89.4 + S89.5 (manga page load rules, version bump in S89.7, see the S89.5 note at the end; before: S89.4)
-
-CURRENT VERSION 0.0.91 + S89.0 + S89.1 + S89.2 + S89.3 + S89.4 (manga page list rules, version bump in S89.7, see the S89.4 note at the end; before: S89.3)
+CURRENT VERSION 0.0.104 (S9: multi-extension support S0-S9 finished; notes are in the section "MULTI-EXTENSION SUPPORT (S0-S9)" at the end of this file; HANDOFF.txt / CHANGELOG.txt had no 0.0.92 / S89.4-S90 notes when S9 started, add them from the S89 chat; before: 0.0.92)
 
 CURRENT VERSION 0.0.91 + S89.0 + S89.1 + S89.2 + S89.3 (manga reader / save / download logs, version bump in S89.7, see the S89.3 note at the end; before: S89.2)
 
@@ -720,55 +712,109 @@ NOT tested (needs phone): real Android download failure / timeout; reader with a
 Could break: waitDownload() now also runs unawaited for non-autoClose saves (polls 500 ms for up to 120 s, only reads chrome.downloads.search); rdImage replaces two "new Image()" lines in drawReader (same src, now with onerror); mgLogged is set on the thrown error object (skipped if the thrown value is not an object).
 Next: S89.4 (DiagRules.kt: rules for the S89.1 page list codes). Attach: DiagRules.kt, DiagReport.kt (and the S89.3 patch for the code list).
 
-S89.4 - manga failures to Diagnose, part 4: rules for the page list codes
-Done: S0-S87.2 + S89.0 + S89.1 + S89.2 + S89.3 + S89.4. Version still 0.0.91 (0.0.92 is set in S89.7).
-- DiagRules.kt only: rules41to54(x, out) added, called right after rules21to40 in diagnose(). Rule ids: manga-cloudflare (B), manga-403 / -401 / -404 / -429 / -5xx / -cors / -fetch (W), manga-tab-closed (W), manga-adapter (W), manga-fallback (I), manga-no-list (B), manga-fewer (W), manga-thumbs (W). Local helper mg(code, id, level, what, todo, fix, label, rescuable) does the lookup: skips when Facts.code("manga:<code>") is 0, adds " (Nx, host)" to the text (host = the part of the newest note before the first ":"), and when rescuable and the note contains "rescued=tab" writes an Info finding instead.
-- Pattern for S89.5 / S89.6: copy the mg() helper into a new private fun rules55toNN(x, out) and call it after rules41to54; use the next rule ids manga-*; keep the same fix ids (reload, settings, wifi, storage, downloads, appinfo).
-- Note: older rules 28-30 (manga-nopages / manga-lazy / manga-saved-bad, text based) still exist and can show together with manga-no-list; not merged.
-Checks: bracket count of DiagRules.kt compared with the original: { } ( ) [ ] all grew by the same amount (new code balanced; the crude counter was already off by 1 / 2 in the original because of comments); no duplicate rule ids; symbols exist (Facts.code, Facts.mgCodeNotes, DiagReport.BAD / WARN / INFO, fix ids reload / settings / wifi). NOT compiled (no Kotlin SDK).
-NOT tested (needs build + phone): Kotlin compile (local fun with default parameters, String + Int in tail); how long texts look in the Diagnose list at 360 px dark / light; real mgLog lines producing these findings; "rescued=tab" Info case.
-Could break: mgCodeNotes keeps only the NEWEST detail per code, so an old rescued=no problem is shown as Info if the newest line is rescued=tab (and the reverse).
-Next: S89.5 (DiagRules.kt: rules for the page load codes: img-403-blocked, img-404-gone, img-429-slow-down, img-5xx-server, img-401-login, img-http-NNN, not-an-image, img-network-timeout, img-fetch-error, corrupt-image, all-methods-failed, rate-limited, first-pass-failed, retry-result, still-missing, refresh-failed, duplicates-unselected, screenshot-failed; hints in the S89.2 note). Attach: DiagRules.kt (after this patch).
+======== MULTI-EXTENSION SUPPORT (S0-S9), version 0.0.104 ========
+Done: S0-S9. Settings > Extensions: add .zip / .crx, list, on/off, remove, permission dialog; content scripts, per-extension storage, popup / options windows, MV3 background worker, chrome.* api, declarativeNetRequest (modifyHeaders), safety (MV2 / nativeMessaging refused, host filter, crash isolation, Diagnose rules 88-92).
+Files added: ExtRegistry.kt, ExtListScreen.kt, ExtApi.kt, ExtBackground.kt, ExtSafety.kt. Changed: ExtUpdater, ContentInjector, ChromeBridge, EngineHost, ExtScreen, TabManager, TabsApi, HeaderModes, DiagRules, DiagReport, SettingsScreen, BrowserExtras, chrome-shim.js.
+Not done / ideas: webRequest, downloads, runtime.connect, offscreen, sidePanel for installed extensions; block / redirect DNR rules; context menu UI; web_accessible_resources check; live refresh of open tabs after toggle; Chrome Web Store install; Backup of files/exts.
+S9 notes: ExtListScreen width cap 640 dp (anonymous LinearLayout.onMeasure inside a ScrollView, FrameLayout.LayoutParams gravity CENTER_HORIZONTAL); this is the only UI change, everything else was checked, not changed. UI never rendered here: phone check = docs/PHONE_CHECK.txt group F.
+Below: the per-step notes, copied unchanged from HANDOFF_EXT.txt.
 
-S89.5 - manga failures to Diagnose, part 5: rules for the page load codes
-Done: S0-S87.2 + S89.0 + S89.1 + S89.2 + S89.3 + S89.4 + S89.5. Version still 0.0.91 (0.0.92 is set in S89.7).
-- DiagRules.kt only: rules55to72(x, out) added, called right after rules41to54 in diagnose(). 18 rules. Problem: manga-img-403 / -404 / -429 / -5xx / -401 / manga-img-http (any img-http-NNN, found by scanning mgCodes keys, text shows the first status number) / manga-not-image / manga-img-timeout / manga-img-fetch / manga-corrupt / manga-all-methods / manga-still-missing / manga-retry-left. Warning: manga-rate-limited, manga-refresh, manga-screenshot. Info: manga-first-pass, manga-retry-ok, manga-dups.
-- retry-result: the newest note is parsed for recovered=N and still-missing=M. M > 0 gives manga-retry-left (Problem, "M page(s) still missing (N recovered)"), M = 0 gives manga-retry-ok (Info). Both show the count + host.
-- Local helpers mg() (no rescue branch, image codes have no rescued=tab) and tailOf(n, note) (" (Nx, host)"). Fix ids reuse reload / settings / wifi (no DiagScreen change).
-- Pattern for S89.6: copy mg() into a new private fun rules73toNN(x, out) and call it after rules55to72; next ids manga-*.
-Checks: bracket count { } ( ) [ ] balanced in DiagRules.kt after the edit; no duplicate rule ids; 18 findings = 16 mg() calls + img-http + retry-result (2 ids); regex raw strings \d+ checked in the saved file; symbols exist (Facts.code, mgCodes, mgCodeNotes, DiagReport.BAD / WARN / INFO). NOT compiled (no Kotlin SDK).
-NOT tested (needs build + phone): Kotlin compile (local funs, Map.filter, string templates $rec / $left); real mgLog lines producing these findings; how 18 long texts look in the Diagnose list at 360 px dark / light.
-Could break: mgCodeNotes keeps only the NEWEST detail per code, so after a manual retry that recovered everything an older still-missing line still shows manga-still-missing + img-* Problems for 30 minutes (retry-ok shows too). With several img-http-NNN codes only the first number is named. Rules 28-30 (text based) and manga-no-list / manga-still-missing can show together.
-Next: S89.6 (DiagRules.kt: rules for the reader / save codes: reader-empty, reader-page-failed, bookmark-failed, resume-failed, pick-without-image, wrong-order, save-failed, memory-limit, postprocess-failed, reencode-failed, jpeg-convert-failed, download-failed, download-timeout, pages-missing-saved, save-incomplete; hints in the S89.3 note). Attach: DiagRules.kt (after this patch).
+HANDOFF_EXT (newest on top)
 
-S89.6 - manga failures to Diagnose, part 6: rules for the reader / save / download codes
-Done: S0-S87.2 + S89.0 + S89.1 + S89.2 + S89.3 + S89.4 + S89.5 + S89.6. Version still 0.0.91 (0.0.92 is set in S89.7).
-- DiagRules.kt only: rules73to87(x, out) added, called right after rules55to72 in diagnose(). 15 rules. Problem: manga-memory, manga-save-failed (fix Downloads), manga-dl-failed / manga-dl-timeout (fix storage), manga-jpeg, manga-save-incomplete (fix reload). Warning: manga-saved-missing (pages-missing-saved), manga-reencode, manga-postprocess, manga-reader-page, manga-pick-noimg, manga-order. Info: manga-reader-empty, manga-resume, manga-bookmark.
-- manga-saved-missing reads the first number followed by "page" from the newest note ("saved with N page(s) missing"); if the note has no such number the text says "some pages". Everything else shows only count + host.
-- Fix ids reused: reload / storage / downloads (all exist in DiagScreen). No DiagScreen / DiagReport change.
-- IMPORTANT: the MGB-main zip given for S89.5-S89.6 had NO S89.3 code in manga.js / background.js (grep for save-failed, memory-limit, pages-missing-saved, save-incomplete = nothing). The S89.3 patch was not attached, so the rules follow the code names + hints in the S89.3 note only; the real detail text of those lines was NOT checked. In the real repo the S89.3 patch must be applied (it is on the user's side), else these 15 rules never fire.
-Checks: bracket count { } ( ) [ ] balanced in DiagRules.kt; no duplicate rule ids; 14 mg() calls + pages-missing-saved block = 15 rules; regex checked in the saved file; fix ids exist in DiagScreen (storage, downloads, reload). NOT compiled (no Kotlin SDK).
-NOT tested (needs build + phone): Kotlin compile; real mgLog lines producing these findings; text length at 360 px dark / light.
-Could break: mgCodeNotes keeps only the NEWEST detail per code; wrong-order has no fix button (text only); manga-save-incomplete and manga-saved-missing can show together.
-Next: S89.7 (version bump to 0.0.92 in app/build.gradle.kts or build.gradle.kts, CHANGELOG / HANDOFF header, phone check list entries for the new manga codes in docs/PHONE_CHECK.txt, final consistency check of all manga codes vs rules: every code in S89.1-S89.3 must have a rule). Attach: the MGB-main zip WITH the S89.3 patch applied, plus MGB_S89_6_patch.zip.
+== after S8 merged, version 0.0.103 ==
+Zip MGB_S8_S8b_v0_0_103 = all files of S8 (0.0.101) + S8b (0.0.102). Apply this ONE zip; do not apply the 0.0.101 / 0.0.102 zips.
 
-S89.7 - manga failures to Diagnose, part 7: version 0.0.92 + final check
-Done: S0-S87.2 + S89.0-S89.7. Version 0.0.92.
-- Version: app/build.gradle.kts already had appVersionName = "0.0.92" in the zip that was given (no other file holds the version string; the old MGB/ folder inside the zip is an unrelated 0.0.20 copy, left alone). No change needed, header line updated.
-- docs/PHONE_CHECK.txt: header now S89.7 / 0.0.92, new group E (items 16-25) for the manga findings.
-- Consistency check (script on DiagRules.kt): all 46 fixed code names of S89.1-S89.3 (14 page list + 17 page load + 15 reader / save) have a rule, 0 missing; img-http-NNN is matched by prefix. Rule ids manga-* have no duplicates.
-- Facts: rules are in rules41to54 (14), rules55to72 (18), rules73to87 (15) = 47 manga findings (46 codes + the img-http prefix rule; retry-result gives 2 ids).
-NOT done / open:
-- The MGB-main zip given in S89.5-S89.7 has NO S89.3 code in manga.js / background.js (no save-failed, memory-limit, pages-missing-saved, save-incomplete). If the real repo has no S89.3 patch applied, rules 73-87 never fire; apply it. The detail text of S89.3 lines (e.g. "N page(s) missing") was never verified against the rule that parses it (manga-saved-missing).
-- NOT compiled (no Kotlin SDK), nothing run on a phone: use docs/PHONE_CHECK.txt A-E and the first CI log.
-- manga-no-list / rules 28-30 can show together; old still-missing note stays up to 30 min after a good retry (newest note only).
-Next: first CI log + phone check list (docs/PHONE_CHECK.txt). Then S17 final check.
+== after S8b, version 0.0.102 ==
+Files: changed ExtRegistry.kt (prepareSync: ExtSafety.blockReason(info) -> throws, staging deleted by the existing catch), build.gradle.kts. ExtRegistry.kt now seen (S0 zip). Earlier S8 note "ExtRegistry.prepare still accepts such a file" is obsolete; ExtListScreen check is a second guard only. ExtRegistry.remove still does not wipe storage / call ExtApi.sync: callers do it (ExtListScreen).
 
+== after S8, version 0.0.101 ==
+Files: NEW ExtSafety.kt; changed ExtListScreen.kt, ExtScreen.kt, TabManager.kt, ExtBackground.kt, ContentInjector.kt, DiagRules.kt, DiagReport.kt, build.gradle.kts. ExtRegistry.kt NOT seen / NOT changed (S0 zip was not attached).
+- Block lives in ExtSafety.blockReason(info) (manifestVersion != 3, permission nativeMessaging), not in ExtRegistry.prepareSync. Enforced at: ExtListScreen.install (after prepare: discard + error dialog, before the permission dialog), ExtListScreen toggle (cannot turn on), ExtSafety.sweep(app) at ContentInjector.init (turns off an older blocked install via ExtRegistry.setEnabled). ExtRegistry.prepare / commit themselves still accept such a file: any NEW install caller must call ExtSafety.blockReason itself (or move the check into prepareSync later; ask for ExtRegistry.kt by name).
+- ExtSafety.proxyAllowed(xid, url) = host permission filter (enabled + hostPermissions + url-like permissions). Used by TabManager.shouldInterceptRequest (extension page in a tab: not allowed -> return null = normal load, same as ExtScreen window) and ExtScreen. V77 pages (extIdOf null) unchanged.
+- ExtScreen.onRenderProcessGone: installed extension window -> Diag.w ext, toast, dismiss, return true. Built-in pages: return false (as before). TabManager.onRenderProcessGone NOT changed (extension page in a tab still behaves like any tab).
+- Diag tag "ext" (new). Messages: "worker error" (console ERROR of a worker), "worker did not start" (load error / timeout), "worker parked", "extension page crashed", "blocked extension turned off", "install refused"; extra = extension name + detail. ExtBackground.log(id, line, diag = true): console WARNINGs stay in the engine log only.
+- DiagRules: Facts.extMsgs (last 10 min, lower case), rules88to92: ext-parked W, ext-nostart W, ext-page-crash W, ext-worker-error I, ext-blocked I. Fix button only "settings" (existing code). No extension name in finding text.
+- Add dialog: permText shows "Not supported: <reason>" for a blocked extension in the details dialog and a note for ExtSafety.ignored permissions (webRequest, downloads, offscreen, sidePanel, history, bookmarks, ...).
+- Known limits: blocked check does not look at optional_permissions (permissions.request returns false anyway); MV2 is refused by manifest_version only; an extension that is turned off by sweep stays installed (user can remove it); sweep runs once per app start; Diag rules only see events of the last 10 min; no Diag line for the list of installed extensions.
+- S9 todo: 360 / 410 / 1280 px, light + dark check of Settings > Extensions + dialogs; merge CHANGELOG_EXT / HANDOFF_EXT into CHANGELOG.txt / HANDOFF.txt; docs/PHONE_CHECK.txt group F; S17 check.
 
-S90 note
-- Input: MGB-main zip (DiagRules.kt / PHONE_CHECK.txt already equal to the S89.7 patch; patch HANDOFF/CHANGELOG are newer and were used as the base) + the patch zip. No CI log and no PHONE_CHECK failure line came with it.
-- Done A (static only): read all of DiagRules.kt for compile risks. Nothing found in mg()/tailOf(), Map.filter, "$rec"/"$left"/"$cnt" templates, raw-string regex. DiagReport MGLOG_CODE regex ok (group 6 area, 7 code, 8 rest).
-- Real bug fixed: background.js logs pages-missing-saved as "chapter done: ok=<bool> missing=<N>[ (nobody waiting...)]". Rule now reads missing=N (was "N page"). Host in tail: only a host-like text before ":" (stops "chapter done" showing as host). PHONE_CHECK item 22: the number should now show.
-- Known gap still open: page-list http codes other than 401/403/404/410/429/5xx come as "http-NNN" (manga.js line 289 via mgHttpCode) and have no rule (only img-http-NNN has one). Add a "manga-http" rule if the phone shows one.
-- Known gaps unchanged: Kotlin never compiled, phone not tested; mgCodeNotes keeps only newest detail; rules 28-30 can show with manga-no-list; zip MGB/ folder is the old 0.0.20 copy, untouched.
-- Next (S90.1): send the first red CI line or the failing PHONE_CHECK line numbers. Then C: S17 final check.
+== after S7, version 0.0.100 ==
+Files: changed HeaderModes.kt, EngineHost.kt, ExtApi.kt, ExtBackground.kt, ExtScreen.kt, TabManager.kt, assets/shim/chrome-shim.js, build.gradle.kts. DownloadsApi.kt NOT seen / NOT changed.
+- HeaderModes is per extension now. Maps sessionBy / dynamicBy / staticBy keyed by extension id (V77 = ContentInjector.EXT_ID, prefs key dnr_dynamic as before; installed = dnr_dynamic_<id>). The bridge handlers read c.extId, so one handler set serves V77 and every extension.
+- HeaderModes.apply(url, tabId, type, method, headers, extId = EXT_ID). EngineHost.proxyFor(req, tabId, extId = EXT_ID) passes it. Callers that know their extension now pass it: ExtBackground (worker), ExtScreen (popup / options window, extIdOf of the page), TabManager (extension page in a tab, ExtScreen.extIdOf(tab.url)). EngineHost.proxy, OffscreenHost and V77 keep the default.
+- An installed extension's rule acts only if: extension exists + enabled, request made by ITS page / worker, ExtApi.hostAllows(info, url) (host permission matches the request url), and the rule's initiatorDomains (if any) contains its id or the extension host. Page requests of normal tabs are never touched (they do not go through proxyFor).
+- Static rulesets: manifest declarative_net_request.rule_resources [{id, enabled, path}] read from the extension folder (2 MB per file, safe path), cached per extension (sig = version + manifest time / size + saved enabled list). getEnabledRulesets / updateEnabledRulesets work (saved in prefs mgb_engine key dnr_rs_<id>). Invalid ruleset id -> error like Chrome. getAvailableStaticRuleCount / getMatchedRules / testMatchOutcome are not there.
+- ExtApi.EXT_OK allows declarativeNetRequest.(update|get)(Session|Dynamic)Rules + get / updateEnabledRulesets; gate needs permission declarativeNetRequest or declarativeNetRequestWithHostAccess. HeaderModes.forget(id) runs in ExtApi.doSync when an extension is removed (rules + saved ruleset list wiped).
+- Diagnose / log line: "Header rules: session N, dynamic M, installed extensions K" (K = rules of all installed extensions together).
+- Known limits: only modifyHeaders with requestHeaders acts. block / redirect / upgradeScheme / allowAllRequests rules are stored and listed, never applied: page requests of tabs are not routed through the proxy, so a content blocker extension does nothing yet. responseHeaders are ignored. Requests of an installed extension are only modified when they go through the proxy (GET / HEAD, http / https, host permission matches); POST from a worker is still not proxied. Session rules are lost when the app process ends (the worker normally registers them again at start). Rule limit 5000 per list.
+- webRequest and downloads for installed extensions are STILL blocked (not in ExtApi.EXT_OK). webRequest observe-only would need a hook in TabManager.shouldInterceptRequest (page requests) - not done. downloads needs DownloadsApi.kt made per extension (not seen): ask for it by name if wanted.
+- S8 todo is unchanged (see S6 section): block nativeMessaging + MV2 in ExtRegistry.prepareSync, host permission filter for ext pages in tabs, Diag rule for worker errors / parked workers. Remember ExtApi.sync + ChromeBridge.removeExtData on every remove (HeaderModes.forget is inside sync).
+
+== after S6, version 0.0.99 (S5 = 0.0.98) ==
+Files: NEW ExtBackground.kt, NEW ExtApi.kt; changed ChromeBridge.kt, TabsApi.kt, EngineHost.kt, ExtListScreen.kt, assets/shim/chrome-shim.js, build.gradle.kts.
+- ExtBackground: ensure(id, cb(Boolean)) starts / waits for the worker (cb false = cannot run: no service_worker, disabled, parked, WebView failed). stop(id, why), has(id), running(id), idOf(web), urlOf(id), hold/release(web) (pending reply keeps it alive), touch(web), reset(id) (clears crash park). Page = ext/<id>/_mgb_bg.html built in page(); a file with that name in an extension is never served.
+- Constants: IDLE_MS 45 s, MAX_RUNNING 3, LOAD_TIMEOUT 20 s, SETTLE 300 ms (cb fires after it so listeners are registered). Only MV3 service_worker is run; MV2 background.scripts / page are NOT run (S8 blocks MV2 at install anyway).
+- ExtApi: gate(ctx, xid, api, args) is called by ChromeBridge for every non-V77 message (EXT_OK / CONTENT_OK regex + NEEDS map = api namespace -> manifest permission). Add a new api for installed extensions = (1) add it to EXT_OK, (2) register "ext.<api>" if it must know the extension, else the plain handler is used (c.extId tells who calls).
+- ExtApi.sync(ctx): call after any install / update / toggle / remove (done in ExtListScreen). Any other remove caller (S8) must call it, plus ChromeBridge.removeExtData.
+- Wake rule: ExtApi keeps per extension the events its worker listened to in the last run (prefs mgb_ext_bg, key mem_<id>); a stopped worker is started for a tab event only if it listened to it. Alarms and runtime.sendMessage always wake.
+- Alarms: own store (prefs mgb_ext_bg key alarms), separate from V77 alarms (prefs mgb_engine). Timers live only while the app process lives (same as V77).
+- TabsApi: senderOf(ctx, extId), fanOut(targets, msg, sender, extId) { }, listens(ctx, ev) are now public. tabFor/tabsFor in ExtApi remove url / title for extensions that may not see them.
+- contextMenus: ExtApi.menuItems(xid) / menuClicked(xid, id, info, tab) exist for a later TabManager long-press hook (not wired, no menu is shown).
+- S7 todo: downloads, declarativeNetRequest, webRequest for installed extensions are blocked in ExtApi.EXT_OK on purpose. To allow: add to EXT_OK + NEEDS (downloads, declarativeNetRequest, webRequest) and make HeaderModes / DownloadsApi per extension (they are V77-only now: rules would apply to every request!). Do NOT just widen the regex.
+- S8 todo: block nativeMessaging + MV2 in ExtRegistry.prepareSync; host permission filter for ext pages opened as tabs (TabManager still proxies every http(s) request of such a page); Diag rule for worker errors (console errors of a worker go to EngineHost log "ext <name>: ..." and Diag.w "engine" on crash only); Diag line for parked workers.
+- Known limits: no runtime.connect / ports, no runtime.getContexts / offscreen / sidePanel for installed extensions; permissions.request returns false; notifications.onClicked / contextMenus.onClicked never fire; POST requests from a worker are not proxied (only GET / HEAD, so cross-origin POST needs CORS); a worker that fetches for longer than 45 s without any bridge call can be stopped as idle; storage now needs the "storage" permission in the manifest (before S6 it did not); popups of extensions without tabs permission see tabs without url / title.
+- Behaviour change: extension popups / options pages now see tabs.* and the others listed above (S4 handoff said they did not).
+
+== after S4, version 0.0.97 ==
+- EngineHost.page(): path <id>/<rel> (id = [a-p]{32}) -> EngineHost.extFile (ExtRegistry.get(id).enabled + ExtRegistry.file). Also reached by TabManager through EngineHost.ext(u), so an extension page in a tab is served too.
+- ExtScreen: extIdOf(url), pageOf(url) = "<id>/<rel>" for enabled extension .html; openExtPage(host, id, rel); openSibling(url) (window -> window). isScreenUrl() is true for these, so TabsApi routes tabs.create / openOptionsPage urls of an extension to the window too.
+- ContentInjector.extPageScript(ctx) = dispatcher by location.pathname, used by attach() (tabs) and attachExt() (windows, engine). Offscreen keeps the V77 script. urlAllowed(patterns, url) = manifest host pattern matcher.
+- ExtRegistry.init is now called in ContentInjector.init.
+- ChromeBridge: for a non-V77 id on a Kind.EXT frame only CONTENT_OK + runtime.openOptionsPage are allowed. runtime.sendMessage still "Receiving end does not exist" until someone registers "ext.runtime.sendMessage" (S5). tabs.*, action.*, runtime.getPlatformInfo etc. are NOT available to popups yet (S6) - popups that call chrome.tabs.query will fail.
+- Known limits: all extension pages share one web origin (appassets.androidplatform.net), so one extension page could fetch another's files; proxy host check only applies to windows (ExtScreen), tabs (TabManager.shouldInterceptRequest) still proxy every http(s) request of an ext page (S8: host permission filter).
+- Not done: web_accessible_resources check (content scripts cannot load ext files via chrome.runtime.getURL url from a web page, because only EXT_ORIGIN pages are served), _locales in pages, ext page CSP.
+
+== after S3, version 0.0.96 ==
+- ChromeBridge.Call.extId (default EXT_ID). ChromeBridge.area(extId, name) / storageSet(area, items, extId) / removeExtData(ctx, id) / emit(event, args, extId = EXT_ID, filter) / request(ctx, msg, sender, extId = EXT_ID, cb). Old call sites compile unchanged (V77 path).
+- Ctx.ids = extension ids that have a shim in that frame. request() answers null at once if extId not in ctx.ids (no 30 s wait).
+- onMessage: x absent -> V77. Token check = ContentInjector.tokenFor(x); non-V77 id must be ExtRegistry.get(x)?.enabled == true.
+- Non-V77 ids are limited to CONTENT_OK regex (storage.local/sync.* + runtime.sendMessage) even on Kind.EXT frames. S4 (popup/options pages) and S6 must relax this per extension + permission.
+- Hook for S4/S5: ChromeBridge.on("ext.runtime.sendMessage") receives runtime.sendMessage from a non-V77 extension (Call.extId = sender). Without it: error "Receiving end does not exist".
+- S4 must pass per-extension cfg to ext pages (token = tokenFor(id), id, base = EXT_BASE + id + "/"); ContentInjector.attachExt still builds V77 cfg only.
+- TabsApi.senderOf still hardcodes id = EXT_ID: S5/S6 must use Call.extId. EngineApi unchanged (sender is V77 on purpose).
+- storage events go only to shims of the same extension. chrome.storage.onChanged for tabs-side cross-extension is not shared.
+- ExtRegistry.remove NOT edited (S0 file not seen): ExtListScreen calls ChromeBridge.removeExtData after remove. Any other remove caller (S8) must do the same.
+
+== after S2, version 0.0.95 ==
+- ContentInjector.attach(): after V77 entries, loops ExtRegistry.enabled() (uses only .id, .version, isValidId). Files read directly from filesDir/exts/<id>/ (own safe-path check, no ExtRegistry.file/dir used).
+- cfg passed to shim for extensions: kind=content, id=<ext id>, base=EXT_BASE+<id>+"/", manifest=<ext manifest>, token. S3 must route storage/sender by this id (shim + ChromeBridge still single-id).
+- Not done: match_about_blank, include_globs, css url() relative paths, live refresh of open tabs after toggle (needs TabManager hook), match_origin_as_fallback.
+- TabManager/BrowserExtras NOT changed (attach() already called before first loadUrl).
+
+== after S1, version 0.0.94 ==
+- ExtListScreen.open(act) / close() / summary(act). Dialog, no manifest entry. Calls ExtRegistry.init itself.
+- BrowserExtras.pickExtension { uri -> } : OpenDocument, mime list includes "*/*" (crx mime unreliable). Needs MainActivity.onCreate BrowserExtras.init (already there).
+- SettingsScreen: category key "extensions" placed before "about". Row click: dismiss() then ExtListScreen.open.
+- Permission dialog only WARNS (nativeMessaging / MV2 note). Real block = S8 in ExtRegistry.prepareSync.
+- Drawables used (exist in repo, seen via SettingsScreen): ic_back, ic_add, ic_trash, ic_folder.
+- No strings.xml entries added (texts hardcoded like SettingsScreen). No layout XML.
+- S3: add per-extension storage wipe in ExtRegistry.remove (still not done).
+
+== after S0, version 0.0.93 ==
+API (object ExtRegistry, package com.jabra.mgb):
+- init(ctx)  call once before use (idempotent). Cleans .stage_*/.old_* folders.
+- all() / enabled() / get(id) -> Info(id,name,version,manifestVersion,description,permissions,hostPermissions,
+  contentScriptCount,popup,options,background,enabled,dir)
+- prepare(ctx, uri, cb: (Result<Staged>) -> Unit)   uri from file picker; cb on main thread; Staged.info / Staged.existing (update?)
+- commit(staged, cb: (Result<Info>) -> Unit) / discard(staged)   always call one of them after a successful prepare
+- setEnabled(id, on), remove(id), file(id, rel) (safe path), isValidId(id)
+Storage: filesDir/exts/<id>/ ; enabled flag = prefs "mgb_exts" key "off" (set of disabled ids). Not inside ext folder.
+Notes for next steps:
+- S1: picker = ActivityResultContracts.OpenDocument with mime "application/zip","application/x-chrome-extension","application/octet-stream"
+  (.crx mime is unreliable). Show Staged.info permissions + hostPermissions in dialog, then commit or discard.
+- S3: remove() does NOT wipe per-extension storage yet; add the wipe there when storage exists.
+- S8: MV2 / nativeMessaging are parsed (manifestVersion, permissions) but NOT blocked yet. Block in prepareSync.
+- Backup.kt not touched: backup is JSON-based, files/exts not included (decide later if wanted).
+- ExtUpdater hot-update dir (files/ext_hot) is separate from files/exts; no clash.
+- manifest __MSG_x__ names resolved from _locales (default_locale, then en) only.
+- Zip limits come from ExtUpdater.unzip: 2000 files, 64 MB unpacked; paths containing ".." are rejected (even "a..b.js").

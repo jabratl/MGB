@@ -1,24 +1,74 @@
-S90 (version stays 0.0.92: static review of DiagRules.kt, no CI log / phone line was available yet)
-- DiagRules.kt: pages-missing-saved now reads the number from the real log text "chapter done: ok=true missing=N" (background.js). Before it looked for "N page", so the number was never shown.
-- DiagRules.kt: the host shown in "(Nx, host)" is only taken from the text before the first ":" if it looks like a host (a-z 0-9 . -). Lines from background.js ("chapter done: ...") used to show "chapter done" as the host.
-- Static checks: braces/parens balanced, no stray "$" in strings, raw regex strings ok, local fun mg()/tailOf() and Map.filter use ok. 46 code names + img-http-NNN: every JS code has a rule (script). Kotlin was NOT compiled (no SDK here).
+0.0.104 (S9: multi-extension support, final check; the whole S0-S8 build is listed below)
+- ExtListScreen.kt: the extension list stays 640 dp wide and centered on wide screens (1280 px / tablet / landscape); before it stretched over the full width
+- Permission text for contextMenus no longer says "long-press menu items" (MGB shows no such menu yet)
+- Docs: CHANGELOG_EXT / HANDOFF_EXT merged here and into HANDOFF.txt (files deleted, see DELETE.txt); docs/PHONE_CHECK.txt group F
+- Checked: Kotlin bracket balance (string templates handled) in all 25 .kt files, cross-file object member refs, node --check on shim / offhost / offscreen-shim, XML parse, json, R.color tokens in day and night. Layout of the list / dialogs was read in code only (no render here)
+- NOTE: this file had no 0.0.92 / S89.4-S89.7 / S90 entries when S9 started (the docs zip was older than the code); they are NOT written here, add them from the S89 chat notes
 
-S89.7 (version 0.0.92: Diagnose for manga failures, part 7 - final check)
-- Version 0.0.92 (app/build.gradle.kts already had it). All 46 manga codes (+ img-http-NNN) from S89.1-S89.3 have a Diagnose rule (checked by script).
-- docs/PHONE_CHECK.txt: header 0.0.92 and new group E (manga findings, items 16-25).
-
-S89.6 (version stays 0.0.91, bump in S89.7: Diagnose for manga failures, part 6 - rules for the reader / save / download codes)
-- DiagRules.kt: new rules73to87 (called after rules55to72). 15 rules for the S89.3 codes: manga-memory, manga-save-failed, manga-dl-failed, manga-dl-timeout, manga-jpeg, manga-save-incomplete (Problem); manga-saved-missing, manga-reencode, manga-postprocess, manga-reader-page, manga-pick-noimg, manga-order (Warning); manga-reader-empty, manga-resume, manga-bookmark (Info).
-- Fix buttons reuse reload / storage / downloads. DiagScreen.kt and DiagReport.kt not changed.
-
-S89.5 (version stays 0.0.91, bump in S89.7: Diagnose for manga failures, part 5 - rules for the page load codes)
-- DiagRules.kt: new rules55to72 (called after rules41to54). 18 rules for the S89.2 codes, read through Facts.code("manga:<id>") and Facts.mgCodeNotes: manga-img-403 / -404 / -429 / -5xx / -401, manga-img-http (any img-http-NNN), manga-not-image, manga-img-timeout, manga-img-fetch, manga-corrupt, manga-all-methods, manga-still-missing (Problem); manga-rate-limited, manga-refresh, manga-screenshot (Warning); manga-first-pass, manga-dups (Info).
-- retry-result is read for recovered=N / still-missing=M: M > 0 = manga-retry-left (Problem), M = 0 = manga-retry-ok (Info "N recovered"). Fix buttons reuse reload / settings / wifi (no DiagScreen change). DiagReport.kt not changed.
-
-S89.4 (version stays 0.0.91, bump in S89.7: Diagnose for manga failures, part 4 - rules for the page list codes)
-- DiagRules.kt: new rules41to54 (called after rules21to40). 14 rules, one per S89.1 code, read through Facts.code("manga:<id>") and Facts.mgCodeNotes: manga-cloudflare (Problem), manga-403 / manga-401 / manga-404 / manga-429 / manga-5xx / manga-cors / manga-fetch / manga-tab-closed / manga-adapter / manga-fewer / manga-thumbs (Warning), manga-no-list (Problem), manga-fallback (Info). Text shows the count and the host only.
-- A note with "rescued=tab" turns cloudflare / 403 / 401 / 404 / 429 / 5xx / cors / fetch into Info ("the grab worked"). Fix buttons reuse the existing ids reload / settings / wifi (no DiagScreen change).
-- DiagReport.kt not changed (Facts.mgCodes / mgCodeNotes were already filled in S89.0).
+Multi-extension support, steps S0-S8 (newest first):
+0.0.103 (S8 + S8b merged zip) same content as 0.0.101 + 0.0.102; fixes CI error Unresolved reference ExtSafety (S8 zip had not been applied)
+0.0.102 (S8b) manifest v2 / nativeMessaging are refused inside ExtRegistry.prepare too (ExtRegistry.kt), so any caller is covered; ExtListScreen check stays as a second guard
+0.0.101 (S8) extension safety
+- NEW ExtSafety.kt: manifest v2 and nativeMessaging extensions are refused when added (message shows the reason, nothing is installed); an older install of such an extension is turned off at app start and cannot be turned on
+- Extension pages opened in a tab only use the CORS-free proxy (and their header rules) for sites in their host permissions, like extension windows already did
+- Crash isolation: if the render process of an installed extension window dies, only that window closes (before: the app could be killed); background workers were already isolated in S5
+- Add dialog says which permissions are accepted but do nothing in MGB yet (webRequest, downloads, ...)
+- Diagnose: new rules 88-92 (worker parked, worker did not start, extension window crashed, worker errors, extension refused / turned off)
+- ExtSafety.kt, ExtListScreen.kt, ExtScreen.kt, TabManager.kt, ExtBackground.kt, ContentInjector.kt, DiagRules.kt, DiagReport.kt
+0.0.100 (S7) declarativeNetRequest for installed extensions
+- Header rules (modifyHeaders) per extension: updateSessionRules / updateDynamicRules / getSessionRules / getDynamicRules, own list and own saved dynamic rules for every extension (the built-in extension is unchanged)
+- Static rulesets from manifest declarative_net_request.rule_resources, getEnabledRulesets / updateEnabledRulesets
+- Rules change only the requests that extension makes itself (worker, popup, options, its pages in a tab), only for sites in its host permissions, only while it is on; removing an extension deletes its rules
+- Needs permission declarativeNetRequest (or declarativeNetRequestWithHostAccess). Block / redirect rules are accepted but do nothing yet; webRequest and downloads are still not available for installed extensions
+- HeaderModes.kt, EngineHost.kt (proxyFor takes the extension id), ExtApi.kt, ExtBackground.kt, ExtScreen.kt, TabManager.kt, chrome-shim.js
+0.0.99 (S6) per-extension chrome.* api
+- NEW ExtApi.kt: gate = every call of an installed extension is checked against its manifest permission (storage, alarms, notifications, contextMenus, scripting, cookies) and api list; V77 rule unchanged
+- popups / options pages of an installed extension can now use chrome.tabs (query, get, create, update, remove, reload, sendMessage, getCurrent), chrome.windows, chrome.action (ignored), chrome.permissions (read-only), chrome.scripting.executeScript / insertCSS, chrome.cookies
+- tab url / title / favIconUrl are removed for an extension without the "tabs" permission or a host permission for that tab (results and tabs.onCreated / onUpdated)
+- scripting.executeScript / insertCSS: needs host permission (or activeTab = tab on screen); files come from the extension's own folder
+- relative urls in tabs.create / tabs.update / windows.create resolve inside the extension; sender of a message carries the extension id and the worker / popup url
+- alarms per extension (saved, min period 30 s, wake the worker); notifications (system notification, toast when notification permission is off, no click event); contextMenus (stored only, no menu shown yet)
+- ChromeBridge.kt: "ext.<api>" handlers are preferred for installed extensions; TabsApi.kt: tab events also go to installed extensions; chrome-shim.js: scripting.insertCSS
+- Not for installed extensions yet (answer "Not supported in MGB"): downloads, declarativeNetRequest, webRequest, offscreen, sidePanel, runtime.getContexts (S7 / S8)
+0.0.98 (S5) background service worker per extension
+- NEW ExtBackground.kt: manifest background.service_worker (classic or type=module) runs in its own hidden WebView, started lazily, stopped after 45 s without activity (bridge call, network request, pending reply)
+- importScripts works (sync XHR + eval); self.skipWaiting / clients / registration stubs; install + activate events fired after load
+- Wake: runtime.sendMessage from content script / popup, alarms, tabs events the worker listened to last run, runtime.onStartup (app start); runtime.onInstalled on install / update (ExtApi.sync from Settings > Extensions)
+- Crash isolation: at most 3 workers at once (least recently used stops), 20 s load timeout, 3 render crashes in 5 min park that worker only; other extensions and V77 unaffected
+- The worker can read only its own files; network (CORS-free proxy) only for its host permissions
+- EngineHost.kt: serves the generated ext/<id>/_mgb_bg.html, status shows "Extension workers"; ExtListScreen.kt: toggle / remove / install / update call ExtApi.sync
+0.0.97 (S4) extension files + popup / options windows
+- EngineHost.kt: serves https://appassets.androidplatform.net/ext/<id>/<file> from files/exts/<id>/ (safe path, mime by extension, 404 for unknown / disabled id; never falls back to built-in assets)
+- ExtScreen.kt: any .html page of an installed extension opens in the extension window (title = extension name, popup centered); network of such a page uses the CORS-free proxy only for its host_permissions
+- ContentInjector.kt: window.chrome on extension pages is chosen by page path (own token / id / base / manifest per extension; unknown or disabled id = no chrome; built-in pages unchanged)
+- ContentInjector.init now calls ExtRegistry.init (before this, content scripts of installed extensions only worked after Settings > Extensions had been opened once)
+- ExtListScreen.kt: details dialog has Open popup / Options buttons
+- ChromeBridge.kt: chrome.runtime.openOptionsPage works from an installed extension's own page
+0.0.96 (S3) per-extension storage + runtime id
+- ChromeBridge.kt: chrome.storage local/sync/session per extension (filesDir/exts_data/<id>/local.json, sync.json; session in memory); quota 10 MB local / 100 KB sync for extensions
+- Bridge messages carry the extension id; token is per extension (ContentInjector.tokenFor), so an extension cannot speak as another or read its data
+- Events, answers and runtime.onMessage replies are addressed to one extension (several extensions can share one page frame)
+- Installed extensions are limited to storage.* + runtime.sendMessage for now (runtime.sendMessage -> "Receiving end does not exist" until S4/S5)
+- chrome-shim.js: sends x=id, ignores events/answers meant for another extension
+- ExtListScreen.kt: Remove also wipes the extension's storage
+- V77 (built-in) behaviour unchanged: same files, same token, same handlers
+0.0.95 (S2) content scripts of N extensions
+- ContentInjector.kt: every enabled extension in files/exts/<id>/ gets its manifest content_scripts injected (js, css, run_at, all_frames, world MAIN)
+- Full match / exclude_matches check at runtime (path too, not only origin); css injected as <style>
+- Per-extension cache (re-read when manifest/version changes); broken extension is skipped, others + V77 unaffected
+- Toggle/remove/update applies to tabs opened afterwards (open tabs keep old scripts until closed)
+0.0.94 (S1) Settings > Extensions
+- NEW ExtListScreen.kt: Add (file picker .zip/.crx), list, on/off switch, remove (confirm), tap = details
+- Permission summary dialog before install (sites, page scripts, permissions in plain words); Cancel = discard; same id = Update
+- SettingsScreen.kt: new category "Extensions" (row shows "N on / M")
+- BrowserExtras.kt: new pickExtension() launcher (registered last, old launcher keys unchanged)
+- Installed extensions still do nothing (S2+ runs them)
+0.0.93 (S0) multi-extension foundation
+- NEW ExtRegistry.kt: install (.zip / .crx) into files/exts/<id>/, manifest parse, id, enable flag, remove
+- .crx header cut (CRX2 + CRX3); Chrome id from crx header, else manifest "key", else hash of name
+- two-phase install: prepare (unpack to hidden .stage_*, read manifest) -> commit / discard (for S1 permission dialog)
+- ExtUpdater.kt: safeFile + unzip made internal (reused, logic unchanged)
+- No UI yet, nothing calls ExtRegistry yet (S1 does), so app behaviour is unchanged
 
 S89.3 (version stays 0.0.91, bump in S89.7: Diagnose for manga failures, part 3 - reader / save / convert / download logs)
 - manga.js (area "manga", lines "code=<id> host: detail", no full urls): reader-empty (reader opened with 0 selected), reader-page-failed (first failed page, once per reader open), bookmark-failed (localStorage save / load threw), resume-failed (saved page is past the end), pick-without-image (picked pages with no blob, at reader open and at save), wrong-order (file numbers go up and down, or Sort by name impossible), save-failed / memory-limit (any Save error, CBZ / ZIP / PDF / EPUB, memory-limit when the error text says quota / memory / allocation), postprocess-failed, reencode-failed (CBZ / ZIP re-encode, count of files kept as original), jpeg-convert-failed (PDF / EPUB page to JPEG), download-failed (chrome.downloads.download threw, or the download ended "interrupted"), download-timeout (waitDownload gave up after 120 s).

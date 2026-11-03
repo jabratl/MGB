@@ -1,4 +1,4 @@
-THAZIR real-phone check list (S89.7, 0.0.92). Tick on the phone, send me only the lines that fail (line number + what you see).
+THAZIR real-phone check list (S89.7 + multi-extension S9, 0.0.104). Tick on the phone, send me only the lines that fail (line number + what you see).
 Do each in dark AND light theme, once at normal width.
 
 A. Auto Diagnose pill
@@ -29,11 +29,29 @@ E. Manga failures in Report center (S89, needs the S89.1-S89.3 extension code on
 19. Site that expires image links: "could not refresh the expired image links" (Warning).
 20. Save a big chapter as PDF on a weak phone: "ran out of memory" (Problem) with the CBZ hint.
 21. Fill the storage (or deny the Downloads folder) and save: "could not be written to the Downloads folder" with Open storage settings.
-22. Save with pages missing: "saved with N page(s) missing" (Warning); N matches the toast. The number comes from the log text "missing=N" (fixed in S90): check it is shown and equals the toast.
+22. Save with pages missing: "saved with N page(s) missing" (Warning); N matches the toast. Check the number is shown (the real log text was not checked).
 23. Close the manga tab while saving: "not saved completely" (Problem).
 24. Open the reader with nothing selected: "reader was opened with no page selected" (Info).
 25. Each Manga finding: text fits at 360 px dark / light, the fix button does the named thing (Reload / Settings / Wi-Fi / storage / Downloads).
 Known: rules 28-30 (text based) can show together with the new manga findings.
+
+F. Extensions (S0-S9, needs a test extension: MV3 .zip with a content script, a popup, an options page and a service worker; plus one MV2 zip)
+26. Settings > Extensions: row shows "N on / M" (empty at first). Open it: text "Add an extension..." and "No extensions installed" fit at 360 px, dark and light.
+27. Add (top right + or bottom button) > pick the .zip: permission dialog lists sites, scripts and permissions in plain words. Cancel = nothing installed. Add = card appears.
+28. Add the same extension again (also as .crx): dialog says Update with "vOLD -> vNEW", the data of the extension stays.
+29. Add the MV2 zip and an extension with nativeMessaging: "was not added" with the reason, nothing installed.
+30. Content script: open a NEW tab on a matching site: the script runs; on a non-matching site it does not. Switch OFF, new tab: it does not run (tabs already open keep the old script until closed).
+31. Two extensions that use chrome.storage: each sees only its own data. Remove one and add it again: its storage is empty.
+32. Tap a card: details dialog (version, sites, permissions, "Note: ... does nothing yet"). Open popup / Options open the extension window; at 1280 px the popup is centered and not wider than 480 px. chrome.tabs.query in the popup returns the page you were on.
+33. Background worker: content script or popup sends chrome.runtime.sendMessage, the worker answers. After about 45 s idle the worker stops (engine status "Extension workers") and the next message starts it again. chrome.alarms wakes it.
+34. scripting.executeScript from the popup on the open tab works (host permission or activeTab). notifications.create shows a system notification (or a toast when notifications are off).
+35. declarativeNetRequest modifyHeaders rule: a request made by the extension's own worker / popup carries the changed header; a normal tab request does not.
+36. Break the worker on purpose (throw in it): Report center shows "worker errors" (Info). Make it fail to load: "worker did not start". Open the extension window and kill the WebView process if you can: only that window closes.
+37. Remove: confirm dialog, card gone, no worker left, no alarms.
+38. Restart the app with an older blocked extension installed: it is OFF and cannot be turned on (toast with the reason).
+39. Layout at 360 / 410 / 1280 px, dark and light: header, card (long name = 2 lines, long description = 2 lines), switch, trash, bottom Add button, the dialogs; at 1280 px the list is 640 dp wide and centered.
+Known: contextMenus items and notification clicks do nothing; webRequest / downloads are accepted but do nothing; block / redirect DNR rules do nothing; open tabs do not refresh after a toggle.
+Not tested anywhere yet: every line of F (nothing here could run Android).
 
 D. Build
 15. CI build is green. If red, send the exact error line.
