@@ -241,7 +241,7 @@ object ContentInjector {
         return ok
     }
 
-    /** S4: true if url is allowed by manifest host patterns (<all_urls>, https://*.x.com/*). Same matcher as content scripts. */
+    /** S4: true if url is allowed by manifest host patterns (<all_urls>, or a scheme + host + path pattern). Same matcher as content scripts. */
     fun urlAllowed(patterns: List<String>, url: String): Boolean {
         for (p in patterns) {
             if (p == "<all_urls>") return url.startsWith("http://") || url.startsWith("https://")
