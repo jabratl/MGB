@@ -1,3 +1,9 @@
+0.0.106 (S11: tray order + undo bar)
+- ExtTray.kt: long-press a tile = Move to first / earlier / later; order saved in prefs mgb_ext_tray (new installs go last)
+- ExtScreen.kt: "Closed <name>  Undo" snackbar when an installed extension window closes (not when another window replaces it)
+- ExtListScreen.kt: card line starts with On / Off
+- Not changed: ExtRegistry, ExtApi, MenuSheet, shim. True drag-and-drop NOT done (long-press menu instead)
+
 0.0.105 (S10: Thazir Extensions tray)
 - NEW ExtTray.kt: bottom sheet with a 4-column grid of the extensions that are ON (manifest icon, else colour tile + first letter, 2-line name), "Manage Extensions" button, header gear; tap = popup page (else options page) in the extension window
 - MenuSheet bottom row gets a 5th button (puzzle, new res/drawable/ic_ext.xml) -> ExtTray (MainActivity.showMenu, 1 line)

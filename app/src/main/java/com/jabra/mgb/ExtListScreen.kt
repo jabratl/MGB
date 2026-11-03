@@ -211,7 +211,7 @@ object ExtListScreen {
                 setTextColor(act.getColor(R.color.mg_text))
             })
             txt.addView(TextView(act).apply {
-                text = "v" + e.version + " · " + kinds(e)
+                text = (if (e.enabled) "On" else "Off") + " · v" + e.version + " · " + kinds(e)
                 textSize = 12f
                 setTextColor(act.getColor(R.color.mg_text_dim))
             })

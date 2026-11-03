@@ -74,7 +74,7 @@ object ExtTray {
         }, LinearLayout.LayoutParams(dp(44), dp(44)))
         col.addView(head, LinearLayout.LayoutParams(MATCH_W, dp(44)))
 
-        val list = ExtRegistry.all().filter { it.enabled }
+        val list = ordered(act, ExtRegistry.all().filter { it.enabled })
         val grid = LinearLayout(act).apply {
             orientation = LinearLayout.VERTICAL
             background = round(cCard, 22)
@@ -96,6 +96,7 @@ object ExtTray {
                     grid.addView(row, LinearLayout.LayoutParams(MATCH_W, WRAP_H))
                 }
                 val t = tile(act, e) { dlg.dismiss(); openExt(act, e) }
+                t.setOnLongClickListener { dlg.dismiss(); moveMenu(act, e); true } // S11: reorder
                 tiles.add(t)
                 row!!.addView(t, LinearLayout.LayoutParams(0, WRAP_H, 1f))
             }
@@ -147,6 +148,36 @@ object ExtTray {
 
     private const val MATCH_W = ViewGroup.LayoutParams.MATCH_PARENT
     private const val WRAP_H = ViewGroup.LayoutParams.WRAP_CONTENT
+
+    // ---------- S11: tray order (saved ids, newest installs go last) ----------
+    private const val PREFS = "mgb_ext_tray"
+
+    private fun order(act: Activity): List<String> =
+        act.getSharedPreferences(PREFS, 0).getString("order", "").orEmpty().split(',').filter { it.isNotEmpty() }
+
+    private fun ordered(act: Activity, l: List<ExtRegistry.Info>): List<ExtRegistry.Info> {
+        val o = order(act)
+        return l.sortedBy { val i = o.indexOf(it.id); if (i < 0) Int.MAX_VALUE else i }
+    }
+
+    private fun move(act: Activity, e: ExtRegistry.Info, to: Int) { // to: 0 first, -1 earlier, 1 later
+        val ids = ordered(act, ExtRegistry.all().filter { it.enabled }).map { it.id }.toMutableList()
+        val i = ids.indexOf(e.id)
+        if (i < 0) return
+        ids.removeAt(i)
+        val n = if (to == 0) 0 else (i + to).coerceIn(0, ids.size)
+        ids.add(n, e.id)
+        act.getSharedPreferences(PREFS, 0).edit().putString("order", ids.joinToString(",")).apply()
+    }
+
+    private fun moveMenu(act: Activity, e: ExtRegistry.Info) {
+        val items = arrayOf("Move to first", "Move earlier", "Move later")
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(act)
+            .setTitle(e.name)
+            .setItems(items) { _, w -> move(act, e, when (w) { 0 -> 0; 1 -> -1; else -> 1 }); show(act) }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
 
     private fun openExt(act: Activity, e: ExtRegistry.Info) {
         val page = e.popup ?: e.options

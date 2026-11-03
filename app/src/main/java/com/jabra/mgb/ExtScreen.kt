@@ -127,7 +127,7 @@ object ExtScreen {
         private var bar: LinearProgressIndicator? = null
 
         init {
-            setOnDismissListener { cleanup() }
+            setOnDismissListener { cleanup(); undoBar() }
         }
 
         fun host(): Activity = act
@@ -292,6 +292,18 @@ object ExtScreen {
 
         @Suppress("OVERRIDE_DEPRECATION")
         override fun onBackPressed() { goBackOrClose() }
+
+        /** S11: "Closed X  Undo" bar after the window of an installed extension closes (not when another window replaced it). */
+        private fun undoBar() {
+            val name = extIdOf(startUrl)?.let { ExtRegistry.get(it)?.name } ?: return
+            val url = startUrl
+            val root = act.findViewById<android.view.View>(android.R.id.content) ?: return
+            root.post {
+                if (current != null || act.isFinishing || act.isDestroyed) return@post
+                com.google.android.material.snackbar.Snackbar.make(root, "Closed $name", 5000)
+                    .setAction("Undo") { open(act, url) }.show()
+            }
+        }
 
         private fun cleanup() {
             dropPill()
