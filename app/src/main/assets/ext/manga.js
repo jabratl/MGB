@@ -39,6 +39,10 @@ function jpegComps(u8) {
   }
   return 3;
 }
+// S89.3: log codes for reader / save / convert / download. Log only, nothing here changes what the page does.
+const mgSaveCode = (e) => (/quota|out of memory|memory|allocation|too large|array buffer|invalid (typed )?array length/i.test(String((e && e.message) || e)) ? 'memory-limit' : 'save-failed');
+const mgHost = () => { try { return hostOf(DATA && DATA.ref); } catch (e) { return '?'; } };
+function logNoBlob(stage) { const n = pages.filter((p) => p.sel && !p.blob).length; if (n) dbgc('manga', 'pick-without-image', `${mgHost()}: ${stage}, ${n} picked page(s) have no image and are skipped`); }
 async function toJpeg(p) {
   if (p.ext === 'jpg') {
     const data = new Uint8Array(await p.blob.arrayBuffer()), c = jpegComps(data);
@@ -59,7 +63,7 @@ async function makePdf(sel) {
   offs[1] = len; add('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
   offs[2] = len; add(`2 0 obj\n<< /Type /Pages /Count ${n} /Kids [${sel.map((_, i) => `${5 + 3 * i} 0 R`).join(' ')}] >>\nendobj\n`);
   for (let i = 0; i < n; i++) {
-    const j = await toJpeg(sel[i]), im = 3 + 3 * i, ct = 4 + 3 * i, pg = 5 + 3 * i;
+    const j = await toJpeg(sel[i]).catch((e) => { dbgc('manga', mgSaveCode(e) === 'memory-limit' ? 'memory-limit' : 'jpeg-convert-failed', `${mgHost()}: PDF page ${i + 1}: ${cleanErr(e && e.message)}`); throw e; }), im = 3 + 3 * i, ct = 4 + 3 * i, pg = 5 + 3 * i;
     offs[im] = len; add(`${im} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${j.w} /Height ${j.h} /ColorSpace /${j.cs} /BitsPerComponent 8 /Filter /DCTDecode /Length ${j.data.length} >>\nstream\n`); add(j.data); add('\nendstream\nendobj\n');
     const cs = `q ${j.w} 0 0 ${j.h} 0 0 cm /Im0 Do Q`;
     offs[ct] = len; add(`${ct} 0 obj\n<< /Length ${cs.length} >>\nstream\n${cs}\nendstream\nendobj\n`);
@@ -86,7 +90,7 @@ async function makeEpub(sel, title) {
   for (let i = 0; i < sel.length; i++) {
     const p = sel[i];
     let ext = p.ext, blob = p.blob, w = p.w, h = p.h;
-    if (!MT[ext]) { const j = await toJpeg(p); ext = 'jpg'; blob = new Blob([j.data], { type: 'image/jpeg' }); w = j.w; h = j.h; }
+    if (!MT[ext]) { const j = await toJpeg(p).catch((e) => { dbgc('manga', mgSaveCode(e) === 'memory-limit' ? 'memory-limit' : 'jpeg-convert-failed', `${mgHost()}: EPUB page ${i + 1}: ${cleanErr(e && e.message)}`); throw e; }); ext = 'jpg'; blob = new Blob([j.data], { type: 'image/jpeg' }); w = j.w; h = j.h; }
     files.push({ name: `OEBPS/images/${pad(i)}.${ext}`, blob });
     files.push({ name: `OEBPS/p${pad(i)}.xhtml`, blob: new Blob([`<?xml version="1.0" encoding="utf-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml"><head><meta charset="utf-8"/><meta name="viewport" content="width=${w}, height=${h}"/><title>${i + 1}</title><style>html,body{margin:0;padding:0;background:#000}img{display:block;width:100%;height:100%;object-fit:contain}</style></head><body><img src="images/${pad(i)}.${ext}" alt=""/></body></html>`]) });
     manifest.push(`<item id="img${pad(i)}" href="images/${pad(i)}.${ext}" media-type="${MT[ext]}"${i === 0 ? ' properties="cover-image"' : ''}/>`, `<item id="p${pad(i)}" href="p${pad(i)}.xhtml" media-type="application/xhtml+xml"/>`);
@@ -523,7 +527,7 @@ function blankRow(ctx, y, w) { // true when the whole pixel row is (almost) one 
 }
 async function postProcess(sel, mode) {
   const gray = mode === 'gray' || mode === 'cropgray', crop = mode === 'crop' || mode === 'cropgray', split = mode === 'split';
-  const out = [];
+  const out = []; let ppBad = 0, ppErr = null;
   for (let i = 0; i < sel.length; i++) {
     const p = sel[i];
     $('#st').textContent = `Processing ${i + 1}/${sel.length}...`;
@@ -555,13 +559,18 @@ async function postProcess(sel, mode) {
       }
       if (!gray && !crop) { out.push(p); continue; }
       out.push({ ...p, blob: await toBlob(cv), ext: 'jpg', w: W, h: H });
-    } catch (e) { out.push(p); }
+    } catch (e) { out.push(p); ppBad++; ppErr = ppErr || e; }
   }
+  if (ppBad) dbgc('manga', mgSaveCode(ppErr) === 'memory-limit' ? 'memory-limit' : 'postprocess-failed', `${mgHost()}: ${mode}, ${ppBad} of ${sel.length} page(s) kept as they were: ${cleanErr(ppErr && ppErr.message)}`);
   return out;
 }
 
-async function save(kind) {
+async function save(kind) { // S89.3: wrapper only logs, then rethrows the same error
+  try { return await saveRun(kind); } catch (e) { if (!(e && e.mgLogged)) dbgc('manga', mgSaveCode(e), `${mgHost()}: ${kind}: ${cleanErr(e && e.message)}`); throw e; }
+}
+async function saveRun(kind) {
   let sel = selected();
+  logNoBlob('save');
   if (!sel.length) { $('#st').textContent += ' - nothing to save'; return false; }
   const title = $('#ttl').value.trim() || 'pages';
   if ($('#post').value !== 'none') sel = await postProcess(sel, $('#post').value);
@@ -574,26 +583,32 @@ async function save(kind) {
   const SETF = DATA.book ? { ...SET, subfolder: [SET.subfolder, DATA.book].filter(Boolean).join('/') } : SET;
   const filename = buildFileName(SETF, { title, site: hostOf(DATA.ref), name: title, kind: 'pages', res: '', lang: '', book: DATA.book || '', chapter: DATA.chapter || '', index: DATA.index || '' }, kind);
   const url = URL.createObjectURL(blob);
-  const did = await chrome.downloads.download({ url, filename, conflictAction: 'uniquify' });
+  let did;
+  try { did = await chrome.downloads.download({ url, filename, conflictAction: 'uniquify' }); }
+  catch (e) { dbgc('manga', 'download-failed', `${mgHost()}: ${kind}, ${fmtSize(blob.size)}: ${cleanErr(e && e.message)}`); if (e && typeof e === 'object') e.mgLogged = true; throw e; }
   addHistory({ id: did, title: filename.split('/').pop(), kind, site: hostOf(DATA.ref), src: DATA.ref, pages: sel.length, size: blob.size });
-  if (DATA.autoClose) await waitDownload(did);
+  if (DATA.autoClose) await waitDownload(did, kind);
+  else waitDownload(did, kind).catch(() => {}); // S89.3: not awaited, only so a failed / stuck download gets logged
   $('#st').textContent = `Saved ${filename} (${fmtSize(blob.size)}, ${sel.length} pages)`;
   setTimeout(() => URL.revokeObjectURL(url), 60000);
   return true;
 }
 
-async function waitDownload(id) {
+async function waitDownload(id, kind) {
   for (let i = 0; i < 240; i++) {
     const [d] = await chrome.downloads.search({ id });
-    if (!d || d.state !== 'in_progress') return;
+    if (!d) return;
+    if (d.state === 'interrupted') { dbgc('manga', 'download-failed', `${mgHost()}: ${kind || '?'}, interrupted: ${cleanErr(d.error)}`); return; }
+    if (d.state !== 'in_progress') return;
     await new Promise((r) => setTimeout(r, 500));
   }
+  dbgc('manga', 'download-timeout', `${mgHost()}: ${kind || '?'}, still in progress after 120 s`);
 }
 
 // ---------- re-encode (smaller CBZ/ZIP) + page order helpers ----------
 async function convertFiles(files, fmt) {
   const type = fmt === 'webp' ? 'image/webp' : 'image/jpeg', ext = fmt === 'webp' ? 'webp' : 'jpg';
-  const out = []; let saved = 0;
+  const out = []; let saved = 0, cvBad = 0, cvErr = null;
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
     if (/\.gif$/i.test(f.name)) { out.push(f); continue; } // keep animations
@@ -604,14 +619,15 @@ async function convertFiles(files, fmt) {
       const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.drawImage(bmp, 0, 0); bmp.close();
       const b = await new Promise((r) => cv.toBlob(r, type, 0.85));
       if (b && b.size < f.blob.size) { out.push({ name: f.name.replace(/\.\w+$/, '.' + ext), blob: b }); saved += f.blob.size - b.size; } else out.push(f);
-    } catch (e) { out.push(f); }
+    } catch (e) { out.push(f); cvBad++; cvErr = cvErr || e; }
   }
+  if (cvBad) dbgc('manga', mgSaveCode(cvErr) === 'memory-limit' ? 'memory-limit' : 'reencode-failed', `${mgHost()}: ${fmt}, ${cvBad} of ${files.length} file(s) kept as the original: ${cleanErr(cvErr && cvErr.message)}`);
   $('#st').textContent = `Converted - saved ${fmtSize(saved)}`;
   return out;
 }
 const fileNum = (p) => { const n = (String(p.orig || p.found || '').split(/[?#]/)[0].split('/').pop() || '').replace(/\.\w+$/, '').match(/(\d+)(?!.*\d)/); return n ? parseInt(n[1], 10) : null; };
 function sortByName() {
-  if (pages.some((p) => fileNum(p) === null)) { $('#st').textContent += ' - some file names have no number, cannot sort'; return; }
+  if (pages.some((p) => fileNum(p) === null)) { dbgc('manga', 'wrong-order', `${mgHost()}: sort by name not possible, some file names have no number`); $('#st').textContent += ' - some file names have no number, cannot sort'; return; }
   pages.sort((a, b) => fileNum(a) - fileNum(b));
   renumber(); updateButtons();
 }
@@ -620,22 +636,24 @@ function orderHint() {
   if (ns.length < 3 || ns.some((n) => n === null)) return;
   let up = 0, down = 0;
   for (let i = 1; i < ns.length; i++) { if (ns[i] > ns[i - 1]) up++; else if (ns[i] < ns[i - 1]) down++; }
+  if (down > 0 && up > 0) dbgc('manga', 'wrong-order', `${mgHost()}: ${pages.length} pages, ${up} step(s) up and ${down} step(s) down in the file numbers`);
   if (down > 0 && up > 0) $('#st').textContent += ' - NOTE: page order differs from file-name numbers, try "Sort by name"';
 }
 $('#sortn').onclick = sortByName;
 $('#conv').onchange = () => { try { localStorage.setItem('mg-conv', $('#conv').value); } catch (e) { /* ignore */ } };
 
 // ---------- reader (zoom, brightness, two-page spread, bookmark) ----------
-let ri = 0;
+let ri = 0, rdBad = 0;
+function rdImage(p) { const i = new Image(); i.onerror = () => { if (++rdBad === 1) dbgc('manga', 'reader-page-failed', `${mgHost()}: reader, first failed page is ${selected().indexOf(p) + 1} of ${selected().length}`); }; i.src = p.url2; return i; } // S89.3: once per reader open
 const bmKey = () => 'mg-bm:' + (DATA && (DATA.ref || DATA.title) || '');
 function bmSave() {
   try {
     const mode = $('#mode').value, rc = $('#rc');
     const v = mode === 'v' ? { sy: rc.scrollHeight > rc.clientHeight ? rc.scrollTop / (rc.scrollHeight - rc.clientHeight) : 0 } : { i: ri };
     localStorage.setItem(bmKey(), JSON.stringify({ ...v, mode, t: Date.now() }));
-  } catch (e) { /* ignore */ }
+  } catch (e) { dbgc('manga', 'bookmark-failed', `${mgHost()}: save: ${cleanErr(e && e.message)}`); }
 }
-function bmLoad() { try { return JSON.parse(localStorage.getItem(bmKey())); } catch (e) { return null; } }
+function bmLoad() { try { return JSON.parse(localStorage.getItem(bmKey())); } catch (e) { dbgc('manga', 'bookmark-failed', `${mgHost()}: load: ${cleanErr(e && e.message)}`); return null; } }
 function applyView() {
   const rc = $('#rc');
   rc.style.setProperty('--z', ($('#zoom').value / 100).toFixed(2));
@@ -649,7 +667,7 @@ function drawReader() {
   rc.className = $('#fit').value + (mode === 'v' ? '' : ' paged') + (mode === 'd' ? ' dbl' : '');
   rc.textContent = '';
   if (mode === 'v') {
-    sel.forEach((p) => { const i = new Image(); i.src = p.url2; rc.append(i); });
+    sel.forEach((p) => { rc.append(rdImage(p)); });
     $('#pn').textContent = sel.length + ' pages';
     rc.onclick = null;
   } else {
@@ -658,7 +676,7 @@ function drawReader() {
     if (per === 2) ri -= ri % 2; // spreads start on odd pages (1-2, 3-4 ...)
     const group = sel.slice(ri, ri + per);
     if (per === 2 && rtl) group.reverse();
-    group.forEach((p) => { const i = new Image(); i.src = p.url2; rc.append(i); });
+    group.forEach((p) => { rc.append(rdImage(p)); });
     $('#pn').textContent = per === 2 && group.length > 1 ? `${ri + 1}-${ri + 2} / ${sel.length}` : `${ri + 1} / ${sel.length}`;
     rc.onclick = (e) => step(((e.clientX < innerWidth / 2) === rtl ? 1 : -1) * per);
     rc.scrollTop = 0;
@@ -669,8 +687,12 @@ function drawReader() {
 }
 function step(d) { ri += d; drawReader(); }
 function openReader() {
-  $('#rt').textContent = $('#ttl').value; $('#rd').classList.add('on'); ri = 0;
+  $('#rt').textContent = $('#ttl').value; $('#rd').classList.add('on'); ri = 0; rdBad = 0;
+  const nSel = selected().length;
+  if (!nSel) dbgc('manga', 'reader-empty', `${mgHost()}: reader opened with 0 pages selected (${pages.length} in the list)`);
+  logNoBlob('reader');
   const bm = bmLoad();
+  if (bm && nSel && bm.i != null && bm.i >= nSel) dbgc('manga', 'resume-failed', `${mgHost()}: saved page ${bm.i + 1} is past the end (${nSel} pages), starting at page 1`);
   if (bm && ($('#mode').value === bm.mode || bm.mode === 'v' || $('#mode').value === 'v')) {
     if ($('#mode').value !== 'v' && bm.i != null) ri = bm.i;
   }
@@ -790,7 +812,7 @@ $('#read').onclick = openReader;
   if (auto === 'cbz' || auto === 'zip' || auto === 'pdf' || auto === 'epub') {
     if (pages.some((p) => p.bad)) await retryFailed(); // one automatic repair pass before saving
     let okSave = false;
-    try { okSave = !!(await save(auto)); } catch (e) { $('#st').textContent = 'Save failed: ' + e.message; }
+    try { okSave = !!(await save(auto)); } catch (e) { $('#st').textContent = 'Save failed: ' + e.message; } // S89.3: save() already logged the code
     if (DATA.autoClose) { chrome.runtime.sendMessage({ type: 'manga-done', id: Q.get('id'), ok: okSave, missing: pages.filter((p) => p.bad).length }); setTimeout(() => window.close(), 800); }
   }
   else if (auto === 'read') openReader();

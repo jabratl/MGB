@@ -1261,7 +1261,7 @@ function notifyUser(title, message) {
 }
 const mangaWaiters = {}; // id -> respond (chapter queue waits for each CBZ to finish)
 const mangaTabs = {};    // tabId -> id
-chrome.tabs.onRemoved.addListener((tid) => { const id = mangaTabs[tid]; if (!id) return; delete mangaTabs[tid]; const w = mangaWaiters[id]; if (w) { delete mangaWaiters[id]; try { w({ ok: false }); } catch (e) { /* closed */ } } });
+chrome.tabs.onRemoved.addListener((tid) => { const id = mangaTabs[tid]; if (!id) return; delete mangaTabs[tid]; const w = mangaWaiters[id]; if (w) { dbgc('manga', 'save-incomplete', 'chapter tab closed before it finished'); delete mangaWaiters[id]; try { w({ ok: false }); } catch (e) { /* closed */ } } });
 
 chrome.runtime.onMessage.addListener((msg, sender, respond) => {
   if (!msg || !msg.type) return;
@@ -1393,7 +1393,10 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
     })();
     return true;
   }
-  if (msg.type === 'manga-done') { const w = mangaWaiters[msg.id]; if (w) { delete mangaWaiters[msg.id]; try { w({ ok: msg.ok !== false, missing: msg.missing || 0 }); } catch (e) { /* closed */ } } return; }
+  if (msg.type === 'manga-done') {
+    if (msg.missing > 0 || msg.ok === false) dbgc('manga', msg.ok === false ? 'save-incomplete' : 'pages-missing-saved', `chapter done: ok=${msg.ok !== false} missing=${msg.missing || 0}${mangaWaiters[msg.id] ? '' : ' (nobody waiting, auto notice not shown)'}`);
+    const w = mangaWaiters[msg.id]; if (w) { delete mangaWaiters[msg.id]; try { w({ ok: msg.ok !== false, missing: msg.missing || 0 }); } catch (e) { /* closed */ } } return;
+  }
   if (msg.type === 'notify') { settingsReady.then(() => { if (S.notify) notifyUser(msg.title || 'Media Grabber', msg.text || ''); }); return; }
   if (msg.type === 'open-options') { chrome.runtime.openOptionsPage(); return; }
   if (msg.type === 'clear') {
