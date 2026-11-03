@@ -1,3 +1,10 @@
+MGB 0.0.64 (S60: download engine options in the native panel)
+- Panel > TOOLS > Download engine: one screen for the V77 engine settings.
+  - Speed: downloads at the same time, parts at the same time, speed limit, pause between page requests.
+  - Retries and checks: retry when the connection returns, second try without video, wait for each player, ask before downloading again, remember what worked per site, skip chapters already downloaded.
+  - Files: join video + audio, convert .ts to .mp4, skip conversion for big files, notify when done.
+  - What counts as a video: hide small files, hide short streams, skip ads. Live streams: stop recording after.
+
 MGB 0.0.63 (S59: subtitle options + file names in the native panel)
 - Panel > TOOLS > Subtitles and file names: one screen for the V77 settings, with a live example of the file name you get (and the subtitle name).
   - Subtitles: download with the video, languages (pick list), format (SRT / VTT / TXT / original), check inside each file, what to do when the wanted language is missing.

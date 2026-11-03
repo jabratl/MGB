@@ -142,6 +142,7 @@ object NativeBatch {
         if (shownCount > 0 && downloadAll != null) { names.add("Download all ($shownCount files)"); runs.add { downloadAll() } } // S56
         names.add("Buttons on this site: " + DlMode.siteLabel(act, Util.host(ref))); runs.add { DlMode.siteDialog(act, Util.host(ref)) {} } // S57
         names.add("Subtitles and file names"); runs.add { SubName.open(act) } // S59
+        names.add("Download engine (speed, retries, limits)"); runs.add { DlEngine.open(act) } // S60
         names.add("Paste links (batch)"); runs.add { pasteLinks(act, tabId, ref) } // S56
         if (subCount > 0) { names.add("All subtitles of this page ($subCount)"); runs.add { subFormat(act, tabId) } }
         names.add("Subtitles from the player"); runs.add { subsCapture(act, tabId) }

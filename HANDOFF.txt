@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.64 (S60: download engine options, see the S60 note at the end; before: S59)
+
 CURRENT VERSION 0.0.63 (S59: subtitle options + file names, see the S59 note at the end; before: S58)
 
 CURRENT VERSION 0.0.62 (S58: video quality + batch options, see the S58 note at the end; before: S57)
@@ -303,3 +305,10 @@ Checks: Kotlin braces balance (paren counter off by one only because of the stri
 NOT tested: every row writes the V77 key and V77 uses it on the next download; example matches the real file name; library switch; language list keeps languages typed in V77 options.
 Still missing natively: ask-per-episode quality (miss=ask), wait per player + second try (sniffSeconds, batchRetryMiss), schedule job, live HLS recording (liveMaxMin), bandwidth limit + concurrency (speedLimitKBps, concurrency, maxJobs), duplicate check (dupAsk), Follow manga, chapter batch options (skipDone, requestDelayMs), minimum duration / size filters, convert .ts limit.
 Next: S60 = download engine options screen (concurrency, bandwidth limit, retry, duplicate check, convert limit, live recording limit, wait per player).
+
+======== S60 note (0.0.64) ========
+Changed: DlEngine.kt (NEW: native screen for V77 keys maxJobs concurrency speedLimitKBps requestDelayMs autoNetRetry batchRetryMiss sniffSeconds dupAsk siteMemory skipDone mergeAV convertMp4 convertMaxMB notify minSizeKB minDurationSec blockAds liveMaxMin) / NativeBatch.kt (TOOLS entry) / build.gradle.kts / CHANGELOG.txt. No JS change.
+Checks: Kotlin braces/parens balance; NOT compiled; UI NOT rendered at 360/1280 dark/light.
+NOT tested: each row writes the V77 key and V77 uses it; values set in V77 options stay in the list.
+Still missing natively: ask-per-episode quality (miss=ask), schedule job, Follow manga, manga pages options (siteFormats, per-site rules), site modules switch, native UI for queue / history pages (V77 pages still used).
+Next: S61 = Follow manga + schedule job in TOOLS (or fix from the first CI log).
