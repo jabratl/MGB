@@ -2,7 +2,7 @@ package com.jabra.mgb
 
 /**
  * S86: Diagnose part 5a. Rule engine: facts about the app / page / downloads -> list of Finding
- * (what happened + what to do + optional one tap fix). Rules 1-20 (S86) + rules 21-40 (S87.1, see rules21to40) + rules 41-54 (S89.4, manga page list codes, see rules41to54).
+ * (what happened + what to do + optional one tap fix). Rules 1-20 (S86) + rules 21-40 (S87.1, see rules21to40) + rules 41-54 (S89.4, manga page list codes, see rules41to54) + rules 55-72 (S89.5, manga page load codes, see rules55to72).
  * Pure logic, no UI, no Android calls (DiagReport collects the Facts).
  *
  * fix ids (DiagScreen.runFix): wifi, storage, webview, reload, settings, downloads, notif, appinfo.
@@ -125,6 +125,7 @@ object DiagRules {
 
         rules21to40(x, out)
         rules41to54(x, out)
+        rules55to72(x, out)
 
         return out.sortedBy { when (it.level) { DiagReport.BAD -> 0; DiagReport.WARN -> 1; else -> 2 } }
     }
@@ -203,6 +204,61 @@ object DiagRules {
         mg("no-page-list", "manga-no-list", B, "No page list could be found for this chapter.", "Open the chapter itself (not the series page), scroll to the first image, then grab again. If it repeats, copy the report.", "reload", "Reload page")
         mg("pages-fewer-than-expected", "manga-fewer", W, "Fewer pages were found than the page says.", "Scroll the whole chapter once so every image loads, then grab again. Check the saved file for missing pages.", "reload", "Reload page")
         mg("thumbnails-only", "manga-thumbs", W, "Most pages found are small (thumbnails, under 400 px wide).", "Open the chapter reader page instead of the gallery overview, wait until images are sharp, then grab again.", "reload", "Reload page")
+    }
+
+    /**
+     * S89.5 rules 55-72: manga PAGE LOAD codes written by manga.js (S89.2). Same pattern as rules41to54.
+     * img-* / not-an-image / corrupt-image lines exist only for pages STILL missing after the retries, so they are Problems.
+     * retry-result: newest note "... recovered=N still-missing=M" decides Info (M = 0) or Problem (M > 0).
+     * img-http-NNN has a number in the code, so it is found by scanning the keys.
+     */
+    private fun rules55to72(x: Facts, out: ArrayList<Finding>) {
+        val B = DiagReport.BAD
+        val W = DiagReport.WARN
+        val I = DiagReport.INFO
+        fun tailOf(n: Int, note: String): String {
+            val host = if (note.contains(":")) note.substringBefore(":").trim().take(60) else ""
+            return " (" + n + "x" + (if (host.isNotEmpty()) ", " + host else "") + ")"
+        }
+        fun mg(code: String, id: String, level: String, what: String, todo: String, fix: String? = null, label: String? = null) {
+            val n = x.code("manga:$code")
+            if (n <= 0) return
+            out.add(f(id, level, what + tailOf(n, x.mgCodeNotes["manga:$code"].orEmpty()), todo, fix, label))
+        }
+        mg("img-403-blocked", "manga-img-403", B, "The site refused some page images (403), so those pages are missing.", "Open the chapter in a normal tab, wait until every image shows, then press Retry failed. Some sites block image links without a visit first.", "reload", "Reload page")
+        mg("img-404-gone", "manga-img-404", B, "Some page images are not found any more (404 / 410), so those pages are missing.", "The image links may have expired. Reload the chapter page to get fresh links, then grab again.", "reload", "Reload page")
+        mg("img-429-slow-down", "manga-img-429", B, "The site said too many requests (429) for some images, so those pages are missing.", "Wait a few minutes, then press Retry failed. Raise the delay between pages or lower the concurrency in Settings.", "settings", "Open Settings")
+        mg("img-5xx-server", "manga-img-5xx", B, "The site's image server had an error (5xx), so some pages are missing.", "The site is down or busy. Press Retry failed in a few minutes.")
+        mg("img-401-login", "manga-img-401", B, "The site wants a login for some images (401), so those pages are missing.", "Log in on the site in this browser, open the chapter once, then press Retry failed.", "reload", "Reload page")
+        val other = x.mgCodes.filter { it.key.startsWith("manga:img-http-") }
+        if (other.isNotEmpty()) {
+            val total = other.values.sum()
+            val key = other.keys.first()
+            val num = key.removePrefix("manga:img-http-")
+            out.add(f("manga-img-http", B, "The site answered some images with HTTP " + num + ", so those pages are missing." + tailOf(total, x.mgCodeNotes[key].orEmpty()), "Open the chapter in a normal tab, wait until every image shows, then press Retry failed. If it repeats, copy the report.", "reload", "Reload page"))
+        }
+        mg("not-an-image", "manga-not-image", B, "The site sent something that is not an image (often a check or login page) for some pages.", "Open the chapter in a normal tab and pass any check or login, then press Retry failed.", "reload", "Reload page")
+        mg("img-network-timeout", "manga-img-timeout", B, "Some images timed out or the connection dropped, so those pages are missing.", "Check Wi-Fi / data (a VPN can also cause this), then press Retry failed.", "wifi", "Open Wi-Fi settings")
+        mg("img-fetch-error", "manga-img-fetch", B, "Some images could not be loaded (unknown error), so those pages are missing.", "Press Retry failed. If it repeats, reload the chapter page and grab again, or copy the report.", "reload", "Reload page")
+        mg("corrupt-image", "manga-corrupt", B, "Some images arrived broken (corrupt), so those pages are missing.", "Press Retry failed. If it repeats, the site's file may be damaged: try again later or copy the report.")
+        mg("all-methods-failed", "manga-all-methods", B, "Some pages failed every loading method (direct, viewer, page fetch, canvas).", "Keep the manga tab open and visible with the screen on, reload the chapter page, then press Retry failed.", "reload", "Reload page")
+        mg("rate-limited", "manga-rate-limited", W, "The site is rate-limiting MGB, so downloads were slowed down automatically.", "Wait. If it repeats, raise the delay between pages or lower the concurrency in Settings.", "settings", "Open Settings")
+        mg("first-pass-failed", "manga-first-pass", I, "Some pages failed the first time. MGB retries them automatically.", "Nothing to do unless the pages stay missing (see the other findings).")
+        run {
+            val n = x.code("manga:retry-result")
+            if (n > 0) {
+                val note = x.mgCodeNotes["manga:retry-result"].orEmpty()
+                val rec = Regex("""recovered=(\d+)""").find(note)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                val left = Regex("""still-missing=(\d+)""").find(note)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                val t = tailOf(n, note)
+                if (left > 0) out.add(f("manga-retry-left", B, "After the retries, $left page(s) are still missing ($rec recovered)." + t, "Press Retry failed once more. If pages stay missing, reload the chapter page and grab again.", "reload", "Reload page"))
+                else out.add(f("manga-retry-ok", I, "$rec page(s) were recovered by the retry." + t, "Nothing to do."))
+            }
+        }
+        mg("still-missing", "manga-still-missing", B, "Some pages could not be loaded even after the retries.", "Press Retry failed. If they stay missing, reload the chapter page for fresh links and grab again. Do not save yet: the file would have gaps.", "reload", "Reload page")
+        mg("refresh-failed", "manga-refresh", W, "MGB could not refresh the expired image links.", "Reload the chapter page, then grab again.", "reload", "Reload page")
+        mg("duplicates-unselected", "manga-dups", I, "Duplicate pages were unselected automatically.", "Nothing to do. Tick them again in the Manga window if you want them.")
+        mg("screenshot-failed", "manga-screenshot", W, "Some pages could not be captured as screenshots.", "Keep the manga tab visible with the screen on until the grab has finished, then try again.")
     }
 
     /** "Why?" on one failed download row: the row's own text / code + the masked url. Always returns at least one Finding. */

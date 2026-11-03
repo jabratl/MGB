@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.91 + S89.0 + S89.1 + S89.2 + S89.3 + S89.4 + S89.5 (manga page load rules, version bump in S89.7, see the S89.5 note at the end; before: S89.4)
+
 CURRENT VERSION 0.0.91 + S89.0 + S89.1 + S89.2 + S89.3 + S89.4 (manga page list rules, version bump in S89.7, see the S89.4 note at the end; before: S89.3)
 
 CURRENT VERSION 0.0.91 + S89.0 + S89.1 + S89.2 + S89.3 (manga reader / save / download logs, version bump in S89.7, see the S89.3 note at the end; before: S89.2)
@@ -721,3 +723,14 @@ Checks: bracket count of DiagRules.kt compared with the original: { } ( ) [ ] al
 NOT tested (needs build + phone): Kotlin compile (local fun with default parameters, String + Int in tail); how long texts look in the Diagnose list at 360 px dark / light; real mgLog lines producing these findings; "rescued=tab" Info case.
 Could break: mgCodeNotes keeps only the NEWEST detail per code, so an old rescued=no problem is shown as Info if the newest line is rescued=tab (and the reverse).
 Next: S89.5 (DiagRules.kt: rules for the page load codes: img-403-blocked, img-404-gone, img-429-slow-down, img-5xx-server, img-401-login, img-http-NNN, not-an-image, img-network-timeout, img-fetch-error, corrupt-image, all-methods-failed, rate-limited, first-pass-failed, retry-result, still-missing, refresh-failed, duplicates-unselected, screenshot-failed; hints in the S89.2 note). Attach: DiagRules.kt (after this patch).
+
+S89.5 - manga failures to Diagnose, part 5: rules for the page load codes
+Done: S0-S87.2 + S89.0 + S89.1 + S89.2 + S89.3 + S89.4 + S89.5. Version still 0.0.91 (0.0.92 is set in S89.7).
+- DiagRules.kt only: rules55to72(x, out) added, called right after rules41to54 in diagnose(). 18 rules. Problem: manga-img-403 / -404 / -429 / -5xx / -401 / manga-img-http (any img-http-NNN, found by scanning mgCodes keys, text shows the first status number) / manga-not-image / manga-img-timeout / manga-img-fetch / manga-corrupt / manga-all-methods / manga-still-missing / manga-retry-left. Warning: manga-rate-limited, manga-refresh, manga-screenshot. Info: manga-first-pass, manga-retry-ok, manga-dups.
+- retry-result: the newest note is parsed for recovered=N and still-missing=M. M > 0 gives manga-retry-left (Problem, "M page(s) still missing (N recovered)"), M = 0 gives manga-retry-ok (Info). Both show the count + host.
+- Local helpers mg() (no rescue branch, image codes have no rescued=tab) and tailOf(n, note) (" (Nx, host)"). Fix ids reuse reload / settings / wifi (no DiagScreen change).
+- Pattern for S89.6: copy mg() into a new private fun rules73toNN(x, out) and call it after rules55to72; next ids manga-*.
+Checks: bracket count { } ( ) [ ] balanced in DiagRules.kt after the edit; no duplicate rule ids; 18 findings = 16 mg() calls + img-http + retry-result (2 ids); regex raw strings \d+ checked in the saved file; symbols exist (Facts.code, mgCodes, mgCodeNotes, DiagReport.BAD / WARN / INFO). NOT compiled (no Kotlin SDK).
+NOT tested (needs build + phone): Kotlin compile (local funs, Map.filter, string templates $rec / $left); real mgLog lines producing these findings; how 18 long texts look in the Diagnose list at 360 px dark / light.
+Could break: mgCodeNotes keeps only the NEWEST detail per code, so after a manual retry that recovered everything an older still-missing line still shows manga-still-missing + img-* Problems for 30 minutes (retry-ok shows too). With several img-http-NNN codes only the first number is named. Rules 28-30 (text based) and manga-no-list / manga-still-missing can show together.
+Next: S89.6 (DiagRules.kt: rules for the reader / save codes: reader-empty, reader-page-failed, bookmark-failed, resume-failed, pick-without-image, wrong-order, save-failed, memory-limit, postprocess-failed, reencode-failed, jpeg-convert-failed, download-failed, download-timeout, pages-missing-saved, save-incomplete; hints in the S89.3 note). Attach: DiagRules.kt (after this patch).
