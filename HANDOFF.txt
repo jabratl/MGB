@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.62 (S58: video quality + batch options, see the S58 note at the end; before: S57)
+
 CURRENT VERSION 0.0.61 (S57: button mode per site, see the S57 note at the end; before: S56)
 
 CURRENT VERSION 0.0.60 (S56: paste links + Download all, see the S56 note at the end; before: S55)
@@ -285,3 +287,10 @@ Changed: DlMode.kt (per-site map prefs mgb_ui dl_site_modes, setSite pushes V77 
 Checks: node --check content.js + shared.js OK; Kotlin braces/parens balance; NOT compiled; UI NOT rendered.
 NOT tested: site mode dialog saves and the pill hides/shows at once on that site; video button after reload; native button; shared.js DEFAULTS key does not break the options page.
 Next: per-site row in Settings (list/reset all site modes), S17 final check, or fix from the first CI log. Zips S55 v0_0_59, S56 v0_0_60, S57 v0_0_61: apply in order (later ones contain earlier edits of the same file).
+
+======== S58 note (0.0.62) ========
+Changed: DetectedPanel.kt (heightsOf, pickH, row best height + quality ladder chips, Video quality button + qualityDialog, maxQ in list signature) / NativeBatch.kt (batch options: quality, miss policy nb_miss, batchParallel; miss sent to batch-episodes) / build.gradle.kts / CHANGELOG.txt. No JS change.
+Checks: Kotlin braces balance (paren counter off by one only because of the string "   (" in substringBefore); NOT compiled; UI NOT rendered at 360/1280 dark/light.
+NOT tested: quality button text updates after choosing; ladder chips on real HLS pages; "Gets Np" matches what V77 really downloads; batch options dialog flow; miss policy reaches V77.
+V77 video/batch features still missing natively (candidates for next steps): ask-per-episode quality (miss=ask), wait per player + second try settings, schedule job, live HLS recording, subtitle options (languages/format) per download, naming template / Plex library naming, bandwidth limit + concurrency, duplicate check ("Download again?"), Follow manga, chapter batch zero-pad / skip downloaded, DASH variants list beyond 10.
+Next: pick one group from the list above (suggest: subtitles + naming options in the panel).

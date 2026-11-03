@@ -89,6 +89,49 @@ object NativeBatch {
             .setNegativeButton("Cancel", null).show()
     }
 
+    // ---- S58: batch options (quality = V77 maxHeight, if missing = batch-episodes miss, parallel = V77 batchParallel) ----
+    private val MISS = arrayOf("near", "low", "high", "skip")
+    private val MISS_NAMES = arrayOf("Closest quality", "Lower quality", "Higher quality", "Skip the episode")
+
+    private fun prefs(c: android.content.Context) = c.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE)
+    private fun missOf(c: android.content.Context): String = (prefs(c).getString("nb_miss", "near") ?: "near").let { if (it in MISS) it else "near" }
+    private fun parOf(): Int = try { ChromeBridge.sync.get("batchParallel").optInt("batchParallel", 1).coerceIn(1, 4) } catch (e: Exception) { 1 }
+    private fun qOf(): String = DetectedPanel.maxQ().let { if (it > 0) "up to ${it}p" else "Best" }
+
+    fun optionsText(act: Activity): String =
+        "Quality: " + qOf() + "   ·   if missing: " + MISS_NAMES[MISS.indexOf(missOf(act))].lowercase() + "   ·   " + parOf() + " at a time   ▸"
+
+    private fun choice(act: Activity, title: String, names: Array<String>, cur: Int, pick: (Int) -> Unit, back: () -> Unit) {
+        MaterialAlertDialogBuilder(act).setTitle(title)
+            .setSingleChoiceItems(names, cur) { d, i -> pick(i); d.dismiss(); back() }
+            .setNegativeButton("Back") { _, _ -> back() }.show()
+    }
+
+    private fun batchOptions(act: Activity, changed: () -> Unit) {
+        val items = arrayOf(
+            "Video quality:  " + qOf(),
+            "If the quality is missing:  " + MISS_NAMES[MISS.indexOf(missOf(act))],
+            "Episodes searched at the same time:  " + parOf()
+        )
+        val again = { changed(); batchOptions(act, changed) }
+        MaterialAlertDialogBuilder(act).setTitle("Batch options")
+            .setItems(items) { _, i ->
+                when (i) {
+                    0 -> {
+                        val v = intArrayOf(0, 2160, 1440, 1080, 720, 480, 360)
+                        val n = arrayOf("Best available", "Up to 2160p (4K)", "Up to 1440p", "Up to 1080p", "Up to 720p", "Up to 480p", "Up to 360p")
+                        choice(act, "Video quality (best up to)", n, v.indexOf(DetectedPanel.maxQ()).let { if (it < 0) 0 else it },
+                            { k -> ChromeBridge.storageSet("sync", JSONObject().put("maxHeight", v[k])) }, again)
+                    }
+                    1 -> choice(act, "If the quality is missing", MISS_NAMES, MISS.indexOf(missOf(act)),
+                        { k -> prefs(act).edit().putString("nb_miss", MISS[k]).apply() }, again)
+                    else -> choice(act, "Episodes at the same time", arrayOf("1 (in order, safest)", "2", "3", "4"), parOf() - 1,
+                        { k -> ChromeBridge.storageSet("sync", JSONObject().put("batchParallel", k + 1)) }, again)
+                }
+            }
+            .setPositiveButton("Done") { _, _ -> changed() }.show()
+    }
+
     fun tools(act: Activity, tabId: Int, ref: String, subCount: Int, shownCount: Int, downloadAll: (() -> Unit)?, closePanel: () -> Unit) {
         val f = found(ref)
         val mg = manga(ref)
@@ -257,6 +300,15 @@ object NativeBatch {
         val top = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
         top.addView(filter, LinearLayout.LayoutParams(MATCH, WRAP))
         top.addView(range, LinearLayout.LayoutParams(MATCH, WRAP))
+        val optBtn = TextView(act).apply { // S58
+            setTextColor(cText)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            background = GradientDrawable().apply { setColor(act.getColor(R.color.mg_surface_variant)); cornerRadius = dp(14).toFloat() }
+            text = optionsText(act)
+        }
+        optBtn.setOnClickListener { batchOptions(act) { optBtn.text = optionsText(act) } }
+        top.addView(optBtn, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(6); bottomMargin = dp(2) })
         top.addView(allCb, LinearLayout.LayoutParams(MATCH, WRAP))
         root.addView(top, LinearLayout.LayoutParams(MATCH, WRAP))
         root.addView(scroll, LinearLayout.LayoutParams(MATCH, 0, 1f))
@@ -288,7 +340,7 @@ object NativeBatch {
             val arr = JSONArray()
             for (e in picks) arr.put(JSONObject().put("url", e.url).put("label", e.label).put("book", f.book).put("title", f.book + " - " + e.label))
             val cap = DetectedPanel.maxQ().let { if (it > 0) it.toString() else "" }
-            EngineApi.send(JSONObject().put("type", "batch-episodes").put("tabId", tabId).put("cap", cap).put("miss", "near").put("episodes", arr))
+            EngineApi.send(JSONObject().put("type", "batch-episodes").put("tabId", tabId).put("cap", cap).put("miss", missOf(act)).put("episodes", arr))
             Util.toast(act, "Finding videos in ${picks.size} episode(s)...")
             // status view
             polling = true

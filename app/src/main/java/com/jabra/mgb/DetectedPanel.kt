@@ -304,6 +304,16 @@ object DetectedPanel {
     }
 
     /** Max video height for \"best\" = the V77 setting maxHeight (0 = highest). Used by every download that says best, also DOWNLOAD (n). */
+    /** S58: distinct heights of a stream's variants, highest first. */
+    fun heightsOf(v: JSONArray?): List<Int> {
+        val s = HashSet<Int>()
+        if (v != null) for (i in 0 until v.length()) { val h = v.optJSONObject(i)?.optInt("h", 0) ?: 0; if (h > 0) s.add(h) }
+        return s.toList().sortedDescending()
+    }
+
+    /** S58: what V77 picks for a cap: the highest height up to the cap, the lowest one if none is that small, cap 0 = the highest. */
+    fun pickH(hs: List<Int>, cap: Int): Int = if (hs.isEmpty()) 0 else if (cap <= 0) hs.first() else (hs.firstOrNull { it <= cap } ?: hs.last())
+
     fun maxQ(): Int = try { ChromeBridge.sync.get("maxHeight").optInt("maxHeight", 0) } catch (e: Exception) { 0 }
 
     fun maxQLabel(): String = maxQ().let { if (it > 0) "up to ${it}p" else "Best available" }
@@ -454,6 +464,7 @@ object DetectedPanel {
         private val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         private val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
         private lateinit var badge: TextView
+        private lateinit var qBtn: TextView // S58
         private lateinit var selHint: TextView
         private lateinit var chipRow: LinearLayout
         private lateinit var chipScroll: HorizontalScrollView
@@ -602,6 +613,17 @@ object DetectedPanel {
                 background = round(cPrimary, 26)
                 setOnClickListener { downloadSelected() }
             }
+            qBtn = tv("", 13f, cText, 1, true).apply { // S58: video quality, like V77 "Preferred max video quality"
+                gravity = Gravity.CENTER
+                background = round(cCard, 20)
+                ripple(this)
+                setOnClickListener { qualityDialog() }
+            }
+            root.addView(FrameLayout(act).apply {
+                setPadding(dp(14), dp(4), dp(14), dp(2))
+                visibility = View.GONE
+                addView(qBtn, FrameLayout.LayoutParams(MATCH, dp(40)))
+            }, LinearLayout.LayoutParams(MATCH, WRAP))
             dlWrap = FrameLayout(act).apply {
                 setPadding(dp(14), dp(6), dp(14), dp(4))
                 visibility = View.GONE
@@ -698,10 +720,12 @@ object DetectedPanel {
             for (e in visible.take(30)) ensureThumb(e, if (vidsN == 1) poster else "", ref, ua) { b -> thumbUpd[e.key]?.invoke(b) } // S52
             val shownKeys = visible.joinToString(",") { it.key + ":" + sizeOf(it).first + ":" + (metaCache[it.url]?.hasAudio ?: "?") + ":" + it.info.optDouble("dur", 0.0) }
             val mg = NativeBatch.manga(ref) // S55
-            val s = shownKeys + "|" + sort + "|" + filter.active() + "|" + (mg?.let { it.n.toString() + it.site } ?: "") // selection is NOT part of it: rows repaint themselves
+            val s = shownKeys + "|" + sort + "|" + filter.active() + "|" + maxQ() + "|" + (mg?.let { it.n.toString() + it.site } ?: "") // selection is NOT part of it: rows repaint themselves
             title.text = "Files detected!"
             val total = all.count { !it.j.optBoolean("hidden", false) && it.key !in rk }
             badge.text = visible.size.toString()
+            qBtn.text = "Video quality:  " + (if (maxQ() > 0) "up to ${maxQ()}p" else "Best available") + "   ▾" // S58
+            (qBtn.parent as? View)?.visibility = if (all.any { it.group == "video" }) View.VISIBLE else View.GONE
             val host = Util.host(ref).ifBlank { "this page" }
             sub.text = if (visible.size == total) host else "$host  ·  ${visible.size} of $total (filter on)"
             filterBtn.text = if (filter.active()) "Filter ●" else "Filter"
@@ -938,7 +962,11 @@ object DetectedPanel {
             val sz = sizeOf(e)
             if (sz.first > 0) bits.add((if (sz.second) "~" else "") + EngineApi.fmtSize(sz.first))
             val vr = e.variants?.optJSONObject(0)
+            val hs = if (e.isStream) heightsOf(e.variants) else emptyList() // S58
+            val capNow = maxQ()
+            val got = pickH(hs, capNow)
             val res = when {
+                hs.isNotEmpty() -> if (capNow > 0 && got != hs.first()) "Gets ${got}p of ${hs.first()}p" else "${hs.first()}p best"
                 e.isStream && vr != null && vr.optString("res").isNotBlank() -> vr.optString("res")
                 e.isStream && vr != null && vr.optInt("h", 0) > 0 -> vr.optInt("h").toString() + "p"
                 meta != null && meta.w > 0 && meta.h > 0 -> "${meta.w}x${meta.h}"
@@ -948,6 +976,12 @@ object DetectedPanel {
             val d = durOf(e)
             if (d > 0) bits.add("Duration: " + durLabel(d))
             if (bits.isNotEmpty()) col.addView(tv(bits.joinToString("  ·  "), 12f, cDim, 2).apply { setPadding(0, dp(3), 0, 0) })
+            if (hs.size > 1) { // S58: quality ladder, the one that will download is filled
+                val lad = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL }
+                for (h in hs.take(5)) lad.addView(chip("${h}p", if (h == got) cPrimary else cTile, if (h == got) cOnPrimary else cDim), LinearLayout.LayoutParams(WRAP, WRAP).apply { marginEnd = dp(5) })
+                if (hs.size > 5) lad.addView(chip("+${hs.size - 5}", cTile, cDim), LinearLayout.LayoutParams(WRAP, WRAP))
+                col.addView(lad, LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = dp(5) })
+            }
 
             var noAudio = false
             val audioText = when {
@@ -998,6 +1032,29 @@ object DetectedPanel {
             val m = JSONObject().put("type", "start-job").put("tabId", tabId).put("key", e.key)
             if (e.kind == "subtitle") m.put("fmt", "srt") else m.put("variant", variant ?: "best")
             EngineApi.send(m)
+        }
+
+        /** S58: quality for Download, Download all and batches (= V77 maxHeight). Heights come from the streams found on this page. */
+        private fun qualityDialog() {
+            val found = HashMap<Int, Int>()
+            val streams = all.filter { it.isStream && it.group == "video" }
+            for (e in streams) for (h in heightsOf(e.variants)) found[h] = (found[h] ?: 0) + 1
+            val hs = found.keys.sortedDescending().ifEmpty { listOf(1080, 720, 480, 360) }
+            val vals = ArrayList<Int>()
+            val names = ArrayList<String>()
+            vals.add(0); names.add("Best available")
+            for (h in hs) { vals.add(h); names.add("Up to ${h}p" + (if (streams.size > 1 && found[h] != null) "   (${found[h]} of ${streams.size} videos)" else "")) }
+            if (!vals.contains(144)) { vals.add(144); names.add("Smallest file (lowest quality)") }
+            val cur = vals.indexOf(maxQ()).let { if (it < 0) 0 else it }
+            com.google.android.material.dialog.MaterialAlertDialogBuilder(act).setTitle("Video quality (best up to)")
+                .setSingleChoiceItems(names.toTypedArray(), cur) { d, i ->
+                    ChromeBridge.storageSet("sync", JSONObject().put("maxHeight", vals[i]))
+                    toast("Quality: " + names[i].substringBefore("   ("))
+                    d.dismiss()
+                    sig = ""
+                    render()
+                }
+                .setNegativeButton("Cancel", null).show()
         }
 
         /** S56: TOOLS > Download all = every file shown now (filter respected, subtitles and DRM left out), best quality. */
