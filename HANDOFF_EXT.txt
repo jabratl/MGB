@@ -1,5 +1,20 @@
 HANDOFF_EXT (newest on top)
 
+== after S6, version 0.0.99 (S5 = 0.0.98) ==
+Files: NEW ExtBackground.kt, NEW ExtApi.kt; changed ChromeBridge.kt, TabsApi.kt, EngineHost.kt, ExtListScreen.kt, assets/shim/chrome-shim.js, build.gradle.kts.
+- ExtBackground: ensure(id, cb(Boolean)) starts / waits for the worker (cb false = cannot run: no service_worker, disabled, parked, WebView failed). stop(id, why), has(id), running(id), idOf(web), urlOf(id), hold/release(web) (pending reply keeps it alive), touch(web), reset(id) (clears crash park). Page = ext/<id>/_mgb_bg.html built in page(); a file with that name in an extension is never served.
+- Constants: IDLE_MS 45 s, MAX_RUNNING 3, LOAD_TIMEOUT 20 s, SETTLE 300 ms (cb fires after it so listeners are registered). Only MV3 service_worker is run; MV2 background.scripts / page are NOT run (S8 blocks MV2 at install anyway).
+- ExtApi: gate(ctx, xid, api, args) is called by ChromeBridge for every non-V77 message (EXT_OK / CONTENT_OK regex + NEEDS map = api namespace -> manifest permission). Add a new api for installed extensions = (1) add it to EXT_OK, (2) register "ext.<api>" if it must know the extension, else the plain handler is used (c.extId tells who calls).
+- ExtApi.sync(ctx): call after any install / update / toggle / remove (done in ExtListScreen). Any other remove caller (S8) must call it, plus ChromeBridge.removeExtData.
+- Wake rule: ExtApi keeps per extension the events its worker listened to in the last run (prefs mgb_ext_bg, key mem_<id>); a stopped worker is started for a tab event only if it listened to it. Alarms and runtime.sendMessage always wake.
+- Alarms: own store (prefs mgb_ext_bg key alarms), separate from V77 alarms (prefs mgb_engine). Timers live only while the app process lives (same as V77).
+- TabsApi: senderOf(ctx, extId), fanOut(targets, msg, sender, extId) { }, listens(ctx, ev) are now public. tabFor/tabsFor in ExtApi remove url / title for extensions that may not see them.
+- contextMenus: ExtApi.menuItems(xid) / menuClicked(xid, id, info, tab) exist for a later TabManager long-press hook (not wired, no menu is shown).
+- S7 todo: downloads, declarativeNetRequest, webRequest for installed extensions are blocked in ExtApi.EXT_OK on purpose. To allow: add to EXT_OK + NEEDS (downloads, declarativeNetRequest, webRequest) and make HeaderModes / DownloadsApi per extension (they are V77-only now: rules would apply to every request!). Do NOT just widen the regex.
+- S8 todo: block nativeMessaging + MV2 in ExtRegistry.prepareSync; host permission filter for ext pages opened as tabs (TabManager still proxies every http(s) request of such a page); Diag rule for worker errors (console errors of a worker go to EngineHost log "ext <name>: ..." and Diag.w "engine" on crash only); Diag line for parked workers.
+- Known limits: no runtime.connect / ports, no runtime.getContexts / offscreen / sidePanel for installed extensions; permissions.request returns false; notifications.onClicked / contextMenus.onClicked never fire; POST requests from a worker are not proxied (only GET / HEAD, so cross-origin POST needs CORS); a worker that fetches for longer than 45 s without any bridge call can be stopped as idle; storage now needs the "storage" permission in the manifest (before S6 it did not); popups of extensions without tabs permission see tabs without url / title.
+- Behaviour change: extension popups / options pages now see tabs.* and the others listed above (S4 handoff said they did not).
+
 == after S4, version 0.0.97 ==
 - EngineHost.page(): path <id>/<rel> (id = [a-p]{32}) -> EngineHost.extFile (ExtRegistry.get(id).enabled + ExtRegistry.file). Also reached by TabManager through EngineHost.ext(u), so an extension page in a tab is served too.
 - ExtScreen: extIdOf(url), pageOf(url) = "<id>/<rel>" for enabled extension .html; openExtPage(host, id, rel); openSibling(url) (window -> window). isScreenUrl() is true for these, so TabsApi routes tabs.create / openOptionsPage urls of an extension to the window too.

@@ -140,6 +140,7 @@ object ChromeBridge {
             if (same.size > MAX_CTX_PER_WEB) ctxs.remove(same.first())
         }
         ctx.ids.add(xid)
+        ExtBackground.touch(view) // S5: a call from a worker keeps it alive
         val api = m.optString("a")
         val args = m.optJSONArray("p") ?: JSONArray()
         when (api) {
@@ -153,10 +154,12 @@ object ChromeBridge {
             "__log" -> { if (logged++ < 80) Log.d("MGB.shim", args.optString(0).take(600)); return }
         }
         val call = Call(ctx, api, args, m.optInt("i"), xid)
-        // S3: installed extensions get only the content-script API set for now (S4/S6 widen it per extension)
-        // S4: an installed extension's own page (popup / options window) may also open its options page
+        // S6: an installed extension is checked per api + manifest permission (ExtApi.gate); V77 keeps the old rule
         val optPage = xid != ContentInjector.EXT_ID && ctx.kind == Kind.EXT && api == "runtime.openOptionsPage"
-        if ((ctx.kind == Kind.CONTENT || xid != ContentInjector.EXT_ID) && !CONTENT_OK.matches(api) && !optPage) { call.fail("Not allowed: $api"); return }
+        if (xid != ContentInjector.EXT_ID) {
+            val err = ExtApi.gate(ctx, xid, api, args)
+            if (err != null) { call.fail(err); return }
+        } else if (ctx.kind == Kind.CONTENT && !CONTENT_OK.matches(api)) { call.fail("Not allowed: $api"); return }
         if (optPage) {
             val rel = ExtRegistry.get(xid)?.options
             if (rel == null) { call.fail("This extension has no options page"); return }
@@ -167,12 +170,13 @@ object ChromeBridge {
             return
         }
         if (xid != ContentInjector.EXT_ID && api == "runtime.sendMessage") {
-            // routing of extension messages (own popup / background) arrives with S4/S5: they register "ext.runtime.sendMessage"
+            // S5: ExtApi registers "ext.runtime.sendMessage" (content script / popup / options / worker of the same extension)
             val eh = handlers["ext.runtime.sendMessage"]
             if (eh == null) call.fail("Could not establish connection. Receiving end does not exist.") else eh(call)
             return
         }
-        val h = handlers[api]
+        // S6: "ext.<api>" = version of a handler that knows which extension is calling (alarms, notifications ...)
+        val h = (if (xid != ContentInjector.EXT_ID) handlers["ext.$api"] else null) ?: handlers[api]
         if (h == null) { call.fail("Not implemented: $api"); return }
         try { h(call) } catch (e: Exception) { call.fail(e.message ?: e.toString()) }
     }

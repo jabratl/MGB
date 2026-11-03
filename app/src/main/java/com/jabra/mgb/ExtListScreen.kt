@@ -203,6 +203,7 @@ object ExtListScreen {
                 thumbTintList = ColorStateList(st, intArrayOf(act.getColor(R.color.mg_on_primary), act.getColor(R.color.mg_text_dim)))
                 setOnCheckedChangeListener { _, on ->
                     if (!ExtRegistry.setEnabled(e.id, on)) Util.toast(act, "Could not change")
+                    ExtApi.sync(act) // S5: stop / wake its background worker, alarms
                     fill()
                 }
             }, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(6) })
@@ -234,6 +235,7 @@ object ExtListScreen {
                 .setPositiveButton("Remove") { _, _ ->
                     if (!ExtRegistry.remove(e.id)) Util.toast(act, "Could not remove all files")
                     ChromeBridge.removeExtData(act, e.id) // S3: wipe its storage
+                    ExtApi.sync(act) // S5: worker, alarms, menus of the removed extension
                     fill()
                 }
                 .setNegativeButton("Cancel", null)
@@ -305,6 +307,7 @@ object ExtListScreen {
                     ExtRegistry.commit(st) { r ->
                         if (r.isSuccess) {
                             Util.toast(act, if (old != null) "Extension updated" else "Extension added")
+                            ExtApi.sync(act) // S5: runtime.onInstalled / worker restart
                             if (isShowing) fill()
                         } else {
                             fail(r.exceptionOrNull()?.message)

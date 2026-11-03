@@ -89,20 +89,23 @@ object TabsApi {
         return synchronized(frameIds) { frameIds.getOrPut(c) { nextFrame++ } }
     }
 
-    private fun listens(c: ChromeBridge.Ctx, ev: String): Boolean =
+    fun listens(c: ChromeBridge.Ctx, ev: String): Boolean =
         synchronized(listening) { listening[c]?.contains(ev) == true }
 
     /** The `sender` object a receiving listener gets. */
-    fun senderOf(c: ChromeBridge.Ctx): JSONObject {
-        val s = JSONObject().put("id", ContentInjector.EXT_ID).put("origin", c.origin)
+    fun senderOf(c: ChromeBridge.Ctx, extId: String = ContentInjector.EXT_ID): JSONObject {
+        val s = JSONObject().put("id", extId).put("origin", c.origin)
         val tab = if (c.tabId > 0) tm?.byId(c.tabId) else null
-        if (tab != null) s.put("tab", tabJson(tab))
+        if (tab != null) s.put("tab", ExtApi.tabFor(extId, tabJson(tab)))
         s.put("frameId", frameIdOf(c))
+        val own = extId != ContentInjector.EXT_ID
         val url = when {
             c.kind == ChromeBridge.Kind.EXT ->
                 if (EngineHost.isEngine(c.web)) ContentInjector.EXT_BASE + "_engine.html"
+                else if (own && ExtBackground.idOf(c.web) == extId) ExtBackground.urlOf(extId) // S5: worker
+                else if (own && ExtScreen.isScreen(c.web)) ExtScreen.urlOf(c.web) // S6: popup / options window
                 else if (c.isMainFrame && tab != null && tab.url.startsWith(ContentInjector.EXT_BASE)) tab.url
-                else ContentInjector.EXT_BASE
+                else ContentInjector.EXT_BASE + (if (own) "$extId/" else "")
             c.isMainFrame && tab != null -> tab.url
             else -> c.origin + "/"
         }
@@ -110,12 +113,14 @@ object TabsApi {
     }
 
     /** Send to several frames; the first non-empty reply wins, null when all are empty. */
-    private fun fanOut(targets: List<ChromeBridge.Ctx>, msg: Any?, sender: JSONObject, done: (Any?) -> Unit) {
+    fun fanOut(targets: List<ChromeBridge.Ctx>, msg: Any?, sender: JSONObject, extId: String = ContentInjector.EXT_ID, done: (Any?) -> Unit) {
         if (targets.isEmpty()) { done(null); return }
         var left = targets.size
         var finished = false
         for (t in targets) {
-            ChromeBridge.request(t, msg, sender) { r ->
+            val held = ExtBackground.hold(t.web) // S5: a worker that has to answer is not stopped as idle
+            ChromeBridge.request(t, msg, sender, extId) { r ->
+                if (held) ExtBackground.release(t.web)
                 if (finished) return@request
                 left--
                 if (r != null && r != JSONObject.NULL) { finished = true; done(r) }
@@ -147,9 +152,10 @@ object TabsApi {
         return out
     }
 
-    private fun fullUrl(u: String): String =
+    private fun fullUrl(u: String, extId: String = ContentInjector.EXT_ID): String =
         if (u.isBlank()) TabManager.HOME
         else if (SCHEME.containsMatchIn(u)) u
+        else if (extId != ContentInjector.EXT_ID) ContentInjector.EXT_BASE + extId + "/" + u.trimStart('/') // S6: relative = file of that extension
         else ContentInjector.EXT_BASE + u.trimStart('/')
 
     /** S10: a link opened from an extension window becomes a normal tab. */
@@ -157,18 +163,19 @@ object TabsApi {
 
     // ---------- events (called by TabManager) ----------
 
-    private fun emitTabs(event: String, vararg args: Any?) {
+    private fun emitTabs(event: String, tab: TabManager.Tab?, vararg args: Any?) {
         val a = JSONArray()
         for (x in args) a.put(x ?: JSONObject.NULL)
         ChromeBridge.emit(event, a) { it.kind == ChromeBridge.Kind.EXT }
+        ExtApi.tabsEvent(event, tab, args.toList()) // S6: installed extensions (own events, url / title only where allowed)
     }
 
-    fun onCreated(t: TabManager.Tab) = emitTabs("tabs.onCreated", tabJson(t))
+    fun onCreated(t: TabManager.Tab) = emitTabs("tabs.onCreated", t, tabJson(t))
     fun onActivated(t: TabManager.Tab) =
-        emitTabs("tabs.onActivated", JSONObject().put("tabId", t.id).put("windowId", 1))
+        emitTabs("tabs.onActivated", t, JSONObject().put("tabId", t.id).put("windowId", 1))
     fun onRemoved(t: TabManager.Tab) =
-        emitTabs("tabs.onRemoved", t.id, JSONObject().put("windowId", 1).put("isWindowClosing", false))
-    fun onUpdated(t: TabManager.Tab, change: JSONObject) = emitTabs("tabs.onUpdated", t.id, change, tabJson(t))
+        emitTabs("tabs.onRemoved", t, t.id, JSONObject().put("windowId", 1).put("isWindowClosing", false))
+    fun onUpdated(t: TabManager.Tab, change: JSONObject) = emitTabs("tabs.onUpdated", t, t.id, change, tabJson(t))
 
     // ---------- init ----------
 
@@ -182,6 +189,7 @@ object TabsApi {
         ChromeBridge.onSync("event.add") { c ->
             val n = c.args.optString(0)
             if (n.isNotEmpty()) synchronized(listening) { listening.getOrPut(c.ctx) { HashSet() }.add(n) }
+            if (n.isNotEmpty()) ExtApi.onListen(c, n) // S5: remembers what wakes a stopped worker
             null
         }
 
@@ -205,34 +213,34 @@ object TabsApi {
             val opts = c.args.optJSONObject(2)
             val t = tm?.byId(id)
             var targets: List<ChromeBridge.Ctx> =
-                if (t == null) emptyList() else ChromeBridge.contexts().filter { it.web === t.web }
+                if (t == null) emptyList() else ChromeBridge.contexts().filter { it.web === t.web && (c.extId == ContentInjector.EXT_ID || c.extId in it.ids) }
             if (opts != null && opts.has("frameId")) {
                 val f = opts.optInt("frameId")
                 targets = if (f == 0) targets.filter { it.isMainFrame }.takeLast(1)
                 else targets.filter { !it.isMainFrame && frameIdOf(it) == f }
             }
             if (targets.isEmpty()) { c.fail(NO_RECEIVER); return@handle }
-            fanOut(targets, msg, senderOf(c.ctx)) { r -> c.ok(r) }
+            fanOut(targets, msg, senderOf(c.ctx, c.extId), c.extId) { r -> c.ok(r) }
         }
 
         handle("tabs.get") { c ->
             val t = tm?.byId(c.args.optInt(0, -1))
-            if (t == null) c.fail("No tab with id: ${c.args.opt(0)}.") else c.ok(tabJson(t))
+            if (t == null) c.fail("No tab with id: ${c.args.opt(0)}.") else c.ok(ExtApi.tabFor(c.extId, tabJson(t)))
         }
 
         handle("tabs.getCurrent") { c ->
             val t = if (c.ctx.tabId > 0) tm?.byId(c.ctx.tabId) else null
-            c.ok(if (t == null) null else tabJson(t))
+            c.ok(if (t == null) null else ExtApi.tabFor(c.extId, tabJson(t)))
         }
 
-        handle("tabs.query") { c -> c.ok(query(c.args.optJSONObject(0) ?: JSONObject())) }
+        handle("tabs.query") { c -> c.ok(ExtApi.tabsFor(c.extId, query(c.args.optJSONObject(0) ?: JSONObject()))) }
 
         handle("tabs.create") { c ->
             val m = tm
             if (m == null) { c.fail("No browser window"); return@handle }
             val o = c.args.optJSONObject(0) ?: JSONObject()
             val opener = if (o.has("openerTabId")) o.optInt("openerTabId") else maxOf(c.ctx.tabId, 0)
-            val u = fullUrl(o.optString("url", ""))
+            val u = fullUrl(o.optString("url", ""), c.extId)
             // S39: V77 "Play" (player.html?url=...) = built-in native player, not the Chromium page player
             if (WebPlay.fromExtPlayerUrl(m.host(), u, (m.byId(opener) ?: m.active)?.web?.settings?.userAgentString)) {
                 c.ok(JSONObject().put("id", -1).put("windowId", 1).put("index", 0).put("active", true).put("url", u).put("status", "complete"))
@@ -246,7 +254,7 @@ object TabsApi {
             val t = m.newTab(u, opener, o.optBoolean("active", true))
             if (t == null) c.fail("Too many tabs") else {
                 if (o.optBoolean("active", true)) ExtScreen.closeAll() // a new tab must not stay hidden behind a window
-                c.ok(tabJson(t))
+                c.ok(ExtApi.tabFor(c.extId, tabJson(t)))
             }
         }
 
@@ -258,7 +266,7 @@ object TabsApi {
             val t = if (first is JSONObject || first == null || first == JSONObject.NULL) m.active else m.byId(c.args.optInt(0, -1))
             if (t == null) { c.fail("No tab with id: $first."); return@handle }
             if (props.has("url")) {
-                val u = fullUrl(props.optString("url"))
+                val u = fullUrl(props.optString("url"), c.extId)
                 t.pending = null
                 t.url = u
                 t.web.loadUrl(u)
@@ -267,7 +275,7 @@ object TabsApi {
                 m.switchTo(t)
                 if (ExtScreen.urlOf(c.ctx.web).contains("/novel/")) ExtScreen.tuck() // N2: picker needs the page on screen
             }
-            c.ok(tabJson(t))
+            c.ok(ExtApi.tabFor(c.extId, tabJson(t)))
         }
 
         handle("tabs.remove") { c ->
@@ -295,6 +303,17 @@ object TabsApi {
 
         // ---- N1: chrome.scripting.executeScript -> evaluateJavascript in the tab, result polled back ----
         handle("scripting.executeScript") { c -> runScript(c) }
+        // S6: chrome.scripting.insertCSS = a <style> element in the tab (css text or files of the extension)
+        handle("scripting.insertCSS") { c ->
+            val o = c.args.optJSONObject(0) ?: JSONObject()
+            val sb = StringBuilder(o.optString("css", ""))
+            val files = o.optJSONArray("files")
+            if (files != null) for (i in 0 until files.length()) sb.append('\n').append(readExtText(c.extId, files.optString(i).trimStart('/')) ?: "")
+            val inj = JSONObject().put("target", o.optJSONObject("target") ?: JSONObject())
+                .put("func", "function(css){var s=document.createElement('style');s.textContent=css;(document.head||document.documentElement).appendChild(s);}")
+                .put("args", JSONArray().put(sb.toString()))
+            runScript(c, inj)
+        }
 
         // ---- N1: chrome.cookies on top of the WebView CookieManager (name/value only: Android gives no flags) ----
         ChromeBridge.onSync("cookies.getAll") { c ->
@@ -340,9 +359,9 @@ object TabsApi {
             val m = tm
             if (m == null) { c.fail("No browser window"); return@handle }
             val o = c.args.optJSONObject(0) ?: JSONObject()
-            val t = m.newTab(fullUrl(o.optString("url", "")), 0, o.optBoolean("focused", true))
+            val t = m.newTab(fullUrl(o.optString("url", ""), c.extId), 0, o.optBoolean("focused", true))
             if (t == null) { c.fail("Too many tabs"); return@handle }
-            c.ok(windowJson().put("type", o.optString("type", "normal")).put("tabs", JSONArray().put(tabJson(t))))
+            c.ok(windowJson().put("type", o.optString("type", "normal")).put("tabs", JSONArray().put(ExtApi.tabFor(c.extId, tabJson(t)))))
         }
         ChromeBridge.onSync("windows.get") { windowJson() }
         ChromeBridge.onSync("windows.getCurrent") { windowJson() }
@@ -399,11 +418,23 @@ object TabsApi {
 
     private var nextXid = 1
 
-    private fun runScript(c: ChromeBridge.Call) {
-        val inj = c.args.optJSONObject(0) ?: JSONObject()
+    /** S6: text of an extension file: built-in assets for V77, files/exts/<id>/ (safe path) for an installed extension. */
+    private fun readExtText(xid: String, rel: String): String? {
+        if (xid == ContentInjector.EXT_ID) return app?.assets?.open("ext/$rel")?.bufferedReader()?.use { it.readText() }
+        val f = ExtRegistry.file(xid, rel) ?: return null
+        return if (f.length() <= 5_000_000L) f.readText() else null
+    }
+
+    private fun runScript(c: ChromeBridge.Call, inj: JSONObject = c.args.optJSONObject(0) ?: JSONObject()) {
         val tid = inj.optJSONObject("target")?.optInt("tabId", -1) ?: -1
         val t = tm?.byId(tid)
         if (t == null) { c.fail("No tab with id: $tid."); return }
+        if (c.extId != ContentInjector.EXT_ID) {
+            // S6: an installed extension needs a host permission for the page (activeTab = the tab that is on screen)
+            val info = ExtRegistry.get(c.extId)
+            val ok = info != null && (ExtApi.hostAllows(info, t.url) || ("activeTab" in info.permissions && tm?.active === t))
+            if (!ok) { c.fail("Cannot access contents of the page. Extension manifest must request permission to access this host."); return }
+        }
         val fn = inj.optString("func", "")
         val files = inj.optJSONArray("files")
         val body: String = when {
@@ -412,7 +443,7 @@ object TabsApi {
                 val sb = StringBuilder()
                 for (i in 0 until files.length()) {
                     val p = files.optString(i).trimStart('/')
-                    try { sb.append(app?.assets?.open("ext/$p")?.bufferedReader()?.use { it.readText() } ?: "").append("\n;") }
+                    try { sb.append(readExtText(c.extId, p) ?: throw java.io.FileNotFoundException(p)).append("\n;") }
                     catch (e: Exception) { Diag.w("novel", "executeScript: could not load file " + p); c.fail("Could not load file: $p"); return } // S83
                 }
                 "(function(){" + sb + "\n})()"

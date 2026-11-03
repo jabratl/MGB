@@ -67,6 +67,8 @@ object EngineHost {
         HeaderModes.init(app)
         Sniffer.init(app)
         OffscreenHost.init(app)
+        ExtBackground.init(app) // S5
+        ExtApi.init(app) // S5 + S6: per-extension api, workers wake through it
         val assets = WebViewAssetLoader.AssetsPathHandler(app)
         loader = WebViewAssetLoader.Builder()
             .addPathHandler("/ext/", WebViewAssetLoader.PathHandler { path -> page(assets, path) })
@@ -120,7 +122,11 @@ object EngineHost {
         }
         // S4: /ext/<id>/... = files of an installed extension (never falls back to the built-in assets)
         val seg = path.substringBefore('/')
-        if (path.contains('/') && ExtRegistry.isValidId(seg)) return extFile(seg, path.substringAfter('/'))
+        if (path.contains('/') && ExtRegistry.isValidId(seg)) {
+            // S5: generated page of an extension's background worker
+            if (path.substringAfter('/') == ExtBackground.PAGE) return ExtBackground.page(seg) ?: notFound()
+            return extFile(seg, path.substringAfter('/'))
+        }
         ExtUpdater.open(path)?.let { return it } // S16: hot-updated ext files first
         return assets.handle("ext/$path")
     }
@@ -266,7 +272,7 @@ object EngineHost {
         val eng = web
         val frames = ChromeBridge.contexts().count { it.web === eng }
         return "Engine: " + (if (eng == null) "not started" else if (loaded) "running" else "loading") +
-            "\nEngine frames: $frames" + TabsApi.status() + HeaderModes.status() + Sniffer.status() + OffscreenHost.status() + "\n\n" + logText(40)
+            "\nEngine frames: $frames" + TabsApi.status() + HeaderModes.status() + Sniffer.status() + OffscreenHost.status() + ExtBackground.status() + "\n\n" + logText(40)
     }
 
     fun showStatus(a: Activity) {

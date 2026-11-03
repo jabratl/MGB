@@ -1,3 +1,19 @@
+0.0.99 (S6) per-extension chrome.* api
+- NEW ExtApi.kt: gate = every call of an installed extension is checked against its manifest permission (storage, alarms, notifications, contextMenus, scripting, cookies) and api list; V77 rule unchanged
+- popups / options pages of an installed extension can now use chrome.tabs (query, get, create, update, remove, reload, sendMessage, getCurrent), chrome.windows, chrome.action (ignored), chrome.permissions (read-only), chrome.scripting.executeScript / insertCSS, chrome.cookies
+- tab url / title / favIconUrl are removed for an extension without the "tabs" permission or a host permission for that tab (results and tabs.onCreated / onUpdated)
+- scripting.executeScript / insertCSS: needs host permission (or activeTab = tab on screen); files come from the extension's own folder
+- relative urls in tabs.create / tabs.update / windows.create resolve inside the extension; sender of a message carries the extension id and the worker / popup url
+- alarms per extension (saved, min period 30 s, wake the worker); notifications (system notification, toast when notification permission is off, no click event); contextMenus (stored only, no menu shown yet)
+- ChromeBridge.kt: "ext.<api>" handlers are preferred for installed extensions; TabsApi.kt: tab events also go to installed extensions; chrome-shim.js: scripting.insertCSS
+- Not for installed extensions yet (answer "Not supported in MGB"): downloads, declarativeNetRequest, webRequest, offscreen, sidePanel, runtime.getContexts (S7 / S8)
+0.0.98 (S5) background service worker per extension
+- NEW ExtBackground.kt: manifest background.service_worker (classic or type=module) runs in its own hidden WebView, started lazily, stopped after 45 s without activity (bridge call, network request, pending reply)
+- importScripts works (sync XHR + eval); self.skipWaiting / clients / registration stubs; install + activate events fired after load
+- Wake: runtime.sendMessage from content script / popup, alarms, tabs events the worker listened to last run, runtime.onStartup (app start); runtime.onInstalled on install / update (ExtApi.sync from Settings > Extensions)
+- Crash isolation: at most 3 workers at once (least recently used stops), 20 s load timeout, 3 render crashes in 5 min park that worker only; other extensions and V77 unaffected
+- The worker can read only its own files; network (CORS-free proxy) only for its host permissions
+- EngineHost.kt: serves the generated ext/<id>/_mgb_bg.html, status shows "Extension workers"; ExtListScreen.kt: toggle / remove / install / update call ExtApi.sync
 0.0.97 (S4) extension files + popup / options windows
 - EngineHost.kt: serves https://appassets.androidplatform.net/ext/<id>/<file> from files/exts/<id>/ (safe path, mime by extension, 404 for unknown / disabled id; never falls back to built-in assets)
 - ExtScreen.kt: any .html page of an installed extension opens in the extension window (title = extension name, popup centered); network of such a page uses the CORS-free proxy only for its host_permissions
