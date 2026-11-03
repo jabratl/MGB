@@ -1,3 +1,9 @@
+0.0.105 (S10: Thazir Extensions tray)
+- NEW ExtTray.kt: bottom sheet with a 4-column grid of the extensions that are ON (manifest icon, else colour tile + first letter, 2-line name), "Manage Extensions" button, header gear; tap = popup page (else options page) in the extension window
+- MenuSheet bottom row gets a 5th button (puzzle, new res/drawable/ic_ext.xml) -> ExtTray (MainActivity.showMenu, 1 line)
+- ExtListScreen.kt: search box above the list (filters by name), "No match" text
+- Not changed: ExtRegistry, ExtScreen, ExtApi, MenuSheet.kt, shim
+
 0.0.104 (S9: multi-extension support, final check; the whole S0-S8 build is listed below)
 - ExtListScreen.kt: the extension list stays 640 dp wide and centered on wide screens (1280 px / tablet / landscape); before it stretched over the full width
 - Permission text for contextMenus no longer says "long-press menu items" (MGB shows no such menu yet)

@@ -163,6 +163,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Act(R.drawable.ic_back, web?.canGoBack() == true) { web?.goBack() },
             MenuSheet.Act(R.drawable.ic_forward, web?.canGoForward() == true) { web?.goForward() },
             MenuSheet.Act(if (marked) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border, canMark) { toggleBookmark() },
+            MenuSheet.Act(R.drawable.ic_ext, true) { ExtTray.show(this) }, // S10: Thazir Extensions tray
             MenuSheet.Act(if (cur?.loading == true) R.drawable.ic_close else R.drawable.ic_reload, cur != null) { reloadOrStop() }
         )
         // S27: general card (app level) and page card (this page)

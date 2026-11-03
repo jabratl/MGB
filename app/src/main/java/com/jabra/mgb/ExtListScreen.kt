@@ -66,6 +66,7 @@ object ExtListScreen {
         private val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
         private var body: LinearLayout? = null
         private var busy = false
+        private var query = "" // S10: search box filter (by name)
 
         private fun dp(v: Int) = Util.dp(act, v)
 
@@ -120,6 +121,23 @@ object ExtListScreen {
             }, LinearLayout.LayoutParams(dp(44), dp(48)))
             root.addView(head, LinearLayout.LayoutParams(MATCH, dp(56)))
 
+            // S10: search box (like the Thazir Extensions tray); filters the list below by name
+            root.addView(android.widget.EditText(act).apply {
+                hint = "Search extensions"
+                textSize = 14f
+                maxLines = 1
+                isSingleLine = true
+                setTextColor(act.getColor(R.color.mg_text))
+                setHintTextColor(act.getColor(R.color.mg_text_dim))
+                background = round(act.getColor(R.color.mg_surface), 22)
+                setPadding(dp(16), 0, dp(16), 0)
+                addTextChangedListener(object : android.text.TextWatcher {
+                    override fun afterTextChanged(s: android.text.Editable?) { query = s?.toString().orEmpty().trim(); fill() }
+                    override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                    override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                })
+            }, LinearLayout.LayoutParams(MATCH, dp(44)).apply { marginStart = dp(12); marginEnd = dp(12); bottomMargin = dp(6) })
+
             // S9: on wide screens (1280 px / tablet / landscape) the list stays 640 dp wide and centered
             val cap = dp(640)
             val col = object : LinearLayout(act) {
@@ -145,7 +163,8 @@ object ExtListScreen {
         private fun fill() {
             val col = body ?: return
             col.removeAllViews()
-            val list = ExtRegistry.all()
+            val all = ExtRegistry.all()
+            val list = if (query.isEmpty()) all else all.filter { it.name.contains(query, ignoreCase = true) }
             col.addView(TextView(act).apply {
                 text = "Add an extension from a .zip or .crx file. Chrome Web Store install is not available. " +
                     "Some Chrome-only features do not work."
@@ -155,7 +174,7 @@ object ExtListScreen {
             })
             if (list.isEmpty()) {
                 col.addView(TextView(act).apply {
-                    text = "No extensions installed"
+                    text = if (all.isEmpty()) "No extensions installed" else "No match"
                     textSize = 14f
                     gravity = Gravity.CENTER
                     setTextColor(act.getColor(R.color.mg_text_dim))

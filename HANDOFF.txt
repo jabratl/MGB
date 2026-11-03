@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.105 (S10: Thazir Extensions tray + menu puzzle button + search in Manage Extensions; see CHANGELOG 0.0.105; before: 0.0.104). Next: S11 = drag reorder + pin order in tray, 'Closed X / Undo' snackbar for extension window, On/Off text in Manage list, root src/ duplicate cleanup.
+
 CURRENT VERSION 0.0.104 (S9: multi-extension support S0-S9 finished; notes are in the section "MULTI-EXTENSION SUPPORT (S0-S9)" at the end of this file; HANDOFF.txt / CHANGELOG.txt had no 0.0.92 / S89.4-S90 notes when S9 started, add them from the S89 chat; before: 0.0.92)
 
 CURRENT VERSION 0.0.91 + S89.0 + S89.1 + S89.2 + S89.3 (manga reader / save / download logs, version bump in S89.7, see the S89.3 note at the end; before: S89.2)
