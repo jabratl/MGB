@@ -154,6 +154,7 @@ object NativeBatch {
         names.add("Buttons on this site: " + DlMode.siteLabel(act, Util.host(ref))); runs.add { DlMode.siteDialog(act, Util.host(ref)) {} } // S57
         names.add("Subtitles and file names"); runs.add { SubName.open(act) } // S59
         names.add("Download engine (speed, retries, limits)"); runs.add { DlEngine.open(act) } // S60
+        names.add("Grabber settings (buttons, sites, backup)"); runs.add { GrabSet.open(act) } // S62
         names.add("Paste links (batch)"); runs.add { pasteLinks(act, tabId, ref) } // S56
         names.add(Follow.label(ref)); runs.add { Follow.open(act, ref, f, openUrl) } // S61
         names.add(Sched.label()); runs.add { Sched.open(act, shownJobs) } // S61

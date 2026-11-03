@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.66 (S62: Grabber settings screen, see the S62 note at the end; before: S61)
+
 CURRENT VERSION 0.0.65 (S61: ask per episode + Follow manga + schedule, see the S61 note at the end; before: S60)
 
 CURRENT VERSION 0.0.64 (S60: download engine options, see the S60 note at the end; before: S59)
@@ -320,3 +322,10 @@ Changed: Follow.kt (NEW: storage.local mgFollow, V77 follow-check, followHours) 
 Checks: Kotlin braces/parens balance (DetectedPanel paren +1 is old); Kotlin NOT compiled; UI NOT rendered.
 NOT tested: ask dialog appears while the batch runs (V77 also shows its own box in the page: first answer wins); Follow list + Check now; schedule alarm really fires in the shim (chrome.alarms) and job starts; time picker; Cancel.
 Still missing natively: manga pages options (siteFormats, per-site rules), site modules switch, native queue / history pages.
+
+======== S62 note (0.0.66) ========
+Audit: every key in V77 options.html was compared with the native screens. Native now: SubName (S59), DlEngine (S60), batch options (S58/S61), DlMode (button mode), Follow + Sched (S61), GrabSet (S62: enabled theme fullTitles pillSide overlayCorner bgDownload jobWindow autoClose siteModules siteAdapters siteFormats siteRules disabledSites msOffSites extraExts + copy/paste settings JSON, debug log, reset).
+Changed: GrabSet.kt (NEW) / NativeBatch.kt (TOOLS entry) / build.gradle.kts (0.0.66) / CHANGELOG.txt / HANDOFF.txt. No JS change. (0.0.65 fix: variable id renamed qid in the ask dialog.)
+Checks: Kotlin braces/parens balance; NOT compiled; UI NOT rendered.
+NOT tested: each row writes its V77 key; disabledSites saves as a list; Reset clears sync (no onChanged event: pages need a reload); paste settings.
+Still missing natively: Pick pages (manga.html), native queue / history pages, DASH variants beyond 10, schedule of a single file, V77 health check / full report text.

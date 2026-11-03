@@ -1,3 +1,11 @@
+MGB 0.0.66 (S62: the last V77 options in the native panel)
+- Panel > TOOLS > Grabber settings: every V77 option that had no native screen yet.
+  - General: enable Media Grabber, theme, always show full titles.
+  - Buttons: floating button side, video button corner.
+  - Stream downloader: download in the background, downloader opens in tab / window, close when finished.
+  - Sites: site modules, gallery / chapter adapters, default manga format per site, site rules (page images), hidden sites, MediaSource off sites, extra video extensions.
+  - Backup and help: copy all settings (JSON), paste settings from clipboard, copy / clear debug log, reset all settings.
+
 MGB 0.0.65 (S61: ask per episode, Follow manga, schedule, chapter batch options in the native panel)
 - Episodes / chapters batch > Batch options: "If the quality is missing" now has "Ask me for each episode". A question box shows the heights that episode has, with "Do the same for the rest of this batch" (answers V77 batch-ask).
 - Batch options also: Skip chapters already downloaded (V77 skipDone) and Pause between page requests (V77 requestDelayMs).
