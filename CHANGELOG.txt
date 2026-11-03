@@ -1,6 +1,8 @@
-0.0.92 (S88: bottom sheet scroll fix + smoother open animation)
-- All bottom sheets (3-dot menu, link menu, Tools, Privacy Guard, Blocker stats, Detected panel, DlEngine, SubName): ScrollView -> NestedScrollView. Scrolling back up to the top and pulling down no longer drags / dismisses the whole sheet at once; the list scrolls first, the sheet follows only when the list is at the top.
-- MenuSheet.kt: no overscroll stretch, tiles pop in with a decelerate curve (260 ms).
+S89.0 (version stays 0.0.91, bump comes in S89.7: Diagnose for manga failures, part 0 - stable log codes)
+- shared.js: new dbgc(area, code, detail) writes "[area] code=<id> detail" to mgLog. Rules will read the code, never the English text. mgCode() makes the id (lower-case a-z 0-9 and "-", max 40). Same area+code more than 5 times in 10 s is collapsed (the 6th+ are counted and written as "repeats=N" on the next line of that code), so one bad chapter cannot push everything else out of the 200 line log.
+- DiagReport.kt: reads all 200 mgLog lines, keeps "code=" lines of the last 30 min (log time is UTC, no year), fills Facts.mgCodes ("area:code" -> count) and Facts.mgCodeNotes (newest detail, masked).
+- DiagRules.kt: Facts only: mgCodes, mgCodeNotes, code(key). No rule changed.
+- No manga code logs yet: S89.1-S89.3 add the dbgc calls, S89.4-S89.6 the rules.
 
 0.0.91 (S87.2: Diagnose part 5b-2 - auto Diagnose pill)
 - AutoDiag.kt (new): while the app is in front it reads the Diag log every 4 s and shows one small bar with a Diagnose button for: tab crash, the same download failing twice in 10 min, grabber panel found nothing. Max 1 bar per 5 min, swipe away = quiet 1 hour, waits while a dialog / sheet has the focus. Switch prefs mgb_ui auto_diag, default ON.

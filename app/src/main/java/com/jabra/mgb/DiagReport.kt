@@ -238,6 +238,22 @@ object DiagReport {
             if (inf?.optBoolean("protected", false) == true) x.drmItems++
             if (j.optString("url").startsWith("blob:")) x.blobItems++
         }
+        // S89.0: stable codes from the whole mgLog (200 lines), last 30 min
+        run {
+            val cnt = LinkedHashMap<String, Int>()
+            val note = HashMap<String, String>()
+            if (log != null) for (i in 0 until log.length()) {
+                val m = MGLOG_CODE.matchEntire(log.optString(i)) ?: continue
+                val ts = mgLogTime(m, now) ?: continue
+                if (ts < now - 30 * 60 * 1000L) continue
+                val key = m.groupValues[6] + ":" + m.groupValues[7]
+                val rest = m.groupValues[8]
+                val rep = MGLOG_REPEATS.find(rest)?.groupValues?.get(1)?.toIntOrNull()
+                cnt[key] = (cnt[key] ?: 0) + (rep ?: 1)
+                if (rep == null) note[key] = Diag.mask(rest).lowercase().take(200)
+            }
+            x.mgCodes = cnt; x.mgCodeNotes = note
+        }
         x.jobErrors = failedJobs.map { Diag.mask(it.optString("error").ifBlank { it.optString("why") }).lowercase() }
         x.failedJobUrls = failedJobs.map { Diag.maskUrl(it.optString("url")) } +
             Diag.recent(30, "download", false).filter { it.ts >= now - TEN_MIN && it.msg.startsWith("failed ") }.map { Diag.maskUrl(it.extra) }
@@ -248,6 +264,22 @@ object DiagReport {
         val top = findings.firstOrNull()
         val v: Pair<String, String> = if (top == null) OK to "No problem found by the rules." else top.level to (top.what + " " + top.todo)
         return Report(now, v.first, v.second, secs, findings)
+    }
+
+    // S89.0: "05-31 12:34:56 [manga] code=403-blocked detail" (time is UTC, no year)
+    private val MGLOG_CODE = Regex("""^(\d\d)-(\d\d) (\d\d):(\d\d):(\d\d) \[([A-Za-z0-9_-]+)] code=([a-z0-9-]+)(?: (.*))?$""")
+    private val MGLOG_REPEATS = Regex("""\brepeats=(\d+)""")
+
+    private fun mgLogTime(m: MatchResult, now: Long): Long? {
+        val g = m.groupValues
+        val c = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
+        c.timeInMillis = now
+        val y = c.get(java.util.Calendar.YEAR)
+        fun at(year: Int): Long? = try {
+            c.clear(); c.set(year, g[1].toInt() - 1, g[2].toInt(), g[3].toInt(), g[4].toInt(), g[5].toInt()); c.timeInMillis
+        } catch (_: Throwable) { null }
+        val t = at(y) ?: return null
+        return if (t > now + 24 * 60 * 60 * 1000L) at(y - 1) else t   // Dec lines read in Jan
     }
 
     private fun fmtEvent(e: Diag.Event): String {

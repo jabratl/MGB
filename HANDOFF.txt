@@ -1,4 +1,4 @@
-CURRENT VERSION 0.0.92 (S88: sheet scroll fix, see the S88 note at the end; before: S87.2)
+CURRENT VERSION 0.0.91 + S89.0 (stable mgLog codes, version bump in S89.7, see the S89.0 note at the end; before: S87.2)
 
 CURRENT VERSION 0.0.91 (S87.2: auto Diagnose pill + Settings switch + phone check list, see the S87.2 note at the end; before: S87.1)
 
@@ -661,10 +661,13 @@ Could break: a Snackbar already on screen (password Fill bar) is replaced by the
 Not done: schedule-missed producer (rule 35 never fires), one-tap fixes opening the Novel / Manga window, pill for other triggers (engine down, many probe failures).
 Next: fix from the first CI log / phone check (docs/PHONE_CHECK.txt), then S17 final check.
 
-
-S88 (0.0.92) - bottom sheet scroll fix
-Goal: user video: in the 3-dot menu, scrolling the list back up made the options jump / the sheet drop all at once. Make it smooth.
-Cause: plain android.widget.ScrollView inside BottomSheetDialog does not do nested scrolling, so BottomSheetBehavior took the drag as soon as the list reached the top.
-Changed: ScrollView(act/ctx) -> androidx.core.widget.NestedScrollView in MenuSheet, ToolsSheet, PrivacyGuard, BlockerStats, DetectedPanel (4 places), DlEngine, SubName (+ import). MenuSheet: OVER_SCROLL_NEVER, tile pop-in 260 ms decelerate. build.gradle.kts 0.0.92, CHANGELOG.txt.
-NOT tested: compile (no Android SDK here) and phone. Check on phone: open 3-dot menu, scroll down, scroll back up fast, then pull down at top = sheet follows finger and closes smoothly.
-Not touched: GrabSet.kt / FloatingDl.kt / TabManager.kt sheets (they use RecyclerView or no ScrollView; check if same jump shows).
+S89.0 - manga failures to Diagnose, part 0: stable log codes
+Done: S0-S87.2 + S89.0. Version still 0.0.91 (0.0.92 is set in S89.7). Plan S89.0-S89.7 (30 manga failures #1-30).
+- shared.js: dbgc(area, code, detail) after dbg(). Line = "MM-dd HH:mm:ss [area] code=<id> detail" (time UTC). Collapse: > 5 per area+code in 10 s, the extra ones are counted and written as "code=<id> repeats=N" when the same code is logged again after the 10 s window (if it is never logged again the count stays unwritten, the code itself is still there from the first 5 lines).
+- DiagReport.kt: MGLOG_CODE / MGLOG_REPEATS regex, mgLogTime, Facts.mgCodes / mgCodeNotes filled from the last 30 min of mgLog.
+- DiagRules.kt: Facts.mgCodes, mgCodeNotes, code(key). Key format "area:code", e.g. "manga:403-blocked".
+Checks: node --check shared.js OK; dbgc run in node with a fake chrome.storage (first 5 lines kept, 6th+ skipped, code cleaned); the Kotlin regex tested by a Python copy on 4 sample lines. NOT compiled (no Kotlin SDK).
+NOT tested (needs build + phone): Kotlin compile; real mgLog lines parse on the phone; day / year change.
+Could break: nothing logs "code=" yet, so Facts.mgCodes is empty until S89.1.
+Code names to use in S89.1-3 (area "manga"): lower-case words, HTTP codes as "403-blocked", "404-gone", "429-slow-down"; detail = host + page number, never a full url.
+Next: S89.1 (manga.js page list logs #1-7). Attach: manga.js, shared.js.

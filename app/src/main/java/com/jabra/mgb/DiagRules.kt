@@ -51,6 +51,10 @@ object DiagRules {
         var failedJobUrls: List<String> = emptyList() // masked url of each failed job / failed download (last 10 min)
         var runningJobs = 0
         var scheduleMsgs: List<String> = emptyList() // Diag tag schedule, last 24 h
+        // ---- S89.0: stable codes from V77 mgLog lines "[area] code=<id> ..." (written by dbgc in shared.js)
+        var mgCodes: Map<String, Int> = emptyMap()         // key "area:code" (e.g. "manga:403-blocked") -> times seen in the last 30 min (repeats=N counted)
+        var mgCodeNotes: Map<String, String> = emptyMap()  // same key -> detail of the newest line (masked, lower-case, max 200)
+        fun code(key: String): Int = mgCodes[key] ?: 0
     }
 
     private const val LOW_STORAGE = 200L * 1024 * 1024

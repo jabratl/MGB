@@ -156,6 +156,23 @@ function dbg(area, msg) {
   }).catch(() => {});
 }
 
+// S89.0: log line with a stable code. Diagnose rules read "code=<id>" (e.g. code=403-blocked), never the English text after it.
+// Format: "<time> [area] code=<id> <detail>". Same area+code more than 5 times in 10 s is collapsed into one "repeats=N" line (a bad chapter must not push every other line out of the 200 line log).
+const _dbgcSeen = new Map();
+function mgCode(c) { return String(c == null ? '' : c).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'unknown'; }
+function dbgc(area, code, detail) {
+  const c = mgCode(code), k = area + '|' + c, now = Date.now();
+  let e = _dbgcSeen.get(k);
+  if (!e || now - e.t > 10000) {
+    if (e && e.skip > 0) dbg(area, 'code=' + c + ' repeats=' + e.skip);
+    e = { t: now, n: 0, skip: 0 };
+    _dbgcSeen.set(k, e);
+    if (_dbgcSeen.size > 100) _dbgcSeen.delete(_dbgcSeen.keys().next().value);
+  }
+  if (++e.n > 5) { e.skip++; return; }
+  dbg(area, 'code=' + c + (detail ? ' ' + String(detail) : ''));
+}
+
 // ---------- theme (auto/dark/light) for extension pages ----------
 function applyTheme(t) {
   const dark = t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
@@ -1043,4 +1060,4 @@ function nameSize(n, base) { // long names: wrap and shrink a little so the whol
 }
 // V74a: the same spacing / radius / type tokens as theme.css, as a string for the on-page panel (shadow DOM cannot read theme.css)
 const MG_TOKENS = ':host{--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--r-sm:10px;--r-md:14px;--r-lg:20px;--fs-xs:11px;--fs-sm:12px;--fs-md:13.5px;--fs-lg:16px;--fs-xl:20px;--tap:40px}@media (pointer:coarse){:host{--tap:44px}}';
-if (typeof module !== 'undefined') Object.assign(module.exports, { markOldStreams, cmpStreams, qLabel, qh, isStdH, mgCapabilities, mgCapsText, hostCore, isSiteSeg, smartSeries, cleanFullTitle, titleNames, validSeries, subLangGuess, looksThumbText, detectSubLang, subInfo, normLang });
+if (typeof module !== 'undefined') Object.assign(module.exports, { mgCode, markOldStreams, cmpStreams, qLabel, qh, isStdH, mgCapabilities, mgCapsText, hostCore, isSiteSeg, smartSeries, cleanFullTitle, titleNames, validSeries, subLangGuess, looksThumbText, detectSubLang, subInfo, normLang });
