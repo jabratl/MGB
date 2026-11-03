@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.63 (S59: subtitle options + file names, see the S59 note at the end; before: S58)
+
 CURRENT VERSION 0.0.62 (S58: video quality + batch options, see the S58 note at the end; before: S57)
 
 CURRENT VERSION 0.0.61 (S57: button mode per site, see the S57 note at the end; before: S56)
@@ -294,3 +296,10 @@ Checks: Kotlin braces balance (paren counter off by one only because of the stri
 NOT tested: quality button text updates after choosing; ladder chips on real HLS pages; "Gets Np" matches what V77 really downloads; batch options dialog flow; miss policy reaches V77.
 V77 video/batch features still missing natively (candidates for next steps): ask-per-episode quality (miss=ask), wait per player + second try settings, schedule job, live HLS recording, subtitle options (languages/format) per download, naming template / Plex library naming, bandwidth limit + concurrency, duplicate check ("Download again?"), Follow manga, chapter batch zero-pad / skip downloaded, DASH variants list beyond 10.
 Next: pick one group from the list above (suggest: subtitles + naming options in the panel).
+
+======== S59 note (0.0.63) ========
+Changed: SubName.kt (NEW: native screen for V77 keys autoSubs subFmt subLangs subCheck subFallback libraryMode nameTemplate subfolder cleanTitles titleStrip titleSource padChapters, live example) / NativeBatch.kt (TOOLS entry) / build.gradle.kts / CHANGELOG.txt. No JS change.
+Checks: Kotlin braces balance (paren counter off by one only because of the string " (" in substringBefore); NOT compiled; UI NOT rendered at 360/1280 dark/light.
+NOT tested: every row writes the V77 key and V77 uses it on the next download; example matches the real file name; library switch; language list keeps languages typed in V77 options.
+Still missing natively: ask-per-episode quality (miss=ask), wait per player + second try (sniffSeconds, batchRetryMiss), schedule job, live HLS recording (liveMaxMin), bandwidth limit + concurrency (speedLimitKBps, concurrency, maxJobs), duplicate check (dupAsk), Follow manga, chapter batch options (skipDone, requestDelayMs), minimum duration / size filters, convert .ts limit.
+Next: S60 = download engine options screen (concurrency, bandwidth limit, retry, duplicate check, convert limit, live recording limit, wait per player).

@@ -1,3 +1,8 @@
+MGB 0.0.63 (S59: subtitle options + file names in the native panel)
+- Panel > TOOLS > Subtitles and file names: one screen for the V77 settings, with a live example of the file name you get (and the subtitle name).
+  - Subtitles: download with the video, languages (pick list), format (SRT / VTT / TXT / original), check inside each file, what to do when the wanted language is missing.
+  - File names: Plex / Jellyfin / Emby / Kodi names, name template presets or your own, sub-folder presets or your own, remove website name, extra words to remove, series name source, zero-pad chapters.
+
 MGB 0.0.62 (S58: video quality + batch options in the native panel)
 - Files detected panel: new "Video quality" button (Best available / up to the heights found on this page / smallest). Same setting as V77 "Preferred max video quality", used by Download, Download all and batches.
 - Each stream row now shows its real best height (before: the first variant) and a quality ladder (e.g. 1080p 720p 480p); the one that will download is filled. Text says "1080p best" or "Gets 720p of 1080p".
