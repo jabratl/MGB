@@ -8,6 +8,12 @@
 ||propellerads.com^
 ||adsterra.com^
 /pagead/ads?
+||youtube.com/api/stats/ads
+||youtube.com/pagead/
+||youtube.com/ptracking
+||youtube.com/get_midroll_
+||googleads.g.doubleclick.net^
+||static.doubleclick.net^
 /adserver/*$script,third-party
 /banner_ads/*$image
 -ad-banner.$image

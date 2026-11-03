@@ -1,19 +1,3 @@
-CURRENT VERSION 0.0.112 (FIX: chrome available inside executeScript files; unsupported api logged to Diagnose; before: 0.0.111). Next: S17 = read the Report center 'api not supported' lines after a WebToEpub try and add those apis (likely downloads.download, runtime.getContexts), panel grab handle, root src/ + MGB/ cleanup.
-
-CURRENT VERSION 0.0.111 (FIX: chrome.i18n + activeTab url + popup fit for installed extensions like WebToEpub; before: 0.0.110). Next: S16 = real WebToEpub test on phone, fix next missing chrome.* api from the log, panel grab handle, root src/ + MGB/ cleanup.
-
-CURRENT VERSION 0.0.110 (FIX: dispatchDraw NPE in Manage Extensions via refill(); before: 0.0.109). Next: S15 = phone check, panel grab handle + swipe-down close, root src/ + MGB/ cleanup. If the crash stays, send the first 3 lines of the new log + what was tapped.
-
-CURRENT VERSION 0.0.109 (S14: video-style Manage list + popup bottom panel; before: 0.0.108). Next: S15 = phone check of the new look, grab handle + swipe-down close for the panel, root src/ + MGB/ cleanup.
-
-CURRENT VERSION 0.0.108 (S13: error badge on tray tiles; before: 0.0.107). Next: S14 = tap on a badged tile opens its error log / Diagnose, clear badge; root src/ + MGB/ duplicate cleanup.
-
-CURRENT VERSION 0.0.107 (S12: drag-drop reorder in Manage Extensions; before: 0.0.106). Next: S13 = error badge on tray tile, root src/ + MGB/ duplicate cleanup.
-
-CURRENT VERSION 0.0.106 (S11: tray order via long-press, Undo bar, On/Off text; before: 0.0.105). Next: S12 = real drag-drop reorder, tray tile badge for extensions with errors, root src/ + MGB/ duplicate cleanup.
-
-CURRENT VERSION 0.0.105 (S10: Thazir Extensions tray + menu puzzle button + search in Manage Extensions; see CHANGELOG 0.0.105; before: 0.0.104). Next: S11 = drag reorder + pin order in tray, 'Closed X / Undo' snackbar for extension window, On/Off text in Manage list, root src/ duplicate cleanup.
-
 CURRENT VERSION 0.0.104 (S9: multi-extension support S0-S9 finished; notes are in the section "MULTI-EXTENSION SUPPORT (S0-S9)" at the end of this file; HANDOFF.txt / CHANGELOG.txt had no 0.0.92 / S89.4-S90 notes when S9 started, add them from the S89 chat; before: 0.0.92)
 
 CURRENT VERSION 0.0.91 + S89.0 + S89.1 + S89.2 + S89.3 (manga reader / save / download logs, version bump in S89.7, see the S89.3 note at the end; before: S89.2)
@@ -727,6 +711,26 @@ Checks: node --check manga.js and background.js OK; save wrapper / mgSaveCode / 
 NOT tested (needs phone): real Android download failure / timeout; reader with a broken page; real memory error on a big PDF; manga-done missing > 0 line in the real log; dbgc 5-per-10 s collapse in the real reader.
 Could break: waitDownload() now also runs unawaited for non-autoClose saves (polls 500 ms for up to 120 s, only reads chrome.downloads.search); rdImage replaces two "new Image()" lines in drawReader (same src, now with onerror); mgLogged is set on the thrown error object (skipped if the thrown value is not an object).
 Next: S89.4 (DiagRules.kt: rules for the S89.1 page list codes). Attach: DiagRules.kt, DiagReport.kt (and the S89.3 patch for the code list).
+
+======== S81 note (0.0.105) ========
+Done: S0-S80 + multi-extension S0-S9 (0.0.104). Current 0.0.105.
+Goal: stronger blocking (Brave-like) incl. YouTube ads. Assumption: scriptlet-style JS on YouTube + seed rules; popup blocking / per-list switch go to NEXT.
+Changed: assets/shim/yt-adblock.js (NEW: prune ad data, skip playing ad, CSS) / YtAds.kt (NEW: flag(view, url) sets window.__mgbYtOff) / ContentInjector.kt (ytScript, YT_ORIGINS, attach adds it) / TabManager.kt (YtAds.flag in onPageStarted + onPageFinished) / assets/filters/seed.txt (YouTube ad urls) / build.gradle.kts (0.0.105) / CHANGELOG.txt / HANDOFF.txt.
+Checks: node --check OK; prune logic run in node on sample JSON OK; Kotlin braces/parens balance; no layout change.
+NOT tested (needs real use): build compiles; ads on m.youtube.com and www.youtube.com (watch page, Shorts, home feed) are gone; video still plays, seek, speed, login, history; no black screen / endless loading; blocker OFF or "allow ads" = YouTube ads show again (after reload); embeds on other sites; battery with the 250 ms timer.
+Could break: YouTube changes its JSON / class names (then ads return, page still works); server-side inserted ads are only skipped (jump to end), a short flash is possible; a first request can race the __mgbYtOff flag; "Ad blockers not allowed" warning may appear (hidden by CSS, YouTube may still throttle).
+Still missing: popup blocking, per-list on/off, custom filter rules / list URLs, YouTube Shorts ad tuning, Music ad tuning.
+Next: S82 = fix from the first run (bug + what you see + where), or popup blocking, or per-list switch + custom filter list URL.
+
+======== S82 note (0.0.106) ========
+Done: S0-S81 + multi-extension S0-S9. Current 0.0.106 (S81 = 0.0.105 YouTube ads).
+Goal: Brave-like pop-up / redirect blocking. Assumption: no new setting yet, it follows the ad blocker switch and "allow ads on this site".
+Changed: AdBlock.kt (blocksPage) / TabManager.kt (Tab.popup, Tab.openerUrl, onCreateWindow sets them, onPageStarted closes an ad pop-up, onPageFinished clears the flag, shouldOverrideUrlLoading cancels a no-tap redirect to an ad host) / app/build.gradle.kts (0.0.106) / CHANGELOG.txt / HANDOFF.txt. No layout, no JS change.
+Checks: Kotlin braces/parens balance (script); anchors replaced exactly once; symbols grepped (FilterList.verdict, T_SUBDOC, SiteConfig.has, Util.toast, close). NOT compiled.
+NOT tested (needs real use): build; a pop-under / ad pop-up tab closes and the opener stays; normal links with target=_blank still open (login popups, OAuth, payment windows); a redirect to an ad host stops, normal redirects (short links, http -> https, tracking redirects of shops) still work; Blocker stats count goes up.
+Could break: a legit pop-up whose host is on the ad list or matched by an EasyList rule is closed (turn the blocker off for the site in Privacy Guard); a short-link / affiliate redirect through an ad-listed host is cancelled.
+Still missing: switch for pop-up blocking alone, per-list on/off, custom filter list URLs, YouTube Shorts / Music tuning, fingerprint / cookie-consent shields, HTTPS upgrade list.
+Next: S83 = fix from the first run (bug + what you see + where), or per-list switch + custom filter list URL, or Shields panel look.
 
 ======== MULTI-EXTENSION SUPPORT (S0-S9), version 0.0.104 ========
 Done: S0-S9. Settings > Extensions: add .zip / .crx, list, on/off, remove, permission dialog; content scripts, per-extension storage, popup / options windows, MV3 background worker, chrome.* api, declarativeNetRequest (modifyHeaders), safety (MV2 / nativeMessaging refused, host filter, crash isolation, Diagnose rules 88-92).

@@ -41,6 +41,8 @@ object ContentInjector {
     private lateinit var shim: String
     private val entries = ArrayList<Entry>()
     private var extScript = ""
+    private var ytScript = "" // 0.0.105: YouTube ad blocker (shim/yt-adblock.js)
+    private val YT_ORIGINS = setOf("https://www.youtube.com", "https://m.youtube.com", "https://music.youtube.com")
     private var v77Cfg = "" // S4: cfg of the built-in extension pages (dispatcher in extPageScript)
 
     // S2: content scripts of installed extensions (files/exts/<id>/), cached per extension
@@ -61,6 +63,7 @@ object ContentInjector {
         val b = ByteArray(16).also { SecureRandom().nextBytes(it) }
         token = b.joinToString("") { "%02x".format(it) }
         shim = read(app, "shim/chrome-shim.js").trim().trimEnd(';')
+        try { ytScript = app.assets.open("shim/yt-adblock.js").bufferedReader().use { it.readText() } } catch (ex: Exception) { Log.e(TAG, "yt-adblock.js missing", ex) }
         val manifest = JSONObject(read(app, "ext/manifest.json"))
 
         fun cfg(kind: String) = JSONObject()
@@ -148,61 +151,11 @@ object ContentInjector {
         return if (ok && f.isFile && f.length() <= 2_000_000L) f else null
     }
 
-    /**
-     * S15: chrome.i18n messages of an installed extension, ready for the shim: { key(lowercase): { m: text, p: { placeholder(lowercase): content } } }.
-     * Order (best first): phone language (zh_CN, then zh, then zh_*), manifest default_locale, en. Missing = {} (getMessage returns "").
-     */
-    fun localeMessages(dir: File, manifest: JSONObject): JSONObject {
-        val out = JSONObject()
-        try {
-            val names = File(dir, "_locales").list() ?: return out
-            val sys = java.util.Locale.getDefault()
-            val best = ArrayList<String>()
-            fun add(n: String?) {
-                val x = names.firstOrNull { it.equals(n, true) } ?: return
-                if (x !in best) best.add(x)
-            }
-            add(sys.language + "_" + sys.country); add(sys.language)
-            names.firstOrNull { it.startsWith(sys.language + "_", true) }?.let { add(it) }
-            add(manifest.optString("default_locale", "")); add("en")
-            names.firstOrNull { it.startsWith("en_", true) }?.let { add(it) }
-            for (n in best.reversed()) { // lowest priority first, better ones overwrite
-                val f = ExtUpdater.safeFile(dir, "_locales/$n/messages.json") ?: continue
-                if (f.length() > 1_500_000L) continue
-                val j = try { JSONObject(f.readText(Charsets.UTF_8).removePrefix("\uFEFF")) } catch (e: Exception) { continue }
-                for (k in j.keys()) {
-                    val o = j.optJSONObject(k) ?: continue
-                    val ph = o.optJSONObject("placeholders")
-                    val pj = JSONObject()
-                    if (ph != null) for (pn in ph.keys()) pj.put(pn.lowercase(), ph.optJSONObject(pn)?.optString("content", "") ?: "")
-                    out.put(k.lowercase(), JSONObject().put("m", o.optString("message", "")).put("p", pj))
-                }
-            }
-        } catch (e: Exception) { Log.e(TAG, "locale messages", e) }
-        return out
-    }
-
-    /**
-     * S16: start of a script that an installed extension injects with scripting.executeScript({files}). Gives it chrome / browser (content
-     * kind: runtime.sendMessage / onMessage, storage, i18n), like a content script. Without it such a file ran in the page without chrome
-     * and failed at once (WebToEpub). null = unknown extension or shim not loaded (the file then runs as before).
-     */
-    fun injectPrelude(id: String): String? {
-        if (id == EXT_ID || !this::shim.isInitialized) return null
-        return try {
-            val info = ExtRegistry.get(id) ?: return null
-            val man = JSONObject(File(info.dir, "manifest.json").readText())
-            val cfg = JSONObject().put("token", tokenFor(id)).put("kind", "content").put("base", EXT_BASE + id + "/")
-                .put("id", id).put("manifest", man).put("messages", localeMessages(info.dir, man)).toString()
-            "var chrome=" + shim + "(window," + cfg + ");var browser=chrome;if(!chrome)throw new Error('chrome api is not available in this page');\n"
-        } catch (e: Exception) { Log.e(TAG, "inject prelude", e); null }
-    }
-
     private fun buildExt(id: String, dir: File, mf: File): List<Entry> {
         val manifest = JSONObject(mf.readText())
         val cs = manifest.optJSONArray("content_scripts") ?: return emptyList()
         val cfgJson = JSONObject().put("token", tokenFor(id)).put("kind", "content").put("base", EXT_BASE + id + "/")
-            .put("id", id).put("manifest", manifest).put("messages", localeMessages(dir, manifest)).toString()
+            .put("id", id).put("manifest", manifest).toString()
         val out = ArrayList<Entry>()
         for (i in 0 until cs.length()) {
             try {
@@ -316,9 +269,8 @@ object ContentInjector {
                     if (!ExtRegistry.isValidId(info.id)) continue
                     val mf = File(info.dir, "manifest.json")
                     if (!mf.isFile || mf.length() > 2_000_000L) continue
-                    val man = JSONObject(mf.readText())
                     cfgs.put(info.id, JSONObject().put("token", tokenFor(info.id)).put("kind", "ext")
-                        .put("base", EXT_BASE + info.id + "/").put("id", info.id).put("manifest", man).put("messages", localeMessages(info.dir, man)))
+                        .put("base", EXT_BASE + info.id + "/").put("id", info.id).put("manifest", JSONObject(mf.readText())))
                 } catch (ex: Exception) { Log.e(TAG, "ext page cfg ${info.id} skipped", ex) }
             }
         } catch (ex: Exception) { Log.e(TAG, "registry", ex) }
@@ -335,6 +287,7 @@ object ContentInjector {
         if (!supported()) return
         try {
             ChromeBridge.install(web, setOf("*"))
+            if (ytScript.isNotEmpty()) try { WebViewCompat.addDocumentStartJavaScript(web, ytScript, YT_ORIGINS) } catch (ex: Exception) { Log.e(TAG, "yt script failed", ex) }
             for (e in entries) WebViewCompat.addDocumentStartJavaScript(web, e.script, e.origins)
             // S2: installed extensions (a failing entry is skipped, others still run)
             for (e in extEntries(ctx)) {

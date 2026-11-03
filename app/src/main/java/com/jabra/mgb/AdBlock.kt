@@ -97,6 +97,26 @@ object AdBlock {
         return true
     }
 
+    /**
+     * 0.0.106: a page navigation (pop-up window, script / server redirect) to an ad host or a filter hit.
+     * Never the same site as the opener, never when ads are allowed on the opener. Main thread.
+     */
+    fun blocksPage(url: String, openerUrl: String?): Boolean {
+        if (!enabled || !url.startsWith("http")) return false
+        if (SiteConfig.has(openerUrl, SiteConfig.ADS_OK)) return false
+        val host = try { android.net.Uri.parse(url).host?.lowercase() } catch (e: Exception) { null } ?: return false
+        val ph = try { android.net.Uri.parse(openerUrl ?: "").host?.lowercase() } catch (e: Exception) { null }
+        if (ph != null && (ph == host || ph.endsWith(".$host") || host.endsWith(".$ph"))) return false
+        val v = FilterList.verdict(url, host, ph, FilterList.T_SUBDOC)
+        if (v == 2) return false
+        if (!listed(host) && v != 1) return false
+        count.incrementAndGet()
+        unsaved.incrementAndGet()
+        if (ph != null) perSite.getOrPut(ph.removePrefix("www.")) { AtomicInteger(0) }.incrementAndGet()
+        if (unsaved.get() >= 25) flushTotal()
+        return true
+    }
+
     fun emptyResponse(): WebResourceResponse =
         WebResourceResponse("text/plain", "utf-8", 200, "OK", emptyMap(), ByteArrayInputStream(ByteArray(0)))
 
