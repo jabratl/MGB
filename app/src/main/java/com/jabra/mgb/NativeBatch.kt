@@ -177,6 +177,10 @@ object NativeBatch {
                 if (!ExtScreen.open(act, ContentInjector.EXT_BASE + "novel/studio.html")) Util.toast(act, "Could not open Novel grabber")
                 closePanel()
             },
+            ToolsSheet.Item(R.drawable.ic_info, "Diagnose this page", "Why does it not work? Report, copy or share") { // S85
+                closePanel()
+                DiagScreen.open(act, null, tabId)
+            },
             ToolsSheet.Item(R.drawable.ic_share, "Open full Grabber", "Pick pages, job list and the V77 page") {
                 EngineApi.send(JSONObject().put("type", "open-panel").put("tabId", tabId))
                 closePanel()

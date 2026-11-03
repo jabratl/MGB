@@ -173,6 +173,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Item("Recently closed tabs", R.drawable.ic_history) { Backup.closedTabs(this, tabs) }, // S29
             MenuSheet.Item("Novel grabber", R.drawable.ic_book, true, "EPUB · DOCX · TXT") { openExt("novel/studio.html") }, // N1
             MenuSheet.Item("Queue", R.drawable.ic_list) { openExt("queue.html") },
+            MenuSheet.Item("Report center", R.drawable.ic_info) { DiagScreen.open(this, tabs, -1) }, // S85
             MenuSheet.Item("Settings", R.drawable.ic_settings) { SettingsScreen.open(this) }
         )
         val page = listOf(

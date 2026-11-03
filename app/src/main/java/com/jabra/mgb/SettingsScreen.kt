@@ -469,6 +469,9 @@ object SettingsScreen {
                 Row(R.drawable.ic_book, "Novel grabber", "", "Web novels and chapters to EPUB, DOCX, TXT") { ext("novel/studio.html") }, // N1
                 Row(R.drawable.ic_list, "Queue", "", "Running, waiting and failed jobs") { ext("queue.html") },
                 Row(R.drawable.ic_history, "Download history", "", "Everything Grabber saved") { ext("history.html") },
+                Row(R.drawable.ic_info, "Report center", "", "Why something does not work: report, copy, share") { dismiss(); DiagScreen.open(act, null, -1) }, // S85
+                Row(R.drawable.ic_list, "Report log size", DiagScreen.logSizeText(), "Events kept for the report (no page text)"), // S85
+                Row(R.drawable.ic_close, "Clear report log", "", "Delete the diagnose log and the Grabber log") { DiagScreen.askClearLog(act) { fill() } }, // S85
                 Row(R.drawable.ic_bookmark, "Followed manga", Follow.count().let { if (it > 0) "$it" else "" }, "Alerts for new chapters") { Follow.open(act, "", null) { u -> dismiss(); BookmarksScreen.tabsRef?.openUrl(u) } },
                 Row(R.drawable.ic_history, "Scheduled downloads", Sched.count().let { if (it > 0) "$it" else "" }, "Start at a time you choose") { Sched.open(act) { emptyList() } },
                 Sub("Quality and files"),

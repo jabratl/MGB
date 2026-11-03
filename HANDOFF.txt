@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.88 (S85: DiagScreen.kt Report center + entry points, see the S85 note at the end; before: S84)
+
 CURRENT VERSION 0.0.87 (S84: DiagReport.kt report engine, see the S84 note at the end; before: S83)
 
 CURRENT VERSION 0.0.86 (S83: Diag hooks in native handlers, see the S83 note at the end; before: S82)
@@ -593,3 +595,18 @@ Checks: node --check content.js OK; DiagReport.kt braces / parens / brackets bal
 NOT tested: Kotlin type inference of safe(null) {...} calls; StatFs on filesDir; NetworkCapabilities on API 24; WebView.getCurrentWebViewPackage; get-state callback when engine not running (cb gets null -> report still built); content.js Novel / Manga lines on a real page.
 Not done / limits: storage shows the app area only (a custom download folder on an SD card is not measured); V77 page report (buildDiag) is not yet merged into the native report (S85 can call it via the page); no UI.
 Next: S85 = DiagScreen.kt (verdict card + fold sections by group, Copy / Share / Save .txt, light + dark, 360 px) + entry points.
+
+
+S85 (0.0.88) - Diagnose part 4 of 5: Report center screen
+Goal: native screen for the S84 report + 3 entry points. No rules, no Why?, no pill (S86 / S87).
+Changed:
+- DiagScreen.kt (new): DiagScreen.open(host, tabs?, tabId = -1) (tabs null = BookmarksScreen.tabsRef), closeAll(), logSizeText(), askClearLog(act, done). Dialog Theme_Material3_DayNight_NoActionBar, header (back, title, refresh), verdict card, Copy / Share / Save .txt, fold cards per group (order Video, Novel, Manga, Browser, Download, Device; open = groups with warn / bad on first render, tap toggles, kept across Refresh). Section lines in monospace 12 sp, selectable, wrap.
+- NativeBatch.kt: Tools sheet "More" group: row "Diagnose this page" (closePanel, then DiagScreen.open(act, null, tabId)).
+- MainActivity.kt: 3-dot menu general card: "Report center" (before Settings).
+- SettingsScreen.kt: Downloads category after "Download history": Report center, Report log size (value only), Clear report log.
+- DiagReport.kt: S84 CI fix (cm?.getNetworkCapabilities, cm?.isActiveNetworkMetered == true).
+- build.gradle.kts 0.0.88, CHANGELOG.txt, HANDOFF.txt.
+Checks: every anchor replaced exactly once; every symbol used grepped to exist (R.drawable ic_back / ic_reload / ic_chevron / ic_info / ic_close / ic_list, mg_* colours, Util.dp / toast, Diag.size / dump / clear / MAX, ChromeBridge.local.remove, DownloadFolder.treeUri / label, DiagReport.Report / Section fields). NOT compiled (no Kotlin SDK), not run on a phone.
+NOT tested: 360 px look, dark mode amber warn colour (code colour, not in colors.xml); Save .txt on a SAF tree / Android 10+ MediaStore / Android 7; Share chooser; Settings row refresh after Clear; Tools sheet row closes panel then opens the screen on top.
+Not done / limits: warn colour is hard-coded (no mg_warn token); V77 page report (buildDiag) not merged; report is built again on every Refresh (one get-state call).
+Next: S86 = DiagRules.kt rules 1-20 (Finding), verdict card shows the top finding + list, "Why?" on a failed download row (DownloadsScreen), "Full report" in the Last crash dialog (CrashLog.kt).
