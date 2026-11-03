@@ -110,14 +110,14 @@ object DiagReport {
         val netLines = ArrayList<String>()
         safe(Unit) {
             val net = cm?.activeNetwork
-            val caps = if (net == null) null else cm.getNetworkCapabilities(net)
+            val caps = if (net == null) null else cm?.getNetworkCapabilities(net)
             if (caps == null) { online = false; netLines.add("No active network") } else {
                 online = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
                 netLines.add("Type: " + (if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) "Wi-Fi" else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) "Mobile data" else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) "VPN" else "other"))
                 val valid = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
                 netLines.add("Internet reachable (validated): " + (if (valid) "yes" else "NO (captive portal or no data)"))
                 if (!valid) online = false
-                netLines.add("Metered: " + (if (cm.isActiveNetworkMetered) "yes" else "no"))
+                netLines.add("Metered: " + (if (cm?.isActiveNetworkMetered == true) "yes" else "no"))
                 netLines.add("VPN: " + (if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) "on" else "off"))
             }
         }

@@ -4,6 +4,7 @@ MGB 0.0.87 (S84: Diagnose part 3/5 - report engine, no visible change yet)
 - Basic verdict (5 checks): no internet, storage < 200 MB, tab crash in 5 min, engine error in 5 min, low memory, else OK. S86 replaces it with the rule engine.
 - content.js buildDiag: new "Novel check" and "Manga check" lines (text paragraphs, chapter links, Next link, large / lazy images, pages counted, native panel record) with a one-line verdict each.
 - Files: DiagReport.kt (new), assets/ext/content.js, build.gradle.kts.
+- CI fix: DiagReport.kt Network section, nullable ConnectivityManager (cm?.getNetworkCapabilities, cm?.isActiveNetworkMetered == true).
 
 MGB 0.0.86 (S83: Diagnose part 2/5 - event hooks, no visible change)
 - One-line Diag hooks (no logic change) so native errors reach the S82 event log: tab main-frame load error + HTTP error, tab crash / killed (onRenderProcessGone, still returns false = same as before), engine / offscreen / extension-window console errors (tag novel / manga for /novel/ and /manga pages), offscreen load error + render gone, download failed (code + masked url), Sniffer probe failed + inspect crash, NativeBatch unreadable chapter / manga data, chrome.* handler exceptions, executeScript errors (novel grabber): script error, file missing, page reloaded, 180 s timeout.
