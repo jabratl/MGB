@@ -160,6 +160,16 @@ function dbg(area, msg) {
 // Format: "<time> [area] code=<id> <detail>". Same area+code more than 5 times in 10 s is collapsed into one "repeats=N" line (a bad chapter must not push every other line out of the 200 line log).
 const _dbgcSeen = new Map();
 function mgCode(c) { return String(c == null ? '' : c).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'unknown'; }
+// S89.1: HTTP status -> stable code used by the manga logs and the rules (401 / 403 / 404 / 429 / 5xx, anything else "http-NNN")
+function mgHttpCode(st) {
+  st = +st || 0;
+  if (st === 401) return '401-login';
+  if (st === 403) return '403-blocked';
+  if (st === 404 || st === 410) return '404-gone';
+  if (st === 429) return '429-slow-down';
+  if (st >= 500 && st < 600) return '5xx-server';
+  return 'http-' + st;
+}
 function dbgc(area, code, detail) {
   const c = mgCode(code), k = area + '|' + c, now = Date.now();
   let e = _dbgcSeen.get(k);
@@ -1060,4 +1070,4 @@ function nameSize(n, base) { // long names: wrap and shrink a little so the whol
 }
 // V74a: the same spacing / radius / type tokens as theme.css, as a string for the on-page panel (shadow DOM cannot read theme.css)
 const MG_TOKENS = ':host{--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--r-sm:10px;--r-md:14px;--r-lg:20px;--fs-xs:11px;--fs-sm:12px;--fs-md:13.5px;--fs-lg:16px;--fs-xl:20px;--tap:40px}@media (pointer:coarse){:host{--tap:44px}}';
-if (typeof module !== 'undefined') Object.assign(module.exports, { mgCode, markOldStreams, cmpStreams, qLabel, qh, isStdH, mgCapabilities, mgCapsText, hostCore, isSiteSeg, smartSeries, cleanFullTitle, titleNames, validSeries, subLangGuess, looksThumbText, detectSubLang, subInfo, normLang });
+if (typeof module !== 'undefined') Object.assign(module.exports, { mgCode, mgHttpCode, markOldStreams, cmpStreams, qLabel, qh, isStdH, mgCapabilities, mgCapsText, hostCore, isSiteSeg, smartSeries, cleanFullTitle, titleNames, validSeries, subLangGuess, looksThumbText, detectSubLang, subInfo, normLang });

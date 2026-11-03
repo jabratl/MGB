@@ -109,7 +109,11 @@ function sniff(buf, type) {
   if (b[4] === 0x66 && b[5] === 0x74 && b[8] === 0x61 && b[9] === 0x76) return 'avif';
   return /image\//.test(type) ? type.split('/')[1].replace('jpeg', 'jpg').replace('svg+xml', 'svg') : '';
 }
-const tabMsg = (msg) => (DATA.tab != null ? chrome.tabs.sendMessage(DATA.tab, msg) : Promise.reject(new Error('source tab closed')));
+// S89.1: the page the grab started from is gone (closed / reloaded away): log code source-tab-closed (once per 10 s)
+const tabGone = (e) => /source tab closed|no tab with id|receiving end does not exist|could not establish connection|extension context/i.test(String((e && e.message) || e));
+const tabMsg = (msg) => (DATA.tab != null
+  ? chrome.tabs.sendMessage(DATA.tab, msg).catch((e) => { if (tabGone(e)) dbgc('manga', 'source-tab-closed', `${hostOf(DATA.ref)}: ${msg && msg.type}`); throw e; })
+  : (dbgc('manga', 'source-tab-closed', `${hostOf(DATA.ref)}: no source tab (${msg && msg.type})`), Promise.reject(new Error('source tab closed'))));
 async function fromDataUrl(d) {
   const blob = await (await fetch(d)).blob();
   const buf = await blob.arrayBuffer();
@@ -158,6 +162,7 @@ async function crawlViewer(p) {
 
 // ---- the image server says "too many requests": wait, slow down, then speed up again (instead of hammering every host) ----
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const CF_PAGE = /just a moment|challenge-platform|cf-browser-verification|attention required! \| cloudflare/i; // S89.1: Cloudflare check page text
 const RL = { until: 0, strikes: 0, cap: Infinity, ok: 0 };
 let rlActive = 0;
 const rlMax = () => Math.max(1, SET.concurrency || 6);
@@ -248,16 +253,30 @@ async function setupHeaders(ref) {
 function siteCtx() {
   const ctx = {
     async text(url) {
-      try { const r = await fetch(url, { credentials: 'include' }); if (!r.ok) throw new Error('HTTP ' + r.status); return await r.text(); }
-      catch (e) { // blocked here (CORS / Cloudflare cookies): ask the real page to fetch it with its own cookies
-        if (DATA.tab != null) { try { const a = await tabMsg({ type: 'fetch-text', url }); if (a && a.ok) return a.text; } catch (e2) { /* keep first error */ } }
+      let r = null, body = '';
+      try {
+        r = await fetch(url, { credentials: 'include' });
+        body = await r.text();
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        if (body.length < 60000 && CF_PAGE.test(body)) dbgc('manga', 'cloudflare-blocked', `${hostOf(url)}: a check page came back instead of the data (HTTP ${r.status}), rescued=no`);
+        return body;
+      } catch (e) { // blocked here (CORS / Cloudflare cookies): ask the real page to fetch it with its own cookies
+        // S89.1 code: cloudflare-blocked (challenge) / 403-blocked, 404-gone, 429-slow-down ... (HTTP) / cors-blocked (fetch refused) / fetch-error
+        const cf = r && !r.ok && ((r.headers.get('cf-mitigated') || '') || CF_PAGE.test(body));
+        const code = cf ? 'cloudflare-blocked' : (r && !r.ok) ? mgHttpCode(r.status) : /failed to fetch|networkerror|load failed/i.test(String(e && e.message)) ? 'cors-blocked' : 'fetch-error';
+        if (DATA.tab != null) {
+          try { const a = await tabMsg({ type: 'fetch-text', url }); if (a && a.ok) { dbgc('manga', code, `${hostOf(url)}: ${String(e.message).slice(0, 80)}, rescued=tab`); return a.text; } } catch (e2) { /* keep first error */ }
+        }
+        dbgc('manga', code, `${hostOf(url)}: ${String(e.message).slice(0, 80)}, rescued=no`);
         throw e;
       }
     },
     async json(url) { return JSON.parse(await ctx.text(url)); },
     async tabEval(func) {
-      if (DATA.tab == null) throw new Error('source tab closed');
-      const [r] = await chrome.scripting.executeScript({ target: { tabId: DATA.tab }, world: 'MAIN', func });
+      if (DATA.tab == null) { dbgc('manga', 'source-tab-closed', `${hostOf(DATA.ref)}: no source tab (tabEval)`); throw new Error('source tab closed'); }
+      let r;
+      try { [r] = await chrome.scripting.executeScript({ target: { tabId: DATA.tab }, world: 'MAIN', func }); }
+      catch (e) { if (tabGone(e)) dbgc('manga', 'source-tab-closed', `${hostOf(DATA.ref)}: tabEval`); throw e; }
       return r && r.result;
     },
     log: (m) => dbg('site', m)
@@ -268,25 +287,31 @@ function siteCtx() {
 async function resolveTask() {
   const url = DATA.task.url || DATA.ref, ad = MG_SITES.byName(DATA.task.name), errs = [];
   const ctx = siteCtx();
+  // S89.1: a fallback delivered the list after something before it failed -> code fallback-used (info, not an error)
+  const win = (r) => { if (errs.length) dbgc('manga', 'fallback-used', `${hostOf(url)}: ${r.how} after ${errs.join(' | ').slice(0, 200)}`); return r; };
   if (ad) {
     for (let t = 0; t < 2; t++) { // 2nd try: the site's link keys may have rotated while we were starting
-      try { const r = await ad.resolve(url, ctx); if (r.images.length) return { ...r, how: ad.name }; } catch (e) { errs.push(ad.name + ': ' + e.message); if (cancelled) break; await new Promise((x) => setTimeout(x, 600)); }
+      try {
+        const r = await ad.resolve(url, ctx);
+        if (r.images.length) return { ...r, how: ad.name };
+        dbgc('manga', 'adapter-failed', `${ad.name} try ${t + 1}: returned 0 pages`);
+      } catch (e) { errs.push(ad.name + ': ' + e.message); dbgc('manga', 'adapter-failed', `${ad.name} try ${t + 1}: ${String(e.message).slice(0, 120)}`); if (cancelled) break; await new Promise((x) => setTimeout(x, 600)); }
     }
   }
   try {
     const imgs = MG_SITES.genericPages(await ctx.text(url), url);
-    if (imgs.length) return { images: imgs, how: 'page scripts' };
+    if (imgs.length) return win({ images: imgs, how: 'page scripts' });
     errs.push('page scripts: no page list');
   } catch (e) { errs.push('page scripts: ' + e.message); }
   if (DATA.tab != null) {
     try {
       $('#st').textContent = 'Scrolling the page to load every image...';
       const a = await tabMsg({ type: 'mg-collect' });
-      if (a && a.ok && a.images.length) return { images: a.images, how: 'page images' };
+      if (a && a.ok && a.images.length) return win({ images: a.images, how: 'page images' });
       errs.push('page images: none');
     } catch (e) { errs.push('page images: ' + e.message); }
   }
-  if (DATA.images && DATA.images.length) return { images: DATA.images, how: 'collected' };
+  if (DATA.images && DATA.images.length) return win({ images: DATA.images, how: 'collected' });
   throw new Error(errs.join(' | ') || 'nothing found');
 }
 // links can expire (hitomi rotates its path, MangaDex servers change): ask the adapter again and swap in the fresh links for failed pages
@@ -372,9 +397,9 @@ async function loadAll() {
     const badN = pages.filter((p) => p.bad);
     dbg('manga', `${hostOf(DATA.ref)}: ${pages.length} pages, ok=${JSON.stringify(how)}, failed=${badN.length}` + (badN.length ? ' e.g. ' + String(badN[0].err).slice(0, 160) : ''));
   }
-  if (DATA.expected && pages.length < DATA.expected) $('#st').textContent += ` - NOTE: the page says ${DATA.expected} pages but only ${pages.length} were found`;
+  if (DATA.expected && pages.length < DATA.expected) { dbgc('manga', 'pages-fewer-than-expected', `${hostOf(DATA.ref)}: found=${pages.length} expected=${DATA.expected}`); $('#st').textContent += ` - NOTE: the page says ${DATA.expected} pages but only ${pages.length} were found`; }
   const small = pages.filter((p) => p.w && p.w < 400).length;
-  if (small > pages.length / 2) $('#st').textContent += ` - WARNING: ${small} pages are under 400px wide (thumbnails?)`;
+  if (small > pages.length / 2) { dbgc('manga', 'thumbnails-only', `${hostOf(DATA.ref)}: ${small} of ${pages.length} pages are under 400px wide`); $('#st').textContent += ` - WARNING: ${small} pages are under 400px wide (thumbnails?)`; }
   const bad = pages.filter((p) => p.bad);
   if (bad.length) {
     const why = {};
@@ -716,10 +741,11 @@ $('#read').onclick = openReader;
       dbg('manga', `${hostOf(DATA.ref)}: page list from ${r.how} (${list.length} pages)`);
     } catch (e) {
       dbg('manga', `${hostOf(DATA.ref)}: no page list - ${e.message}`);
+      dbgc('manga', 'no-page-list', `${hostOf(DATA.ref)}: ${String(e.message).slice(0, 200)}${list.length ? ' (using ' + list.length + ' pages the panel already had)' : ''}`);
       if (!list.length) { $('#st').textContent = 'No pages found (' + e.message.slice(0, 200) + '). Open the reader / chapter page itself, wait until the first page shows, then try again. Settings > Copy full report has details.'; return; }
     }
   }
-  if (!list.length) { $('#st').textContent = 'No page images found.'; return; }
+  if (!list.length) { dbgc('manga', 'no-page-list', `${hostOf(DATA.ref)}: the list is empty`); $('#st').textContent = 'No page images found.'; return; }
   pages = list.map((im) => ({ ...im, sel: true }));
   mount();
   await loadAll();
