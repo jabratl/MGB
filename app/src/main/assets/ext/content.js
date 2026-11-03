@@ -57,7 +57,17 @@
     const sig = (a) => a.map((x) => x.url).sort().join('|');
     let chg = false;
     if (sig(chs) !== sig(chapters)) { chapters = chs; chg = true; }
-    if (cnt !== mangaN || chg || adsN !== adsShown) { mangaN = cnt; adsShown = adsN; renderAll(); }
+    if (cnt !== mangaN || chg || adsN !== adsShown) { mangaN = cnt; adsShown = adsN; renderAll(); if (chg) pubNative(); }
+  }
+
+  // MGB S53: the native Files detected panel reads the episode / chapter list from here (storage.local mgNativeCh)
+  function pubNative() {
+    if (!IS_TOP) return;
+    try {
+      let book = '';
+      try { book = (S.cleanTitles !== false ? pickSeriesTitle('video') : seriesName(document.title || 'video')) || ''; } catch (e) { book = document.title || ''; }
+      chrome.storage.local.set({ mgNativeCh: { url: location.href, t: Date.now(), book, chapters: chapters.slice(0, 300).map((c) => ({ url: c.url, label: c.label })) } });
+    } catch (e) { /* optional */ }
   }
 
   // media seen by hook.js (fetch / XHR inside this page or player iframe)

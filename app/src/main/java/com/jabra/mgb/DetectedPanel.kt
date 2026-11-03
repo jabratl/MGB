@@ -626,6 +626,7 @@ object DetectedPanel {
                 cell.addView(tv(label, 11f, cDim, 1, true).apply { gravity = Gravity.CENTER_HORIZONTAL; setPadding(0, dp(2), 0, 0) })
                 bar.addView(cell, LinearLayout.LayoutParams(0, dp(52), 1f))
             }
+            barBtn(R.drawable.ic_settings, "TOOLS") { NativeBatch.tools(act, tabId, ref, all.count { it.kind == "subtitle" }) { dlg.dismiss() } } // S53
             barBtn(R.drawable.ic_trash, "CLEAR ALL") { confirmClear() }
             barBtn(R.drawable.ic_list, "SORT") { showSort() }
             barBtn(R.drawable.ic_close, "CLOSE") { dlg.dismiss() }

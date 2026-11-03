@@ -1,3 +1,9 @@
+MGB 0.0.57 (S53: Media Grabber tools inside the Files detected panel)
+- New TOOLS button in the panel's bottom bar:
+  - Episodes / chapters: pick many episodes of a show page (filter by name, range like 1-12, select all shown), DOWNLOAD (n) starts the same batch as the Grabber page list, with live status for each episode and a STOP button. Uses the Download quality setting as the quality limit; if an episode lacks it, the closest quality is taken.
+  - All subtitles of this page as .srt / .vtt / .txt, and Subtitles from the player (for subtitles that have no file link).
+  - Play and scan (finds videos that start late), Open full Grabber (manga pages, jobs, everything else in the page list).
+
 MGB 0.0.56 (S52: thumbnails + download quality)
 - Files detected panel: video rows show a small picture instead of only the format tag. Plain video files: a real frame (about 1 s in). HLS / DASH: the page poster, only when the page has exactly one video (so two streams never get the same wrong picture). The picture appears by itself a moment after the list opens; selecting a row shows the tick as before.
 - Settings > Downloads > Detected files > Download quality (auto select): Best available / up to 1080p / 720p / 480p / 360p. It sets the Media Grabber "preferred max video quality", so DOWNLOAD (n), Best and Download all pick the best stream under the limit (the lowest one if nothing is under it). The quality sheet of a stream shows "Auto (up to 720p)" in the first row.
