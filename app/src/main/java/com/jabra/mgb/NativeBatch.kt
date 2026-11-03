@@ -340,19 +340,19 @@ object NativeBatch {
         var askShown = ""
         var askBusy = false
         fun askQuality(q: JSONObject) {
-            val id = q.optString("id")
+            val qid = q.optString("id")
             val want = q.optInt("want", 0)
             val av = q.optJSONArray("avail")
             val hs = ArrayList<Int>()
             if (av != null) for (i in 0 until av.length()) hs.add(av.optInt(i))
             hs.sortWith(compareBy({ Math.abs(it - want) }, { it }))
             askBusy = true
-            askShown = id
+            askShown = qid
             val rest = booleanArrayOf(false)
             fun answer(h: Int) {
                 askBusy = false
                 val mode = if (!rest[0]) "" else if (h == 0) "skip" else if (h < want) "low" else "high"
-                EngineApi.send(JSONObject().put("type", "batch-ask-answer").put("id", id).put("h", h).put("mode", mode))
+                EngineApi.send(JSONObject().put("type", "batch-ask-answer").put("id", qid).put("h", h).put("mode", mode))
             }
             val pad = Util.dp(act, 20)
             val box = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(pad, Util.dp(act, 8), pad, 0) }
