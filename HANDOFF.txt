@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.112 (FIX: chrome available inside executeScript files; unsupported api logged to Diagnose; before: 0.0.111). Next: S17 = read the Report center 'api not supported' lines after a WebToEpub try and add those apis (likely downloads.download, runtime.getContexts), panel grab handle, root src/ + MGB/ cleanup.
+
 CURRENT VERSION 0.0.111 (FIX: chrome.i18n + activeTab url + popup fit for installed extensions like WebToEpub; before: 0.0.110). Next: S16 = real WebToEpub test on phone, fix next missing chrome.* api from the log, panel grab handle, root src/ + MGB/ cleanup.
 
 CURRENT VERSION 0.0.110 (FIX: dispatchDraw NPE in Manage Extensions via refill(); before: 0.0.109). Next: S15 = phone check, panel grab handle + swipe-down close, root src/ + MGB/ cleanup. If the crash stays, send the first 3 lines of the new log + what was tapped.

@@ -91,7 +91,10 @@ object ExtApi {
         val info = ExtRegistry.get(xid)
         if (info == null || !info.enabled) return "Extension is turned off"
         if (ctx.kind == ChromeBridge.Kind.CONTENT && !CONTENT_OK.matches(api)) return "Not allowed: $api"
-        if (ctx.kind == ChromeBridge.Kind.EXT && !EXT_OK.matches(api)) return "Not supported in MGB: $api"
+        if (ctx.kind == ChromeBridge.Kind.EXT && !EXT_OK.matches(api)) {
+            Diag.w("ext", "api not supported", info.name + ": " + api) // S16: so the Report center shows which chrome.* call an extension needs
+            return "Not supported in MGB: $api"
+        }
         // S7: declarativeNetRequest (or ...WithHostAccess, which still needs a matching host permission to act)
         if (api.startsWith("declarativeNetRequest.") && "declarativeNetRequest" !in info.permissions &&
             "declarativeNetRequestWithHostAccess" !in info.permissions) return "Needs the \"declarativeNetRequest\" permission: $api"

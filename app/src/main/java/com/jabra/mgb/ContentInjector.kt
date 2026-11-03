@@ -182,6 +182,22 @@ object ContentInjector {
         return out
     }
 
+    /**
+     * S16: start of a script that an installed extension injects with scripting.executeScript({files}). Gives it chrome / browser (content
+     * kind: runtime.sendMessage / onMessage, storage, i18n), like a content script. Without it such a file ran in the page without chrome
+     * and failed at once (WebToEpub). null = unknown extension or shim not loaded (the file then runs as before).
+     */
+    fun injectPrelude(id: String): String? {
+        if (id == EXT_ID || !this::shim.isInitialized) return null
+        return try {
+            val info = ExtRegistry.get(id) ?: return null
+            val man = JSONObject(File(info.dir, "manifest.json").readText())
+            val cfg = JSONObject().put("token", tokenFor(id)).put("kind", "content").put("base", EXT_BASE + id + "/")
+                .put("id", id).put("manifest", man).put("messages", localeMessages(info.dir, man)).toString()
+            "var chrome=" + shim + "(window," + cfg + ");var browser=chrome;if(!chrome)throw new Error('chrome api is not available in this page');\n"
+        } catch (e: Exception) { Log.e(TAG, "inject prelude", e); null }
+    }
+
     private fun buildExt(id: String, dir: File, mf: File): List<Entry> {
         val manifest = JSONObject(mf.readText())
         val cs = manifest.optJSONArray("content_scripts") ?: return emptyList()

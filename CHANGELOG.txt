@@ -1,3 +1,11 @@
+0.0.112 (FIX: extension could not grab page content)
+- Root cause (found by reading code, not reproduced): an extension without static content_scripts (WebToEpub, MV3) injects its parser with scripting.executeScript({files}). MGB ran the file in the page without chrome, so it failed at the first chrome.* line
+- ContentInjector.kt: injectPrelude(id) = shim instance (content kind) as chrome / browser for such a file
+- TabsApi.kt: runScript puts the prelude before injected files of an installed extension (V77 unchanged)
+- ExtApi.kt: a chrome.* call that MGB does not support is now written to Diagnose (tag ext, "api not supported: <name>: <api>")
+- Known gaps, not done: downloads.* and runtime.getContexts / offscreen are refused for installed extensions; top-level declarations of one injected file are not shared with the next executeScript call
+- NOT checked on phone / with the real WebToEpub
+
 0.0.111 (FIX: WebToEpub popup showed __MSG_label_..__ and did nothing)
 - Root cause: the chrome shim had NO chrome.i18n, so the extension script failed at start (labels stayed __MSG_x__, no start URL, no grab). Also the popup was laid out wider than the panel (cut at the right), and activeTab did not show the tab url
 - chrome-shim.js: chrome.i18n.getMessage (placeholders, $1..$9, $$), getUILanguage, getAcceptLanguages, detectLanguage

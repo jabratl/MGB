@@ -446,7 +446,7 @@ object TabsApi {
                     try { sb.append(readExtText(c.extId, p) ?: throw java.io.FileNotFoundException(p)).append("\n;") }
                     catch (e: Exception) { Diag.w("novel", "executeScript: could not load file " + p); c.fail("Could not load file: $p"); return } // S83
                 }
-                "(function(){" + sb + "\n})()"
+                "(function(){" + (if (c.extId != ContentInjector.EXT_ID) ContentInjector.injectPrelude(c.extId) ?: "" else "") + sb + "\n})()" // S16: chrome for the injected file
             }
             else -> { c.fail("executeScript: func or files required"); return }
         }
