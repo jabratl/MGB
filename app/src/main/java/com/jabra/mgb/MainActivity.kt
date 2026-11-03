@@ -149,7 +149,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Quick(R.drawable.ic_bookmark, "Bookmarks") { BookmarksScreen.open(this, BookmarksScreen.Mode.BOOKMARKS, tabs) },
             MenuSheet.Quick(R.drawable.ic_history, "History") { BookmarksScreen.open(this, BookmarksScreen.Mode.HISTORY, tabs) },
             MenuSheet.Quick(R.drawable.ic_download, "Downloads") { DownloadsScreen.open(this) },
-            MenuSheet.Quick(R.drawable.ic_play, "Grabber") { openExt("popup.html") }
+            MenuSheet.Quick(R.drawable.ic_play, "Grabber") { if (V77Alt.on(this)) openExt("popup.html") else floating.openSheet() } // S65: V77 only when the backup switch is ON
         )
         val acts = listOf(
             MenuSheet.Act(R.drawable.ic_back, web?.canGoBack() == true) { web?.goBack() },

@@ -381,6 +381,57 @@ object DownloadsApi {
         return true
     }
 
+    // ---------- S65: Open / Show from the Downloads screen (never silent) ----------
+
+    /** Open a finished file: built-in player for media, other apps for the rest. Tells the user when it cannot. */
+    fun openFile(a: Activity, id: Int) {
+        val i = synchronized(items) { items[id] }
+        if (i == null) { Util.toast(a, "This file is no longer in the downloads list"); return }
+        if (i.state != "complete") { Util.toast(a, "Download is not complete"); return }
+        if (!checkExists(i)) { Util.toast(a, "File was deleted or moved"); return }
+        if (playIfMedia(a, id)) return
+        val intent = openIntent(i)
+        if (intent == null) { Util.toast(a, "Cannot open this file"); return }
+        try { a.startActivity(intent) } catch (e: Exception) { Util.toast(a, "No app can open this file") }
+    }
+
+    /** Folder that holds the file as a document id (for example primary:Download/MGB) plus a short label. */
+    private fun folderOf(i: DlItem): Pair<String, String> {
+        val u = if (i.uri.startsWith("content:")) Uri.parse(i.uri) else null
+        if (u != null && u.authority == "com.android.externalstorage.documents") {
+            try {
+                val id = android.provider.DocumentsContract.getDocumentId(u)
+                val parent = if (id.contains('/')) id.substringBeforeLast('/') else id.substringBefore(':') + ":"
+                return Pair(parent, parent.substringAfter(':').ifEmpty { "Storage" })
+            } catch (e: Exception) { /* use rel below */ }
+        }
+        val dir = i.rel.replace('\\', '/').substringBeforeLast('/', "")
+        val base = Environment.DIRECTORY_DOWNLOADS
+        val path = if (dir.isEmpty()) base else "$base/$dir"
+        return Pair("primary:$path", path)
+    }
+
+    /** Show = open the folder of the file. Falls back to the system Downloads app, then to a message with the path. */
+    fun showFile(c: Context, id: Int) {
+        val i = synchronized(items) { items[id] }
+        val nt = Intent.FLAG_ACTIVITY_NEW_TASK
+        if (i != null) {
+            val f = folderOf(i)
+            try {
+                val dirUri = android.provider.DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", f.first)
+                c.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(dirUri, android.provider.DocumentsContract.Document.MIME_TYPE_DIR).addFlags(nt))
+                Util.toast(c, "Folder: " + f.second)
+                return
+            } catch (e: Exception) { /* no file manager takes folders: try the Downloads app */ }
+        }
+        try {
+            c.startActivity(Intent(android.app.DownloadManager.ACTION_VIEW_DOWNLOADS).addFlags(nt))
+            if (i != null) Util.toast(c, "Folder: " + folderOf(i).second)
+        } catch (e: Exception) {
+            Util.toast(c, if (i != null) "Saved in " + folderOf(i).second else "This file is no longer in the downloads list")
+        }
+    }
+
     // ---------- permissions (asked once, on the first download) ----------
 
     private fun askPerms() {
@@ -512,10 +563,7 @@ object DownloadsApi {
         }
 
         handle("downloads.show") { c ->
-            byId(c)
-            try {
-                app.startActivity(Intent(android.app.DownloadManager.ACTION_VIEW_DOWNLOADS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            } catch (e: Exception) { /* no downloads app */ }
+            showFile(top?.get() ?: app, c.args.optInt(0, -1)) // S65: opens the folder, never silent
             c.ok(null)
         }
         ChromeBridge.onSync("downloads.showDefaultFolder") {

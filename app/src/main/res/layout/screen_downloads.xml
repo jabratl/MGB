@@ -92,7 +92,8 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:padding="24dp"
-            android:text="No downloads yet"
+            android:gravity="center"
+            android:text="No downloads yet\nFiles you save show up here"
             android:textColor="@color/mg_text_dim"
             android:textSize="15sp"
             android:visibility="gone" />

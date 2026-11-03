@@ -1,3 +1,10 @@
+MGB 0.0.69 (S65: Downloads screen redesign + Show/Open fix + V77 Grabber backup switch)
+- Downloads screen (menu > Downloads): rounded cards, icon tile, file type + size + date line, pill buttons (Open filled, Show tonal), Saved files count, nicer empty text, coloured status (Done green, failed red), thin progress bar. Tapping a saved file card opens it.
+- Fix: Show did nothing. It now opens the folder of the file (Files app), falls back to the system Downloads app, and always tells the folder in a message. Open also tells why when it cannot (file deleted or moved, no app).
+- Settings > Grabber and buttons > V77 backup: "V77 Grabber (backup)" switch, OFF by default.
+  - OFF: menu Grabber opens the native Files detected panel (native downloader is main).
+  - ON: menu Grabber opens the V77 popup, and Button mode switches to "Grabber only" (V77 page button + video player button). Turning it OFF puts the Button mode back (Manual goes back to Smart).
+
 MGB 0.0.68 (S64: cleaner Settings > Downloads + a smarter Tools sheet)
 - Settings: the long Downloads card is now two cards that never fold away:
   - Downloads (Library, Quality and files): Downloads, Queue, History, Followed manga, Scheduled downloads / Download quality, Subtitles and file names, Convert .ts, Download folder, Sub-folders.

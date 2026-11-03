@@ -22,7 +22,7 @@ import org.json.JSONObject
  * S12: native downloads manager (full-screen window, no manifest entry needed).
  *  - running / finished / failed jobs come straight from V77 (storage.session mgJobs), refreshed every second
  *  - Pause / Resume / Cancel / Remove = the same messages V77 Queue page sends (job-pause, job-cancel, job-remove)
- *  - "Saved files" (storage.local mgHist): Open / Show call chrome.downloads.open / show in the engine
+ *  - "Saved files" (storage.local mgHist): Open / Show call DownloadsApi.openFile / showFile (S65; before: engine eval)
  *  - Clear = jobs-clear (removes everything that is not running)
  * Not here: Share (needs the file uri from DownloadsApi), notification buttons (DownloadService).
  */
@@ -127,67 +127,105 @@ object DownloadsScreen {
             for (j in running) box.addView(jobRow(j))
             if (other.isNotEmpty()) box.addView(section("Finished"))
             for (j in other) box.addView(jobRow(j))
-            if (hist.isNotEmpty()) box.addView(section("Saved files"))
+            if (hist.isNotEmpty()) box.addView(section("Saved files (${hist.size})"))
             for (h in hist) box.addView(fileRow(h))
+        }
+
+        // ---------- S65: card design (surface cards, icon tile, pill buttons) ----------
+
+        private fun round(color: Int, r: Int) = android.graphics.drawable.GradientDrawable().apply {
+            setColor(color)
+            cornerRadius = dp(r).toFloat()
         }
 
         private fun section(t: String): View = TextView(act).apply {
             text = t
             setTextColor(act.getColor(R.color.mg_text_dim))
             textSize = 12f
+            letterSpacing = 0.04f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setPadding(dp(16), dp(16), dp(16), dp(4))
+            setPadding(dp(20), dp(18), dp(16), dp(6))
         }
 
-        private fun button(label: String, click: () -> Unit): MaterialButton =
-            MaterialButton(act, null, android.R.attr.borderlessButtonStyle).apply {
+        private fun button(label: String, primary: Boolean = false, click: () -> Unit): MaterialButton =
+            MaterialButton(act).apply {
                 text = label
                 isAllCaps = false
+                textSize = 13f
                 minimumWidth = 0
                 minWidth = 0
+                minimumHeight = 0
+                minHeight = 0
+                insetTop = 0
+                insetBottom = 0
+                cornerRadius = dp(18)
+                setPadding(dp(18), 0, dp(18), 0)
+                backgroundTintList = android.content.res.ColorStateList.valueOf(act.getColor(if (primary) R.color.mg_primary else R.color.mg_surface_variant))
+                setTextColor(act.getColor(if (primary) R.color.mg_on_primary else R.color.mg_text))
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36)).apply { marginStart = dp(8) }
                 setOnClickListener { click() }
             }
 
         private fun card(): LinearLayout = LinearLayout(act).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(8), dp(8), dp(8))
+            setPadding(dp(14), dp(12), dp(12), dp(10))
+            background = round(act.getColor(R.color.mg_surface), 16)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                .apply { setMargins(dp(12), dp(5), dp(12), dp(5)) }
+        }
+
+        /** Round tile with an icon, tinted with the accent colour. */
+        private fun tile(icon: Int): View = android.widget.ImageView(act).apply {
+            setImageResource(icon)
+            setColorFilter(act.getColor(R.color.mg_primary))
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+            background = round(androidx.core.graphics.ColorUtils.setAlphaComponent(act.getColor(R.color.mg_primary), 40), 12)
+            layoutParams = LinearLayout.LayoutParams(dp(40), dp(40)).apply { marginEnd = dp(12) }
+        }
+
+        private fun label(t: String, size: Float, color: Int, lines: Int): TextView = TextView(act).apply {
+            text = t
+            setTextColor(color)
+            textSize = size
+            maxLines = lines
+            ellipsize = TextUtils.TruncateAt.END
+        }
+
+        private fun actionRow(): LinearLayout = LinearLayout(act).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(10) }
         }
 
         private fun jobRow(j: JSONObject): View {
             val key = j.optString("key")
             val state = j.optString("state")
             val c = card()
-            c.addView(TextView(act).apply {
-                text = j.optString("title").ifBlank { key }
-                setTextColor(act.getColor(R.color.mg_text))
-                textSize = 15f
-                maxLines = 2
-                ellipsize = TextUtils.TruncateAt.END
-            })
+            val head = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            head.addView(tile(if (state == "run") R.drawable.ic_download else if (state == "done") R.drawable.ic_check else R.drawable.ic_info))
+            val col = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+            col.addView(label(j.optString("title").ifBlank { key }, 15f, act.getColor(R.color.mg_text), 2))
             val status = when (state) {
                 "run" -> (if (j.optBoolean("paused")) "Paused · " else "") + pctOf(j) + "%" +
                     j.optString("text").let { if (it.isBlank()) "" else " · $it" }
                 "done" -> "Done"
                 else -> j.optString("text").ifBlank { "Failed" }
             }
-            c.addView(TextView(act).apply {
-                text = status
-                setTextColor(act.getColor(R.color.mg_text_dim))
-                textSize = 12f
-                maxLines = 2
-                ellipsize = TextUtils.TruncateAt.END
-            })
+            col.addView(label(status, 12f, act.getColor(when (state) { "done" -> R.color.mg_success; "run" -> R.color.mg_text_dim; else -> R.color.mg_error }), 2))
+            head.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            c.addView(head)
             if (state == "run") {
                 c.addView(ProgressBar(act, null, android.R.attr.progressBarStyleHorizontal).apply {
                     max = 100
                     progress = pctOf(j)
-                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(8)).apply { topMargin = dp(6) })
+                    progressTintList = android.content.res.ColorStateList.valueOf(act.getColor(R.color.mg_primary))
+                    progressBackgroundTintList = android.content.res.ColorStateList.valueOf(act.getColor(R.color.mg_surface_variant))
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(6)).apply { topMargin = dp(10) })
             }
-            val actions = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END }
+            val actions = actionRow()
             if (state == "run") {
                 val paused = j.optBoolean("paused")
-                actions.addView(button(if (paused) "Resume" else "Pause") {
+                actions.addView(button(if (paused) "Resume" else "Pause", paused) {
                     EngineApi.send(JSONObject().put("type", "job-pause").put("key", key).put("on", !paused))
                 })
                 actions.addView(button("Cancel") { EngineApi.send(JSONObject().put("type", "job-cancel").put("key", key)) })
@@ -204,26 +242,30 @@ object DownloadsScreen {
         private fun fileRow(h: JSONObject): View {
             val id = h.optInt("id", 0)
             val c = card()
-            c.addView(TextView(act).apply {
-                text = h.optString("title").ifBlank { "file" }
-                setTextColor(act.getColor(R.color.mg_text))
-                textSize = 15f
-                maxLines = 2
-                ellipsize = TextUtils.TruncateAt.END
-            })
+            val title = h.optString("title").ifBlank { "file" }
+            val ext = title.substringAfterLast('.', "").lowercase().takeIf { it.length in 1..4 && !it.contains(' ') }
+            val media = ext in setOf("mp4", "m4v", "mkv", "webm", "mov", "3gp", "ts", "mp3", "m4a", "aac", "ogg", "opus", "wav", "flac")
             val size = EngineApi.fmtSize(h.optLong("size", 0))
-            val ago = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT)
-                .format(java.util.Date(h.optLong("time")))
-            c.addView(TextView(act).apply {
-                text = (if (size.isEmpty()) "" else "$size · ") + ago
-                setTextColor(act.getColor(R.color.mg_text_dim))
-                textSize = 12f
-            })
+            val ago = java.text.SimpleDateFormat("d MMM, HH:mm", java.util.Locale.getDefault()).format(java.util.Date(h.optLong("time")))
+            val head = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            head.addView(tile(if (media) R.drawable.ic_play else R.drawable.ic_download))
+            val col = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+            col.addView(label(title, 15f, act.getColor(R.color.mg_text), 2))
+            col.addView(label(listOfNotNull(ext?.uppercase(), size.ifEmpty { null }, ago).joinToString(" · "), 12f, act.getColor(R.color.mg_text_dim), 1))
+            head.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            c.addView(head)
             if (id > 0) {
-                val actions = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END }
-                actions.addView(button("Open") { if (!DownloadsApi.playIfMedia(act, id)) EngineHost.eval("try{chrome.downloads.open($id)}catch(e){}") }) // S28
-                actions.addView(button("Show") { EngineHost.eval("try{chrome.downloads.show($id)}catch(e){}") })
+                // S65: both buttons call DownloadsApi directly (the old engine eval did nothing when the id was unknown)
+                val actions = actionRow()
+                actions.addView(button("Show") { DownloadsApi.showFile(act, id) })
+                actions.addView(button("Open", true) { DownloadsApi.openFile(act, id) })
                 c.addView(actions)
+                c.isClickable = true
+                try {
+                    val tv = android.util.TypedValue()
+                    if (act.theme.resolveAttribute(android.R.attr.selectableItemBackground, tv, true)) c.foreground = act.getDrawable(tv.resourceId)
+                } catch (_: Exception) { }
+                c.setOnClickListener { DownloadsApi.openFile(act, id) }
             }
             return c
         }

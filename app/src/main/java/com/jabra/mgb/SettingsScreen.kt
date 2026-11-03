@@ -481,6 +481,12 @@ object SettingsScreen {
                 }
             ))
             category("grabber", R.drawable.ic_settings, "Grabber and buttons", "Engine, buttons, player", listOf(
+                Sub("V77 backup"), // S65
+                Row(R.drawable.ic_play, "V77 Grabber (backup)", if (V77Alt.on(act)) "ON" else "OFF", "Original Media Grabber instead of the native downloader, for when it is under maintenance") {
+                    V77Alt.set(act, !V77Alt.on(act))
+                    Util.toast(act, if (V77Alt.on(act)) "V77 Grabber ON. Reload open pages" else "Native downloader is main again. Reload open pages")
+                    fill()
+                },
                 Sub("Engine"),
                 Row(R.drawable.ic_settings, "Download engine", engSummary(), "Speed, retries, limits, live recording") { DlEngine.open(act) },
                 Row(R.drawable.ic_settings, "Grabber settings", "", "Sites, theme, backup, reset") { GrabSet.open(act) },

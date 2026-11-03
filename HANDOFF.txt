@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.69 (S65: Downloads screen redesign + Show fix + V77 backup switch, see the S65 note at the end; before: S64)
+
 CURRENT VERSION 0.0.68 (S64: Settings Downloads redesign + Tools sheet, see the S64 note at the end; before: S63)
 
 CURRENT VERSION 0.0.67 (S63: sizes per quality + subtitle with video, see the S63 note at the end; before: S62)
@@ -347,3 +349,12 @@ Removed rows moved, not deleted: Detected files (quality, convert) and Save loca
 Checks: Kotlin braces/parens balance; NOT compiled; UI NOT rendered at 360/1280 dark/light.
 NOT tested: both cards look right and rows fit at 360 px; hint lines wrap; Tools sheet scrolls and each row opens its screen; Followed manga from Settings opens a tab; Scheduled from Settings shows the list (cannot add there: needs files of a page).
 Still missing natively: per-download subtitle on/off, Pick pages (manga.html), native queue / history pages, DASH variants beyond 10, schedule of a single file.
+
+======== S65 note (0.0.69) ========
+Root cause (Show): downloads.show only started the system Downloads app intent inside try/catch and byId() threw for ids not in DownloadsApi.items, the engine eval swallowed both, so Show/Open looked dead.
+Changed: V77Alt.kt (NEW: prefs mgb_ui v77_backup + v77_prev_mode; ON = DlMode.apply GRABBER, OFF = restore previous mode) / DownloadsApi.kt (NEW openFile(act,id), showFile(ctx,id), folderOf; downloads.show handler now calls showFile) / DownloadsScreen.kt (card design: section, button(label, primary), card, tile, label, actionRow, jobRow, fileRow; Open/Show call DownloadsApi directly) / MainActivity.kt (menu Grabber tile: V77Alt on = popup.html, off = floating.openSheet()) / SettingsScreen.kt (Sub "V77 backup" + switch row at the top of the grabber card) / res/layout/screen_downloads.xml (empty text) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt. No JS change (node --check not needed).
+Checks: Kotlin braces/parens balance on all 5 changed .kt; layout XML parses; no new ids; no nested comment opener; NOT compiled; UI NOT rendered at 360/1280 dark/light.
+NOT tested: card look at 360 px (long titles, 3 buttons in a running job row); Show opens the folder on this phone (MIUI file manager may ignore the folder intent: then the Downloads app opens + message shows the folder); Open on non-media files; ON/OFF switch changes menu Grabber and page buttons after a page reload; OFF restores the previous Button mode.
+Could break: turning the backup ON overwrites the Button mode (Grabber only) and OFF restores it; per-site Button modes are not touched. Saved files whose id is gone from DownloadsApi (old history) now say "no longer in the downloads list" instead of doing nothing.
+Still missing natively: per-download subtitle on/off, Pick pages (manga.html), native queue / history pages, DASH variants beyond 10, schedule of a single file.
+Next: S66 = fix from the first run of 0.0.69 (Show / card layout), or native queue / history pages.
