@@ -172,8 +172,27 @@ function rlHit(retryAfterSec) {
   const back = retryAfterSec > 0 ? Math.min(60, retryAfterSec) * 1000 : Math.min(15000, 700 * 2 ** Math.min(RL.strikes, 5));
   RL.until = Math.max(RL.until, Date.now() + back);
   RL.cap = Math.max(1, Math.floor((RL.cap === Infinity ? rlMax() : RL.cap) / 2));
-  if (RL.strikes <= 6) dbg('manga', `server is rate-limiting us: waiting ${Math.round(back / 1000)}s, ${RL.cap} download(s) at a time from now`);
+  if (RL.strikes <= 6) dbgc('manga', 'rate-limited', `${hostOf(DATA.ref)}: server is rate-limiting us: waiting ${Math.round(back / 1000)}s, ${RL.cap} download(s) at a time from now`);
 }
+// S89.2: image load failure -> stable code (the rules read the code, never the English text). Prefix img- keeps them apart from the S89.1 page-list codes.
+function imgCode(msg) {
+  const m = String(msg || '').split(' | ')[0];
+  const h = /HTTP (\d{3})/.exec(m);
+  if (h) return 'img-' + mgHttpCode(h[1]);
+  if (/not an image/i.test(m)) return 'not-an-image';
+  if (/corrupt image/i.test(m)) return 'corrupt-image';
+  if (/failed to fetch|network|timeout|timed out|aborted|load failed/i.test(m)) return 'img-network-timeout';
+  return 'img-fetch-error';
+}
+const cleanErr = (m) => String(m || '?').replace(/https?:\/\/\S+/g, '<url>').slice(0, 100);
+function logImgFails(stage, list) { // one line per code (not per page): count + the first page as the example
+  const by = {};
+  list.forEach((p) => { const c = imgCode(p.err); (by[c] = by[c] || []).push(p); });
+  Object.entries(by).forEach(([c, ps]) => dbgc('manga', c, `${hostOf(DATA.ref)}: ${stage}, ${ps.length} page(s), e.g. page ${pages.indexOf(ps[0]) + 1}: ${cleanErr(ps[0].err)}`));
+  const last = list.filter((p) => /page-fetch:|canvas:/.test(p.err || '')); // pages where even the in-page fetch and the canvas copy failed
+  if (last.length) dbgc('manga', 'all-methods-failed', `${hostOf(DATA.ref)}: ${stage}, ${last.length} page(s) failed every method (direct, viewer, page-fetch, canvas)`);
+}
+async function bitmapOf(blob) { try { return await createImageBitmap(blob); } catch (e) { throw new Error('corrupt image: ' + String((e && e.message) || e).slice(0, 80)); } }
 function rlOk() { if (RL.cap !== Infinity && ++RL.ok >= 8) { RL.ok = 0; RL.cap = RL.cap + 1 >= rlMax() ? Infinity : RL.cap + 1; } }
 
 async function tryDirect(u) {
@@ -316,17 +335,18 @@ async function resolveTask() {
 }
 // links can expire (hitomi rotates its path, MangaDex servers change): ask the adapter again and swap in the fresh links for failed pages
 async function refreshLinks() {
-  if (!DATA.task || DATA.refreshed >= 2) return false;
+  if (!DATA.task) return false;
+  if (DATA.refreshed >= 2) { dbgc('manga', 'refresh-failed', `${hostOf(DATA.ref)}: limit reached, links were already refreshed 2 times`); return false; }
   DATA.refreshed = (DATA.refreshed || 0) + 1;
   try {
-    const ad = MG_SITES.byName(DATA.task.name); if (!ad) return false;
+    const ad = MG_SITES.byName(DATA.task.name); if (!ad) { dbgc('manga', 'refresh-failed', `${hostOf(DATA.ref)}: site rule ${String(DATA.task.name).slice(0, 40)} not found`); return false; }
     const r = await ad.resolve(DATA.task.url || DATA.ref, siteCtx());
-    if (r.images.length !== pages.length) return false;
+    if (r.images.length !== pages.length) { dbgc('manga', 'refresh-failed', `${hostOf(DATA.ref)}: the list changed, now ${r.images.length} pages, had ${pages.length}`); return false; }
     goodTag = '';
     pages.forEach((p, i) => { if (p.bad) { p.alts = r.images[i].alts; p.found = r.images[i].found; p.orig = r.images[i].orig; } });
     dbg('site', `${ad.name}: refreshed links for ${pages.filter((p) => p.bad).length} pages`);
     return true;
-  } catch (e) { dbg('site', 'refresh failed: ' + e.message); return false; }
+  } catch (e) { dbg('site', 'refresh failed: ' + e.message); dbgc('manga', 'refresh-failed', `${hostOf(DATA.ref)}: ${cleanErr(e.message)}`); return false; }
 }
 
 // ---------- UI ----------
@@ -370,7 +390,7 @@ async function loadAll() {
       try {
         const r = await fetchImg(p);
         Object.assign(p, r);
-        const bmp = await createImageBitmap(r.blob); p.w = bmp.width; p.h = bmp.height; bmp.close();
+        const bmp = await bitmapOf(r.blob); p.w = bmp.width; p.h = bmp.height; bmp.close();
         p.url2 = URL.createObjectURL(r.blob);
         const hsh = crc32(new Uint8Array(await r.blob.arrayBuffer())) + ':' + r.blob.size;
         if (seenHash.has(hsh)) { p.dup = true; p.sel = false; p.el.classList.remove('sel'); } else seenHash.set(hsh, i);
@@ -380,9 +400,16 @@ async function loadAll() {
       bar.value = ++done; updateButtons();
     }
   }));
+  const firstBad = pages.filter((p) => p.bad); // S89.2: what failed the first time (the screen status line is the only other place that shows it)
+  if (firstBad.length) {
+    const cnt = {}; firstBad.forEach((p) => { const c = imgCode(p.err); cnt[c] = (cnt[c] || 0) + 1; });
+    dbgc('manga', 'first-pass-failed', `${hostOf(DATA.ref)}: ${firstBad.length} of ${pages.length} pages failed the first time (${Object.entries(cnt).map(([c, n]) => c + ' x' + n).join(', ').slice(0, 160)})`);
+  }
+  let rounds = 0;
   for (let pass = 0; pass < 2; pass++) { // pages that failed because of rate limits / network hiccups: try again, slowly
     const badNow = pages.filter((p) => p.bad);
     if (!badNow.length || !badNow.some((p) => /429|503|timeout|network|failed to fetch|HTTP 5|HTTP 403/i.test(p.err || ''))) break;
+    rounds++;
     $('#st').textContent = `Retrying ${badNow.length} page(s) slowly (round ${pass + 1} of 2)...`;
     await sleep(2500 * (pass + 1));
     RL.until = 0; RL.cap = 2; RL.ok = 0;
@@ -396,6 +423,13 @@ async function loadAll() {
     const how = {}; pages.forEach((p) => { if (p.how) how[p.how] = (how[p.how] || 0) + 1; });
     const badN = pages.filter((p) => p.bad);
     dbg('manga', `${hostOf(DATA.ref)}: ${pages.length} pages, ok=${JSON.stringify(how)}, failed=${badN.length}` + (badN.length ? ' e.g. ' + String(badN[0].err).slice(0, 160) : ''));
+  }
+  { // S89.2: what is left after the automatic retries, and the duplicates that were unselected on their own
+    const left = pages.filter((p) => p.bad);
+    if (firstBad.length) dbgc('manga', 'retry-result', `${hostOf(DATA.ref)}: auto retry rounds=${rounds} recovered=${firstBad.length - left.length} still-missing=${left.length}`);
+    if (left.length) { dbgc('manga', 'still-missing', `${hostOf(DATA.ref)}: ${left.length} of ${pages.length} pages not loaded after the retries`); logImgFails('after retries', left); }
+    const dups = pages.filter((p) => p.dup).length;
+    if (dups) dbgc('manga', 'duplicates-unselected', `${hostOf(DATA.ref)}: ${dups} duplicate page(s) were unselected`);
   }
   if (DATA.expected && pages.length < DATA.expected) { dbgc('manga', 'pages-fewer-than-expected', `${hostOf(DATA.ref)}: found=${pages.length} expected=${DATA.expected}`); $('#st').textContent += ` - NOTE: the page says ${DATA.expected} pages but only ${pages.length} were found`; }
   const small = pages.filter((p) => p.w && p.w < 400).length;
@@ -415,7 +449,7 @@ async function loadOne(p) {
     const r = await fetchImg(p);
     p.bad = false; p.err = '';
     Object.assign(p, r);
-    const bmp = await createImageBitmap(r.blob); p.w = bmp.width; p.h = bmp.height; bmp.close();
+    const bmp = await bitmapOf(r.blob); p.w = bmp.width; p.h = bmp.height; bmp.close();
     p.url2 = URL.createObjectURL(r.blob);
     p.el.querySelectorAll('.m, img').forEach((x) => x.remove());
     p.el.classList.remove('bad'); p.el.classList.add('sel'); p.sel = true;
@@ -433,6 +467,8 @@ async function retryFailed() {
   $('#retry').hidden = !left; if (!left) $('#shot').hidden = true;
   updateButtons();
   $('#st').textContent += ` - retry: ${ok} recovered, ${left} still missing`;
+  dbgc('manga', 'retry-result', `${hostOf(DATA.ref)}: manual retry recovered=${ok} still-missing=${left}`);
+  if (left) { dbgc('manga', 'still-missing', `${hostOf(DATA.ref)}: ${left} of ${pages.length} pages not loaded after the manual retry`); logImgFails('after manual retry', pages.filter((p) => p.bad)); }
   return ok;
 }
 $('#retry').onclick = async () => { $('#retry').disabled = true; await retryFailed(); $('#retry').disabled = false; };
@@ -688,7 +724,7 @@ async function shootAll() {
   $('#shot').disabled = true;
   await chrome.tabs.update(DATA.tab, { active: true });
   const me = await chrome.tabs.getCurrent();
-  let ok = 0;
+  let ok = 0, shotErr = '';
   for (const p of todo) {
     $('#st').textContent = `Screenshot ${ok + 1}/${todo.length} - keep the manga tab visible, do not scroll it...`;
     try {
@@ -698,8 +734,9 @@ async function shootAll() {
       p.el.querySelector('.m').remove();
       p.el.insertAdjacentHTML('beforeend', `<img src="${p.url2}"><span class="m">${p.w}x${p.h} - screenshot</span>`);
       ok++;
-    } catch (e) { p.err = e.message; }
+    } catch (e) { p.err = e.message; shotErr = shotErr || `page ${pages.indexOf(p) + 1}: ${cleanErr(e.message)}`; }
   }
+  if (ok < todo.length) dbgc('manga', 'screenshot-failed', `${hostOf(DATA.ref)}: saved ${ok} of ${todo.length}, e.g. ${shotErr}`);
   tabMsg({ type: 'mg-restore' }).catch(() => {});
   await chrome.tabs.update(me.id, { active: true });
   $('#shot').disabled = false;

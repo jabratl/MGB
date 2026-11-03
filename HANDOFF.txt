@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.91 + S89.0 + S89.1 + S89.2 (manga page load logs, version bump in S89.7, see the S89.2 note at the end; before: S89.1)
+
 CURRENT VERSION 0.0.91 + S89.0 + S89.1 (manga page list logs, version bump in S89.7, see the S89.1 note at the end; before: S89.0)
 
 CURRENT VERSION 0.0.91 + S89.0 (stable mgLog codes, version bump in S89.7, see the S89.0 note at the end; before: S87.2)
@@ -684,3 +686,13 @@ Checks: node --check manga.js and shared.js OK; siteCtx.text / tabMsg / tabEval 
 NOT tested (needs phone): real grab on a site where the adapter fails (fallback-used line), real closed source tab, thumbnails-only on a thumbnail gallery.
 Could break: siteCtx.text now reads the body of a failed response before throwing (was: not read); a very large error body would be read once.
 Next: S89.2 (manga.js page load logs #8-18). Attach: manga.js (after this patch), shared.js.
+
+S89.2 - manga failures to Diagnose, part 2: page load logs
+Done: S0-S87.2 + S89.0 + S89.1 + S89.2. Version still 0.0.91.
+- manga.js only. New codes (area "manga", key "manga:<code>"): img-403-blocked, img-404-gone, img-429-slow-down, img-5xx-server, img-401-login, img-http-NNN, not-an-image, img-network-timeout, img-fetch-error, corrupt-image, all-methods-failed, rate-limited, first-pass-failed, retry-result, still-missing, refresh-failed, duplicates-unselected, screenshot-failed.
+- Rule hints for S89.5: first-pass-failed = Info only (retry may fix it). retry-result "recovered=N still-missing=0" = Info "N recovered"; still-missing > 0 = Problem (+ Retry). img-* and not-an-image / corrupt-image lines exist ONLY for pages still missing after retries, so they are Problems. rate-limited = Warning, fix = Settings delay. all-methods-failed + still-missing = strongest signal. refresh-failed = Warning, fix = Reload. duplicates-unselected = Info. screenshot-failed = Warning ("keep the manga tab visible, screen on"). Details of the newest line are in Facts.mgCodeNotes (host: stage, N page(s), e.g. page K: text).
+- Not in this step: reader / pick / save / convert / download codes and manga-done missing>0 (S89.3). The old dbg summary line "[manga] host: N pages, ok=..., failed=K" is kept.
+Checks: node --check manga.js and shared.js OK; imgCode / cleanErr / logImgFails / bitmapOf run in node on 9 sample errors (all codes as expected, urls replaced by <url>, bitmap error -> corrupt-image).
+NOT tested (needs phone): a real grab with failing pages (first-pass-failed -> retry-result -> still-missing order in the log), manual Retry button lines, refresh-failed on a site adapter with expiring links, screenshot-failed, duplicate line. loadAll / loadOne were not run as a whole (no browser).
+Could break: bitmapOf() changes the error text of a broken image to "corrupt image: ..." (status line / diagnose() text); the new lines in loadAll run once at the end, a throw there would skip the status text, so they only use plain counts.
+Next: S89.3 (manga.js + background.js: reader / pick / save / convert / download / manga-done missing>0, #19-30). Attach: manga.js (after this patch), background.js.
