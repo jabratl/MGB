@@ -224,6 +224,24 @@ object DiagReport {
         x.detected = items?.length() ?: 0
         x.dlCodes = Diag.recent(30, "download", false).filter { it.ts >= now - TEN_MIN && it.msg.startsWith("failed ") }.map { it.msg.removePrefix("failed ").trim() }
         x.sniffFails = Diag.recent(40, "sniffer", false).filter { it.ts >= now - TEN_MIN && it.msg.startsWith("probe failed") }.sumOf { maxOf(1, it.n) }
+        // S87.1 facts for rules 21-40 (all text lower-case; urls only via maskUrl, error text via mask)
+        fun evTxt(tag: String, sinceMs: Long) = Diag.recent(30, tag, false).filter { it.ts >= now - sinceMs }.map { (it.msg + " " + it.extra).lowercase() }
+        x.novelMsgs = evTxt("novel", TEN_MIN)
+        x.mangaMsgs = evTxt("manga", TEN_MIN)
+        x.scheduleMsgs = evTxt("schedule", 24 * 60 * 60 * 1000L)
+        x.logLines = if (log == null) emptyList() else (maxOf(0, log.length() - 30) until log.length()).map { Diag.mask(log.optString(it)).lowercase() }
+        if (items != null) for (i in 0 until items.length()) {
+            val j = items.optJSONObject(i) ?: continue
+            val k = j.optString("kind")
+            val inf = j.optJSONObject("info")
+            if ((k == "hls" || k == "dash") && inf != null && inf.has("error") && (inf.optJSONArray("variants")?.length() ?: 0) == 0) x.hlsNoList++
+            if (inf?.optBoolean("protected", false) == true) x.drmItems++
+            if (j.optString("url").startsWith("blob:")) x.blobItems++
+        }
+        x.jobErrors = failedJobs.map { Diag.mask(it.optString("error").ifBlank { it.optString("why") }).lowercase() }
+        x.failedJobUrls = failedJobs.map { Diag.maskUrl(it.optString("url")) } +
+            Diag.recent(30, "download", false).filter { it.ts >= now - TEN_MIN && it.msg.startsWith("failed ") }.map { Diag.maskUrl(it.extra) }
+        x.runningJobs = jobs.count { it.optString("state") == "run" }
         x.notifDenied = safe(false) { Build.VERSION.SDK_INT >= 33 && androidx.core.content.ContextCompat.checkSelfPermission(ctx, "android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED }
         x.bgRestricted = safe(false) { Build.VERSION.SDK_INT >= 28 && am?.isBackgroundRestricted == true }
         val findings = safe(emptyList<DiagRules.Finding>()) { DiagRules.diagnose(x) }

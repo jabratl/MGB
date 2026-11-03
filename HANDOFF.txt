@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.90 (S87.1: DiagRules.kt rules 21-40, see the S87.1 note at the end; before: S86)
+
 CURRENT VERSION 0.0.89 (S86: DiagRules.kt rules 1-20 + Why? + crash Full report, see the S86 note at the end; before: S85)
 
 CURRENT VERSION 0.0.88 (S85: DiagScreen.kt Report center + entry points, see the S85 note at the end; before: S84)
@@ -626,3 +628,15 @@ Checks: braces / parens / brackets balanced in the 5 Kotlin files (script); ever
 NOT tested: compile (CI); fix intents on real devices (ACTION_INTERNAL_STORAGE_SETTINGS, market://, notification settings); Why? text for real V77 job errors (rules match on words in j.text / j.error); https-only rule assumes maskUrl keeps "http://"; Diag.recent order (newest vs oldest first) only changes which error is shown first; crash dialog neutral button layout.
 Not done: V77 job error wording not checked against rules (see NOT tested); rules 21-40.
 Next: S87 = rules 21-40 (novel / manga / HLS / DRM / expired token / subtitle / convert / schedule / duplicate), auto Diagnose pill + Settings switch, real phone check list. Files: DiagRules.kt, DiagScreen.kt, SettingsScreen.kt, MainActivity.kt, Diag.kt.
+
+
+S87.1 (0.0.90) - Diagnose part 5b-1: rules 21-40
+Goal: rules 21-40 only. S87 was split: S87.1 = rules, S87.2 = auto pill + Settings switch + check list.
+Changed:
+- DiagRules.kt: Facts + novelMsgs, mangaMsgs, logLines, hlsNoList, drmItems, blobItems, jobErrors, failedJobUrls, runningJobs, scheduleMsgs; new private rules21to40(x, out) called before the sort in diagnose(). Ids: novel-timeout, novel-reloaded, novel-script-missing, novel-script-error, novel-saved-bad, novel-locked, novel-nolist, manga-saved-bad, manga-nopages, manga-lazy, hls-nolist, drm, blob-video, token-expired, subtitle-fail, convert-limit, schedule-missed, store-job, dup-file, repeat-fail.
+- DiagReport.kt: assemble fills the new Facts just before x.notifDenied (uses existing items / jobs / failedJobs / log / now / TEN_MIN).
+- build.gradle.kts 0.0.90, CHANGELOG.txt, HANDOFF.txt.
+Checks: braces / parens balanced in both Kotlin files (script); anchors replaced once; symbols grepped (Diag.recent / countSince / mask / maskUrl, Event.extra is non-null String, failedJobs / jobs / log / items / TEN_MIN in scope). Only existing fix ids used (DiagScreen untouched).
+NOT tested: compile (CI); keyword matches against real V77 job errors and mgLog wording ("no chapter list", "no pages", "locked", "lazy" are guesses); nothing in the app logs a Diag "schedule ... missed" event yet, so rule 35 (schedule-missed) never fires; hls-nolist depends on info.error + empty info.variants.
+Not done: schedule-missed producer (add Diag.w("schedule", "missed ...") where the V77 scheduler runs late); one-tap fixes that open the Novel / Manga window (need new fix ids in DiagScreen.runFix).
+Next: S87.2 (0.0.91) = (a) auto Diagnose pill: shows when the same url fails twice in 10 min, a tab crash, or the grabber finds nothing; max 1 per 5 min, dismiss = 1 h quiet; (b) Settings switch "Auto Diagnose pill" default ON (SettingsScreen.kt); (c) real-phone check list (S17 style). Attach: MGB_S87_1_v0_0_90.zip + MainActivity.kt (grep pill spot), SettingsScreen.kt, DiagScreen.kt, Diag.kt, DiagReport.kt.

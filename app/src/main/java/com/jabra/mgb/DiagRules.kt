@@ -2,7 +2,7 @@ package com.jabra.mgb
 
 /**
  * S86: Diagnose part 5a. Rule engine: facts about the app / page / downloads -> list of Finding
- * (what happened + what to do + optional one tap fix). Rules 1-20 here; rules 21-40 come in S87.
+ * (what happened + what to do + optional one tap fix). Rules 1-20 (S86) + rules 21-40 (S87.1, see rules21to40).
  * Pure logic, no UI, no Android calls (DiagReport collects the Facts).
  *
  * fix ids (DiagScreen.runFix): wifi, storage, webview, reload, settings, downloads, notif, appinfo.
@@ -40,6 +40,17 @@ object DiagRules {
         var sniffFails = 0              // sniffer probe failed in the last 10 min
         var notifDenied = false         // API 33+ and POST_NOTIFICATIONS not granted
         var bgRestricted = false        // API 28+ background restricted
+        // ---- S87.1 (all lower-case text, already masked; empty list = nothing known)
+        var novelMsgs: List<String> = emptyList()    // Diag tag novel msgs + extra, last 10 min
+        var mangaMsgs: List<String> = emptyList()    // Diag tag manga, last 10 min
+        var logLines: List<String> = emptyList()     // V77 mgLog last 30 lines
+        var hlsNoList = 0               // hls / dash items whose quality list could not be read
+        var drmItems = 0
+        var blobItems = 0               // detected urls that start with blob:
+        var jobErrors: List<String> = emptyList()    // error text of failed V77 jobs (masked)
+        var failedJobUrls: List<String> = emptyList() // masked url of each failed job / failed download (last 10 min)
+        var runningJobs = 0
+        var scheduleMsgs: List<String> = emptyList() // Diag tag schedule, last 24 h
     }
 
     private const val LOW_STORAGE = 200L * 1024 * 1024
@@ -108,7 +119,50 @@ object DiagRules {
         if (x.notifDenied) out.add(f("notif-denied", I, "Notifications are not allowed.", "Download progress will not show in the notification bar. Allow notifications for MGB.", "notif", "Open notification settings"))
         if (x.bgRestricted) out.add(f("bg-restricted", W, "Android restricts MGB in the background.", "Long downloads may be stopped. Set battery use for MGB to Unrestricted.", "appinfo", "Open app settings"))
 
+        rules21to40(x, out)
+
         return out.sortedBy { when (it.level) { DiagReport.BAD -> 0; DiagReport.WARN -> 1; else -> 2 } }
+    }
+
+    private const val MID_STORAGE = 1024L * 1024 * 1024
+
+    /** S87.1 rules 21-40. Same fix ids as before (no new DiagScreen code needed). Text checks are lower-case "contains". */
+    private fun rules21to40(x: Facts, out: ArrayList<Finding>) {
+        val B = DiagReport.BAD
+        val W = DiagReport.WARN
+        val I = DiagReport.INFO
+        fun anyHas(l: List<String>, vararg k: String) = l.any { m -> k.any { m.contains(it) } }
+        val novelAll = x.novelMsgs + x.logLines.filter { it.contains("novel") }
+        val mangaAll = x.mangaMsgs + x.logLines.filter { it.contains("manga") }
+
+        // 21-27 novel
+        if (anyHas(x.novelMsgs, "timed out")) out.add(f("novel-timeout", W, "The Novel grabber timed out (180 s).", "The page is slow or very long. Reload it, wait until it is fully loaded, then grab again. Wi-Fi helps.", "reload", "Reload page"))
+        if (anyHas(x.novelMsgs, "reloaded")) out.add(f("novel-reloaded", W, "The page reloaded while the Novel grabber was working.", "Do not scroll away or refresh while it runs. Some sites reload by themselves: try again once the page is quiet.", "reload", "Reload page"))
+        if (anyHas(x.novelMsgs, "could not load file")) out.add(f("novel-script-missing", B, "A Novel grabber script file could not be loaded.", "The app files look damaged. Update or reinstall MGB.", "appinfo", "Open app settings"))
+        if (anyHas(x.novelMsgs, "executescript error")) out.add(f("novel-script-error", W, "The Novel grabber script stopped with an error on this page.", "Reload the page and try again. If it repeats, copy the report; this site may need its own rule."))
+        if (anyHas(x.novelMsgs, "mgnativech unreadable")) out.add(f("novel-saved-bad", I, "Saved chapter data could not be read.", "Open the Novel window and grab the chapter list again."))
+        if (anyHas(novelAll, "locked", "login required", "premium", "paywall", "coins")) out.add(f("novel-locked", W, "A chapter is locked (login, coins or premium) and the grabber stopped there.", "Log in on the site in this tab, open the chapter once, then continue. Locked text cannot be read without access.", "reload", "Reload page"))
+        if (anyHas(novelAll, "no chapter list", "no chapters", "chapter list not found")) out.add(f("novel-nolist", W, "No chapter list was found on this page.", "Open the novel's main (table of contents) page, not a single chapter, then run the grabber again."))
+
+        // 28-30 manga
+        if (anyHas(x.mangaMsgs, "mgnativemg unreadable")) out.add(f("manga-saved-bad", I, "Saved manga page data could not be read.", "Open the Manga window and scan the chapter again."))
+        if (anyHas(mangaAll, "no pages", "0 pages", "pages not found")) out.add(f("manga-nopages", W, "No manga pages were found.", "Scroll the whole chapter once so every image loads, then run the grabber again.", "reload", "Reload page"))
+        if (anyHas(mangaAll, "lazy", "not loaded yet")) out.add(f("manga-lazy", I, "Some manga images were not loaded yet (lazy loading).", "Scroll slowly to the end of the chapter, wait a second, then grab."))
+
+        // 31-35 video kinds
+        if (x.hlsNoList > 0) out.add(f("hls-nolist", W, "A streaming (HLS / DASH) list could not be read (${x.hlsNoList}).", "Press Retry in Detected files. If it fails again the link expired: play the video again to get a fresh one.", "reload", "Reload page"))
+        if (x.drmItems > 0) out.add(f("drm", W, "${x.drmItems} DRM protected video(s) were found.", "Protected streams (Widevine) cannot be downloaded by any app. Pick another file on the page, if there is one."))
+        if (x.blobItems > 0) out.add(f("blob-video", I, "The video address is hidden by the site (blob:).", "Let the video play for a few seconds, then open Detected files again to look for a stream (HLS) or file entry."))
+        if (anyHas(x.jobErrors, "403", "401", "expired", "token", "signature", "forbidden")) out.add(f("token-expired", W, "The link looks expired (the site wants a fresh token).", "Open the video page again, play it for a moment, then download from the new entry. Old links stop working after minutes.", "reload", "Reload page"))
+        if (anyHas(x.jobErrors + x.logLines, "subtitle", ".vtt", ".srt")) out.add(f("subtitle-fail", I, "A subtitle file failed.", "The video itself is not affected. Download the subtitle again from Detected files, or skip it."))
+
+        // 36-40 jobs / storage
+        if (anyHas(x.jobErrors, "convert", "ffmpeg", "mux", "merge", "size limit", "too large", "too big")) out.add(f("convert-limit", W, "The convert / merge step failed or hit a limit (size, time or memory).", "Close other tabs, keep 1 GB free, pick a lower quality, then retry. Turn off \"merge audio + video\" if it keeps failing.", "settings", "Open Settings"))
+        if (anyHas(x.scheduleMsgs, "missed")) out.add(f("schedule-missed", I, "A scheduled download did not start on time.", "Android may have stopped MGB in the background. Set battery use for MGB to Unrestricted and keep the phone on.", "appinfo", "Open app settings"))
+        if (x.runningJobs > 0 && x.freeBytes in LOW_STORAGE until MID_STORAGE) out.add(f("store-job", W, "Storage is getting low while a download is running.", "The running job may run out of space. Free at least 1 GB or pause the job.", "storage", "Open storage settings"))
+        if (anyHas(x.jobErrors, "already exists", "exists", "duplicate")) out.add(f("dup-file", I, "A file with the same name already exists.", "Rename or delete the old file in Downloads, then retry.", "downloads", "Open Downloads"))
+        val rep = x.failedJobUrls.filter { it.isNotBlank() }.groupingBy { it }.eachCount().filter { it.value >= 2 }
+        if (rep.isNotEmpty()) out.add(f("repeat-fail", W, "The same address failed ${(rep.values.maxOrNull() ?: 2)} times in the last 10 minutes.", "Retrying the same link will not help. Open the page again for a fresh link, or try Wi-Fi.", "reload", "Reload page"))
     }
 
     /** "Why?" on one failed download row: the row's own text / code + the masked url. Always returns at least one Finding. */

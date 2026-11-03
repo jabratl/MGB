@@ -1,3 +1,8 @@
+MGB 0.0.90 (S87.1: Diagnose part 5b-1 - rules 21-40)
+- DiagRules.kt: rules 21-40 (rules21to40): novel timeout 180 s / page reloaded / script file missing / script error / saved data unreadable / locked chapter / no chapter list; manga saved data / no pages / lazy images; HLS list unreadable, DRM, blob: video, expired token link, subtitle fail; convert / merge limit, schedule missed, low storage while a job runs, duplicate file, same address failed twice in 10 min. Only existing fix ids are used.
+- DiagReport.kt: assemble fills the new Facts (novel / manga / schedule events, V77 mgLog lines, detected hls / drm / blob counts, failed job errors + urls, running jobs). Urls via Diag.maskUrl, error text via Diag.mask.
+- Not in this step: auto Diagnose pill, Settings switch, real-phone check list (S87.2, 0.0.91).
+
 MGB 0.0.89 (S86: Diagnose part 5a/5 - rule engine 1-20, Why?, crash full report)
 - New DiagRules.kt: 20 rules (no network / captive portal, VPN, low storage, no space, low memory, tab crash, old WebView, HTTP 401/403, 404/410, 429/5xx, page load error by code, HTTPS-only, download timeout / network / file write, sniffer probe fails, Media Grabber not answering / errors, ad blocker too strict, download folder not set, notifications off, background restricted). Each finding = what happened + what to do + optional one tap fix (Wi-Fi / storage / Play Store / reload / Settings / Downloads / notification settings / app info).
 - DiagReport.kt: the basic 5-check verdict is replaced by the rule engine; Report.findings; Findings block in Copy / Share text.
