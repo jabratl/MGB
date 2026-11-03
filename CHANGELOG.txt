@@ -1,3 +1,12 @@
+0.0.111 (FIX: WebToEpub popup showed __MSG_label_..__ and did nothing)
+- Root cause: the chrome shim had NO chrome.i18n, so the extension script failed at start (labels stayed __MSG_x__, no start URL, no grab). Also the popup was laid out wider than the panel (cut at the right), and activeTab did not show the tab url
+- chrome-shim.js: chrome.i18n.getMessage (placeholders, $1..$9, $$), getUILanguage, getAcceptLanguages, detectLanguage
+- ContentInjector.kt: localeMessages() reads _locales (phone language, default_locale, en) and sends it in the cfg of extension pages and content scripts
+- ExtApi.kt: tabs.query / get with the activeTab permission show url + title of the tab on screen
+- ExtScreen.kt: popup of an installed extension uses wide viewport + overview mode (scaled to fit, no cut)
+- Checked: node --check shim, getMessage test run in node, bracket balance. NOT checked on phone / with the real WebToEpub
+- Still possible: WebToEpub needs more chrome.* calls that MGB lacks. Then Diagnose / log shows "Not supported in MGB: <api>" (send that line)
+
 0.0.110 (FIX: crash in Manage Extensions)
 - Crash: NullPointerException in ViewGroup.dispatchDraw (ScrollView) after 0.0.109. Cause: ExtListScreen.fill() removed all rows inside a touch / click / text handler while they were still drawn
 - ExtListScreen.kt: new refill() = fill() posted after the event; used by search text, On/Off tap, drag release, blocked-toggle, remove confirm. First build unchanged

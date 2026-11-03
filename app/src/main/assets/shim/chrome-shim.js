@@ -122,7 +122,24 @@
   }
   var storage = { local: area('local'), sync: area('sync'), session: area('session'), onChanged: makeEvent('storage.onChanged', false) };
 
-  var chrome = { runtime: runtime, storage: storage, __mgbLog: log };
+  // ---------- i18n (S15): messages come from the extension's _locales (CFG.messages, built by Kotlin) ----------
+  var msgs = CFG.messages || {};
+  var i18n = {
+    getMessage: function (key, subs) {
+      var e = msgs[String(key).toLowerCase()];
+      if (!e) return '';
+      var s = String(e.m || '');
+      s = s.replace(/\$([A-Za-z0-9_@]+)\$/g, function (x, n) { var c = e.p && e.p[n.toLowerCase()]; return c === undefined ? '' : c; });
+      var a = subs === undefined ? [] : (Array.isArray(subs) ? subs : [subs]);
+      s = s.replace(/\$([1-9])/g, function (x, d) { return a[d - 1] !== undefined ? String(a[d - 1]) : ''; });
+      return s.replace(/\$\$/g, '$');
+    },
+    getUILanguage: function () { return (G.navigator && G.navigator.language) || 'en'; },
+    getAcceptLanguages: wrap(function () { return Promise.resolve([(G.navigator && G.navigator.language) || 'en']); }),
+    detectLanguage: wrap(function () { return Promise.resolve({ isReliable: false, languages: [] }); })
+  };
+
+  var chrome = { runtime: runtime, storage: storage, i18n: i18n, __mgbLog: log };
 
   // ---------- extension pages only: everything else is forwarded to Kotlin ----------
   if (isExt) {

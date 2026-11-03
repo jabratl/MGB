@@ -148,11 +148,45 @@ object ContentInjector {
         return if (ok && f.isFile && f.length() <= 2_000_000L) f else null
     }
 
+    /**
+     * S15: chrome.i18n messages of an installed extension, ready for the shim: { key(lowercase): { m: text, p: { placeholder(lowercase): content } } }.
+     * Order (best first): phone language (zh_CN, then zh, then zh_*), manifest default_locale, en. Missing = {} (getMessage returns "").
+     */
+    fun localeMessages(dir: File, manifest: JSONObject): JSONObject {
+        val out = JSONObject()
+        try {
+            val names = File(dir, "_locales").list() ?: return out
+            val sys = java.util.Locale.getDefault()
+            val best = ArrayList<String>()
+            fun add(n: String?) {
+                val x = names.firstOrNull { it.equals(n, true) } ?: return
+                if (x !in best) best.add(x)
+            }
+            add(sys.language + "_" + sys.country); add(sys.language)
+            names.firstOrNull { it.startsWith(sys.language + "_", true) }?.let { add(it) }
+            add(manifest.optString("default_locale", "")); add("en")
+            names.firstOrNull { it.startsWith("en_", true) }?.let { add(it) }
+            for (n in best.reversed()) { // lowest priority first, better ones overwrite
+                val f = ExtUpdater.safeFile(dir, "_locales/$n/messages.json") ?: continue
+                if (f.length() > 1_500_000L) continue
+                val j = try { JSONObject(f.readText(Charsets.UTF_8).removePrefix("\uFEFF")) } catch (e: Exception) { continue }
+                for (k in j.keys()) {
+                    val o = j.optJSONObject(k) ?: continue
+                    val ph = o.optJSONObject("placeholders")
+                    val pj = JSONObject()
+                    if (ph != null) for (pn in ph.keys()) pj.put(pn.lowercase(), ph.optJSONObject(pn)?.optString("content", "") ?: "")
+                    out.put(k.lowercase(), JSONObject().put("m", o.optString("message", "")).put("p", pj))
+                }
+            }
+        } catch (e: Exception) { Log.e(TAG, "locale messages", e) }
+        return out
+    }
+
     private fun buildExt(id: String, dir: File, mf: File): List<Entry> {
         val manifest = JSONObject(mf.readText())
         val cs = manifest.optJSONArray("content_scripts") ?: return emptyList()
         val cfgJson = JSONObject().put("token", tokenFor(id)).put("kind", "content").put("base", EXT_BASE + id + "/")
-            .put("id", id).put("manifest", manifest).toString()
+            .put("id", id).put("manifest", manifest).put("messages", localeMessages(dir, manifest)).toString()
         val out = ArrayList<Entry>()
         for (i in 0 until cs.length()) {
             try {
@@ -266,8 +300,9 @@ object ContentInjector {
                     if (!ExtRegistry.isValidId(info.id)) continue
                     val mf = File(info.dir, "manifest.json")
                     if (!mf.isFile || mf.length() > 2_000_000L) continue
+                    val man = JSONObject(mf.readText())
                     cfgs.put(info.id, JSONObject().put("token", tokenFor(info.id)).put("kind", "ext")
-                        .put("base", EXT_BASE + info.id + "/").put("id", info.id).put("manifest", JSONObject(mf.readText())))
+                        .put("base", EXT_BASE + info.id + "/").put("id", info.id).put("manifest", man).put("messages", localeMessages(info.dir, man)))
                 } catch (ex: Exception) { Log.e(TAG, "ext page cfg ${info.id} skipped", ex) }
             }
         } catch (ex: Exception) { Log.e(TAG, "registry", ex) }

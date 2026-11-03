@@ -73,7 +73,7 @@ object ExtApi {
     fun tabFor(xid: String, o: JSONObject): JSONObject {
         if (xid == ContentInjector.EXT_ID) return o
         val info = ExtRegistry.get(xid) ?: return scrub(o)
-        return if (canSee(info, o.optString("url", ""))) o else scrub(o)
+        return if (canSee(info, o.optString("url", "")) || ("activeTab" in info.permissions && o.optBoolean("active", false))) o else scrub(o) // S15: activeTab shows the tab on screen
     }
 
     fun tabsFor(xid: String, arr: JSONArray): JSONArray {

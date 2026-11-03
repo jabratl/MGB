@@ -176,6 +176,10 @@ object ExtScreen {
             val w = WebView(act)
             web = w
             w.settings.apply {
+                if (popupOf != null && page == extIdOf(startUrl) + "/" + popupOf) { // S15: a popup made for a wide Chrome popup is scaled to fit instead of cut at the right
+                    useWideViewPort = true
+                    loadWithOverviewMode = true
+                }
                 javaScriptEnabled = true
                 domStorageEnabled = true
                 allowFileAccess = false
