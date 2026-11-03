@@ -1,9 +1,3 @@
-0.0.106 (S82: pop-up and redirect blocking)
-- AdBlock.blocksPage(url, openerUrl): host list + filter rules for a page navigation; never the same site as the opener, off when the blocker is off or ads are allowed on the opener; counted in Blocker stats
-- TabManager.kt: a window opened by window.open / target=_blank (Tab.popup, Tab.openerUrl) is closed with the toast "Pop-up blocked" when its address is an ad (onPageStarted); a navigation without a tap (script or server redirect, shouldOverrideUrlLoading, hasGesture false) to an ad host is cancelled ("Redirect blocked")
-- Before: script pop-ups were already refused (no tap); a pop-up opened by ANY tap (pop-under tricks) and redirects to ad hosts were not
-- Checked: Kotlin brackets balance in AdBlock.kt / TabManager.kt, every anchor replaced once. NOT compiled, NOT run on a phone
-
 0.0.105 (S81: stronger ad blocking, YouTube ads)
 - NEW assets/shim/yt-adblock.js: document-start script for www / m / music.youtube.com (and YouTube embeds). Cuts adPlacements / playerAds / adSlots out of the player response (ytInitialPlayerResponse, JSON.parse, Response.json), skips an ad that still plays (mute + jump to end + Skip button), CSS hides ad slots / promoted items / banners
 - NEW YtAds.kt: switches the script off when the blocker is off or "allow ads" is set for the site (TabManager.onPageStarted / onPageFinished)

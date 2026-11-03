@@ -58,9 +58,6 @@ class TabManager(
 
     class Tab(val id: Int, val web: WebView, val openerId: Int) {
         var url: String = ""
-        /** 0.0.106: opened by window.open / target=_blank: its first pages are checked against the ad lists. */
-        var popup: Boolean = false
-        var openerUrl: String? = null
         var title: String = ""
         /** S41: HTTPS-only: the http address we upgraded (guards a redirect loop, used for the fallback question). */
         var httpsFrom: String? = null
@@ -306,13 +303,6 @@ class TabManager(
             val u = request?.url ?: return false
             // S6: a web page may not navigate to the extension origin (only our own code opens those)
             if (u.toString().startsWith(ContentInjector.EXT_ORIGIN) && !tab.isExt) return true
-            // 0.0.106: a script / server redirect (no tap) to an ad host is cancelled; an ad pop-up tab is closed
-            if (!tab.isExt && request.isForMainFrame && !request.hasGesture() &&
-                AdBlock.blocksPage(u.toString(), if (tab.popup) tab.openerUrl else tab.url)) {
-                Util.toast(ctx, "Redirect blocked")
-                if (tab.popup) container.post { close(tab) }
-                return true
-            }
             // S41: HTTPS-only mode
             if (!tab.isExt && request.isForMainFrame && u.scheme == "http" && HttpsOnly.on(ctx) && tab.httpsAllow != u.host && tab.httpsFrom != u.toString()) {
                 val up = HttpsOnly.upgrade(u.toString())
@@ -373,11 +363,6 @@ class TabManager(
         }
 
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-            if (tab.popup && !tab.isExt && url != null && AdBlock.blocksPage(url, tab.openerUrl)) { // 0.0.106: ad pop-up
-                Util.toast(ctx, "Pop-up blocked")
-                container.post { close(tab) }
-                return
-            }
             tab.url = url ?: tab.url
             tab.progress = 0
             if (tab.home) { tab.home = false; syncHome() } // S13
@@ -398,7 +383,6 @@ class TabManager(
         override fun onPageFinished(view: WebView?, url: String?) {
             tab.url = url ?: tab.url
             tab.progress = 100
-            tab.popup = false // 0.0.106: the pop-up passed the check
             if (tab.desktop && !tab.isExt) view?.evaluateJavascript(BrowserExtras.DESKTOP_JS, null) // S14
             if (!tab.isExt && !tab.priv && tab.url.startsWith("http")) view?.evaluateJavascript(PasswordStore.HOOK_JS, null) // S30
             if (!tab.isExt && !tab.priv && tab.url.startsWith("http") && WebVideo.onFor(ctx, tab.url)) view?.evaluateJavascript(WebVideo.JS, null) // S45
@@ -444,7 +428,6 @@ class TabManager(
             if (!isUserGesture || resultMsg == null) return false
             val t = newTab(null, tab.id, true) ?: return false
             val transport = resultMsg.obj as WebView.WebViewTransport
-            t.popup = true; t.openerUrl = tab.url // 0.0.106
             transport.webView = t.web
             resultMsg.sendToTarget()
             return true

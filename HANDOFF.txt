@@ -722,16 +722,6 @@ Could break: YouTube changes its JSON / class names (then ads return, page still
 Still missing: popup blocking, per-list on/off, custom filter rules / list URLs, YouTube Shorts ad tuning, Music ad tuning.
 Next: S82 = fix from the first run (bug + what you see + where), or popup blocking, or per-list switch + custom filter list URL.
 
-======== S82 note (0.0.106) ========
-Done: S0-S81 + multi-extension S0-S9. Current 0.0.106 (S81 = 0.0.105 YouTube ads).
-Goal: Brave-like pop-up / redirect blocking. Assumption: no new setting yet, it follows the ad blocker switch and "allow ads on this site".
-Changed: AdBlock.kt (blocksPage) / TabManager.kt (Tab.popup, Tab.openerUrl, onCreateWindow sets them, onPageStarted closes an ad pop-up, onPageFinished clears the flag, shouldOverrideUrlLoading cancels a no-tap redirect to an ad host) / app/build.gradle.kts (0.0.106) / CHANGELOG.txt / HANDOFF.txt. No layout, no JS change.
-Checks: Kotlin braces/parens balance (script); anchors replaced exactly once; symbols grepped (FilterList.verdict, T_SUBDOC, SiteConfig.has, Util.toast, close). NOT compiled.
-NOT tested (needs real use): build; a pop-under / ad pop-up tab closes and the opener stays; normal links with target=_blank still open (login popups, OAuth, payment windows); a redirect to an ad host stops, normal redirects (short links, http -> https, tracking redirects of shops) still work; Blocker stats count goes up.
-Could break: a legit pop-up whose host is on the ad list or matched by an EasyList rule is closed (turn the blocker off for the site in Privacy Guard); a short-link / affiliate redirect through an ad-listed host is cancelled.
-Still missing: switch for pop-up blocking alone, per-list on/off, custom filter list URLs, YouTube Shorts / Music tuning, fingerprint / cookie-consent shields, HTTPS upgrade list.
-Next: S83 = fix from the first run (bug + what you see + where), or per-list switch + custom filter list URL, or Shields panel look.
-
 ======== MULTI-EXTENSION SUPPORT (S0-S9), version 0.0.104 ========
 Done: S0-S9. Settings > Extensions: add .zip / .crx, list, on/off, remove, permission dialog; content scripts, per-extension storage, popup / options windows, MV3 background worker, chrome.* api, declarativeNetRequest (modifyHeaders), safety (MV2 / nativeMessaging refused, host filter, crash isolation, Diagnose rules 88-92).
 Files added: ExtRegistry.kt, ExtListScreen.kt, ExtApi.kt, ExtBackground.kt, ExtSafety.kt. Changed: ExtUpdater, ContentInjector, ChromeBridge, EngineHost, ExtScreen, TabManager, TabsApi, HeaderModes, DiagRules, DiagReport, SettingsScreen, BrowserExtras, chrome-shim.js.
