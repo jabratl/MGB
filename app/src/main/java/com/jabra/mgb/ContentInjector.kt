@@ -27,10 +27,12 @@ object ContentInjector {
     lateinit var token: String
         private set
 
-    // ChromeBridge asks for the token of a given extension (id, ctx ... any args). Until per-extension
-    // tokens exist (S3) every extension shares the one token, so the arguments are ignored.
-    @Suppress("UNUSED_PARAMETER")
-    fun tokenFor(vararg who: Any?): String = token
+    /** S3: per-extension bridge token. V77 keeps the plain token; an installed extension gets a derived one, so it cannot speak as another. */
+    fun tokenFor(id: String): String {
+        if (id == EXT_ID) return token
+        val d = java.security.MessageDigest.getInstance("SHA-256").digest((token + ":" + id).toByteArray())
+        return d.joinToString("") { "%02x".format(it) }
+    }
 
     private class Entry(val origins: Set<String>, val script: String)
 
@@ -39,6 +41,7 @@ object ContentInjector {
     private lateinit var shim: String
     private val entries = ArrayList<Entry>()
     private var extScript = ""
+    private var v77Cfg = "" // S4: cfg of the built-in extension pages (dispatcher in extPageScript)
 
     // S2: content scripts of installed extensions (files/exts/<id>/), cached per extension
     private class ExtCache(val sig: String, val entries: List<Entry>)
@@ -52,6 +55,7 @@ object ContentInjector {
         inited = true
         val app = ctx.applicationContext
         ExtUpdater.init(app)
+        ExtRegistry.init(app) // S4: installed extensions must be known at start (content scripts, /ext/<id>/ files), not only after Settings > Extensions was opened
         ChromeBridge.init(app)
         val b = ByteArray(16).also { SecureRandom().nextBytes(it) }
         token = b.joinToString("") { "%02x".format(it) }
@@ -87,6 +91,7 @@ object ContentInjector {
                 Log.e(TAG, "content_scripts[$i] skipped", ex)
             }
         }
+        v77Cfg = cfg("ext")
         extScript = "(function(){try{var c=" + shim + "(window," + cfg("ext") + ");" +
             "if(c)Object.defineProperty(window,'chrome',{value:c,configurable:true,writable:true});}catch(e){}})();"
     }
@@ -145,7 +150,7 @@ object ContentInjector {
     private fun buildExt(id: String, dir: File, mf: File): List<Entry> {
         val manifest = JSONObject(mf.readText())
         val cs = manifest.optJSONArray("content_scripts") ?: return emptyList()
-        val cfgJson = JSONObject().put("token", token).put("kind", "content").put("base", EXT_BASE + id + "/")
+        val cfgJson = JSONObject().put("token", tokenFor(id)).put("kind", "content").put("base", EXT_BASE + id + "/")
             .put("id", id).put("manifest", manifest).toString()
         val out = ArrayList<Entry>()
         for (i in 0 until cs.length()) {
@@ -236,6 +241,42 @@ object ContentInjector {
         return ok
     }
 
+    /** S4: true if url is allowed by manifest host patterns (<all_urls>, https://*.x.com/*). Same matcher as content scripts. */
+    fun urlAllowed(patterns: List<String>, url: String): Boolean {
+        for (p in patterns) {
+            if (p == "<all_urls>") return url.startsWith("http://") || url.startsWith("https://")
+            val rx = patRegex(p) ?: continue
+            try { if (Regex(rx).containsMatchIn(url)) return true } catch (_: Exception) { }
+        }
+        return false
+    }
+
+    /**
+     * S4: window.chrome for extension origin pages. One script, chosen at run time by the page path:
+     * /ext/<id>/... of an enabled installed extension -> that extension's cfg (own token, id, base, manifest);
+     * /ext/<id>/... of an unknown or disabled one -> no chrome at all; any other /ext/... page -> V77 cfg (as before).
+     * Built when a WebView is attached (a toggle / install applies to windows and tabs opened afterwards).
+     */
+    private fun extPageScript(ctx: Context): String {
+        val cfgs = JSONObject()
+        try {
+            for (info in ExtRegistry.enabled()) {
+                try {
+                    if (!ExtRegistry.isValidId(info.id)) continue
+                    val mf = File(info.dir, "manifest.json")
+                    if (!mf.isFile || mf.length() > 2_000_000L) continue
+                    cfgs.put(info.id, JSONObject().put("token", tokenFor(info.id)).put("kind", "ext")
+                        .put("base", EXT_BASE + info.id + "/").put("id", info.id).put("manifest", JSONObject(mf.readText())))
+                } catch (ex: Exception) { Log.e(TAG, "ext page cfg ${info.id} skipped", ex) }
+            }
+        } catch (ex: Exception) { Log.e(TAG, "registry", ex) }
+        if (cfgs.length() == 0 && ExtRegistry.all().isEmpty()) return extScript
+        return "(function(){try{var m=/^\\/ext\\/([a-p]{32})\\//.exec(location.pathname);var C=" + cfgs.toString() + ";var f;" +
+            "if(m){f=C[m[1]];if(!f)return;}else{f=" + v77Cfg + ";}" +
+            "var c=" + shim + "(window,f);" +
+            "if(c)Object.defineProperty(window,'chrome',{value:c,configurable:true,writable:true});}catch(e){}})();"
+    }
+
     /** Browser tab WebView: call before the first loadUrl. */
     fun attach(ctx: Context, web: WebView) {
         init(ctx)
@@ -248,7 +289,7 @@ object ContentInjector {
                 try { WebViewCompat.addDocumentStartJavaScript(web, e.script, e.origins) } catch (ex: Exception) { Log.e(TAG, "ext entry failed", ex) }
             }
             // S6: extension pages opened as tabs (tabs.create) get window.chrome too
-            WebViewCompat.addDocumentStartJavaScript(web, extScript, setOf(EXT_ORIGIN))
+            WebViewCompat.addDocumentStartJavaScript(web, extPageScript(ctx), setOf(EXT_ORIGIN))
         } catch (e: Exception) {
             Log.e(TAG, "attach failed", e)
         }
@@ -265,7 +306,7 @@ object ContentInjector {
         if (!supported()) return
         try {
             ChromeBridge.install(web, setOf(EXT_ORIGIN))
-            WebViewCompat.addDocumentStartJavaScript(web, if (offscreen) extScript + OFFSCREEN_STRIP else extScript, setOf(EXT_ORIGIN))
+            WebViewCompat.addDocumentStartJavaScript(web, if (offscreen) extScript + OFFSCREEN_STRIP else extPageScript(ctx), setOf(EXT_ORIGIN))
         } catch (e: Exception) {
             Log.e(TAG, "attachExt failed", e)
         }

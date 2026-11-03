@@ -45,11 +45,33 @@ object ExtScreen {
 
     private var current: Screen? = null
 
-    /** "queue.html" for https://appassets.androidplatform.net/ext/queue.html?x=1, null for any other url. */
+    /** S4: id of an installed extension for https://appassets.androidplatform.net/ext/<id>/..., else null. */
+    fun extIdOf(url: String): String? {
+        if (!url.startsWith(ContentInjector.EXT_BASE)) return null
+        val p = url.removePrefix(ContentInjector.EXT_BASE)
+        val seg = p.substringBefore('/')
+        return if (p.contains('/') && ExtRegistry.isValidId(seg) && ExtRegistry.get(seg) != null) seg else null
+    }
+
+    /** "queue.html" for https://appassets.androidplatform.net/ext/queue.html?x=1, "<id>/popup.html" for an installed extension's .html page, null for any other url. */
     fun pageOf(url: String): String? {
         if (!url.startsWith(ContentInjector.EXT_BASE)) return null
         val p = url.removePrefix(ContentInjector.EXT_BASE).substringBefore('?').substringBefore('#')
-        return if (p in PAGES) p else null
+        if (p in PAGES) return p
+        val id = extIdOf(url) ?: return null
+        val rel = p.substringAfter('/')
+        val info = ExtRegistry.get(id) ?: return null
+        return if (info.enabled && rel.endsWith(".html", true) && ExtRegistry.file(id, rel) != null) "$id/$rel" else null
+    }
+
+    /** S4: open popup / options / any .html page of an installed extension in the window. */
+    fun openExtPage(host: Context, id: String, rel: String): Boolean =
+        open(host, ContentInjector.EXT_BASE + id + "/" + rel.trimStart('/'))
+
+    /** S4: open another window page from inside a window (popup -> options page). Replaces the current window. */
+    fun openSibling(url: String): Boolean {
+        val a = current?.host() ?: return false
+        return open(a, url)
     }
 
     fun isScreenUrl(url: String): Boolean = pageOf(url) != null
@@ -61,7 +83,7 @@ object ExtScreen {
         val page = pageOf(url) ?: return false
         closeAll()
         return try {
-            val s = Screen(act, url, page, PAGES[page] ?: "")
+            val s = Screen(act, url, page, PAGES[page] ?: extIdOf(url)?.let { ExtRegistry.get(it)?.name } ?: "")
             current = s
             s.show()
             true
@@ -106,6 +128,8 @@ object ExtScreen {
             setOnDismissListener { cleanup() }
         }
 
+        fun host(): Activity = act
+
         @SuppressLint("SetJavaScriptEnabled")
         override fun onCreate(savedInstanceState: Bundle?) {
             super.onCreate(savedInstanceState)
@@ -124,7 +148,8 @@ object ExtScreen {
             findViewById<android.view.View>(R.id.xs_close).setOnClickListener { dismiss() }
 
             // the popup is a narrow page: keep it centered on tablets / wide screens
-            if (page == "popup.html") {
+            val popupOf = extIdOf(startUrl)?.let { ExtRegistry.get(it)?.popup?.trimStart('/') }
+            if (page == "popup.html" || (popupOf != null && page == extIdOf(startUrl) + "/" + popupOf)) {
                 val lp = container.layoutParams as FrameLayout.LayoutParams
                 lp.width = minOf(act.resources.displayMetrics.widthPixels, Util.dp(act, 480))
                 lp.gravity = Gravity.CENTER_HORIZONTAL
@@ -170,6 +195,13 @@ object ExtScreen {
             w.webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                     EngineHost.ext(request.url)?.let { return it }
+                    // S4: pages of an installed extension only get the CORS-free proxy for the sites in its host permissions
+                    val xid = extIdOf(view.url ?: startUrl)
+                    if (xid != null) {
+                        val inf = ExtRegistry.get(xid)
+                        val pats = (inf?.hostPermissions ?: emptyList()) + (inf?.permissions ?: emptyList()).filter { it.contains("://") || it == "<all_urls>" }
+                        if (!ContentInjector.urlAllowed(pats, request.url.toString())) return null
+                    }
                     return EngineHost.proxyFor(request, -1)
                 }
 

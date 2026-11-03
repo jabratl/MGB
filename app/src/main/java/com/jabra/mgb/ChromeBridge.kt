@@ -154,7 +154,18 @@ object ChromeBridge {
         }
         val call = Call(ctx, api, args, m.optInt("i"), xid)
         // S3: installed extensions get only the content-script API set for now (S4/S6 widen it per extension)
-        if ((ctx.kind == Kind.CONTENT || xid != ContentInjector.EXT_ID) && !CONTENT_OK.matches(api)) { call.fail("Not allowed: $api"); return }
+        // S4: an installed extension's own page (popup / options window) may also open its options page
+        val optPage = xid != ContentInjector.EXT_ID && ctx.kind == Kind.EXT && api == "runtime.openOptionsPage"
+        if ((ctx.kind == Kind.CONTENT || xid != ContentInjector.EXT_ID) && !CONTENT_OK.matches(api) && !optPage) { call.fail("Not allowed: $api"); return }
+        if (optPage) {
+            val rel = ExtRegistry.get(xid)?.options
+            if (rel == null) { call.fail("This extension has no options page"); return }
+            main.post {
+                if (ExtScreen.openSibling(ContentInjector.EXT_BASE + xid + "/" + rel.trimStart('/'))) call.ok(null)
+                else call.fail("Could not open the options page")
+            }
+            return
+        }
         if (xid != ContentInjector.EXT_ID && api == "runtime.sendMessage") {
             // routing of extension messages (own popup / background) arrives with S4/S5: they register "ext.runtime.sendMessage"
             val eh = handlers["ext.runtime.sendMessage"]

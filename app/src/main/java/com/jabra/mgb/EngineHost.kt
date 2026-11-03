@@ -118,8 +118,46 @@ object EngineHost {
                 "<script src=\"background.js\"></script>"
             return WebResourceResponse("text/html", "utf-8", ByteArrayInputStream(html.toByteArray()))
         }
+        // S4: /ext/<id>/... = files of an installed extension (never falls back to the built-in assets)
+        val seg = path.substringBefore('/')
+        if (path.contains('/') && ExtRegistry.isValidId(seg)) return extFile(seg, path.substringAfter('/'))
         ExtUpdater.open(path)?.let { return it } // S16: hot-updated ext files first
         return assets.handle("ext/$path")
+    }
+
+    private fun notFound(): WebResourceResponse =
+        WebResourceResponse("text/plain", "utf-8", 404, "Not Found", emptyMap(), ByteArrayInputStream(ByteArray(0)))
+
+    private fun mimeOf(name: String): String {
+        val e = name.substringAfterLast('.', "").lowercase()
+        return when (e) {
+            "html", "htm" -> "text/html"
+            "js", "mjs" -> "text/javascript"
+            "css" -> "text/css"
+            "json" -> "application/json"
+            "svg" -> "image/svg+xml"
+            "wasm" -> "application/wasm"
+            "woff2" -> "font/woff2"
+            "woff" -> "font/woff"
+            "ttf" -> "font/ttf"
+            "otf" -> "font/otf"
+            else -> android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(e) ?: "application/octet-stream"
+        }
+    }
+
+    /** S4: one file of an enabled installed extension (safe path check is ExtRegistry.file). 404 for unknown / disabled / missing. */
+    private fun extFile(id: String, rel: String): WebResourceResponse {
+        val info = ExtRegistry.get(id)
+        if (info == null || !info.enabled) return notFound()
+        val f = ExtRegistry.file(id, rel) ?: return notFound()
+        return try {
+            val mime = mimeOf(f.name)
+            val enc = if (mime.startsWith("text/") || mime == "application/json" || mime == "image/svg+xml") "utf-8" else null
+            WebResourceResponse(mime, enc, 200, "OK", hashMapOf("Cache-Control" to "no-store"), java.io.FileInputStream(f))
+        } catch (e: Exception) {
+            addLog("ext file $id/$rel -> $e")
+            notFound()
+        }
     }
 
     /** S12: run a short script in the engine page (for example chrome.downloads.open(id)). Result is ignored. */

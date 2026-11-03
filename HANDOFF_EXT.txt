@@ -1,5 +1,25 @@
 HANDOFF_EXT (newest on top)
 
+== after S4, version 0.0.97 ==
+- EngineHost.page(): path <id>/<rel> (id = [a-p]{32}) -> EngineHost.extFile (ExtRegistry.get(id).enabled + ExtRegistry.file). Also reached by TabManager through EngineHost.ext(u), so an extension page in a tab is served too.
+- ExtScreen: extIdOf(url), pageOf(url) = "<id>/<rel>" for enabled extension .html; openExtPage(host, id, rel); openSibling(url) (window -> window). isScreenUrl() is true for these, so TabsApi routes tabs.create / openOptionsPage urls of an extension to the window too.
+- ContentInjector.extPageScript(ctx) = dispatcher by location.pathname, used by attach() (tabs) and attachExt() (windows, engine). Offscreen keeps the V77 script. urlAllowed(patterns, url) = manifest host pattern matcher.
+- ExtRegistry.init is now called in ContentInjector.init.
+- ChromeBridge: for a non-V77 id on a Kind.EXT frame only CONTENT_OK + runtime.openOptionsPage are allowed. runtime.sendMessage still "Receiving end does not exist" until someone registers "ext.runtime.sendMessage" (S5). tabs.*, action.*, runtime.getPlatformInfo etc. are NOT available to popups yet (S6) - popups that call chrome.tabs.query will fail.
+- Known limits: all extension pages share one web origin (appassets.androidplatform.net), so one extension page could fetch another's files; proxy host check only applies to windows (ExtScreen), tabs (TabManager.shouldInterceptRequest) still proxy every http(s) request of an ext page (S8: host permission filter).
+- Not done: web_accessible_resources check (content scripts cannot load ext files via chrome.runtime.getURL url from a web page, because only EXT_ORIGIN pages are served), _locales in pages, ext page CSP.
+
+== after S3, version 0.0.96 ==
+- ChromeBridge.Call.extId (default EXT_ID). ChromeBridge.area(extId, name) / storageSet(area, items, extId) / removeExtData(ctx, id) / emit(event, args, extId = EXT_ID, filter) / request(ctx, msg, sender, extId = EXT_ID, cb). Old call sites compile unchanged (V77 path).
+- Ctx.ids = extension ids that have a shim in that frame. request() answers null at once if extId not in ctx.ids (no 30 s wait).
+- onMessage: x absent -> V77. Token check = ContentInjector.tokenFor(x); non-V77 id must be ExtRegistry.get(x)?.enabled == true.
+- Non-V77 ids are limited to CONTENT_OK regex (storage.local/sync.* + runtime.sendMessage) even on Kind.EXT frames. S4 (popup/options pages) and S6 must relax this per extension + permission.
+- Hook for S4/S5: ChromeBridge.on("ext.runtime.sendMessage") receives runtime.sendMessage from a non-V77 extension (Call.extId = sender). Without it: error "Receiving end does not exist".
+- S4 must pass per-extension cfg to ext pages (token = tokenFor(id), id, base = EXT_BASE + id + "/"); ContentInjector.attachExt still builds V77 cfg only.
+- TabsApi.senderOf still hardcodes id = EXT_ID: S5/S6 must use Call.extId. EngineApi unchanged (sender is V77 on purpose).
+- storage events go only to shims of the same extension. chrome.storage.onChanged for tabs-side cross-extension is not shared.
+- ExtRegistry.remove NOT edited (S0 file not seen): ExtListScreen calls ChromeBridge.removeExtData after remove. Any other remove caller (S8) must do the same.
+
 == after S2, version 0.0.95 ==
 - ContentInjector.attach(): after V77 entries, loops ExtRegistry.enabled() (uses only .id, .version, isValidId). Files read directly from filesDir/exts/<id>/ (own safe-path check, no ExtRegistry.file/dir used).
 - cfg passed to shim for extensions: kind=content, id=<ext id>, base=EXT_BASE+<id>+"/", manifest=<ext manifest>, token. S3 must route storage/sender by this id (shim + ChromeBridge still single-id).

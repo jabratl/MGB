@@ -245,7 +245,19 @@ object ExtListScreen {
                 .setTitle(e.name)
                 .setMessage("Version " + e.version + " (manifest v" + e.manifestVersion + ")\n\n" + permText(e))
                 .setPositiveButton("Close", null)
+                .apply {
+                    // S4: popup / options page of the extension, opened in an extension window over this screen
+                    val pop = e.popup
+                    val opt = e.options
+                    if (e.enabled && pop != null) setNeutralButton("Open popup") { _, _ -> openPage(e, pop) }
+                    else if (e.enabled && opt != null) setNeutralButton("Options") { _, _ -> openPage(e, opt) }
+                    if (e.enabled && pop != null && opt != null) setNegativeButton("Options") { _, _ -> openPage(e, opt) }
+                }
                 .show()
+        }
+
+        private fun openPage(e: ExtRegistry.Info, rel: String) {
+            if (!ExtScreen.openExtPage(act, e.id, rel)) Util.toast(act, "Could not open " + rel)
         }
 
         private fun pick() {
