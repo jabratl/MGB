@@ -626,7 +626,33 @@ object TabSwitcher {
             if (mode != 1 && onList) items.add(MI("Bookmark all tabs", R.drawable.ic_bookmark_border) { TabBookmarks.dialog(act, tm) }) // S40
             if (mode != 1 && onList) items.add(MI("Share all tabs", R.drawable.ic_share) { TabBookmarks.shareAll(act, tm) }) // S41
             if (onList) items.add(MI(if (mode == 1) "Close all private tabs" else "Close all tabs", R.drawable.ic_trash) { closeAll() })
+            items.add(MI("Delete browsing data", R.drawable.ic_trash) { deleteData() }) // S76
+            items.add(MI("Settings", R.drawable.ic_settings) { dismiss(); SettingsScreen.open(act) }) // S76
             popup(anchor, items)
+        }
+
+        /** S76: choose what to delete (history, cookies and site data, cache, recently closed tabs). */
+        private fun deleteData() {
+            val names = arrayOf("Browsing history", "Cookies and site data", "Cache", "Recently closed tabs")
+            val on = booleanArrayOf(true, false, true, true)
+            MaterialAlertDialogBuilder(act)
+                .setTitle("Delete browsing data")
+                .setMultiChoiceItems(names, on) { _, i, v -> on[i] = v }
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Delete") { _, _ ->
+                    try {
+                        if (on[0]) Bookmarks.clearHistory()
+                        if (on[1]) {
+                            android.webkit.CookieManager.getInstance().removeAllCookies(null)
+                            android.webkit.CookieManager.getInstance().flush()
+                            android.webkit.WebStorage.getInstance().deleteAllData()
+                        }
+                        if (on[2]) tm.active?.web?.clearCache(true)
+                        if (on[3]) ClosedTabs.clear()
+                        Util.toast(act, "Browsing data deleted")
+                    } catch (e: Exception) { Util.toast(act, "Could not delete everything") }
+                }
+                .show()
         }
 
         private fun selectMenu(anchor: View) {

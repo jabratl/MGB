@@ -1,3 +1,6 @@
+MGB 0.0.79 (S76: tab switcher menu, Brave-style rows)
+- Switcher menu (3 dots): new "Delete browsing data" (tick history, cookies and site data, cache, recently closed tabs, then Delete) and "Settings" (closes the switcher and opens Settings).
+
 MGB 0.0.78 (S75: tab switcher, ideas from a Brave screen recording)
 - Inside an open group you can now long press a tab and drag it: a "Remove tab from group" zone slides up at the bottom; drop the tab there and it leaves the group (flies into the zone, zone lights up while you hover).
 - After you drop a tab into a group, or pull one out, an "N tabs grouped" / "Tab removed from group" bar with Undo shows for 5 seconds (replaces the old toast). Undo restores the old groups and colour.

@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.79 (S76: switcher menu rows, see the S76 note at the end; before: S75)
+
 CURRENT VERSION 0.0.78 (S75: tab switcher group drag-out + Undo, see the S75 note at the end; before: S74)
 
 CURRENT VERSION 0.0.77 (S74: filter lists / EasyList engine, see the S74 note at the end; before: S73)
@@ -463,3 +465,11 @@ Checks: Kotlin braces/parens balance = 0; every R.color / R.drawable used alread
 NOT tested (needs real use): build first; long press + drag inside a group view lifts the card; zone appears and lights up on hover; drop = tab leaves the group (last tab out = group disappears and the view goes back); Undo brings back the group + colour; "N tabs grouped" bar after dropping on a group card; bar does not overlap the bottom pill; New tab group opens a tab and the group shows in the grid.
 Could break: dragging inside a group has no re-order (drop elsewhere = card settles back); Undo is dropped as soon as anything else re-renders the switcher.
 From the video, still missing (NEXT): group panel as a dimmed rounded overlay over the grid (now it is a full list view), "Delete browsing data" + "Settings" rows in the switcher menu, tab count inside the Tabs pill, card flies out of the group card when you open it, reorder by drag.
+
+======== S76 note (0.0.79) ========
+Source: same Brave recording as S75 (switcher menu: New tab, New Private tab, New tab group, Close all tabs, Select tabs, Delete browsing data, Settings). Tabs pill counts already existed (drawTop), so not touched.
+Changed: TabSwitcher.kt (menu(): rows "Delete browsing data" + "Settings"; new deleteData() = MaterialAlertDialog multi choice: Bookmarks.clearHistory, CookieManager + WebStorage, active tab clearCache, ClosedTabs.clear; Settings = dismiss() then SettingsScreen.open(act)) / app/build.gradle.kts (0.0.79) / CHANGELOG.txt / HANDOFF.txt. S75 changes are included in this file.
+Checks: Kotlin braces/parens balance = 0; ClosedTabs.clear, Bookmarks.clearHistory, SettingsScreen.open(Activity), ic_settings exist; NOT compiled; UI NOT rendered.
+NOT tested: dialog look in dark theme, history really cleared (Bookmarks screen), cookies delete logs out, Settings opens above the browser after the switcher closes, menu with 8 rows fits at 360 px.
+Could break: menu is longer (scrolls? PopupWindow has no scroll: check the last row is reachable on a small screen); cache clear only touches the active tab WebView (same as Settings).
+Still missing from the video (NEXT): group panel as dimmed rounded overlay, card flies out of the group card on open, drag reorder inside a group.
