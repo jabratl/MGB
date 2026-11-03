@@ -19,9 +19,11 @@ object CrashLog {
     private const val F = "mgb_crash.txt"
 
     fun install(ctx: Context) {
+        Diag.init(ctx) // S82: event log starts together with the crash handler
         val file = File(ctx.applicationContext.filesDir, F)
         val prev = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            Diag.crash(t.name, e) // S82: same crash also goes to the event log (masked, saved to disk now)
             try {
                 val sw = StringWriter()
                 e.printStackTrace(PrintWriter(sw))

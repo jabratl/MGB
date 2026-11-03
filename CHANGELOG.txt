@@ -1,3 +1,11 @@
+MGB 0.0.85 (S82: Diagnose part 1/5 - event log foundation, no visible change yet)
+- New Diag.kt: ring-buffer event log (last 500 events, saved to filesDir/mgb_diag.jsonl, survives a crash). Identical repeats within 5 s fold into one line with a count.
+- Everything is masked before it is stored: URLs keep host + path (query values dropped, only parameter names like [token,exp] kept, long id / uuid path parts become {id}); cookies, Authorization, Bearer, JWT, token / password / session / key values, e-mails and long blobs never reach the log.
+- API for the next parts: Diag.e / w / i(tag, msg, extra), Diag.e(tag, msg, throwable), recent(), dump(), countSince(), clear(), mask(), maskUrl().
+- CrashLog now starts Diag and also writes the uncaught exception into it (the old "Last crash" dialog works as before).
+- Plan: S83 hooks in all native handlers, S84 Diag.report + V77 buildDiag, S85 native UI, S86 rule engine + auto pill.
+- Files: Diag.kt (new), CrashLog.kt, build.gradle.kts.
+
 MGB 0.0.84 (S81: V77 per-video menu in the native Detected panel)
 - Checked first: the native panel file menu only had Stream / Preview / Download / Copy / Share / Show link. V77's "Download only a part", "Start later", "Copy as yt-dlp / ffmpeg / cURL", "Open", "Preview here" marks and "Save subtitle as" were only in the V77 page overlay. Now they are native too.
 - File menu (3 dots on a file): new "Download only a part..." (streams only), "Start later...", "Copy as yt-dlp / ffmpeg / cURL...", "Open in new tab", and on a subtitle "Save subtitle as..." (.srt .vtt .txt original).

@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.85 (S82: Diag.kt event log foundation, see the S82 note at the end; before: S81)
+
 CURRENT VERSION 0.0.84 (S81: V77 per-video menu in the native panel, see the S81 note at the end; before: S80)
 
 CURRENT VERSION 0.0.83 (S80: Novel grabber in Downloads + picker, see the S80 note at the end; before: S79)
@@ -540,3 +542,21 @@ Checks: braces/parens balanced, 4 new XML parse, anchors replaced exactly once. 
 NOT tested: clip file really starts/ends at the times (V77 clip logic is segment based, so +/- a few seconds is normal); Start later alarm; keyboard hides nothing in the clip sheet; TimePickerDialog look; ExoPlayer currentPosition on HLS.
 Not done (V77 has, native not): "Preview here" scrubber inside the panel is the dialog above, not the in-row player; "Save as" for audio; per-row quality dropdown stays in the Download button sheet.
 Next: S82 = compile fixes from CI if any, then render check of the clip sheet.
+
+
+S82 (0.0.85) - Diagnose part 1 of 5: event log foundation
+Goal (user): one report that explains why a page / download / grabber failed. Old V77 "Diagnose this page" lives only in the extension overlay (content.js buildDiag) and Options; native errors went nowhere. Plan was split in 5 sessions because one session was too small:
+  S82 Diag.kt core + CrashLog link (DONE)
+  S83 one-line Diag hooks in native handlers: tab crash / onRenderProcessGone / onReceivedError / HTTP error, Sniffer, DownloadService fail + retry reason, NativeBatch, engine console error, Novel grabber, Manga
+  S84 Diag.report(tabId) (app / WebView / device / RAM / storage / network, settings health, V77 mgLog, detected items, queue / jobs, recent errors, basic verdict) + buildDiag Novel / Manga check in content.js
+  S85 native UI: Tools sheet "Diagnose this page", "Why?" on a failed download row, Report center (Copy / Share / Save as file) in 3-dot menu + Settings, Last crash dialog with full report, report screen (Verdict on top, sections Video / Novel / Manga / Browser / Download / Device, light + dark, 360 px)
+  S86 diagnose() ~40 rules (what happened + what to do + one tap fix), auto "Diagnose" pill (job fails twice, tab crash, grabber finds nothing; Settings toggle), if too big do 20 rules and the rest in an extra session
+Rule: report never holds page content / cookies / passwords, only masked URL (host + path).
+Changed:
+- Diag.kt (new object). MAX 500 events, Event(ts, level E/W/I, tag, msg, extra, n). Tags to use in hooks: tab, page, sniffer, download, engine, novel, manga, crash, app (max 16 chars). msg max 400, extra max 800 chars, both masked in log(). Disk write is debounced 1.5 s on a daemon thread; Diag.crash() and Diag.clear() write at once. Events logged before Diag.init() are kept and appended after the file's old events.
+- CrashLog.install(): Diag.init(ctx) first; uncaught handler calls Diag.crash(t.name, e) before the old mgb_crash.txt write.
+- build.gradle.kts 0.0.85, CHANGELOG.txt.
+Checks: braces / parens / brackets balanced (script); masking logic (URL, uuid, slug kept, Cookie / Bearer / key=value) checked with a Python port of the same regexes. NOT compiled (no Kotlin SDK here), NOT run on a phone.
+NOT tested: Kotlin regex raw strings compile; Diag file really appears after a crash and reloads; multithreaded log() under load.
+Note: the folder MGB/ inside the zip is an old copy (0.0.20), ignore it, the real project is app/.
+Next: S83 = add the Diag.e/w/i hooks (one line each, no logic change) in the handlers listed above. Find them with: grep -n "onRenderProcessGone\|onReceivedError\|onReceivedHttpError\|onConsoleMessage" and in Sniffer.kt, DownloadService.kt, NativeBatch.kt, TabsApi.kt / ExtScreen.kt (novel, manga).
