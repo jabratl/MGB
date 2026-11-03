@@ -1245,6 +1245,21 @@ document.documentElement.append(pillHost);
     L.push(`  Verdict: ${verdict}`);
     L.push(`Episode list: ${chapters.length} found (${anchors.length} links on the page, ${chA.length} look like episodes${pat ? '; address pattern ' + pat.pattern.replace(/^https?:\/\/[^/]+/, '') + (pat.hashed ? ' = random code in every address' : '') : ''})`);
     chapters.slice(0, 3).concat(chapters.length > 3 ? chapters.slice(-1) : []).forEach((c) => L.push(`  - ${String(c.label).slice(0, 90)}  ->  ${cleanU(c.url).replace(location.origin, '')}`));
+    try { // MGB S84: Novel / Manga check (page side only; the app report has the native side)
+      const paras = [...document.querySelectorAll('p')].filter((p) => (p.textContent || '').trim().length > 60);
+      const txtLen = paras.reduce((n, p) => n + (p.textContent || '').length, 0);
+      const nextA = [...anchors].some((a) => /^(next|next chapter|chapter next|>|›|»)$/i.test((a.textContent || '').trim()) || /next/i.test(a.rel || ''));
+      const novelLike = /novel|chapter|read|book|story/i.test(location.pathname) && paras.length >= 5;
+      L.push('Novel check:', `  Page looks like a novel chapter: ${novelLike ? 'yes' : 'no'} (${paras.length} text paragraphs, about ${txtLen} characters)`, `  Chapter-like links on the page: ${chA.length}; a "Next" link: ${nextA ? 'yes' : 'no'}`);
+      L.push(novelLike && !chA.length && !nextA ? '  Novel verdict: text found but no chapter list / Next link. Open the chapter LIST page in the Novel grabber, or use "Pick chapter text on the page".' : (novelLike ? '  Novel verdict: OK, the Novel grabber can read this page.' : '  Novel verdict: this is probably not a novel page (fine if you are not grabbing a novel).'));
+      const imgs = [...document.querySelectorAll('img')];
+      const bigI = imgs.filter((i) => (i.naturalWidth || i.width || 0) >= 400 && (i.naturalHeight || i.height || 0) >= 400).length;
+      const lazyI = imgs.filter((i) => !i.currentSrc && (i.dataset.src || i.dataset.lazySrc || i.getAttribute('data-original'))).length;
+      const nm = (await chrome.storage.local.get('mgNativeMg')).mgNativeMg || {};
+      const nmHere = nm.url === location.href;
+      L.push('Manga check:', `  Images on the page: ${imgs.length}, large (page-like): ${bigI}, not loaded yet (lazy): ${lazyI}`, `  Pages counted by the grabber: ${mangaN}${nmHere ? '; native panel got has=' + !!nm.has + ' n=' + (nm.n || 0) + (nm.site ? ' site=' + nm.site : '') : '; native panel has no record for this page'}`);
+      L.push(bigI >= 3 && mangaN < 3 && !nmHere ? '  Manga verdict: large images exist but the grabber counted fewer than 3 pages. Scroll the whole chapter once (lazy images) and run Diagnose again.' : (mangaN >= 3 ? '  Manga verdict: OK, pages were found.' : '  Manga verdict: this is probably not a manga page.'));
+    } catch (e) { L.push('Novel / Manga check failed: ' + String(e && e.message || e).slice(0, 80)); }
     const st = {};
     Object.values(epSt).forEach((e) => { st[e.st] = (st[e.st] || 0) + 1; });
     if (Object.keys(st).length) L.push(`Batch: ${Object.keys(st).map((k) => k + ' ' + st[k]).join(', ')}`);

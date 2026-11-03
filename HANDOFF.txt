@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.87 (S84: DiagReport.kt report engine, see the S84 note at the end; before: S83)
+
 CURRENT VERSION 0.0.86 (S83: Diag hooks in native handlers, see the S83 note at the end; before: S82)
 
 CURRENT VERSION 0.0.85 (S82: Diag.kt event log foundation, see the S82 note at the end; before: S81)
@@ -579,3 +581,15 @@ Checks: every anchor replaced exactly once; braces / parens balance unchanged in
 NOT tested: onRenderProcessGone override really still returns false behaviour (app kill on crash as before); log volume on a busy page (probe failed folds only identical repeats); ExtScreen console tag by sourceId.
 Not hooked (not found as separate handlers): download retry reason (no retry code in DownloadService; resume is in DownloadsApi), NativeBatch queue / batch failures (they come from V77 console errors, so they appear as engine errors), Manga has no native handler of its own.
 Next: S84 = Diag.report(tabId): app / WebView / device / RAM / storage / network, settings health, V77 mgLog, detected items, queue / jobs, recent errors, basic verdict; plus buildDiag Novel / Manga check in content.js (node --check).
+
+
+S84 (0.0.87) - Diagnose part 3 of 5: report engine
+Goal: one report object about app / device / page, no UI. Plan now 4 sessions: S84 engine (this), S85 DiagScreen UI + entry points (Tools sheet "Diagnose this page", 3-dot "Report center", Settings), S86 DiagRules.kt rules 1-20 + "Why?" on a failed download row + Last crash "Full report", S87 rules 21-40 + auto Diagnose pill + Settings switch + real phone check list.
+Changed:
+- DiagReport.kt (new): build(ctx, tabs, tabId, cb) main thread; asks the engine get-state once (same call as DetectedPanel.open), then assemble(). Report(time, verdictLevel, verdict, sections), Section(id, group, title, level ok/warn/bad/info, lines). Report.text() = plain text. Section ids: app, webview, device, ram, storage, network, settings, page, detected, jobs, novel, manga, mglog, errors.
+- content.js buildDiag: "Novel check" + "Manga check" block inserted before the Batch line (try / catch, async safe).
+- build.gradle.kts 0.0.87, CHANGELOG.txt, HANDOFF.txt.
+Checks: node --check content.js OK; DiagReport.kt braces / parens / brackets balanced; every called symbol grepped to exist (Diag.mask / maskUrl / recent / countSince, EngineApi.ask / jobs, EngineHost.status, ChromeBridge.sync / local, DownloadFolder.treeUri / label, HttpsOnly.on, AdBlock.enabled). NOT compiled (no Kotlin SDK), NOT run on a phone.
+NOT tested: Kotlin type inference of safe(null) {...} calls; StatFs on filesDir; NetworkCapabilities on API 24; WebView.getCurrentWebViewPackage; get-state callback when engine not running (cb gets null -> report still built); content.js Novel / Manga lines on a real page.
+Not done / limits: storage shows the app area only (a custom download folder on an SD card is not measured); V77 page report (buildDiag) is not yet merged into the native report (S85 can call it via the page); no UI.
+Next: S85 = DiagScreen.kt (verdict card + fold sections by group, Copy / Share / Save .txt, light + dark, 360 px) + entry points.

@@ -1,0 +1,217 @@
+package com.jabra.mgb
+
+import android.app.ActivityManager
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.Build
+import android.os.StatFs
+import android.webkit.WebView
+import org.json.JSONObject
+
+/**
+ * S84: Diagnose part 3/5. Builds ONE report (structured + plain text) about the app, the device and the
+ * current page, from things the app already knows. No UI here (S85 shows it, S86 adds the rule engine).
+ *
+ * Privacy: only Diag.maskUrl (host + path), never page content, cookies, passwords or full query strings.
+ * A private tab adds no URL at all.
+ *
+ * Use: DiagReport.build(ctx, tabs, tabId) { report -> report.text() }   (callback on the main thread)
+ */
+object DiagReport {
+    const val OK = "ok"
+    const val WARN = "warn"
+    const val BAD = "bad"
+    const val INFO = "info"
+
+    /** group = the S85 screen group: Video / Novel / Manga / Browser / Download / Device. */
+    class Section(val id: String, val group: String, val title: String, val level: String, val lines: List<String>)
+
+    class Report(val time: Long, val verdictLevel: String, val verdict: String, val sections: List<Section>) {
+        fun text(): String {
+            val sb = StringBuilder()
+            sb.append("MGB diagnose report\n")
+            sb.append("Time: ").append(java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date(time))).append('\n')
+            sb.append("Verdict (").append(verdictLevel).append("): ").append(verdict).append("\n")
+            for (s in sections) {
+                sb.append("\n== ").append(s.title).append(" [").append(s.level).append("]\n")
+                for (l in s.lines) sb.append(if (l.startsWith("  ")) l else "- $l").append('\n')
+            }
+            return sb.toString().trimEnd()
+        }
+    }
+
+    private const val FIVE_MIN = 5 * 60 * 1000L
+    private const val LOW_STORAGE = 200L * 1024 * 1024
+
+    private inline fun <T> safe(def: T, f: () -> T): T = try { f() } catch (e: Throwable) { def }
+    private fun mb(b: Long): String = if (b >= 1L shl 30) String.format("%.2f GB", b / 1073741824.0) else (b / 1048576).toString() + " MB"
+
+    // ------------------------------------------------------------------ entry
+
+    /** Main thread. Asks the engine for the page state (V77 detected items) once, then builds. cb always runs. */
+    fun build(ctx: Context, tabs: TabManager?, tabId: Int, cb: (Report) -> Unit) {
+        val tab = safe(null) { if (tabId >= 0) tabs?.byId(tabId) else tabs?.active }
+        val id = tab?.id ?: -1
+        var done = false
+        fun finish(state: JSONObject?) {
+            if (done) return
+            done = true
+            cb(try { assemble(ctx, tab, state, safe(0) { tabs?.count ?: 0 }) } catch (e: Throwable) {
+                Diag.e("app", "DiagReport failed", e)
+                Report(System.currentTimeMillis(), BAD, "The report could not be built: " + e.javaClass.simpleName,
+                    listOf(Section("err", "Device", "Report error", BAD, listOf(e.javaClass.simpleName + " " + (e.message ?: "")))))
+            })
+        }
+        if (tab == null || tab.isExt || !tab.url.startsWith("http")) { finish(null); return }
+        try {
+            EngineApi.ask(JSONObject().put("type", "get-state").put("tabId", id)) { r -> finish(r) }
+        } catch (e: Throwable) { finish(null) }
+    }
+
+    // --------------------------------------------------------------- sections
+
+    private fun assemble(ctx: Context, tab: TabManager.Tab?, state: JSONObject?, tabCount: Int): Report {
+        val now = System.currentTimeMillis()
+        val secs = ArrayList<Section>()
+
+        // ---- Device group
+        secs.add(Section("app", "Device", "App", INFO, listOf(
+            "MGB " + safe("?") { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: "?" } +
+                " (build " + safe(0L) { if (Build.VERSION.SDK_INT >= 28) ctx.packageManager.getPackageInfo(ctx.packageName, 0).longVersionCode else 0L } + ")",
+            "Engine: " + safe("?") { EngineHost.status().lineSequence().firstOrNull() ?: "?" }
+        )))
+        val wv = safe("?") { WebView.getCurrentWebViewPackage()?.let { it.packageName + " " + it.versionName } ?: "unknown" }
+        val wvMajor = safe(0) { wv.substringAfterLast(' ').substringBefore('.').toInt() }
+        secs.add(Section("webview", "Browser", "WebView", if (wvMajor in 1..99) WARN else INFO, listOf(
+            wv, if (wvMajor in 1..99) "WebView is old (version $wvMajor): update Android System WebView / Chrome" else "WebView version looks fine")))
+        secs.add(Section("device", "Device", "Device", INFO, listOf(
+            Build.MANUFACTURER + " " + Build.MODEL, "Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")",
+            "ABI " + (Build.SUPPORTED_ABIS.firstOrNull() ?: "?"))))
+
+        val am = ctx.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+        val mi = ActivityManager.MemoryInfo()
+        safe(Unit) { am?.getMemoryInfo(mi) }
+        val ramLow = mi.lowMemory
+        secs.add(Section("ram", "Device", "Memory", if (ramLow) BAD else INFO, listOf(
+            "Free " + mb(mi.availMem) + " of " + mb(mi.totalMem), "Low memory flag: " + (if (ramLow) "YES" else "no"),
+            "Tabs open: $tabCount")))
+
+        val free = safe(-1L) { StatFs(ctx.filesDir.path).availableBytes }
+        val tree = safe(null) { DownloadFolder.treeUri(ctx) }
+        val lowStore = free in 0 until LOW_STORAGE
+        secs.add(Section("storage", "Download", "Storage", if (lowStore) BAD else INFO, listOf(
+            "Free on the phone (app area): " + (if (free < 0) "unknown" else mb(free)),
+            "Download folder: " + (if (tree == null) "not chosen (default folder)" else safe("chosen") { DownloadFolder.label(ctx) }))))
+
+        // ---- Network
+        val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        var online = true
+        val netLines = ArrayList<String>()
+        safe(Unit) {
+            val net = cm?.activeNetwork
+            val caps = if (net == null) null else cm.getNetworkCapabilities(net)
+            if (caps == null) { online = false; netLines.add("No active network") } else {
+                online = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                netLines.add("Type: " + (if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) "Wi-Fi" else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) "Mobile data" else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) "VPN" else "other"))
+                val valid = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                netLines.add("Internet reachable (validated): " + (if (valid) "yes" else "NO (captive portal or no data)"))
+                if (!valid) online = false
+                netLines.add("Metered: " + (if (cm.isActiveNetworkMetered) "yes" else "no"))
+                netLines.add("VPN: " + (if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) "on" else "off"))
+            }
+        }
+        secs.add(Section("network", "Download", "Network", if (online) INFO else BAD, netLines.ifEmpty { listOf("unknown") }))
+
+        // ---- Settings health
+        val setL = ArrayList<String>()
+        var setLevel = INFO
+        setL.add("Ad blocker: " + (if (AdBlock.enabled) "on" else "off"))
+        setL.add("HTTPS-only: " + (if (safe(false) { HttpsOnly.on(ctx) }) "on" else "off"))
+        setL.add("Download folder set: " + (if (tree != null) "yes" else "no (default)"))
+        val sync = safe(null) { ChromeBridge.sync.get(null) }
+        if (sync != null) {
+            for (k in listOf("blockAds", "mergeAV", "concurrency", "maxJobs", "sniffSeconds")) if (sync.has(k)) setL.add("V77 $k = " + sync.opt(k))
+        } else { setL.add("V77 settings: not readable (engine not started?)"); setLevel = WARN }
+        secs.add(Section("settings", "Browser", "Settings", setLevel, setL))
+
+        // ---- Page / tab
+        val pg = ArrayList<String>()
+        var pageLevel = INFO
+        if (tab == null) { pg.add("No tab") } else if (tab.priv) { pg.add("Private tab: address not logged") }
+        else if (tab.isExt || tab.home || !tab.url.startsWith("http")) { pg.add("Not a web page (" + (if (tab.home) "home" else "extension / blank") + ")") }
+        else {
+            pg.add("Page: " + Diag.maskUrl(tab.url))
+            pg.add("Loading: " + (if (tab.loading) "yes (" + tab.progress + "%)" else "done"))
+            pg.add("Desktop mode: " + (if (tab.desktop) "on" else "off"))
+        }
+        val tabErr = Diag.countSince("tab", now - FIVE_MIN, "E") + Diag.countSince("tab", now - FIVE_MIN, "W")
+        if (tabErr > 0) { pageLevel = WARN; pg.add("Tab errors / warnings in the last 5 min: $tabErr") }
+        val crashed = Diag.recent(100, "tab", false).any { it.ts >= now - FIVE_MIN && (it.msg.contains("crash", true) || it.msg.contains("killed", true)) }
+        if (crashed) { pageLevel = BAD; pg.add("A tab crashed or was killed in the last 5 min") }
+        secs.add(Section("page", "Browser", "Page", pageLevel, pg))
+
+        // ---- V77 detected items
+        val items = state?.optJSONObject("rec")?.optJSONArray("items")
+        val dl = ArrayList<String>()
+        var detLevel = INFO
+        if (state == null) { dl.add(if (tab == null || tab.isExt || !tab.url.startsWith("http")) "No web page selected" else "Media Grabber did not answer (not ready or not running)"); if (tab != null && !tab.isExt && tab.url.startsWith("http")) detLevel = WARN }
+        else if (items == null || items.length() == 0) { dl.add("Nothing detected on this page yet"); detLevel = WARN }
+        else {
+            val kinds = LinkedHashMap<String, Int>()
+            var drm = 0
+            for (i in 0 until items.length()) { val j = items.optJSONObject(i) ?: continue; val k = j.optString("kind"); kinds[k] = (kinds[k] ?: 0) + 1; if (j.optJSONObject("info")?.optBoolean("protected", false) == true) drm++ }
+            dl.add("Detected: " + items.length() + " (" + kinds.entries.joinToString(", ") { it.key + " " + it.value } + ")")
+            if (drm > 0) { dl.add("DRM protected: $drm (cannot be downloaded)"); detLevel = WARN }
+            for (i in 0 until minOf(items.length(), 10)) { val j = items.optJSONObject(i) ?: continue; dl.add("  - " + j.optString("kind") + " " + Diag.maskUrl(j.optString("url"))) }
+        }
+        secs.add(Section("detected", "Video", "Detected files", detLevel, dl))
+
+        // ---- Jobs / queue
+        val jobs = safe(emptyList<JSONObject>()) { EngineApi.jobs() }
+        val states = LinkedHashMap<String, Int>()
+        for (j in jobs) { val s = j.optString("state").ifBlank { "?" }; states[s] = (states[s] ?: 0) + 1 }
+        val failedJobs = jobs.filter { it.optString("state") == "error" || it.optString("state") == "failed" }
+        val jl = ArrayList<String>()
+        jl.add("V77 jobs: " + (if (jobs.isEmpty()) "none" else states.entries.joinToString(", ") { it.key + " " + it.value }))
+        for (j in failedJobs.take(3)) jl.add("  - failed: " + Diag.mask(j.optString("error").ifBlank { j.optString("why") }.take(120)) + " " + Diag.maskUrl(j.optString("url")))
+        val dFail5 = Diag.countSince("download", now - FIVE_MIN, null)
+        if (dFail5 > 0) jl.add("Download failures logged in the last 5 min: $dFail5")
+        for (e in Diag.recent(3, "download", false)) jl.add(fmtEvent(e))
+        secs.add(Section("jobs", "Download", "Queue / jobs", if (failedJobs.isNotEmpty() || dFail5 > 0) WARN else INFO, jl))
+
+        // ---- Novel / Manga (native side: only the events, the page side is in the V77 report)
+        for ((tag, title) in listOf("novel" to "Novel grabber", "manga" to "Manga")) {
+            val ev = Diag.recent(5, tag, true)
+            val lines = if (ev.isEmpty()) listOf("No errors logged") else ev.map { fmtEvent(it) }
+            secs.add(Section(tag, if (tag == "novel") "Novel" else "Manga", title, if (ev.any { it.ts >= now - FIVE_MIN }) WARN else INFO, lines))
+        }
+
+        // ---- V77 log (storage.local mgLog, last 30, masked)
+        val log = safe(null) { ChromeBridge.local.get("mgLog").optJSONArray("mgLog") }
+        val ll = ArrayList<String>()
+        if (log == null || log.length() == 0) ll.add("Empty") else for (i in maxOf(0, log.length() - 30) until log.length()) ll.add("  " + Diag.mask(log.optString(i)).take(300))
+        secs.add(Section("mglog", "Video", "V77 log (last 30)", INFO, ll))
+
+        // ---- Recent native errors
+        val errs = Diag.recent(20, null, true)
+        secs.add(Section("errors", "Device", "Recent errors", if (errs.any { it.ts >= now - FIVE_MIN }) WARN else INFO,
+            if (errs.isEmpty()) listOf("No errors logged") else errs.map { fmtEvent(it) }))
+
+        // ---- verdict (basic, 5 checks; S86 replaces it with the rule engine)
+        val v: Pair<String, String> = when {
+            !online -> BAD to "No working internet connection. Connect to Wi-Fi or mobile data and try again."
+            lowStore -> BAD to "Free storage is under 200 MB. Free some space, downloads and merges can fail."
+            crashed -> BAD to "A tab crashed in the last 5 minutes. Reload the page; if it repeats, close other tabs (low memory)."
+            Diag.countSince("engine", now - FIVE_MIN, "E") > 0 -> WARN to "Media Grabber logged an error in the last 5 minutes. Check Recent errors below."
+            ramLow -> WARN to "The phone is low on memory. Close other tabs / apps."
+            else -> OK to "No problem found by the basic checks."
+        }
+        return Report(now, v.first, v.second, secs)
+    }
+
+    private fun fmtEvent(e: Diag.Event): String {
+        val t = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date(e.ts))
+        return "  $t ${e.level} ${e.tag}: ${e.msg}" + (if (e.n > 1) " (x${e.n})" else "")
+    }
+}
