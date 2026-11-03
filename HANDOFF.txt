@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.73 (S69: search engine picker popup, see the S69 note at the end; before: S68)
+
 CURRENT VERSION 0.0.72 (S68: Privacy Guard shield sheet, see the S68 note at the end; before: S67)
 
 CURRENT VERSION 0.0.71 (S67: download button design + subtitle per download, see the S67 note at the end; before: S66)
@@ -389,3 +391,12 @@ NOT tested: shield fits in the bar at 360 px (url text gets 34 dp less); sheet s
 Could break: bottom bar is 34 dp tighter on web pages; "Scripts on this site" sets javaScriptEnabled live (same as Page info > Site configuration); per-host counts reset at app start (total is saved).
 Still missing (from the video): Ads and Trackers Blocker stats screen (graph, last 3 weeks, percent of pages), search engine picker popup on the home search bar, menu sheet look, tab switcher look.
 Next: S69 = search engine picker popup on home / address bar, or the blocker stats screen (needs a per-day blocked history in AdBlock).
+
+======== S69 note (0.0.73) ========
+Assumption: S69 = search engine picker (first NEXT of S68), MGB style (letter badge, rounded popup), no engine logos (no network icons).
+Changed: EnginePicker.kt (NEW: letter(), styleBadge(), show(act, anchor, onPick)) / MainActivity.kt (btnEngine, click, refreshShield also shows/hides the badge) / res/layout/activity_main.xml (NEW id btn_engine, gone by default) / app/build.gradle.kts (0.0.73) / CHANGELOG.txt / HANDOFF.txt. No JS change, no new storage.
+Checks: Kotlin braces/parens balance on both .kt; XML parses; no duplicate ids; NOT compiled; UI NOT rendered at 360/1280 dark/light.
+NOT tested: popup opens upwards right above the bar (position with keyboard open); outside tap closes it; focus stays in the address bar while picking; badge and shield never show together; popup fits at 360 px; next search uses the new engine.
+Could break: while typing, the address bar loses 28 dp + margins; the popup is not focusable so the back button closes the keyboard first, not the popup.
+Still missing (from the video): Ads and Trackers Blocker stats screen (per-day history in AdBlock), menu sheet look, tab switcher look.
+Next: S70 = blocker stats screen, or menu sheet look.

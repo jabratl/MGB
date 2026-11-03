@@ -1,3 +1,7 @@
+MGB 0.0.73 (S69: search engine picker)
+- New rose letter badge (G, D, B ...) at the left of the address bar on the home page and while typing. Tap it: a popup card opens just above the bar with every engine (name + address), tick on the current one.
+- One tap sets the engine at once (same setting as Settings > Search engine, which still works). The badge letter updates.
+
 MGB 0.0.72 (S68: Privacy Guard - one shield sheet per site)
 - New shield button in the address bar (web pages only, hides while typing). Rose = guarding this site, grey = blocker off here.
 - Tap it: Privacy Guard sheet with a count-up of ads and trackers blocked on this site, the total blocked ever, the Ads and trackers blocker switch (all sites), and "Blocker on this site".

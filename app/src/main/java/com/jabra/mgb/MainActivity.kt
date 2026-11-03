@@ -25,6 +25,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     private lateinit var btnHome: ImageView // S22
     private lateinit var btnTabs: MaterialButton
     private lateinit var btnShield: ImageView // S68: Privacy Guard
+    private lateinit var btnEngine: TextView // S69: search engine badge
     private lateinit var progress: LinearProgressIndicator
     private lateinit var backCb: OnBackPressedCallback
     private lateinit var floating: FloatingDl // S11
@@ -56,6 +57,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         btnHome = findViewById(R.id.btn_home)
         btnTabs = findViewById(R.id.btn_tabs)
         btnShield = findViewById(R.id.btn_shield) // S68
+        btnEngine = findViewById(R.id.btn_engine) // S69
         progress = findViewById(R.id.progress)
         EngineHost.start(this) // S6: background.js engine (hidden WebView)
         tabs = TabManager(this, findViewById<FrameLayout>(R.id.web_container), this)
@@ -91,6 +93,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         btnHome.setOnClickListener { if (tabs.active?.home != true) tabs.newTab(TabManager.HOME_PAGE) } // S22
         btnTabs.setOnClickListener { tabs.showSwitcher() }
         btnShield.setOnClickListener { PrivacyGuard.show(this, tabs) { refreshShield() } } // S68
+        btnEngine.setOnClickListener { EnginePicker.show(this, btnEngine) { refreshShield() } } // S69
         findViewById<ImageView>(R.id.btn_menu).setOnClickListener { showMenu() } // S22
 
         urlBar.setOnEditorActionListener { _, actionId, event ->
@@ -269,6 +272,10 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             btnShield.animate().alpha(1f).setDuration(160).start()
         } else if (!show) btnShield.visibility = View.GONE
         btnShield.setColorFilter(getColor(if (st == 2) R.color.mg_text_dim else R.color.mg_primary))
+        // S69: engine badge on the home page and while typing (where the shield is not shown)
+        val eng = tabs.active?.home == true || urlBar.hasFocus()
+        btnEngine.visibility = if (eng) View.VISIBLE else View.GONE
+        if (eng) EnginePicker.styleBadge(this, btnEngine)
     }
 
     // ---------- TabManager.Listener ----------

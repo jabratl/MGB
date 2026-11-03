@@ -56,6 +56,21 @@
             android:scaleType="fitCenter"
             android:src="@drawable/ic_home" />
 
+        <TextView
+            android:id="@+id/btn_engine"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="2dp"
+            android:clickable="true"
+            android:contentDescription="Search engine"
+            android:focusable="true"
+            android:gravity="center"
+            android:textColor="@color/mg_primary"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
         <ImageView
             android:id="@+id/btn_shield"
             android:layout_width="34dp"
