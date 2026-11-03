@@ -155,9 +155,14 @@ object ExtTray {
     private fun order(act: Activity): List<String> =
         act.getSharedPreferences(PREFS, 0).getString("order", "").orEmpty().split(',').filter { it.isNotEmpty() }
 
-    private fun ordered(act: Activity, l: List<ExtRegistry.Info>): List<ExtRegistry.Info> {
+    fun ordered(act: Activity, l: List<ExtRegistry.Info>): List<ExtRegistry.Info> {
         val o = order(act)
         return l.sortedBy { val i = o.indexOf(it.id); if (i < 0) Int.MAX_VALUE else i }
+    }
+
+    /** S12: Manage list drag-drop saves the full order here. */
+    fun saveOrder(act: Activity, ids: List<String>) {
+        act.getSharedPreferences(PREFS, 0).edit().putString("order", ids.joinToString(",")).apply()
     }
 
     private fun move(act: Activity, e: ExtRegistry.Info, to: Int) { // to: 0 first, -1 earlier, 1 later
@@ -215,6 +220,22 @@ object ExtTray {
                     cornerRadius = dp(14).toFloat()
                 }
             }, LinearLayout.LayoutParams(size, size))
+        }
+        val n = ExtBackground.errorCount(e.id) // S13: red badge when the worker had errors
+        if (n > 0) {
+            val first = t.getChildAt(0)
+            t.removeViewAt(0)
+            val fl = android.widget.FrameLayout(act)
+            fl.addView(first, android.widget.FrameLayout.LayoutParams(size, size))
+            fl.addView(TextView(act).apply {
+                text = if (n > 9) "9+" else n.toString()
+                textSize = 9f
+                gravity = Gravity.CENTER
+                setTextColor(0xFFFFFFFF.toInt())
+                background = GradientDrawable().apply { setColor(act.getColor(R.color.mg_error)); cornerRadius = dp(9).toFloat() }
+                contentDescription = "$n errors"
+            }, android.widget.FrameLayout.LayoutParams(dp(18), dp(18), Gravity.TOP or Gravity.END))
+            t.addView(fl, 0, LinearLayout.LayoutParams(size, size))
         }
         t.addView(TextView(act).apply {
             text = e.name

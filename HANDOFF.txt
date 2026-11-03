@@ -1,3 +1,7 @@
+CURRENT VERSION 0.0.108 (S13: error badge on tray tiles; before: 0.0.107). Next: S14 = tap on a badged tile opens its error log / Diagnose, clear badge; root src/ + MGB/ duplicate cleanup.
+
+CURRENT VERSION 0.0.107 (S12: drag-drop reorder in Manage Extensions; before: 0.0.106). Next: S13 = error badge on tray tile, root src/ + MGB/ duplicate cleanup.
+
 CURRENT VERSION 0.0.106 (S11: tray order via long-press, Undo bar, On/Off text; before: 0.0.105). Next: S12 = real drag-drop reorder, tray tile badge for extensions with errors, root src/ + MGB/ duplicate cleanup.
 
 CURRENT VERSION 0.0.105 (S10: Thazir Extensions tray + menu puzzle button + search in Manage Extensions; see CHANGELOG 0.0.105; before: 0.0.104). Next: S11 = drag reorder + pin order in tray, 'Closed X / Undo' snackbar for extension window, On/Off text in Manage list, root src/ duplicate cleanup.

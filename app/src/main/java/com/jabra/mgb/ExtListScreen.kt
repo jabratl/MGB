@@ -163,7 +163,7 @@ object ExtListScreen {
         private fun fill() {
             val col = body ?: return
             col.removeAllViews()
-            val all = ExtRegistry.all()
+            val all = ExtTray.ordered(act, ExtRegistry.all()) // S12: same order as the tray
             val list = if (query.isEmpty()) all else all.filter { it.name.contains(query, ignoreCase = true) }
             col.addView(TextView(act).apply {
                 text = "Add an extension from a .zip or .crx file. Chrome Web Store install is not available. " +
@@ -201,6 +201,8 @@ object ExtListScreen {
                 setPadding(dp(14), dp(10), dp(6), dp(10))
                 alpha = if (e.enabled) 1f else 0.7f
             }
+            c.tag = e.id
+            if (query.isEmpty()) c.addView(dragHandle(c, e), LinearLayout.LayoutParams(dp(32), dp(40)).apply { marginEnd = dp(6) }) // S12
             val txt = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
             txt.addView(TextView(act).apply {
                 text = e.name
@@ -252,6 +254,42 @@ object ExtListScreen {
             c.isFocusable = true
             c.setOnClickListener { details(e) }
             return c
+        }
+
+        /** S12: grip at the left of a card. Drag up / down, release = card takes the place under it, order saved (shared with the tray). */
+        @android.annotation.SuppressLint("ClickableViewAccessibility")
+        private fun dragHandle(c: View, e: ExtRegistry.Info): ImageView = ImageView(act).apply {
+            setImageResource(R.drawable.ic_list)
+            setColorFilter(act.getColor(R.color.mg_text_dim))
+            setPadding(dp(6), dp(8), dp(6), dp(8))
+            contentDescription = "Drag to reorder " + e.name
+            var startY = 0f
+            setOnTouchListener { v, ev ->
+                val col = c.parent as? LinearLayout ?: return@setOnTouchListener false
+                when (ev.actionMasked) {
+                    android.view.MotionEvent.ACTION_DOWN -> {
+                        startY = ev.rawY
+                        c.elevation = dp(8).toFloat()
+                        v.parent.requestDisallowInterceptTouchEvent(true)
+                        true
+                    }
+                    android.view.MotionEvent.ACTION_MOVE -> { c.translationY = ev.rawY - startY; true }
+                    android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                        v.parent.requestDisallowInterceptTouchEvent(false)
+                        val others = (0 until col.childCount).map { col.getChildAt(it) }.filter { it.tag is String && it !== c }
+                        val center = c.top + c.height / 2f + c.translationY
+                        val idx = others.count { it.top + it.height / 2f < center }
+                        val ids = others.map { it.tag as String }.toMutableList()
+                        ids.add(idx, e.id)
+                        c.translationY = 0f
+                        c.elevation = 0f
+                        if (ev.actionMasked == android.view.MotionEvent.ACTION_UP) ExtTray.saveOrder(act, ids)
+                        fill()
+                        true
+                    }
+                    else -> false
+                }
+            }
         }
 
         private fun kinds(e: ExtRegistry.Info): String {

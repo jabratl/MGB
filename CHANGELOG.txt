@@ -1,3 +1,13 @@
+0.0.108 (S13: tray error badge)
+- ExtBackground.kt: errorCount(id) counts worker errors (same events that go to Diagnose); cleared by reset(id)
+- ExtTray.kt: red badge (1..9+) on a tile when its extension had worker errors
+- Not changed: ExtRegistry, ExtScreen, ExtListScreen, MainActivity. Root src/ + MGB/ duplicate cleanup NOT done
+
+0.0.107 (S12: drag-drop reorder)
+- ExtListScreen.kt: grip handle at the left of each card; drag up / down, release = new place, saved; list uses the tray order (hidden while searching)
+- ExtTray.kt: ordered() now public, new saveOrder(); long-press move menu still works
+- Not changed: ExtRegistry, ExtScreen, MainActivity, MenuSheet
+
 0.0.106 (S11: tray order + undo bar)
 - ExtTray.kt: long-press a tile = Move to first / earlier / later; order saved in prefs mgb_ext_tray (new installs go last)
 - ExtScreen.kt: "Closed <name>  Undo" snackbar when an installed extension window closes (not when another window replaces it)
