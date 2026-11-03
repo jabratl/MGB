@@ -41,6 +41,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     override fun onCreate(savedInstanceState: Bundle?) {
         UiMode.apply(this) // S20: saved theme (System / Light / Dark), before the Activity is created
         AdBlock.init(this) // S19
+        FilterList.init(this) // S74: EasyList rules load in the background
         Favicons.init(this) // S45
         SiteConfig.init(this) // S29
         ClosedTabs.init(this) // S29

@@ -1,3 +1,10 @@
+MGB 0.0.77 (S74: filter lists, EasyList engine for the ad blocker)
+- The blocker now reads filter lists in EasyList syntax: EasyList + EasyPrivacy (downloaded) and a small built-in seed list. The old host list stays as a base.
+- Network rules: ||domain^, |start, text with * and ^, exceptions (@@), $third-party / ~third-party, $script $image $stylesheet $xmlhttprequest $subdocument $media $font $other, $domain=.
+- Page cosmetic rules (##selector, site##selector) hide ad spaces; each selector is its own CSS rule. Same switches as before (Hide distracting items, Blocker on this site).
+- Blocker stats sheet: "Filter lists" card with rule count, last update and an "Update filters now" button. The lists also update by themselves once a week (about 3 MB, needs internet).
+- Not supported on purpose: regex rules, scriptlets (YouTube ad scripts), extended selectors, $popup / $csp / $redirect.
+
 MGB 0.0.76 (S72: tab switcher look)
 - Bottom bar of the tab switcher is now a floating rounded pill (surface colour, thin outline, soft shadow) with margins.
 - New tab button: rose to violet gradient pill with a small tick when tapped.

@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.77 (S74: filter lists / EasyList engine, see the S74 note at the end; before: S73)
+
 CURRENT VERSION 0.0.76 (S73: audit of S68-S72, no app code change, see the S73 note at the end; before: S72)
 
 CURRENT VERSION 0.0.76 (S72: tab switcher look, see the S72 note at the end; before: S71)
@@ -442,3 +444,12 @@ Checked (script): every R.drawable / R.color / R.id used in PrivacyGuard, Engine
 Fixed: only the S72 note above (it feared the bar hides the last card: not true, the bar is below the scroll area).
 NOT tested: everything in the S68-S72 NOT tested lists still needs a real build and a phone. First CI build may still show a Kotlin error (type inference in the local lambdas of PrivacyGuard.switchRow is the first place to look): send the exact error line.
 Next: S74 = fix from the first run (bug + what you see + where), or tap on the Home "N ads and trackers blocked" line opens BlockerStats (HomeView.kt blockedLine), or Settings look.
+
+======== S74 note (0.0.77) ========
+Goal: Brave-like blocking power with EasyList rules inside the existing AdBlock (no Rust engine: needs NDK in CI).
+Changed: FilterList.kt (NEW: parser + domain index + verdict(url, host, pageHost, type) 0/1/2 + cosmeticCss(host) + update() download + auto weekly update) / AdBlock.kt (shouldBlock: host list OR filter verdict, exceptions win, same-site skip only for host-list hits) / CosmeticFilter.kt (inject adds FilterList.cosmeticCss) / MainActivity.kt (FilterList.init) / BlockerStats.kt ("Filter lists" card + Update button) / assets/filters/seed.txt (NEW) / app/build.gradle.kts (0.0.77) / CHANGELOG.txt / HANDOFF.txt. No layout, no JS change. INTERNET permission already in the manifest.
+Checks: Kotlin braces/parens balance on 5 changed .kt; matcher semantics mirrored in Python (domain rule + ^ + * + generic) OK; NOT compiled; UI NOT rendered; parser NOT run on the real EasyList.
+NOT tested: first build compiles (look at FilterList.update and Builder.network first); EasyList download works (easylist.to URLs) and files land in filesDir/filters; rule count after update (expect ~60k-90k); memory and start time on a real phone (loading runs on a background thread); pages still work (logins, video players, Google sign-in) and blocked count in Blocker stats goes up; cosmetic CSS size on heavy sites; $script rules on scripts without .js in the path are treated as xhr/other (may under-block).
+Could break: over-blocking on some sites (turn off with Privacy Guard > Blocker on this site); first run downloads about 3 MB on mobile data; RAM use +15-25 MB while the lists are loaded; request type is guessed from file extension + Accept header.
+Still missing: scriptlets / YouTube ads, popup blocking, per-list on/off, custom filter rules, user-added list URLs, percent of pages with ads on the stats screen.
+Next: S75 = fix from the first run (compile error line or bug + what you see + where), or Home "N ads blocked" line opens Blocker stats, or custom filter list URL + per-list switch.

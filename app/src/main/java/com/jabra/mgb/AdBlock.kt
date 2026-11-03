@@ -83,9 +83,13 @@ object AdBlock {
         if (!enabled || req.isForMainFrame) return false
         if (SiteConfig.has(pageUrl, SiteConfig.ADS_OK)) return false // S29: site config "allow ads here"
         val host = req.url.host?.lowercase() ?: return false
-        if (!listed(host)) return false
         val ph = try { android.net.Uri.parse(pageUrl ?: "").host?.lowercase() } catch (e: Exception) { null }
-        if (ph != null && (ph == host || ph.endsWith(".$host") || host.endsWith(".$ph"))) return false
+        val byHost = listed(host)
+        val v = FilterList.verdict(req.url.toString(), host, ph, FilterList.typeOf(req)) // S74: EasyList rules (0 none, 1 block, 2 exception)
+        if (v == 2) return false
+        if (!byHost && v != 1) return false
+        // built-in host list: never a request to the same site as the page (filter rules use their own $third-party option)
+        if (byHost && v != 1 && ph != null && (ph == host || ph.endsWith(".$host") || host.endsWith(".$ph"))) return false
         count.incrementAndGet()
         unsaved.incrementAndGet()
         if (ph != null) perSite.getOrPut(ph.removePrefix("www.")) { AtomicInteger(0) }.incrementAndGet() // S68

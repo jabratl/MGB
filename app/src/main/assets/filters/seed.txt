@@ -1,0 +1,20 @@
+! MGB seed filters (EasyList syntax). Works offline; "Update filters" adds EasyList + EasyPrivacy.
+||googlesyndication.com^$third-party
+||doubleclick.net^$third-party
+||adnxs.com^$third-party
+||taboola.com^$third-party
+||outbrain.com^$third-party
+||popads.net^
+||propellerads.com^
+||adsterra.com^
+/pagead/ads?
+/adserver/*$script,third-party
+/banner_ads/*$image
+-ad-banner.$image
+@@||accounts.google.com^$script
+##.adsbygoogle
+##.ad-banner
+##.banner-ad
+##[id^="div-gpt-ad"]
+##[data-ad-slot]
+example.com##.sponsored-box

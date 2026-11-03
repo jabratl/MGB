@@ -106,6 +106,38 @@ object BlockerStats {
         }
         col.addView(top, LinearLayout.LayoutParams(MATCH, WRAP))
 
+        // S74: filter lists (EasyList + EasyPrivacy)
+        col.addView(label("Filter lists"))
+        val fl = card()
+        val flText = TextView(act).apply { setTextColor(cText); setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f) }
+        fun flInfo() {
+            val ts = FilterList.updatedAt()
+            val age = if (ts == 0L) "not updated yet" else {
+                val days = (System.currentTimeMillis() - ts) / 86_400_000L
+                if (days <= 0) "updated today" else "updated $days day" + (if (days == 1L) "" else "s") + " ago"
+            }
+            flText.text = if (FilterList.loading) "Loading rules..." else "${FilterList.ruleCount} rules, $age"
+        }
+        flInfo()
+        fl.addView(flText)
+        fl.addView(TextView(act).apply { text = "EasyList + EasyPrivacy. Updates itself once a week."; setTextColor(cDim); setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f); setPadding(0, dp(2), 0, dp(10)) })
+        val upd = TextView(act).apply {
+            text = "Update filters now"; gravity = Gravity.CENTER; typeface = Typeface.DEFAULT_BOLD
+            setTextColor(act.getColor(R.color.mg_on_primary)); setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            background = GradientDrawable().apply { setColor(cPrimary); cornerRadius = dp(22).toFloat() }
+            isClickable = true
+            setOnClickListener {
+                text = "Updating..."; isEnabled = false
+                FilterList.update(act) { msg -> act.runOnUiThread {
+                    Util.toast(act, msg)
+                    text = "Update filters now"; isEnabled = true
+                    Thread { Thread.sleep(1500); act.runOnUiThread { flInfo() } }.start()
+                } }
+            }
+        }
+        fl.addView(upd, LinearLayout.LayoutParams(MATCH, dp(44)))
+        col.addView(fl, LinearLayout.LayoutParams(MATCH, WRAP))
+
         d.setContentView(ScrollView(act).apply { addView(col) })
         d.behavior.skipCollapsed = true
         d.show()
