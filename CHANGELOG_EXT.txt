@@ -1,11 +1,3 @@
-0.0.96 (S3) per-extension storage + runtime id
-- ChromeBridge.kt: chrome.storage local/sync/session per extension (filesDir/exts_data/<id>/local.json, sync.json; session in memory); quota 10 MB local / 100 KB sync for extensions
-- Bridge messages carry the extension id; token is per extension (ContentInjector.tokenFor), so an extension cannot speak as another or read its data
-- Events, answers and runtime.onMessage replies are addressed to one extension (several extensions can share one page frame)
-- Installed extensions are limited to storage.* + runtime.sendMessage for now (runtime.sendMessage -> "Receiving end does not exist" until S4/S5)
-- chrome-shim.js: sends x=id, ignores events/answers meant for another extension
-- ExtListScreen.kt: Remove also wipes the extension's storage
-- V77 (built-in) behaviour unchanged: same files, same token, same handlers
 0.0.95 (S2) content scripts of N extensions
 - ContentInjector.kt: every enabled extension in files/exts/<id>/ gets its manifest content_scripts injected (js, css, run_at, all_frames, world MAIN)
 - Full match / exclude_matches check at runtime (path too, not only origin); css injected as <style>

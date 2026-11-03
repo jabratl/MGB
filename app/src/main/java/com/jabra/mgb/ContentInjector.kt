@@ -27,13 +27,6 @@ object ContentInjector {
     lateinit var token: String
         private set
 
-    /** S3: per-extension bridge token. V77 keeps the plain token; an installed extension gets a derived one, so it cannot speak as another. */
-    fun tokenFor(id: String): String {
-        if (id == EXT_ID) return token
-        val d = java.security.MessageDigest.getInstance("SHA-256").digest((token + ":" + id).toByteArray())
-        return d.joinToString("") { "%02x".format(it) }
-    }
-
     private class Entry(val origins: Set<String>, val script: String)
 
     private var inited = false
@@ -147,7 +140,7 @@ object ContentInjector {
     private fun buildExt(id: String, dir: File, mf: File): List<Entry> {
         val manifest = JSONObject(mf.readText())
         val cs = manifest.optJSONArray("content_scripts") ?: return emptyList()
-        val cfgJson = JSONObject().put("token", tokenFor(id)).put("kind", "content").put("base", EXT_BASE + id + "/")
+        val cfgJson = JSONObject().put("token", token).put("kind", "content").put("base", EXT_BASE + id + "/")
             .put("id", id).put("manifest", manifest).toString()
         val out = ArrayList<Entry>()
         for (i in 0 until cs.length()) {

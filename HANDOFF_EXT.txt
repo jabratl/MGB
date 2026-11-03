@@ -1,16 +1,5 @@
 HANDOFF_EXT (newest on top)
 
-== after S3, version 0.0.96 ==
-- ChromeBridge.Call.extId (default EXT_ID). ChromeBridge.area(extId, name) / storageSet(area, items, extId) / removeExtData(ctx, id) / emit(event, args, extId = EXT_ID, filter) / request(ctx, msg, sender, extId = EXT_ID, cb). Old call sites compile unchanged (V77 path).
-- Ctx.ids = extension ids that have a shim in that frame. request() answers null at once if extId not in ctx.ids (no 30 s wait).
-- onMessage: x absent -> V77. Token check = ContentInjector.tokenFor(x); non-V77 id must be ExtRegistry.get(x)?.enabled == true.
-- Non-V77 ids are limited to CONTENT_OK regex (storage.local/sync.* + runtime.sendMessage) even on Kind.EXT frames. S4 (popup/options pages) and S6 must relax this per extension + permission.
-- Hook for S4/S5: ChromeBridge.on("ext.runtime.sendMessage") receives runtime.sendMessage from a non-V77 extension (Call.extId = sender). Without it: error "Receiving end does not exist".
-- S4 must pass per-extension cfg to ext pages (token = tokenFor(id), id, base = EXT_BASE + id + "/"); ContentInjector.attachExt still builds V77 cfg only.
-- TabsApi.senderOf still hardcodes id = EXT_ID: S5/S6 must use Call.extId. EngineApi unchanged (sender is V77 on purpose).
-- storage events go only to shims of the same extension. chrome.storage.onChanged for tabs-side cross-extension is not shared.
-- ExtRegistry.remove NOT edited (S0 file not seen): ExtListScreen calls ChromeBridge.removeExtData after remove. Any other remove caller (S8) must do the same.
-
 == after S2, version 0.0.95 ==
 - ContentInjector.attach(): after V77 entries, loops ExtRegistry.enabled() (uses only .id, .version, isValidId). Files read directly from filesDir/exts/<id>/ (own safe-path check, no ExtRegistry.file/dir used).
 - cfg passed to shim for extensions: kind=content, id=<ext id>, base=EXT_BASE+<id>+"/", manifest=<ext manifest>, token. S3 must route storage/sender by this id (shim + ChromeBridge still single-id).
