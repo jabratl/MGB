@@ -1,3 +1,7 @@
+MGB 0.0.70 (S66: native history features in the Downloads screen)
+- Downloads screen: search box for Saved files (searches every saved file, not only the latest 30).
+- Saved files: "more" button or long press = Share, Remove from list, Delete file from phone (asks first). Same data and same effect as the V77 history page.
+
 MGB 0.0.69 (S65: Downloads screen redesign + Show/Open fix + V77 Grabber backup switch)
 - Downloads screen (menu > Downloads): rounded cards, icon tile, file type + size + date line, pill buttons (Open filled, Show tonal), Saved files count, nicer empty text, coloured status (Done green, failed red), thin progress bar. Tapping a saved file card opens it.
 - Fix: Show did nothing. It now opens the folder of the file (Files app), falls back to the system Downloads app, and always tells the folder in a message. Open also tells why when it cannot (file deleted or moved, no app).

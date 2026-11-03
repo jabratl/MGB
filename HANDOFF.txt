@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.70 (S66: Downloads screen search + Share / Remove / Delete, see the S66 note at the end; before: S65)
+
 CURRENT VERSION 0.0.69 (S65: Downloads screen redesign + Show fix + V77 backup switch, see the S65 note at the end; before: S64)
 
 CURRENT VERSION 0.0.68 (S64: Settings Downloads redesign + Tools sheet, see the S64 note at the end; before: S63)
@@ -358,3 +360,12 @@ NOT tested: card look at 360 px (long titles, 3 buttons in a running job row); S
 Could break: turning the backup ON overwrites the Button mode (Grabber only) and OFF restores it; per-site Button modes are not touched. Saved files whose id is gone from DownloadsApi (old history) now say "no longer in the downloads list" instead of doing nothing.
 Still missing natively: per-download subtitle on/off, Pick pages (manga.html), native queue / history pages, DASH variants beyond 10, schedule of a single file.
 Next: S66 = fix from the first run of 0.0.69 (Show / card layout), or native queue / history pages.
+
+======== S66 note (0.0.70) ========
+Assumption: no bug report from 0.0.69 yet, so S66 = "native history page" inside the Downloads screen.
+Changed: DownloadsApi.kt (NEW shareFile(act,id), deleteFile(id)) / DownloadsScreen.kt (search box, histOf, fileMenu, removeFromList, more icon + long press) / res/layout/screen_downloads.xml (NEW id xd_search) / build.gradle.kts (0.0.70) / CHANGELOG.txt / HANDOFF.txt. No JS change.
+Checks: Kotlin braces/parens balance; layout XML parses; id xd_search unique; NOT compiled; UI NOT rendered at 360/1280 dark/light.
+NOT tested: search filters while typing and keyboard does not hide the list; Share opens the chooser with the real file; Delete removes the file and the row; Remove from list updates the V77 history page too; long press does not clash with tap-to-open.
+Could break: Remove from list rewrites storage.local mgHist (same entries minus one); the V77 popup recent list refreshes by its own onChanged listener.
+Still missing natively: per-download subtitle on/off, Pick pages (manga.html), native queue page, DASH variants beyond 10, schedule of a single file.
+Next: S67 = fix from the first run of 0.0.69 / 0.0.70.

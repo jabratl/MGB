@@ -16,6 +16,7 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.json.JSONObject
 
 /**
@@ -23,6 +24,7 @@ import org.json.JSONObject
  *  - running / finished / failed jobs come straight from V77 (storage.session mgJobs), refreshed every second
  *  - Pause / Resume / Cancel / Remove = the same messages V77 Queue page sends (job-pause, job-cancel, job-remove)
  *  - "Saved files" (storage.local mgHist): Open / Show call DownloadsApi.openFile / showFile (S65; before: engine eval)
+ *  - S66: search box, More menu / long press on a saved file: Share, Remove from list, Delete file
  *  - Clear = jobs-clear (removes everything that is not running)
  * Not here: Share (needs the file uri from DownloadsApi), notification buttons (DownloadService).
  */
@@ -55,6 +57,7 @@ object DownloadsScreen {
         private var list: LinearLayout? = null
         private var empty: TextView? = null
         private var sig = ""
+        private var query = "" // S66: search box
         private val tick = object : Runnable {
             override fun run() {
                 render()
@@ -98,6 +101,14 @@ object DownloadsScreen {
                 }, at, android.widget.LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginStart = dp(4); marginEnd = dp(4) })
                 findViewById<View>(R.id.xd_close).visibility = View.GONE // the back arrow already closes
             }
+            findViewById<android.widget.EditText>(R.id.xd_search)?.let { et -> // S66
+                et.background = round(act.getColor(R.color.mg_surface_variant), 22)
+                et.addTextChangedListener(object : android.text.TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
+                    override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {}
+                    override fun afterTextChanged(e: android.text.Editable?) { query = e?.toString().orEmpty(); sig = ""; render() }
+                })
+            }
             findViewById<View>(R.id.xd_clear).setOnClickListener {
                 EngineApi.send(JSONObject().put("type", "jobs-clear"))
                 main.postDelayed({ sig = ""; render() }, 400)
@@ -110,17 +121,61 @@ object DownloadsScreen {
 
         private fun pctOf(j: JSONObject): Int = (j.optDouble("pct", 0.0).coerceIn(0.0, 1.0) * 100).toInt()
 
+        /** S66: saved files, newest first; with a search text every file is searched (max 100), else the latest 30. */
+        private fun histOf(): List<JSONObject> {
+            val all = EngineApi.history()
+            val q = query.trim().lowercase()
+            return if (q.isEmpty()) all.take(30) else all.filter { it.optString("title").lowercase().contains(q) }.take(100)
+        }
+
+        /** S66: Share / Remove from list / Delete file. */
+        private fun fileMenu(h: JSONObject) {
+            val id = h.optInt("id", 0)
+            val names = if (id > 0) arrayOf("Share", "Remove from list", "Delete file from phone") else arrayOf("Remove from list")
+            MaterialAlertDialogBuilder(act)
+                .setTitle(h.optString("title").ifBlank { "file" })
+                .setItems(names) { _, w ->
+                    when (names[w]) {
+                        "Share" -> DownloadsApi.shareFile(act, id)
+                        "Remove from list" -> removeFromList(h)
+                        else -> MaterialAlertDialogBuilder(act)
+                            .setTitle("Delete this file from your phone?")
+                            .setPositiveButton("Delete") { _, _ ->
+                                Util.toast(act, if (DownloadsApi.deleteFile(id)) "File deleted" else "File not found")
+                                removeFromList(h)
+                            }
+                            .setNegativeButton("Cancel", null)
+                            .show()
+                    }
+                }
+                .show()
+        }
+
+        /** Same as the V77 history page Remove: drops the entry (id + time) from storage.local mgHist. */
+        private fun removeFromList(h: JSONObject) {
+            val a = try { ChromeBridge.local.get("mgHist").optJSONArray("mgHist") } catch (e: Exception) { null } ?: return
+            val out = org.json.JSONArray()
+            for (k in 0 until a.length()) {
+                val x = a.optJSONObject(k) ?: continue
+                if (!(x.optInt("id") == h.optInt("id") && x.optLong("time") == h.optLong("time"))) out.put(x)
+            }
+            ChromeBridge.storageSet("local", JSONObject().put("mgHist", out))
+            sig = ""
+            render()
+        }
+
         private fun render() {
             val box = list ?: return
             val jobs = EngineApi.jobs()
-            val hist = EngineApi.history().take(30)
+            val hist = histOf()
             val s = jobs.joinToString("|") {
                 it.optString("key") + ":" + it.optString("state") + ":" + pctOf(it) + ":" + it.optBoolean("paused") + ":" + it.optString("text")
-            } + "#" + hist.joinToString("|") { it.optString("id") + ":" + it.optLong("time") }
+            } + "?" + query + "#" + hist.joinToString("|") { it.optString("id") + ":" + it.optLong("time") }
             if (s == sig) return
             sig = s
             box.removeAllViews()
             empty?.visibility = if (jobs.isEmpty() && hist.isEmpty()) View.VISIBLE else View.GONE
+            empty?.text = if (query.isBlank()) "No downloads yet\nFiles you save show up here" else "No saved file matches"
             val running = jobs.filter { it.optString("state") == "run" }
             val other = jobs.filter { it.optString("state") != "run" }
             if (running.isNotEmpty()) box.addView(section("Downloading (${running.size})"))
@@ -253,7 +308,15 @@ object DownloadsScreen {
             col.addView(label(title, 15f, act.getColor(R.color.mg_text), 2))
             col.addView(label(listOfNotNull(ext?.uppercase(), size.ifEmpty { null }, ago).joinToString(" · "), 12f, act.getColor(R.color.mg_text_dim), 1))
             head.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            head.addView(android.widget.ImageView(act).apply { // S66: more menu
+                setImageResource(R.drawable.ic_more)
+                setColorFilter(act.getColor(R.color.mg_text_dim))
+                setPadding(dp(8), dp(8), dp(8), dp(8))
+                contentDescription = "More"
+                setOnClickListener { fileMenu(h) }
+            }, LinearLayout.LayoutParams(dp(40), dp(40)))
             c.addView(head)
+            c.setOnLongClickListener { fileMenu(h); true }
             if (id > 0) {
                 // S65: both buttons call DownloadsApi directly (the old engine eval did nothing when the id was unknown)
                 val actions = actionRow()

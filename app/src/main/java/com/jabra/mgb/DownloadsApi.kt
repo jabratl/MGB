@@ -395,6 +395,32 @@ object DownloadsApi {
         try { a.startActivity(intent) } catch (e: Exception) { Util.toast(a, "No app can open this file") }
     }
 
+    /** S66: share a finished file with another app. */
+    fun shareFile(a: Activity, id: Int) {
+        val i = synchronized(items) { items[id] }
+        val u = if (i == null) null else contentUri(i)
+        if (i == null || u == null || !checkExists(i)) { Util.toast(a, "File not found"); return }
+        val send = Intent(Intent.ACTION_SEND).setType(i.mime.ifEmpty { "*/*" }).putExtra(Intent.EXTRA_STREAM, u)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        try { a.startActivity(Intent.createChooser(send, "Share").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) }
+        catch (e: Exception) { Util.toast(a, "Cannot share this file") }
+    }
+
+    /** S66: delete the file from the phone (same as chrome.downloads.removeFile). false = nothing to delete. */
+    fun deleteFile(id: Int): Boolean {
+        val i = synchronized(items) { items[id] } ?: return false
+        if (i.state != "complete") return false
+        try {
+            if (i.uri.startsWith("content:")) {
+                val u = Uri.parse(i.uri)
+                if (u.authority == "media") app.contentResolver.delete(u, null, null)
+                else android.provider.DocumentsContract.deleteDocument(app.contentResolver, u)
+            } else File(i.uri).delete()
+        } catch (e: Exception) { /* already gone */ }
+        change(i) { exists = false }
+        return true
+    }
+
     /** Folder that holds the file as a document id (for example primary:Download/MGB) plus a short label. */
     private fun folderOf(i: DlItem): Pair<String, String> {
         val u = if (i.uri.startsWith("content:")) Uri.parse(i.uri) else null
