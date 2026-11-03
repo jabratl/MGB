@@ -43,6 +43,8 @@ object BrowserExtras {
     private var csvText: String? = null // S40
     private var treeLauncher: ActivityResultLauncher<Uri?>? = null // S49
     private var treeDone: (() -> Unit)? = null // S49
+    private var extLauncher: ActivityResultLauncher<Array<String>>? = null // S1 (multi-extension)
+    private var extDone: ((Uri) -> Unit)? = null // S1
 
     /** Remembered Allow / Block answers for this run: "origin|kinds" -> answer. */
     private val decided = HashMap<String, Boolean>()
@@ -125,6 +127,23 @@ object BrowserExtras {
                 cb?.invoke()
             }
         }
+        // S1: extension file picker (.zip / .crx). Registered last so the keys of the launchers above stay the same.
+        extLauncher = a.registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            val cb = extDone
+            extDone = null
+            if (uri != null) cb?.invoke(uri)
+        }
+    }
+
+    /** S1: let the user pick an extension file (.zip / .crx). The .crx mime type is unreliable, so any file is allowed. */
+    fun pickExtension(done: (Uri) -> Unit) {
+        val l = extLauncher
+        val a = act
+        if (l == null || a == null) return
+        extDone = done
+        try {
+            l.launch(arrayOf("application/zip", "application/x-chrome-extension", "application/octet-stream", "*/*"))
+        } catch (e: Exception) { extDone = null; Util.toast(a, "No file picker found") }
     }
 
     /** S49: let the user pick the download folder (system folder picker). */

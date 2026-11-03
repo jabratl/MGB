@@ -613,6 +613,9 @@ object SettingsScreen {
                 Row(R.drawable.ic_add, "Create email alias") { EmailAlias.create(act, "") },
                 Row(R.drawable.ic_list, "My email aliases") { EmailAlias.manage(act) }
             ))
+            category("extensions", R.drawable.ic_folder, "Extensions", "Add, turn on or off, remove", listOf( // S1
+                Row(R.drawable.ic_folder, "Extensions", ExtListScreen.summary(act), "Add .zip or .crx files") { dismiss(); ExtListScreen.open(act) }
+            ))
             category("about", R.drawable.ic_info, "About", "Updates, engine, version", listOf(
                 Row(R.drawable.ic_reload, "Check for updates") { UpdateManager.check(act, false) },
                 Row(R.drawable.ic_info, "Engine status") { EngineHost.showStatus(act) },

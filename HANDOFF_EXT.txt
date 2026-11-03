@@ -1,5 +1,14 @@
 HANDOFF_EXT (newest on top)
 
+== after S1, version 0.0.94 ==
+- ExtListScreen.open(act) / close() / summary(act). Dialog, no manifest entry. Calls ExtRegistry.init itself.
+- BrowserExtras.pickExtension { uri -> } : OpenDocument, mime list includes "*/*" (crx mime unreliable). Needs MainActivity.onCreate BrowserExtras.init (already there).
+- SettingsScreen: category key "extensions" placed before "about". Row click: dismiss() then ExtListScreen.open.
+- Permission dialog only WARNS (nativeMessaging / MV2 note). Real block = S8 in ExtRegistry.prepareSync.
+- Drawables used (exist in repo, seen via SettingsScreen): ic_back, ic_add, ic_trash, ic_folder.
+- No strings.xml entries added (texts hardcoded like SettingsScreen). No layout XML.
+- S3: add per-extension storage wipe in ExtRegistry.remove (still not done).
+
 == after S0, version 0.0.93 ==
 API (object ExtRegistry, package com.jabra.mgb):
 - init(ctx)  call once before use (idempotent). Cleans .stage_*/.old_* folders.
