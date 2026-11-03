@@ -233,6 +233,7 @@ object ExtListScreen {
                 .setMessage("Remove " + e.name + "? Its files are deleted.")
                 .setPositiveButton("Remove") { _, _ ->
                     if (!ExtRegistry.remove(e.id)) Util.toast(act, "Could not remove all files")
+                    ChromeBridge.removeExtData(act, e.id) // S3: wipe its storage
                     fill()
                 }
                 .setNegativeButton("Cancel", null)

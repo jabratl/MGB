@@ -34,6 +34,7 @@ object ChromeBridge {
     private val tabIds = WeakHashMap<WebView, Int>()
     private val handlers = HashMap<String, (Call) -> Unit>()
     private val replies = HashMap<Int, (Any?) -> Unit>()
+    private val replyOwner = HashMap<Int, String>() // S3: request id -> extension that may answer it
     private var nextReq = 1
     private var logged = 0
     private var inited = false
@@ -46,6 +47,8 @@ object ChromeBridge {
 
     /** One frame that runs the shim. */
     class Ctx(val kind: Kind, val web: WebView, val origin: String, val isMainFrame: Boolean, val proxy: JavaScriptReplyProxy) {
+        /** S3: extension ids whose shim has talked from this frame (several extensions can share one frame). */
+        val ids = HashSet<String>()
         val tabId: Int get() = tabIds[web] ?: -1
         fun post(s: String) = runMain {
             try { proxy.postMessage(s) } catch (e: Exception) { ctxs.remove(this) }
@@ -53,17 +56,17 @@ object ChromeBridge {
     }
 
     /** One request from a frame. Handlers must call ok() or fail() exactly once (any thread). */
-    class Call(val ctx: Ctx, val api: String, val args: JSONArray, private val id: Int) {
+    class Call(val ctx: Ctx, val api: String, val args: JSONArray, private val id: Int, val extId: String = ContentInjector.EXT_ID) {
         private var done = false
         fun ok(result: Any? = null) {
             if (done) return
             done = true
-            ctx.post(JSONObject().put("i", id).put("r", result ?: JSONObject.NULL).toString())
+            ctx.post(JSONObject().put("i", id).put("x", extId).put("r", result ?: JSONObject.NULL).toString())
         }
         fun fail(msg: String) {
             if (done) return
             done = true
-            ctx.post(JSONObject().put("i", id).put("err", msg).toString())
+            ctx.post(JSONObject().put("i", id).put("x", extId).put("err", msg).toString())
         }
     }
 
@@ -88,19 +91,21 @@ object ChromeBridge {
     fun contexts(): List<Ctx> = ctxs.toList()
 
     /** Push an event ("tabs.onRemoved", "storage.onChanged"...) to all frames that pass `filter`. */
-    fun emit(event: String, args: JSONArray, filter: (Ctx) -> Boolean = { true }) {
-        val s = JSONObject().put("e", event).put("p", args).toString()
+    fun emit(event: String, args: JSONArray, extId: String = ContentInjector.EXT_ID, filter: (Ctx) -> Boolean = { true }) {
+        val s = JSONObject().put("e", event).put("x", extId).put("p", args).toString()
         runMain { for (c in ctxs.toList()) if (filter(c)) c.post(s) }
     }
 
     /** Deliver runtime.onMessage to one frame; cb gets the response (null if none / timeout). */
-    fun request(ctx: Ctx, message: Any?, sender: JSONObject, cb: (Any?) -> Unit) {
+    fun request(ctx: Ctx, message: Any?, sender: JSONObject, extId: String = ContentInjector.EXT_ID, cb: (Any?) -> Unit) {
         runMain {
+            if (extId !in ctx.ids) { cb(null); return@runMain } // S3: that extension has no shim in this frame
             val id = nextReq++
             replies[id] = cb
-            main.postDelayed({ replies.remove(id)?.invoke(null) }, 30_000)
+            replyOwner[id] = extId
+            main.postDelayed({ replyOwner.remove(id); replies.remove(id)?.invoke(null) }, 30_000)
             ctx.post(
-                JSONObject().put("e", "runtime.onMessage").put("q", id)
+                JSONObject().put("e", "runtime.onMessage").put("x", extId).put("q", id)
                     .put("p", JSONArray().put(message ?: JSONObject.NULL).put(sender)).toString()
             )
         }
@@ -122,7 +127,10 @@ object ChromeBridge {
     private fun onMessage(view: WebView, data: String?, origin: Uri, isMain: Boolean, proxy: JavaScriptReplyProxy) {
         if (data == null) return
         val m = try { JSONObject(data) } catch (_: Exception) { return }
-        if (m.optString("t") != ContentInjector.token) return
+        // S3: x = extension id of the shim that sent it (absent = V77); token is per extension
+        val xid = m.optString("x", "").ifEmpty { ContentInjector.EXT_ID }
+        if (m.optString("t") != ContentInjector.tokenFor(xid)) return
+        if (xid != ContentInjector.EXT_ID && ExtRegistry.get(xid)?.enabled != true) return
         var ctx = ctxs.firstOrNull { it.proxy === proxy }
         if (ctx == null) {
             val kind = if (origin.toString() == ContentInjector.EXT_ORIGIN) Kind.EXT else Kind.CONTENT
@@ -131,16 +139,28 @@ object ChromeBridge {
             val same = ctxs.filter { it.web === view }
             if (same.size > MAX_CTX_PER_WEB) ctxs.remove(same.first())
         }
+        ctx.ids.add(xid)
         val api = m.optString("a")
         val args = m.optJSONArray("p") ?: JSONArray()
         when (api) {
             "__hello" -> return
             "__bye" -> { ctxs.remove(ctx); return }
-            "__reply" -> { replies.remove(args.optInt(0))?.invoke(args.opt(1)); return }
+            "__reply" -> {
+                val rid = args.optInt(0)
+                if (replyOwner[rid] == xid) { replyOwner.remove(rid); replies.remove(rid)?.invoke(args.opt(1)) }
+                return
+            }
             "__log" -> { if (logged++ < 80) Log.d("MGB.shim", args.optString(0).take(600)); return }
         }
-        val call = Call(ctx, api, args, m.optInt("i"))
-        if (ctx.kind == Kind.CONTENT && !CONTENT_OK.matches(api)) { call.fail("Not allowed: $api"); return }
+        val call = Call(ctx, api, args, m.optInt("i"), xid)
+        // S3: installed extensions get only the content-script API set for now (S4/S6 widen it per extension)
+        if ((ctx.kind == Kind.CONTENT || xid != ContentInjector.EXT_ID) && !CONTENT_OK.matches(api)) { call.fail("Not allowed: $api"); return }
+        if (xid != ContentInjector.EXT_ID && api == "runtime.sendMessage") {
+            // routing of extension messages (own popup / background) arrives with S4/S5: they register "ext.runtime.sendMessage"
+            val eh = handlers["ext.runtime.sendMessage"]
+            if (eh == null) call.fail("Could not establish connection. Receiving end does not exist.") else eh(call)
+            return
+        }
         val h = handlers[api]
         if (h == null) { call.fail("Not implemented: $api"); return }
         try { h(call) } catch (e: Exception) { call.fail(e.message ?: e.toString()) }
@@ -247,27 +267,67 @@ object ChromeBridge {
 
     fun area(name: String): Area = when (name) { "local" -> local; "sync" -> sync; else -> session }
 
-    /** Set storage values from native code (e.g. S15/S16) and notify all frames. */
-    fun storageSet(areaName: String, items: JSONObject) = fire(areaName, area(areaName).set(items))
+    // S3: every installed extension has its own areas: filesDir/exts_data/<id>/{local,sync}.json (session = memory).
+    // Kept outside exts/<id>/ so an update (folder swap) keeps the data; removeExtData() wipes it.
+    private val extAreas = HashMap<String, Area>()
+    private lateinit var dataRoot: File
+    private const val QUOTA_LOCAL = 10L * 1024 * 1024
+    private const val QUOTA_SYNC = 102_400L
 
-    private fun fire(areaName: String, changes: JSONObject) {
-        if (changes.length() > 0) emit("storage.onChanged", JSONArray().put(changes).put(areaName))
+    fun area(extId: String, name: String): Area {
+        if (extId == ContentInjector.EXT_ID) return area(name)
+        if (!ExtRegistry.isValidId(extId)) throw IllegalArgumentException("bad extension id")
+        return synchronized(extAreas) {
+            extAreas.getOrPut("$extId/$name") {
+                if (name == "session") Area(null)
+                else Area(File(File(dataRoot, extId).also { it.mkdirs() }, "$name.json"))
+            }
+        }
+    }
+
+    /** Call after an extension is removed: deletes its storage (files + memory). */
+    fun removeExtData(ctx: Context, extId: String) {
+        init(ctx)
+        if (!ExtRegistry.isValidId(extId) || extId == ContentInjector.EXT_ID) return
+        synchronized(extAreas) { extAreas.keys.removeAll { it.startsWith("$extId/") } }
+        try { File(dataRoot, extId).deleteRecursively() } catch (e: Exception) { Log.e("MGB", "ext data wipe failed", e) }
+    }
+
+    /** Set storage values from native code (e.g. S15/S16) and notify all frames. */
+    fun storageSet(areaName: String, items: JSONObject, extId: String = ContentInjector.EXT_ID) =
+        fire(areaName, area(extId, areaName).set(items), extId)
+
+    private fun fire(areaName: String, changes: JSONObject, extId: String = ContentInjector.EXT_ID) {
+        if (changes.length() > 0) emit("storage.onChanged", JSONArray().put(changes).put(areaName), extId)
+    }
+
+    private fun checkQuota(extId: String, n: String, a: Area, items: JSONObject) {
+        if (extId == ContentInjector.EXT_ID) return
+        val limit = when (n) { "local" -> QUOTA_LOCAL; "sync" -> QUOTA_SYNC; else -> QUOTA_LOCAL }
+        var add = 0L
+        for (k in items.keys()) add += k.length + items.get(k).toString().length
+        if (a.bytes(null) + add > limit) throw IllegalStateException("QUOTA_BYTES quota exceeded")
     }
 
     @Synchronized fun init(ctx: Context) {
         if (inited) return
         inited = true
         val dir = ctx.applicationContext.filesDir
+        dataRoot = File(dir, "exts_data")
         local = Area(File(dir, "ext_storage_local.json"))
         sync = Area(File(dir, "ext_storage_sync.json"))
         session = Area(null)
         for (n in listOf("local", "sync", "session")) {
-            val a = area(n)
-            onSync("storage.$n.get") { a.get(it.args.opt(0)) }
-            onSync("storage.$n.set") { fire(n, a.set(it.args.optJSONObject(0) ?: JSONObject())); null }
-            onSync("storage.$n.remove") { fire(n, a.remove(it.args.opt(0))); null }
-            onSync("storage.$n.clear") { fire(n, a.clear()); null }
-            onSync("storage.$n.getBytesInUse") { a.bytes(it.args.opt(0)) }
+            onSync("storage.$n.get") { c -> area(c.extId, n).get(c.args.opt(0)) }
+            onSync("storage.$n.set") { c ->
+                val a = area(c.extId, n)
+                val items = c.args.optJSONObject(0) ?: JSONObject()
+                checkQuota(c.extId, n, a, items)
+                fire(n, a.set(items), c.extId); null
+            }
+            onSync("storage.$n.remove") { c -> fire(n, area(c.extId, n).remove(c.args.opt(0)), c.extId); null }
+            onSync("storage.$n.clear") { c -> fire(n, area(c.extId, n).clear(), c.extId); null }
+            onSync("storage.$n.getBytesInUse") { c -> area(c.extId, n).bytes(c.args.opt(0)) }
         }
         onSync("event.add") { null } // frames announce the events they listen to; S6+ may use it
     }

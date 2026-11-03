@@ -11,7 +11,7 @@
   var seq = 0, pending = {}, listeners = {}, lastError;
   var slice = Array.prototype.slice;
 
-  function send(obj) { obj.t = CFG.token; post(JSON.stringify(obj)); }
+  function send(obj) { obj.t = CFG.token; obj.x = CFG.id; post(JSON.stringify(obj)); } // S3: x = this extension's id
   function call(api, args) {
     return new Promise(function (resolve, reject) {
       var id = ++seq;
@@ -82,6 +82,7 @@
     var m;
     try { m = JSON.parse(ev.data); } catch (e) { return; }
     if (!m) return;
+    if (m.x && m.x !== CFG.id) return; // S3: several extensions can share one frame; answer/event is for another one
     if (m.e) {
       var a = m.p || [];
       if (m.e === 'runtime.onMessage' && m.q) { deliverMessage(a, m.q); return; }
