@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.68 (S64: Settings Downloads redesign + Tools sheet, see the S64 note at the end; before: S63)
+
 CURRENT VERSION 0.0.67 (S63: sizes per quality + subtitle with video, see the S63 note at the end; before: S62)
 
 CURRENT VERSION 0.0.66 (S62: Grabber settings screen, see the S62 note at the end; before: S61)
@@ -338,3 +340,10 @@ V77 detail: startJob adds the subtitle when S.autoSubs && !msg.noSubs (backgroun
 Checks: Kotlin braces/parens balance (paren +1 is old); NOT compiled; UI NOT rendered at 360/1280 dark/light.
 NOT tested: size line wraps at 360 px; sizes appear when the duration is known (HLS master playlists often give none until the player runs: then no size is shown); toggle row reopens the sheet; subtitle really saved with the video; row size matches the real file.
 Still missing natively: per-download subtitle on/off (needs noSubs in the start-job call from a second button), Pick pages (manga.html), native queue / history pages, DASH variants beyond 10, schedule of a single file.
+
+======== S64 note (0.0.68) ========
+Changed: ToolsSheet.kt (NEW: grouped bottom sheet Item(icon,title,info,action) / Group) / NativeBatch.kt (tools() builds groups, no more AlertDialog list) / SettingsScreen.kt (Row got hint; rowView shows it; search also matches hint; SUB_FOLD 10->14; Downloads card split into "downloads" + new "grabber" card; helpers subSummary / engSummary; Followed manga + Scheduled rows open Follow / Sched with BookmarksScreen.tabsRef.openUrl) / Follow.kt (count(); "Follow this page" row only when a page ref is given) / Sched.kt (count()) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt. No JS change.
+Removed rows moved, not deleted: Detected files (quality, convert) and Save location now inside "Quality and files".
+Checks: Kotlin braces/parens balance; NOT compiled; UI NOT rendered at 360/1280 dark/light.
+NOT tested: both cards look right and rows fit at 360 px; hint lines wrap; Tools sheet scrolls and each row opens its screen; Followed manga from Settings opens a tab; Scheduled from Settings shows the list (cannot add there: needs files of a page).
+Still missing natively: per-download subtitle on/off, Pick pages (manga.html), native queue / history pages, DASH variants beyond 10, schedule of a single file.

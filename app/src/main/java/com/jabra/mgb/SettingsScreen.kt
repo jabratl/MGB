@@ -70,7 +70,7 @@ object SettingsScreen {
         private var sv: ScrollView? = null
         private var openCat: String? = null // S46
         private var query = "" // S48 search text
-        private val SUB_FOLD = 10 // S48: rows per category before sub groups fold
+        private val SUB_FOLD = 14 // S48: rows per category before sub groups fold
         private val cats = LinkedHashMap<String, Pair<View, View>>() // key -> (content, chevron)
 
         private fun dp(v: Int) = Util.dp(act, v)
@@ -185,7 +185,7 @@ object SettingsScreen {
             fill()
         }
 
-        private class Row(val icon: Int, val label: String, val value: String = "", val onClick: (() -> Unit)? = null)
+        private class Row(val icon: Int, val label: String, val value: String = "", val hint: String = "", val onClick: (() -> Unit)? = null)
 
         private class Sub(val title: String)
 
@@ -226,12 +226,20 @@ object SettingsScreen {
                 setImageResource(r.icon)
                 setColorFilter(act.getColor(R.color.mg_text_dim))
             }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(16) })
-            line.addView(TextView(act).apply {
+            val labelBox = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+            labelBox.addView(TextView(act).apply {
                 text = r.label
                 textSize = 15f
                 maxLines = 2
                 setTextColor(act.getColor(R.color.mg_text))
-            }, LinearLayout.LayoutParams(0, WRAP, 1f))
+            })
+            if (r.hint.isNotEmpty()) labelBox.addView(TextView(act).apply { // S64: one line of help under the title
+                text = r.hint
+                textSize = 12f
+                maxLines = 2
+                setTextColor(act.getColor(R.color.mg_text_dim))
+            })
+            line.addView(labelBox, LinearLayout.LayoutParams(0, WRAP, 1f))
             if (r.value == "ON" || r.value == "OFF") {
                 line.addView(switchFor(r.value == "ON"), LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(8) })
             } else if (r.value.isNotEmpty()) {
@@ -258,7 +266,7 @@ object SettingsScreen {
                 for (item in items) {
                     when (item) {
                         is Sub -> pend = item
-                        is Row -> if (item.label.contains(q, true)) {
+                        is Row -> if (item.label.contains(q, true) || item.hint.contains(q, true)) {
                             pend?.let { out.add(it) }
                             pend = null
                             out.add(item)
@@ -392,6 +400,16 @@ object SettingsScreen {
         private fun nativeBtn(): Boolean =
             act.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE).getBoolean("native_btn", false)
 
+        /** S64: one-line summaries of V77 settings for the rows. */
+        private fun syncStr(k: String, def: String): String = try { ChromeBridge.sync.get(k).optString(k, def) } catch (e: Exception) { def }
+        private fun syncInt(k: String, def: Int): Int = try { ChromeBridge.sync.get(k).optInt(k, def) } catch (e: Exception) { def }
+        private fun subSummary(): String =
+            if (!v77On("autoSubs", true)) "OFF" else syncStr("subLangs", "en").ifBlank { "any" } + " · " + syncStr("subFmt", "srt").uppercase()
+        private fun engSummary(): String {
+            val sp = syncInt("speedLimitKBps", 0)
+            return syncInt("maxJobs", 2).toString() + " at a time · " + (if (sp <= 0) "no limit" else if (sp >= 1024) "${sp / 1024} MB/s" else "$sp KB/s")
+        }
+
         private fun ext(page: String) {
             if (!ExtScreen.open(act, ContentInjector.EXT_BASE + page)) Util.toast(act, "Could not open $page")
         }
@@ -445,25 +463,28 @@ object SettingsScreen {
                     fill()
                 }
             ))
-            category("downloads", R.drawable.ic_download, "Downloads", "Grabber, player, buttons", listOf(
-                Sub("Manage"),
-                Row(R.drawable.ic_download, "Downloads") { dismiss(); DownloadsScreen.open(act) },
-                Row(R.drawable.ic_list, "Queue") { ext("queue.html") },
-                Row(R.drawable.ic_history, "Download history") { ext("history.html") },
-                Row(R.drawable.ic_settings, "Grabber settings") { ext("options.html") },
-                Sub("Save location"), // S49
-                Row(R.drawable.ic_folder, "Download folder", DownloadFolder.label(act)) { DownloadFolder.showDialog(act) { fill() } },
+            category("downloads", R.drawable.ic_download, "Downloads", "Library, quality, files", listOf( // S64: arranged by what you do
+                Sub("Library"),
+                Row(R.drawable.ic_download, "Downloads", "", "Files saved on this phone") { dismiss(); DownloadsScreen.open(act) },
+                Row(R.drawable.ic_list, "Queue", "", "Running, waiting and failed jobs") { ext("queue.html") },
+                Row(R.drawable.ic_history, "Download history", "", "Everything Grabber saved") { ext("history.html") },
+                Row(R.drawable.ic_bookmark, "Followed manga", Follow.count().let { if (it > 0) "$it" else "" }, "Alerts for new chapters") { Follow.open(act, "", null) { u -> dismiss(); BookmarksScreen.tabsRef?.openUrl(u) } },
+                Row(R.drawable.ic_history, "Scheduled downloads", Sched.count().let { if (it > 0) "$it" else "" }, "Start at a time you choose") { Sched.open(act) { emptyList() } },
+                Sub("Quality and files"),
+                Row(R.drawable.ic_download, "Download quality", DetectedPanel.maxQLabel(), "Used when you press Download or Download all") { DetectedPanel.maxQDialog(act) { fill() } },
+                Row(R.drawable.ic_pl_cc, "Subtitles and file names", subSummary(), "Languages, format, Plex / Jellyfin names") { SubName.open(act) },
+                Row(R.drawable.ic_download, "Convert .ts to .mp4", if (DetectedPanel.convertOn()) "ON" else "OFF") { DetectedPanel.convertDialog(act) { fill() } },
+                Row(R.drawable.ic_folder, "Download folder", DownloadFolder.label(act), "Where new files are saved") { DownloadFolder.showDialog(act) { fill() } },
                 Row(R.drawable.ic_folder, "Sub-folders in the chosen folder", if (DownloadFolder.subfolders(act)) "ON" else "OFF") {
                     DownloadFolder.setSubfolders(act, !DownloadFolder.subfolders(act))
                     fill()
-                },
-                Sub("Detected files"), // S50
-                Row(R.drawable.ic_download, "Download quality (auto select)", DetectedPanel.maxQLabel()) { // S52: V77 maxHeight
-                    DetectedPanel.maxQDialog(act) { fill() }
-                },
-                Row(R.drawable.ic_download, "Convert .ts to .mp4", if (DetectedPanel.convertOn()) "ON" else "OFF") {
-                    DetectedPanel.convertDialog(act) { fill() }
-                },
+                }
+            ))
+            category("grabber", R.drawable.ic_settings, "Grabber and buttons", "Engine, buttons, player", listOf(
+                Sub("Engine"),
+                Row(R.drawable.ic_settings, "Download engine", engSummary(), "Speed, retries, limits, live recording") { DlEngine.open(act) },
+                Row(R.drawable.ic_settings, "Grabber settings", "", "Sites, theme, backup, reset") { GrabSet.open(act) },
+                Row(R.drawable.ic_screen, "All V77 options page", "", "The full original settings page") { ext("options.html") },
                 Sub("Player and buttons"),
                 Row(R.drawable.ic_play, "Play video links in built-in player", if (WebPlay.linksEnabled(act)) "ON" else "OFF") { // S39
                     WebPlay.setLinksEnabled(act, !WebPlay.linksEnabled(act))

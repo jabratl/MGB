@@ -20,6 +20,8 @@ object Sched {
         return out.sortedBy { it.optLong("when") }
     }
 
+    fun count(): Int = list().size
+
     fun label(): String = "Scheduled downloads" + list().size.let { if (it > 0) " ($it)" else "" }
 
     private fun fmt(t: Long): String = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT).format(java.util.Date(t))

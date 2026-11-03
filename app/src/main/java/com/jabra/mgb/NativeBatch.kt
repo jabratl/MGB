@@ -146,31 +146,40 @@ object NativeBatch {
     fun tools(act: Activity, tabId: Int, ref: String, subCount: Int, shownCount: Int, downloadAll: (() -> Unit)?, shownJobs: () -> List<JSONObject>, openUrl: (String) -> Unit, closePanel: () -> Unit) {
         val f = found(ref)
         val mg = manga(ref)
-        val names = ArrayList<String>()
-        val runs = ArrayList<() -> Unit>()
-        if (mg != null) { names.add("Manga pages" + (if (mg.n > 0) " (${mg.n})" else "")); runs.add { mangaMenu(act, tabId, closePanel) } }
-        if (f != null) { names.add("Episodes / chapters (${f.eps.size})"); runs.add { episodes(act, tabId, f) } }
-        if (shownCount > 0 && downloadAll != null) { names.add("Download all ($shownCount files)"); runs.add { downloadAll() } } // S56
-        names.add("Buttons on this site: " + DlMode.siteLabel(act, Util.host(ref))); runs.add { DlMode.siteDialog(act, Util.host(ref)) {} } // S57
-        names.add("Subtitles and file names"); runs.add { SubName.open(act) } // S59
-        names.add("Download engine (speed, retries, limits)"); runs.add { DlEngine.open(act) } // S60
-        names.add("Grabber settings (buttons, sites, backup)"); runs.add { GrabSet.open(act) } // S62
-        names.add("Paste links (batch)"); runs.add { pasteLinks(act, tabId, ref) } // S56
-        names.add(Follow.label(ref)); runs.add { Follow.open(act, ref, f, openUrl) } // S61
-        names.add(Sched.label()); runs.add { Sched.open(act, shownJobs) } // S61
-        if (subCount > 0) { names.add("All subtitles of this page ($subCount)"); runs.add { subFormat(act, tabId) } }
-        names.add("Subtitles from the player"); runs.add { subsCapture(act, tabId) }
-        names.add("Play and scan (find hidden videos)"); runs.add {
-            EngineApi.send(JSONObject().put("type", "play-scan").put("tabId", tabId))
-            Util.toast(act, "Scanning... open Detected files again in a few seconds")
-        }
-        names.add("Open full Grabber (manga pages, jobs)"); runs.add {
-            EngineApi.send(JSONObject().put("type", "open-panel").put("tabId", tabId))
-            closePanel()
-        }
-        MaterialAlertDialogBuilder(act).setTitle("More tools")
-            .setItems(names.toTypedArray()) { _, i -> runs[i]() }
-            .setNegativeButton("Close", null).show()
+        val page = ArrayList<ToolsSheet.Item>()
+        if (mg != null) page.add(ToolsSheet.Item(R.drawable.ic_screen, "Manga pages" + (if (mg.n > 0) " (${mg.n})" else ""), "Save as CBZ, ZIP, PDF or EPUB, read, or pick pages") { mangaMenu(act, tabId, closePanel) })
+        if (f != null) page.add(ToolsSheet.Item(R.drawable.ic_list, "Episodes / chapters (${f.eps.size})", "Select, filter by range and download many at once") { episodes(act, tabId, f) })
+        if (shownCount > 0 && downloadAll != null) page.add(ToolsSheet.Item(R.drawable.ic_download, "Download all ($shownCount files)", "Every file shown now, best quality") { downloadAll() })
+        page.add(ToolsSheet.Item(R.drawable.ic_add, "Paste links (batch)", "Download from a list of page links") { pasteLinks(act, tabId, ref) })
+        page.add(ToolsSheet.Item(R.drawable.ic_theme, "Buttons on this site", DlMode.siteLabel(act, Util.host(ref))) { DlMode.siteDialog(act, Util.host(ref)) {} })
+
+        val auto = ArrayList<ToolsSheet.Item>()
+        auto.add(ToolsSheet.Item(R.drawable.ic_bookmark, "Followed manga", Follow.count().let { if (it > 0) "$it followed, new chapter alerts" else "Follow this page for new chapter alerts" }) { Follow.open(act, ref, f, openUrl) })
+        auto.add(ToolsSheet.Item(R.drawable.ic_history, "Scheduled downloads", Sched.count().let { if (it > 0) "$it waiting" else "Start downloads at a time you choose" }) { Sched.open(act, shownJobs) })
+
+        val subs = ArrayList<ToolsSheet.Item>()
+        if (subCount > 0) subs.add(ToolsSheet.Item(R.drawable.ic_pl_cc, "All subtitles of this page ($subCount)", "Save as SRT, VTT or TXT") { subFormat(act, tabId) })
+        subs.add(ToolsSheet.Item(R.drawable.ic_pl_cc, "Subtitles from the player", "Read the subtitle the player is showing") { subsCapture(act, tabId) })
+
+        val set = listOf(
+            ToolsSheet.Item(R.drawable.ic_edit, "Subtitles and file names", "Languages, format, Plex / Jellyfin names") { SubName.open(act) },
+            ToolsSheet.Item(R.drawable.ic_settings, "Download engine", "Speed, retries, limits, live recording") { DlEngine.open(act) },
+            ToolsSheet.Item(R.drawable.ic_settings, "Grabber settings", "Buttons, sites, backup, reset") { GrabSet.open(act) }
+        )
+        val more = listOf(
+            ToolsSheet.Item(R.drawable.ic_search, "Play and scan", "Find videos hidden behind the player") {
+                EngineApi.send(JSONObject().put("type", "play-scan").put("tabId", tabId))
+                Util.toast(act, "Scanning... open Detected files again in a few seconds")
+            },
+            ToolsSheet.Item(R.drawable.ic_share, "Open full Grabber", "Pick pages, job list and the V77 page") {
+                EngineApi.send(JSONObject().put("type", "open-panel").put("tabId", tabId))
+                closePanel()
+            }
+        )
+        ToolsSheet.show(act, "Tools", Util.host(ref), listOf(
+            ToolsSheet.Group("This page", page), ToolsSheet.Group("Automatic", auto), ToolsSheet.Group("Subtitles", subs),
+            ToolsSheet.Group("Settings", set), ToolsSheet.Group("More", more)
+        ))
     }
 
     /** S56: list of pasted page links -> the same V77 batch-episodes as the episode list. */

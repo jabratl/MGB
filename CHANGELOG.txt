@@ -1,3 +1,10 @@
+MGB 0.0.68 (S64: cleaner Settings > Downloads + a smarter Tools sheet)
+- Settings: the long Downloads card is now two cards that never fold away:
+  - Downloads (Library, Quality and files): Downloads, Queue, History, Followed manga, Scheduled downloads / Download quality, Subtitles and file names, Convert .ts, Download folder, Sub-folders.
+  - Grabber and buttons (Engine, Player and buttons, Download buttons): Download engine, Grabber settings (native), full V77 options page, then the button and player switches.
+  - Rows have a one-line help text and a live value (e.g. Subtitles "en · SRT", Engine "2 at a time · no limit"). Settings search also finds words in the help text.
+- Panel > TOOLS is now a bottom sheet with icons and one line of help per row, in groups: This page, Automatic, Subtitles, Settings, More. Followed manga / Scheduled show their counts.
+
 MGB 0.0.67 (S63: sizes per quality + subtitle with the video)
 - Files detected panel: each stream row now shows the size of the quality that will download (e.g. "~210 MB"), and a line with the size of every quality (1080p ~420 MB · 720p ~210 MB ...). Needs the stream duration; shown as approximate (bandwidth x duration).
 - Download > Choose quality: sizes on every quality and on Auto, duration in the title (the duration from the player also counts, not only from the playlist).

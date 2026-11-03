@@ -17,6 +17,8 @@ object Follow {
 
     fun isFollowing(ref: String): Boolean = all().has(noFrag(ref))
 
+    fun count(): Int = all().length()
+
     fun label(ref: String): String {
         val n = all().length()
         return "Followed manga" + (if (n > 0) " ($n)" else "")
@@ -63,8 +65,10 @@ object Follow {
         val runs = ArrayList<() -> Unit>()
         val again = { open(act, ref, found, openUrl) }
         val here = isFollowing(ref)
-        names.add(if (here) "Unfollow this page" else "Follow this page" + (if (found != null) " (${found.eps.size} chapters)" else ""))
-        runs.add { toggle(act, ref, found); again() }
+        if (ref.isNotEmpty()) {
+            names.add(if (here) "Unfollow this page" else "Follow this page" + (if (found != null) " (${found.eps.size} chapters)" else ""))
+            runs.add { toggle(act, ref, found); again() }
+        }
         names.add("Check now"); runs.add {
             Util.toast(act, "Checking...")
             EngineApi.ask(JSONObject().put("type", "follow-check")) { res ->
