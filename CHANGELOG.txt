@@ -1,3 +1,14 @@
+MGB 0.0.76 (S72: tab switcher look)
+- Bottom bar of the tab switcher is now a floating rounded pill (surface colour, thin outline, soft shadow) with margins.
+- New tab button: rose to violet gradient pill with a small tick when tapped.
+- The current tab card has a rose ring (not only the rose header).
+- Cards pop in with a soft scale + slide (decelerate); closing a tab slides it up while it fades.
+
+MGB 0.0.75 (S71: menu sheet look)
+- Menu: grab handle on top; the 4 quick tiles (Bookmarks, History, Downloads, Grabber) have a rose icon badge, press ripple, a small tick on tap, and pop in one after the other.
+- ON values (like the blocker count) are a small rose pill.
+- The "Ad blocker" row is now "Privacy Guard" and opens the Privacy Guard sheet on web pages (on home / extension pages it still switches the blocker).
+
 MGB 0.0.74 (S70: Ads and trackers blocker stats)
 - Privacy Guard > "Blocker stats": numbers for today, last 7 days and total, a 21 day bar chart (today in rose), and the 5 sites with most blocked requests since the app started.
 - The blocker now keeps a count per day (last 30 days, saved with the total). Counting starts with this version, older days show 0.

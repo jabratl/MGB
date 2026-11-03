@@ -185,8 +185,9 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Item("Page info", R.drawable.ic_info, canMark) { PageInfo.show(this, tabs) }, // S29
             MenuSheet.Item("Fill password", R.drawable.ic_lock, canMark && cur?.priv != true) { PasswordStore.fill(this, tabs) }, // S30
             MenuSheet.Item("Email alias", R.drawable.ic_share, true) { EmailAlias.create(this, cur?.url?.takeIf { canMark }?.let { Util.host(it) } ?: "") }, // S30
-            MenuSheet.Item("Ad blocker", R.drawable.ic_shield, true, if (AdBlock.enabled) "ON · ${AdBlock.blocked}" else "OFF") { // S19
-                Util.toast(this, if (AdBlock.toggle()) "Ad blocker ON (reload the page)" else "Ad blocker OFF (reload the page)")
+            MenuSheet.Item("Privacy Guard", R.drawable.ic_shield, true, if (AdBlock.enabled) "ON · ${AdBlock.blocked}" else "OFF") { // S19 + S71: opens the Privacy Guard sheet on web pages
+                if (PrivacyGuard.state(tabs.active) != 0) PrivacyGuard.show(this, tabs) { refreshShield() }
+                else Util.toast(this, if (AdBlock.toggle()) "Ad blocker ON (reload the page)" else "Ad blocker OFF (reload the page)")
             }
         )
         val title = when {

@@ -1,3 +1,9 @@
+CURRENT VERSION 0.0.76 (S73: audit of S68-S72, no app code change, see the S73 note at the end; before: S72)
+
+CURRENT VERSION 0.0.76 (S72: tab switcher look, see the S72 note at the end; before: S71)
+
+CURRENT VERSION 0.0.75 (S71: menu sheet look, see the S71 note at the end; before: S70)
+
 CURRENT VERSION 0.0.74 (S70: blocker stats sheet, see the S70 note at the end; before: S69)
 
 CURRENT VERSION 0.0.73 (S69: search engine picker popup, see the S69 note at the end; before: S68)
@@ -411,3 +417,28 @@ NOT tested: chart draws 21 bars at 360 px and both themes; today bar grows after
 Could break: flushTotal now runs a prefs write every 25 blocks (apply, async); per-day data starts empty after update.
 Still missing (from the video): menu sheet look, tab switcher look.
 Next: S71 = menu sheet look, or tab switcher look.
+
+======== S71 note (0.0.75) ========
+Assumption: S71 = menu sheet look (first NEXT of S70). Same cards and rows kept, only the look and one row changed; tab switcher left for S72.
+Changed: MenuSheet.kt (grab handle, icon badge in quick tiles, tile ripple + tick, stagger pop-in in onShow, ON pill; imports FrameLayout, ColorUtils) / MainActivity.kt (menu row "Ad blocker" -> "Privacy Guard", opens PrivacyGuard on web pages, else toggles as before) / app/build.gradle.kts (0.0.75) / CHANGELOG.txt / HANDOFF.txt. No layout, no JS change.
+Checks: Kotlin braces/parens balance on both .kt; NOT compiled; UI NOT rendered at 360/1280 dark/light.
+NOT tested: tiles fit with badge at 360 px (tile height grew ~10 dp); pop-in does not flicker when the sheet opens; ripple foreground shows on tiles in both themes; grab handle sits right above card 1 (negative top margin); Privacy Guard row opens and the menu closes first; ON pill look in light theme.
+Could break: showMenu() on home page still toggles the blocker with a toast (no sheet there).
+Still missing (from the video): tab switcher look.
+Next: S72 = tab switcher look (TabSwitcher.kt is 57 KB: grep first), or fix from first run of 0.0.72-0.0.75.
+
+======== S72 note (0.0.76) ========
+Assumption: the S43 switcher (top pills, 2 column cards, groups, drag) stays as it is; S72 = look and motion only.
+Changed: TabSwitcher.kt (build(): bar background + margins + elevation; drawBar(): new tab button gradient, 44 dp high, haptic tick; card(): ring on current tab; enter(): scale + decelerate; closeAnimated(): slide up + accelerate) / app/build.gradle.kts (0.0.76) / CHANGELOG.txt / HANDOFF.txt. No layout xml, no JS change.
+Checks: Kotlin braces/parens balance; NOT compiled; UI NOT rendered at 360/1280 dark/light.
+NOT tested: select-mode bar (Group / Ungroup / Close, 52 dp high labels) fits inside the pill; gradient colours in light theme; drag auto-scroll near the bar; closing a tab still re-renders without a jump.
+Could break: the bar sits below the scroll area (not over it), so the list is a little shorter; no card is hidden by the bar (checked in build(): bodyFrame weight 1, then bar).
+Still missing (from the video): nothing big. Quetta items done: Privacy Guard, blocker stats, engine picker, menu, switcher.
+Next: S73 = fix from the first run of 0.0.72-0.0.76 (send bug + what you see + where), or the Settings look.
+
+======== S73 note (0.0.76, no version bump: no app code changed) ========
+Assumption: no bug report from 0.0.72-0.0.76 yet and no compiler here, so S73 = static audit of the new code (FIX mode, root cause = "never compiled").
+Checked (script): every R.drawable / R.color / R.id used in PrivacyGuard, EnginePicker, BlockerStats, MenuSheet, MainActivity, TabSwitcher, AdBlock exists; every helper called from the new code exists (SiteConfig, CosmeticFilter, HttpsOnly, PageInfo.show, Util.engineName / setEngine / ENGINES, TabManager.setDesktop); braces balance in all changed .kt; activity_main.xml parses, no duplicate ids; material 1.12.0 is a dependency (MaterialSwitch, BottomSheetDialog).
+Fixed: only the S72 note above (it feared the bar hides the last card: not true, the bar is below the scroll area).
+NOT tested: everything in the S68-S72 NOT tested lists still needs a real build and a phone. First CI build may still show a Kotlin error (type inference in the local lambdas of PrivacyGuard.switchRow is the first place to look): send the exact error line.
+Next: S74 = fix from the first run (bug + what you see + where), or tap on the Home "N ads and trackers blocked" line opens BlockerStats (HomeView.kt blockedLine), or Settings look.

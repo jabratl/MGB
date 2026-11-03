@@ -10,6 +10,8 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.FrameLayout
+import androidx.core.graphics.ColorUtils
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 
@@ -80,10 +82,15 @@ object MenuSheet {
                 setTextColor(cText)
                 maxLines = 1
             }, LinearLayout.LayoutParams(0, WRAP, 1f))
-            if (m.trail.isNotEmpty()) r.addView(TextView(ctx).apply {
+            if (m.trail.isNotEmpty()) r.addView(TextView(ctx).apply { // S71: ON = small rose pill
                 text = m.trail
-                textSize = 13f
-                setTextColor(if (m.trail.startsWith("ON")) cAccent else cDim)
+                textSize = 12f
+                val on = m.trail.startsWith("ON")
+                setTextColor(if (on) cAccent else cDim)
+                if (on) {
+                    background = round(ColorUtils.setAlphaComponent(cAccent, 0x26), 12)
+                    setPadding(dp(10), dp(3), dp(10), dp(3))
+                }
             })
             return r
         }
@@ -93,6 +100,10 @@ object MenuSheet {
             setPadding(dp(12), dp(16), dp(12), dp(16))
         }
 
+        col.addView(View(ctx).apply { background = round(cLine, 3) }, // S71: grab handle
+            LinearLayout.LayoutParams(dp(36), dp(4)).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = dp(12); topMargin = dp(-6) })
+        val tiles = mutableListOf<View>()
+
         // ---- card 1: quick tiles + general rows
         val c1 = card()
         val qrow = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(8), dp(4), dp(8), dp(4)) }
@@ -101,12 +112,16 @@ object MenuSheet {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
                 background = round(cTile, 18)
-                setPadding(0, dp(14), 0, dp(12))
+                if (android.os.Build.VERSION.SDK_INT >= 23) foreground = ripple?.constantState?.newDrawable() // S71: press feedback
+                setPadding(0, dp(12), 0, dp(12))
                 isClickable = true
                 isFocusable = true
-                setOnClickListener { dlg.dismiss(); q.onClick() }
+                setOnClickListener { it.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK); dlg.dismiss(); q.onClick() }
             }
-            t.addView(ImageView(ctx).apply { setImageResource(q.icon); setColorFilter(cAccent) }, LinearLayout.LayoutParams(dp(24), dp(24)))
+            tiles.add(t)
+            val badge = FrameLayout(ctx).apply { background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(ColorUtils.setAlphaComponent(cAccent, 0x26)) } } // S71
+            badge.addView(ImageView(ctx).apply { setImageResource(q.icon); setColorFilter(cAccent) }, FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER))
+            t.addView(badge, LinearLayout.LayoutParams(dp(40), dp(40)))
             t.addView(TextView(ctx).apply {
                 text = q.label
                 textSize = 12f
@@ -181,6 +196,10 @@ object MenuSheet {
         sv.addView(col, ViewGroup.LayoutParams(MATCH, WRAP))
         dlg.setContentView(sv)
         dlg.setOnShowListener { // quiet sheet colour with rounded top
+            tiles.forEachIndexed { i, tv -> // S71: tiles pop in one after the other
+                tv.alpha = 0f; tv.translationY = dp(10).toFloat()
+                tv.animate().alpha(1f).translationY(0f).setStartDelay(60L + i * 40L).setDuration(180).start()
+            }
             dlg.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.background =
                 GradientDrawable().apply {
                     setColor(ctx.getColor(R.color.mg_bg))

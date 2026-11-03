@@ -301,9 +301,11 @@ object TabSwitcher {
             bar = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(16), dp(8), dp(16), dp(12))
+                setPadding(dp(10), dp(4), dp(10), dp(4))
+                background = round(c(R.color.mg_surface), 30, 1, c(R.color.mg_outline)) // S72: floating pill bar
+                elevation = dp(6).toFloat()
             }
-            root.addView(bar, LinearLayout.LayoutParams(MATCH, WRAP))
+            root.addView(bar, LinearLayout.LayoutParams(MATCH, WRAP).apply { setMargins(dp(14), dp(4), dp(14), dp(12)) })
             setContentView(root)
             render()
         }
@@ -489,11 +491,11 @@ object TabSwitcher {
                 setImageResource(R.drawable.ic_add)
                 setColorFilter(c(R.color.mg_on_primary))
                 scaleType = ImageView.ScaleType.CENTER
-                background = round(c(R.color.mg_primary), 26)
+                background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(c(R.color.mg_primary), androidx.core.graphics.ColorUtils.blendARGB(c(R.color.mg_primary), 0xFF7A3CFF.toInt(), 0.35f))).apply { cornerRadius = dp(22).toFloat() } // S72
                 contentDescription = "New tab"
-                setOnClickListener { newTab(mode == 1) }
+                setOnClickListener { it.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK); newTab(mode == 1) }
                 press(this)
-            }, LinearLayout.LayoutParams(dp(96), dp(52)))
+            }, LinearLayout.LayoutParams(dp(96), dp(44)))
             bar.addView(View(act), LinearLayout.LayoutParams(0, 1, 1f))
             bar.addView(icon(R.drawable.ic_trash, "Close all") { closeAll() }, LinearLayout.LayoutParams(dp(56), dp(52)))
         }
@@ -542,8 +544,10 @@ object TabSwitcher {
         private fun enter(views: List<View>) {
             for ((i, v) in views.withIndex()) {
                 v.alpha = 0f
-                v.translationY = dp(14).toFloat()
-                v.animate().alpha(1f).translationY(0f).setDuration(190).setStartDelay((minOf(i, 10) * 22).toLong()).start()
+                v.translationY = dp(16).toFloat()
+                v.scaleX = 0.94f; v.scaleY = 0.94f // S72
+                v.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setInterpolator(android.view.animation.DecelerateInterpolator(1.6f))
+                    .setDuration(240).setStartDelay((minOf(i, 10) * 24).toLong()).start()
             }
         }
 
@@ -651,7 +655,7 @@ object TabSwitcher {
         }
 
         private fun closeAnimated(v: View, t: TabManager.Tab) {
-            v.animate().alpha(0f).scaleX(0.8f).scaleY(0.8f).setDuration(140).withEndAction {
+            v.animate().alpha(0f).scaleX(0.82f).scaleY(0.82f).translationY(-dp(18).toFloat()).setInterpolator(android.view.animation.AccelerateInterpolator()).setDuration(150).withEndAction { // S72
                 tm.close(t)
                 render()
             }.start()
@@ -998,7 +1002,7 @@ object TabSwitcher {
             val hi = isCur && !selecting
             val on = selecting && t.id in picked
             val box = FrameLayout(act).apply {
-                background = round(c(R.color.mg_surface), 18, if (on) 2 else 0, c(R.color.mg_primary))
+                background = round(c(R.color.mg_surface), 18, if (on || hi) 2 else 0, c(R.color.mg_primary)) // S72: current tab has a ring too
                 clipToOutline = true
                 setOnClickListener {
                     if (selecting) { if (on) picked.remove(t.id) else picked.add(t.id); render() }
