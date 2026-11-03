@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.60 (S56: paste links + Download all, see the S56 note at the end; before: S55)
+
 CURRENT VERSION 0.0.59 (S55: manga pages block in the native panel, see the S55 note at the end; before: S54: Smart download buttons)
 
 CURRENT VERSION 0.0.58 (S54: Smart download buttons, see the S54 note at the end; before: S53: V77 tools in the native panel, see the S53 note at the end; before: S52: thumbnails + download quality, see the S52 note at the end; before: S51: download buttons on/off + Grabber button opens the panel + removed links kept, see the S51 note at the end; on top of 0.0.54 = S50d panel design pass).
@@ -269,3 +271,9 @@ Changed: content.js (publishes mgNativeMg {url,t,has,n,site}; grab-pages takes m
 Checks: node --check content.js + background.js OK; Kotlin braces/parens balance; Kotlin NOT compiled; UI NOT rendered (360/1280, dark/light).
 NOT tested (needs real use): card shows on a manga page after the page count appears; CBZ/ZIP/PDF/EPUB save; Read; Pick pages opens manga.html; pill tap on manga pages opens the native panel; episode video pages still open V77 panel.
 Next: paste-links batch + Download all in TOOLS (NEXT #2), per-site button mode, or fix from the first CI log.
+
+======== S56 note (0.0.60) ========
+Changed: NativeBatch.kt (tools() takes shownCount + downloadAll; pasteLinks(); episodes() preselect) / DetectedPanel.kt (downloadAllShown(), TOOLS call) / build.gradle.kts / CHANGELOG.txt. No JS change.
+Checks: Kotlin braces/parens balance; NOT compiled; UI NOT rendered.
+NOT tested: paste dialog with clipboard links, batch from pasted links (V77 must find a video in each page), Download all count and start.
+Next: S57 per-site button mode.

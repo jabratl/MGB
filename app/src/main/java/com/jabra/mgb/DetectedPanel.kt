@@ -626,7 +626,7 @@ object DetectedPanel {
                 cell.addView(tv(label, 11f, cDim, 1, true).apply { gravity = Gravity.CENTER_HORIZONTAL; setPadding(0, dp(2), 0, 0) })
                 bar.addView(cell, LinearLayout.LayoutParams(0, dp(52), 1f))
             }
-            barBtn(R.drawable.ic_settings, "TOOLS") { NativeBatch.tools(act, tabId, ref, all.count { it.kind == "subtitle" }) { dlg.dismiss() } } // S53
+            barBtn(R.drawable.ic_settings, "TOOLS") { NativeBatch.tools(act, tabId, ref, all.count { it.kind == "subtitle" }, visible.count { !it.drm && it.kind != "subtitle" }, { downloadAllShown() }) { dlg.dismiss() } } // S53, S56
             barBtn(R.drawable.ic_trash, "CLEAR ALL") { confirmClear() }
             barBtn(R.drawable.ic_list, "SORT") { showSort() }
             barBtn(R.drawable.ic_close, "CLOSE") { dlg.dismiss() }
@@ -998,6 +998,16 @@ object DetectedPanel {
             val m = JSONObject().put("type", "start-job").put("tabId", tabId).put("key", e.key)
             if (e.kind == "subtitle") m.put("fmt", "srt") else m.put("variant", variant ?: "best")
             EngineApi.send(m)
+        }
+
+        /** S56: TOOLS > Download all = every file shown now (filter respected, subtitles and DRM left out), best quality. */
+        private fun downloadAllShown() {
+            val ks = visible.filter { !it.drm && it.kind != "subtitle" }
+            if (ks.isEmpty()) { toast("Nothing to download"); return }
+            com.google.android.material.dialog.MaterialAlertDialogBuilder(act).setTitle("Download all")
+                .setMessage("Start ${ks.size} download(s) at best quality?")
+                .setPositiveButton("Download") { _, _ -> selected.clear(); ks.forEach { selected.add(it.key) }; downloadSelected() }
+                .setNegativeButton("Cancel", null).show()
         }
 
         private fun downloadSelected() {

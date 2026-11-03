@@ -1,3 +1,7 @@
+MGB 0.0.60 (S56: paste links + Download all in TOOLS)
+- Panel > TOOLS > Paste links (batch): paste page links (clipboard is pre-filled), all start selected, then the same V77 batch as the episode list (status, Stop).
+- Panel > TOOLS > Download all (N files): starts every file shown now at best quality (filter respected, subtitles and DRM left out), asks first.
+
 MGB 0.0.59 (S55: manga pages block in the native panel)
 - Files detected panel: on manga / gallery pages a "Page images (N)" card shows at the top with CBZ, ZIP, PDF, EPUB, Read and Pick pages. V77 does the work (same as its own page row).
 - Tapping the Grabber button on a manga / gallery page now opens the native panel (before: the V77 panel). Episode pages with videos still open the V77 panel.

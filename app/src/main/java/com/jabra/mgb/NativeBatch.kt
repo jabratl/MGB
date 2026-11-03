@@ -89,13 +89,15 @@ object NativeBatch {
             .setNegativeButton("Cancel", null).show()
     }
 
-    fun tools(act: Activity, tabId: Int, ref: String, subCount: Int, closePanel: () -> Unit) {
+    fun tools(act: Activity, tabId: Int, ref: String, subCount: Int, shownCount: Int, downloadAll: (() -> Unit)?, closePanel: () -> Unit) {
         val f = found(ref)
         val mg = manga(ref)
         val names = ArrayList<String>()
         val runs = ArrayList<() -> Unit>()
         if (mg != null) { names.add("Manga pages" + (if (mg.n > 0) " (${mg.n})" else "")); runs.add { mangaMenu(act, tabId, closePanel) } }
         if (f != null) { names.add("Episodes / chapters (${f.eps.size})"); runs.add { episodes(act, tabId, f) } }
+        if (shownCount > 0 && downloadAll != null) { names.add("Download all ($shownCount files)"); runs.add { downloadAll() } } // S56
+        names.add("Paste links (batch)"); runs.add { pasteLinks(act, tabId, ref) } // S56
         if (subCount > 0) { names.add("All subtitles of this page ($subCount)"); runs.add { subFormat(act, tabId) } }
         names.add("Subtitles from the player"); runs.add { subsCapture(act, tabId) }
         names.add("Play and scan (find hidden videos)"); runs.add {
@@ -109,6 +111,37 @@ object NativeBatch {
         MaterialAlertDialogBuilder(act).setTitle("More tools")
             .setItems(names.toTypedArray()) { _, i -> runs[i]() }
             .setNegativeButton("Close", null).show()
+    }
+
+    /** S56: list of pasted page links -> the same V77 batch-episodes as the episode list. */
+    private fun pasteLinks(act: Activity, tabId: Int, ref: String) {
+        val et = EditText(act).apply {
+            hint = "One page link per line"
+            minLines = 6
+            gravity = Gravity.TOP or Gravity.START
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            setTextColor(act.getColor(R.color.mg_text))
+            setHintTextColor(act.getColor(R.color.mg_text_dim))
+        }
+        try {
+            val cm = act.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            val t = cm.primaryClip?.getItemAt(0)?.coerceToText(act)?.toString() ?: ""
+            if (t.contains("http")) et.setText(t)
+        } catch (e: Exception) { /* no clipboard access */ }
+        val pad = Util.dp(act, 20)
+        val box = LinearLayout(act).apply { setPadding(pad, Util.dp(act, 8), pad, 0); addView(et, LinearLayout.LayoutParams(MATCH, WRAP)) }
+        MaterialAlertDialogBuilder(act).setTitle("Paste links").setView(box)
+            .setPositiveButton("Next") { _, _ ->
+                val urls = Regex("https?://[^\\s\"'<>]+").findAll(et.text.toString()).map { it.value }.distinct().take(300).toList()
+                if (urls.isEmpty()) { Util.toast(act, "No link found"); return@setPositiveButton }
+                val eps = urls.mapIndexed { i, u ->
+                    val slug = try { java.net.URLDecoder.decode(u.substringBefore('#').substringBefore('?').trimEnd('/').substringAfterLast('/'), "UTF-8") } catch (e: Exception) { "" }
+                    val nm = slug.replace('-', ' ').replace('_', ' ').trim().take(60)
+                    Ep(u, if (nm.isNotBlank()) nm else "Link ${i + 1}")
+                }
+                episodes(act, tabId, Found(found(ref)?.book ?: "video", eps), true)
+            }
+            .setNegativeButton("Cancel", null).show()
     }
 
     private fun subFormat(act: Activity, tabId: Int) {
@@ -132,7 +165,7 @@ object NativeBatch {
         }
     }
 
-    private fun episodes(act: Activity, tabId: Int, f: Found) {
+    private fun episodes(act: Activity, tabId: Int, f: Found, preselect: Boolean = false) {
         val cText = act.getColor(R.color.mg_text)
         val cDim = act.getColor(R.color.mg_text_dim)
         val cPrimary = act.getColor(R.color.mg_primary)
@@ -231,6 +264,7 @@ object NativeBatch {
         bar.addView(btn, LinearLayout.LayoutParams(0, WRAP, 1f).apply { marginEnd = dp(8) })
         bar.addView(close, LinearLayout.LayoutParams(0, WRAP, 1f))
         root.addView(bar, LinearLayout.LayoutParams(MATCH, WRAP))
+        if (preselect) f.eps.forEach { sel.add(it.url) } // S56: pasted list starts fully selected
         fillList()
         upd()
 
