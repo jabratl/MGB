@@ -1,3 +1,8 @@
+MGB 0.0.71 (S67: smarter download buttons + subtitle per download)
+- Native floating download button: theme accent circle with a soft gradient and ring, vector icon, badge with a ring, small pop when it appears or the count changes.
+- Files detected panel: the DOWNLOAD bar is now a gradient pill with an icon, e.g. "Download 3 files · ~420 MB" (total of the known sizes).
+- New: "Subtitle with this video" row in Download now decides for this download only (V77 noSubs), when the V77 subtitle setting is ON. When the setting is OFF the row still turns the setting on.
+
 MGB 0.0.70 (S66: native history features in the Downloads screen)
 - Downloads screen: search box for Saved files (searches every saved file, not only the latest 30).
 - Saved files: "more" button or long press = Share, Remove from list, Delete file from phone (asks first). Same data and same effect as the V77 history page.

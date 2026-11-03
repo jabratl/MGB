@@ -64,29 +64,34 @@ class FloatingDl(
     init {
         val size = dp(52)
         btn = FrameLayout(act)
-        btn.background = GradientDrawable().apply {
+        // S67: accent circle (theme rose), soft gradient + ring, vector icon, badge with a ring
+        val accent = act.getColor(R.color.mg_primary)
+        btn.background = GradientDrawable(GradientDrawable.Orientation.TL_BR,
+            intArrayOf(androidx.core.graphics.ColorUtils.blendARGB(accent, Color.WHITE, 0.22f), accent)).apply {
             shape = GradientDrawable.OVAL
-            setColor(0xFF1E88E5.toInt())
+            setStroke(dp(2), 0x66FFFFFF)
         }
-        btn.elevation = dp(6).toFloat()
+        btn.elevation = dp(8).toFloat()
         btn.visibility = View.GONE
         btn.contentDescription = "Download"
-        btn.addView(TextView(act).apply {
-            text = "↓"
-            setTextColor(Color.WHITE)
-            textSize = 26f
-            gravity = Gravity.CENTER
+        btn.addView(android.widget.ImageView(act).apply {
+            setImageResource(R.drawable.ic_download)
+            setColorFilter(Color.WHITE)
+            scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            setPadding(dp(14), dp(14), dp(14), dp(14))
         }, FrameLayout.LayoutParams(size, size))
         badge = TextView(act).apply {
-            setTextColor(Color.WHITE)
+            setTextColor(accent)
             textSize = 11f
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
             gravity = Gravity.CENTER
-            minWidth = dp(18)
-            minHeight = dp(18)
-            setPadding(dp(4), 0, dp(4), 0)
+            minWidth = dp(20)
+            minHeight = dp(20)
+            setPadding(dp(5), 0, dp(5), 0)
             background = GradientDrawable().apply {
-                cornerRadius = dp(9).toFloat()
-                setColor(0xFFE53935.toInt())
+                cornerRadius = dp(10).toFloat()
+                setColor(act.getColor(R.color.mg_bg))
+                setStroke(dp(2), accent)
             }
         }
         btn.addView(badge, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END))
@@ -177,8 +182,14 @@ class FloatingDl(
             val n = itemsOf(r).count { it.optString("kind") in MEDIA }
             if (n <= 0) btn.visibility = View.GONE
             else {
+                val was = btn.visibility == View.VISIBLE
+                val old = badge.text.toString()
                 badge.text = if (n > 99) "99+" else n.toString()
                 btn.visibility = View.VISIBLE
+                if (!was || old != badge.text.toString()) { // S67: small pop when it appears or the count changes
+                    btn.scaleX = 0.7f; btn.scaleY = 0.7f
+                    btn.animate().scaleX(1f).scaleY(1f).setDuration(240).setInterpolator(android.view.animation.OvershootInterpolator()).start()
+                }
             }
         }
     }

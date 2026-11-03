@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.71 (S67: download button design + subtitle per download, see the S67 note at the end; before: S66)
+
 CURRENT VERSION 0.0.70 (S66: Downloads screen search + Share / Remove / Delete, see the S66 note at the end; before: S65)
 
 CURRENT VERSION 0.0.69 (S65: Downloads screen redesign + Show fix + V77 backup switch, see the S65 note at the end; before: S64)
@@ -369,3 +371,10 @@ NOT tested: search filters while typing and keyboard does not hide the list; Sha
 Could break: Remove from list rewrites storage.local mgHist (same entries minus one); the V77 popup recent list refreshes by its own onChanged listener.
 Still missing natively: per-download subtitle on/off, Pick pages (manga.html), native queue page, DASH variants beyond 10, schedule of a single file.
 Next: S67 = fix from the first run of 0.0.69 / 0.0.70.
+
+======== S67 note (0.0.71) ========
+Changed: FloatingDl.kt (button: accent gradient circle, ic_download, ringed badge, pop animation) / DetectedPanel.kt (dlBtn gradient pill + icon + "Download n files · ~size"; subThis/subEff; subRow per download; startJob adds noSubs when subThis == false) / build.gradle.kts (0.0.71) / CHANGELOG.txt / HANDOFF.txt. No JS change (V77 background.js 819 already honours msg.noSubs).
+Checks: Kotlin braces/parens balance; NOT compiled; UI NOT rendered at 360/1280 dark/light.
+NOT tested: floating button look on a real page (only shows when Button mode = Native only or per-site Native); pop animation; bar text fits at 360 px with a long size; subtitle row skips the subtitle for one download only; Download all / batches still follow the V77 setting.
+Still missing natively: subtitle ON for one download when the V77 setting is OFF (needs a V77 change), Pick pages (manga.html), native queue page, DASH variants beyond 10, schedule of a single file.
+Next: S68 = fix from the first run of 0.0.69-0.0.71, or native queue page.

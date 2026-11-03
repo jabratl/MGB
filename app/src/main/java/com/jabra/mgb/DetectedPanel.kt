@@ -618,13 +618,22 @@ object DetectedPanel {
 
             // sticky DOWNLOAD (n)
             dlBtn = TextView(act).apply {
-                text = "DOWNLOAD (0)"
+                text = "Download"
                 textSize = 15f
                 gravity = Gravity.CENTER
-                letterSpacing = 0.04f
+                letterSpacing = 0.02f
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
                 setTextColor(cOnPrimary)
-                background = round(cPrimary, 26)
+                // S67: soft gradient pill + icon + file count and total size
+                background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                    intArrayOf(ColorUtils.blendARGB(cPrimary, Color.WHITE, 0.16f), cPrimary)).apply { cornerRadius = dp(26).toFloat() }
+                elevation = dp(4).toFloat()
+                compoundDrawablePadding = dp(10)
+                act.getDrawable(R.drawable.ic_download)?.mutate()?.let { d ->
+                    d.setTint(cOnPrimary)
+                    setCompoundDrawablesRelativeWithIntrinsicBounds(d, null, null, null)
+                }
+                setPadding(dp(18), 0, dp(18), 0)
                 setOnClickListener { downloadSelected() }
             }
             qBtn = tv("", 13f, cText, 1, true).apply { // S58: video quality, like V77 "Preferred max video quality"
@@ -781,7 +790,9 @@ object DetectedPanel {
 
         private fun refreshSelection(only: String?) {
             val n = selected.size
-            dlBtn.text = "DOWNLOAD ($n)"
+            var tot = 0L // S67: total of the sizes that are known
+            for (k in selected) all.firstOrNull { it.key == k }?.let { tot += sizeOf(it).first }
+            dlBtn.text = "Download " + n + (if (n == 1) " file" else " files") + (if (tot > 0) "  ·  ~" + EngineApi.fmtSize(tot) else "")
             setDlVisible(n > 0)
             selAll.isChecked = visible.isNotEmpty() && visible.all { it.drm || selected.contains(it.key) }
             selHint.text = if (n > 0) "$n selected" else if (visible.isEmpty()) "" else "Tap a file to select"
@@ -1049,9 +1060,13 @@ object DetectedPanel {
 
         private fun toast(s: String) = Util.toast(act, s)
 
+        private var subThis: Boolean? = null // S67: subtitle choice for the download being started (null = follow the V77 setting)
+        private fun subEff(): Boolean = subThis ?: subsOn()
+
         private fun startJob(e: DItem, variant: String?) {
             val m = JSONObject().put("type", "start-job").put("tabId", tabId).put("key", e.key)
             if (e.kind == "subtitle") m.put("fmt", "srt") else m.put("variant", variant ?: "best")
+            if (e.kind != "subtitle" && subThis == false) m.put("noSubs", true) // S67: V77 background.js startJob skips the subtitle
             EngineApi.send(m)
         }
 
@@ -1106,8 +1121,12 @@ object DetectedPanel {
             if (e.drm) { toast("DRM protected: cannot be downloaded"); return }
             val v = e.variants
             val pageSubs = all.count { it.kind == "subtitle" } // S63
-            val subRow = SRow(0, if (subsOn()) "Subtitle with the video: ON (tap to turn off)" else "Subtitle with the video: OFF (tap to turn on)", subsOn()) {
-                try { ChromeBridge.storageSet("sync", JSONObject().put("autoSubs", !subsOn())) } catch (x: Exception) { /* engine not ready */ }
+            // S67: global ON = this row decides for this download only (V77 noSubs); global OFF = the old row that turns the setting on
+            val subRow = if (subsOn()) SRow(0, if (subEff()) "Subtitle with this video: ON (tap to skip it, this download only)" else "Subtitle with this video: OFF (this download only)", subEff()) {
+                subThis = !subEff()
+                download(e)
+            } else SRow(0, "Subtitle with the video: OFF (tap to turn on)", false) {
+                try { ChromeBridge.storageSet("sync", JSONObject().put("autoSubs", true)) } catch (x: Exception) { /* engine not ready */ }
                 download(e)
             }
             if (e.isStream && v != null && v.length() > 0) {
@@ -1130,13 +1149,13 @@ object DetectedPanel {
                 }
                 val rows = ArrayList<SRow>()
                 if (pageSubs > 0 || subsOn()) rows.add(subRow)
-                for (i in names.indices) rows.add(SRow(0, names[i]) { startJob(e, vals[i]); toast("Download started" + (if (subsOn()) " (subtitle too)" else "")) })
+                for (i in names.indices) rows.add(SRow(0, names[i]) { val sb = subEff(); startJob(e, vals[i]); subThis = null; toast("Download started" + (if (sb) " (subtitle too)" else "")) })
                 sheet("Choose quality" + (if (dur > 0) "  ·  " + durLabel(dur) else ""), null, rows)
             } else if (e.kind != "subtitle" && pageSubs > 0) {
                 val sz = sizeOf(e)
                 sheet("Download", null, listOf(
                     subRow,
-                    SRow(0, "Download" + (if (sz.first > 0) "   " + (if (sz.second) "~" else "") + EngineApi.fmtSize(sz.first) else "")) { startJob(e, "best"); toast("Download started" + (if (subsOn()) " (subtitle too)" else "")) }
+                    SRow(0, "Download" + (if (sz.first > 0) "   " + (if (sz.second) "~" else "") + EngineApi.fmtSize(sz.first) else "")) { val sb = subEff(); startJob(e, "best"); subThis = null; toast("Download started" + (if (sb) " (subtitle too)" else "")) }
                 ))
             } else {
                 startJob(e, "best")
