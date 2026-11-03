@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.61 (S57: button mode per site, see the S57 note at the end; before: S56)
+
 CURRENT VERSION 0.0.60 (S56: paste links + Download all, see the S56 note at the end; before: S55)
 
 CURRENT VERSION 0.0.59 (S55: manga pages block in the native panel, see the S55 note at the end; before: S54: Smart download buttons)
@@ -277,3 +279,9 @@ Changed: NativeBatch.kt (tools() takes shownCount + downloadAll; pasteLinks(); e
 Checks: Kotlin braces/parens balance; NOT compiled; UI NOT rendered.
 NOT tested: paste dialog with clipboard links, batch from pasted links (V77 must find a video in each page), Download all count and start.
 Next: S57 per-site button mode.
+
+======== S57 note (0.0.61) ========
+Changed: DlMode.kt (per-site map prefs mgb_ui dl_site_modes, setSite pushes V77 sync key mgbSiteModes, siteDialog) / WebVideo.kt (onFor, smartFor bridge, JS uses smartFor(location.hostname)) / TabManager.kt (inject uses WebVideo.onFor) / FloatingDl.kt (native button honours site mode) / NativeBatch.kt (TOOLS entry) / content.js + shared.js (V77 reads mgbSiteModes: pill, panel-vs-V77 on tap, player button) / build.gradle.kts / CHANGELOG.txt.
+Checks: node --check content.js + shared.js OK; Kotlin braces/parens balance; NOT compiled; UI NOT rendered.
+NOT tested: site mode dialog saves and the pill hides/shows at once on that site; video button after reload; native button; shared.js DEFAULTS key does not break the options page.
+Next: per-site row in Settings (list/reset all site modes), S17 final check, or fix from the first CI log. Zips S55 v0_0_59, S56 v0_0_60, S57 v0_0_61: apply in order (later ones contain earlier edits of the same file).

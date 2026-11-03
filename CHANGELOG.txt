@@ -1,3 +1,10 @@
+MGB 0.0.61 (S57: button mode per site)
+- Panel > TOOLS > "Buttons on this site": Follow the global mode / Smart / Grabber only / Native only, saved per website (www and sub-domains match).
+- Grabber only: Grabber page button + player button on, native video button and native download button off on that site.
+- Native only: Grabber page button + player button off, native video button and native download button on.
+- Smart: one Grabber button, opens the Files detected panel, the video button hides while it shows.
+- Other sites keep following Settings > Downloads > Button mode.
+
 MGB 0.0.60 (S56: paste links + Download all in TOOLS)
 - Panel > TOOLS > Paste links (batch): paste page links (clipboard is pre-filled), all start selected, then the same V77 batch as the episode list (status, Stop).
 - Panel > TOOLS > Download all (N files): starts every file shown now at best quality (filter respected, subtitles and DRM left out), asks first.

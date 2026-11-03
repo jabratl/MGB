@@ -368,7 +368,7 @@ class TabManager(
             tab.progress = 100
             if (tab.desktop && !tab.isExt) view?.evaluateJavascript(BrowserExtras.DESKTOP_JS, null) // S14
             if (!tab.isExt && !tab.priv && tab.url.startsWith("http")) view?.evaluateJavascript(PasswordStore.HOOK_JS, null) // S30
-            if (!tab.isExt && !tab.priv && tab.url.startsWith("http") && WebVideo.on(ctx)) view?.evaluateJavascript(WebVideo.JS, null) // S45
+            if (!tab.isExt && !tab.priv && tab.url.startsWith("http") && WebVideo.onFor(ctx, tab.url)) view?.evaluateJavascript(WebVideo.JS, null) // S45
             if (!tab.isExt) CosmeticFilter.inject(ctx, view, tab.url) // S42
             // S13: browsing history (web pages only, not extension pages)
             if (!tab.isExt && !tab.priv && (tab.url.startsWith("http://") || tab.url.startsWith("https://")))

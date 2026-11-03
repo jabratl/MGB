@@ -10,6 +10,7 @@
   let sent = new Set();
   const live = () => { try { return !!chrome.runtime.id; } catch (e) { return false; } };
   const send = (m) => new Promise((r) => { try { chrome.runtime.sendMessage(m, (x) => { void chrome.runtime.lastError; r(x); }); } catch (e) { r(null); } });
+  const siteMode = () => { const m = S.mgbSiteModes; if (!m || typeof m !== 'object') return -1; const h = location.hostname.toLowerCase().replace(/^www\./, ''); for (const k in m) { if (h === k || h.endsWith('.' + k)) { const v = Number(m[k]); return v >= 0 ? v : -1; } } return -1; }; // MGB S57
   const siteOff = () => !S.enabled || (S.disabledSites || []).some((d) => d && (location.hostname === d || location.hostname.endsWith('.' + d)));
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const visible = () => rec.items.filter((i) => !i.hidden);
@@ -1140,7 +1141,7 @@ document.documentElement.append(pillHost);
         const side = (drag.x2 || innerWidth) < innerWidth / 2 ? 'left' : 'right';
         const top = Math.round((parseFloat(pill.style.top) / innerHeight) * 100);
         try { chrome.storage.sync.set({ pillSide: side, pillTop: top }); } catch (e) { /* ignore */ }
-      } else if (S.nativePanel !== false && !open && ((visible().length && !chapters.length) || mangaN >= 3 || siteTask)) send({ type: 'native-panel' }); // MGB S51, S55: manga pages open the native panel too
+      } else if ((siteMode() < 0 ? S.nativePanel !== false : siteMode() !== 1) && !open && ((visible().length && !chapters.length) || mangaN >= 3 || siteTask)) send({ type: 'native-panel' }); // MGB S51, S55: manga pages open the native panel too
       else setOpen(!open);
       drag = null;
     });
@@ -1572,7 +1573,7 @@ document.documentElement.append(pillHost);
   function renderPill() {
     if (!IS_TOP) return;
     const items = visible();
-    const show = diagOn || (!siteOff() && S.showPill && (items.length || mangaN >= 3 || siteTask || chapters.length >= 3 || Object.keys(jobs).length) && !document.fullscreenElement);
+    const show = diagOn || (!siteOff() && (siteMode() < 0 ? S.showPill : siteMode() !== 2) && (items.length || mangaN >= 3 || siteTask || chapters.length >= 3 || Object.keys(jobs).length) && !document.fullscreenElement);
     if (!show) { if (pillHost) pillHost.style.display = 'none'; return; }
     ensurePill();
     pillHost.style.display = '';
@@ -1983,7 +1984,7 @@ document.documentElement.append(ovHost);
   }
 
   document.addEventListener('mousemove', (e) => {
-    if (!S.showOverlay || siteOff()) return;
+    if (!(siteMode() < 0 ? S.showOverlay : siteMode() === 1) || siteOff()) return;
     const now = Date.now();
     if (now - lastMove < 120) return;
     lastMove = now;

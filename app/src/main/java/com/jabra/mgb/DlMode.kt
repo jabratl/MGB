@@ -24,6 +24,60 @@ object DlMode {
 
     fun mode(c: Context): Int = prefs(c).getInt("dl_mode", -1)
 
+    // ---- S57: per-site override (prefs mgb_ui dl_site_modes = { host: 0 Smart | 1 Grabber only | 2 Native only }) ----
+    @Volatile private var siteCache: Map<String, Int> = emptyMap()
+
+    private fun siteKey(host: String) = host.lowercase().removePrefix("www.")
+
+    private fun siteJson(c: Context): JSONObject = try { JSONObject(prefs(c).getString("dl_site_modes", "{}") ?: "{}") } catch (e: Exception) { JSONObject() }
+
+    fun loadSites(c: Context) {
+        val o = siteJson(c)
+        val m = HashMap<String, Int>()
+        val it = o.keys()
+        while (it.hasNext()) { val k = it.next(); m[k] = o.optInt(k, -1) }
+        siteCache = m
+    }
+
+    /** -1 = this site follows the global mode. */
+    fun siteMode(host: String): Int {
+        val h = siteKey(host)
+        for ((k, v) in siteCache) if (v >= 0 && (h == k || h.endsWith(".$k"))) return v
+        return -1
+    }
+
+    fun smartFor(host: String): Boolean = siteMode(host).let { if (it >= 0) it == SMART else smartOn }
+
+    fun setSite(c: Context, host: String, m: Int) {
+        val o = siteJson(c)
+        val k = siteKey(host)
+        if (m < 0) o.remove(k) else o.put(k, m)
+        prefs(c).edit().putString("dl_site_modes", o.toString()).apply()
+        loadSites(c)
+        try { ChromeBridge.storageSet("sync", JSONObject().put("mgbSiteModes", JSONObject(o.toString()))) } catch (e: Exception) { /* engine not ready */ }
+    }
+
+    fun siteLabel(c: Context, host: String): String = when (siteMode(host)) {
+        SMART -> "Smart"
+        GRABBER -> "Grabber only"
+        NATIVE -> "Native only"
+        else -> "Follow global (" + label(c) + ")"
+    }
+
+    fun siteDialog(act: Activity, host: String, done: () -> Unit) {
+        val names = arrayOf("Follow the global mode (" + label(act) + ")", "Smart", "Grabber only", "Native only")
+        MaterialAlertDialogBuilder(act)
+            .setTitle("Buttons on " + siteKey(host))
+            .setSingleChoiceItems(names, siteMode(host) + 1) { d, i ->
+                setSite(act, host, i - 1)
+                Util.toast(act, "Saved for this site. Reload the page")
+                d.dismiss()
+                done()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     fun label(c: Context): String = when (mode(c)) {
         GRABBER -> "Grabber only"
         NATIVE -> "Native only"
@@ -33,6 +87,7 @@ object DlMode {
 
     /** First start with this version: Smart, written once. */
     fun init(c: Context) {
+        loadSites(c) // S57
         if (mode(c) == -1) apply(c, SMART) else smartOn = mode(c) == SMART
     }
 

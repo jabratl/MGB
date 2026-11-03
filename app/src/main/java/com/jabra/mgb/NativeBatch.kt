@@ -97,6 +97,7 @@ object NativeBatch {
         if (mg != null) { names.add("Manga pages" + (if (mg.n > 0) " (${mg.n})" else "")); runs.add { mangaMenu(act, tabId, closePanel) } }
         if (f != null) { names.add("Episodes / chapters (${f.eps.size})"); runs.add { episodes(act, tabId, f) } }
         if (shownCount > 0 && downloadAll != null) { names.add("Download all ($shownCount files)"); runs.add { downloadAll() } } // S56
+        names.add("Buttons on this site: " + DlMode.siteLabel(act, Util.host(ref))); runs.add { DlMode.siteDialog(act, Util.host(ref)) {} } // S57
         names.add("Paste links (batch)"); runs.add { pasteLinks(act, tabId, ref) } // S56
         if (subCount > 0) { names.add("All subtitles of this page ($subCount)"); runs.add { subFormat(act, tabId) } }
         names.add("Subtitles from the player"); runs.add { subsCapture(act, tabId) }

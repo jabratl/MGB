@@ -14,6 +14,8 @@ import android.webkit.JavascriptInterface
  */
 object WebVideo {
     fun on(ctx: Context) = ctx.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).getBoolean("video_btn", true)
+    /** S57: the site's own button mode wins: Grabber only = no in-page video button. */
+    fun onFor(ctx: Context, url: String): Boolean = DlMode.siteMode(Util.host(url)).let { if (it >= 0) it != DlMode.GRABBER else on(ctx) }
     fun setOn(ctx: Context, v: Boolean) = ctx.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).edit().putBoolean("video_btn", v).apply()
 
     private var lastAt = 0L
@@ -21,6 +23,9 @@ object WebVideo {
     class Bridge(private val tm: TabManager) {
         @JavascriptInterface
         fun smart(): Boolean = DlMode.smartOn // S54
+
+        @JavascriptInterface
+        fun smartFor(host: String): Boolean = DlMode.smartFor(host) // S57
 
         @JavascriptInterface
         fun play(src: String, title: String) {
@@ -54,7 +59,7 @@ return b;
 function place(){
 if(!btn.isConnected&&document.documentElement)document.documentElement.appendChild(btn);
 if(document.fullscreenElement||document.webkitFullscreenElement){btn.style.display='none';return;}
-try{if(MGBVID.smart()){var ph=document.querySelector('[data-mgb-pill]');if(ph&&ph.isConnected&&ph.style.display!=='none'){btn.style.display='none';return;}}}catch(x){}
+try{if(MGBVID.smartFor(location.hostname)){var ph=document.querySelector('[data-mgb-pill]');if(ph&&ph.isConnected&&ph.style.display!=='none'){btn.style.display='none';return;}}}catch(x){}
 var v=best();
 if(!v){btn.style.display='none';cur=null;return;}
 if(v!==cur){cur=v;shown=Date.now();}
