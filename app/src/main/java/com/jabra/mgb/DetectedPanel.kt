@@ -367,6 +367,20 @@ object DetectedPanel {
         return Pair(0L, false)
     }
 
+    /** S63: approximate size of one quality of a stream = bandwidth x duration (the biggest variant of that height). 0 = unknown. */
+    private fun varSize(e: DItem, h: Int, dur: Double): Long {
+        val v = e.variants ?: return 0L
+        var bw = 0L
+        for (i in 0 until v.length()) {
+            val q = v.optJSONObject(i) ?: continue
+            if (q.optInt("h", 0) == h) bw = maxOf(bw, q.optLong("bw", 0))
+        }
+        return if (bw > 0 && dur > 0) (bw * dur / 8).toLong() else 0L
+    }
+
+    /** S63: V77 autoSubs = download the page subtitle together with the video (same name). */
+    fun subsOn(): Boolean = try { ChromeBridge.sync.get("autoSubs").optBoolean("autoSubs", true) } catch (e: Exception) { true }
+
     private fun durOf(e: DItem): Double {
         val d = e.info.optDouble("dur", 0.0)
         if (d > 0) return d
@@ -962,11 +976,13 @@ object DetectedPanel {
 
             val bits = ArrayList<String>()
             val sz = sizeOf(e)
-            if (sz.first > 0) bits.add((if (sz.second) "~" else "") + EngineApi.fmtSize(sz.first))
             val vr = e.variants?.optJSONObject(0)
             val hs = if (e.isStream) heightsOf(e.variants) else emptyList() // S58
             val capNow = maxQ()
             val got = pickH(hs, capNow)
+            val gotSz = if (e.isStream && got > 0) varSize(e, got, durOf(e)) else 0L // S63: size of the quality that will download
+            if (gotSz > 0) bits.add("~" + EngineApi.fmtSize(gotSz))
+            else if (sz.first > 0) bits.add((if (sz.second) "~" else "") + EngineApi.fmtSize(sz.first))
             val res = when {
                 hs.isNotEmpty() -> if (capNow > 0 && got != hs.first()) "Gets ${got}p of ${hs.first()}p" else "${hs.first()}p best"
                 e.isStream && vr != null && vr.optString("res").isNotBlank() -> vr.optString("res")
@@ -983,6 +999,9 @@ object DetectedPanel {
                 for (h in hs.take(5)) lad.addView(chip("${h}p", if (h == got) cPrimary else cTile, if (h == got) cOnPrimary else cDim), LinearLayout.LayoutParams(WRAP, WRAP).apply { marginEnd = dp(5) })
                 if (hs.size > 5) lad.addView(chip("+${hs.size - 5}", cTile, cDim), LinearLayout.LayoutParams(WRAP, WRAP))
                 col.addView(lad, LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = dp(5) })
+                val dd = durOf(e) // S63: size of every quality (needs the duration)
+                val parts = hs.take(6).mapNotNull { h -> varSize(e, h, dd).let { z -> if (z > 0) "${h}p ~" + EngineApi.fmtSize(z) else null } }
+                if (parts.isNotEmpty()) col.addView(tv(parts.joinToString("  ·  "), 11f, cDim, 3).apply { setPadding(0, dp(3), 0, 0) })
             }
 
             var noAudio = false
@@ -1086,11 +1105,20 @@ object DetectedPanel {
         private fun download(e: DItem) {
             if (e.drm) { toast("DRM protected: cannot be downloaded"); return }
             val v = e.variants
+            val pageSubs = all.count { it.kind == "subtitle" } // S63
+            val subRow = SRow(0, if (subsOn()) "Subtitle with the video: ON (tap to turn off)" else "Subtitle with the video: OFF (tap to turn on)", subsOn()) {
+                try { ChromeBridge.storageSet("sync", JSONObject().put("autoSubs", !subsOn())) } catch (x: Exception) { /* engine not ready */ }
+                download(e)
+            }
             if (e.isStream && v != null && v.length() > 0) {
                 val names = ArrayList<String>()
                 val vals = ArrayList<String>()
-                names.add(if (maxQ() > 0) "Auto (" + maxQLabel() + ")" else "Best quality (auto)"); vals.add("best")
-                val dur = e.info.optDouble("dur", 0.0)
+                val dur = durOf(e)
+                val cap = maxQ()
+                val hsAll = heightsOf(v)
+                val auto = pickH(hsAll, cap)
+                val autoSz = if (auto > 0) varSize(e, auto, dur) else 0L
+                names.add((if (cap > 0) "Auto (" + maxQLabel() + ")" else "Best quality (auto)") + (if (autoSz > 0) "   ~" + EngineApi.fmtSize(autoSz) else "")); vals.add("best")
                 for (i in 0 until minOf(v.length(), 10)) {
                     val q = v.optJSONObject(i) ?: continue
                     val h = q.optInt("h", 0)
@@ -1100,9 +1128,16 @@ object DetectedPanel {
                     names.add(label)
                     vals.add(q.optString("url").ifBlank { q.optString("id") })
                 }
-                sheet("Choose quality", null, names.indices.map { i ->
-                    SRow(0, names[i]) { startJob(e, vals[i]); toast("Download started") }
-                })
+                val rows = ArrayList<SRow>()
+                if (pageSubs > 0 || subsOn()) rows.add(subRow)
+                for (i in names.indices) rows.add(SRow(0, names[i]) { startJob(e, vals[i]); toast("Download started" + (if (subsOn()) " (subtitle too)" else "")) })
+                sheet("Choose quality" + (if (dur > 0) "  ·  " + durLabel(dur) else ""), null, rows)
+            } else if (e.kind != "subtitle" && pageSubs > 0) {
+                val sz = sizeOf(e)
+                sheet("Download", null, listOf(
+                    subRow,
+                    SRow(0, "Download" + (if (sz.first > 0) "   " + (if (sz.second) "~" else "") + EngineApi.fmtSize(sz.first) else "")) { startJob(e, "best"); toast("Download started" + (if (subsOn()) " (subtitle too)" else "")) }
+                ))
             } else {
                 startJob(e, "best")
                 toast(if (e.kind == "subtitle") "Subtitle download started" else "Download started")

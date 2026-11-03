@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.67 (S63: sizes per quality + subtitle with video, see the S63 note at the end; before: S62)
+
 CURRENT VERSION 0.0.66 (S62: Grabber settings screen, see the S62 note at the end; before: S61)
 
 CURRENT VERSION 0.0.65 (S61: ask per episode + Follow manga + schedule, see the S61 note at the end; before: S60)
@@ -329,3 +331,10 @@ Changed: GrabSet.kt (NEW) / NativeBatch.kt (TOOLS entry) / build.gradle.kts (0.0
 Checks: Kotlin braces/parens balance; NOT compiled; UI NOT rendered.
 NOT tested: each row writes its V77 key; disabledSites saves as a list; Reset clears sync (no onChanged event: pages need a reload); paste settings.
 Still missing natively: Pick pages (manga.html), native queue / history pages, DASH variants beyond 10, schedule of a single file, V77 health check / full report text.
+
+======== S63 note (0.0.67) ========
+Changed: DetectedPanel.kt (varSize(e,h,dur), subsOn(); row shows size of the picked quality + size line for every quality; download() sheet: sizes, duration, "Subtitle with the video" toggle row = V77 autoSubs, file sheet when the page has subtitles) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt. No JS change.
+V77 detail: startJob adds the subtitle when S.autoSubs && !msg.noSubs (background.js ~819); native start-job never sets noSubs, so the toggle is the setting itself (global, not per download).
+Checks: Kotlin braces/parens balance (paren +1 is old); NOT compiled; UI NOT rendered at 360/1280 dark/light.
+NOT tested: size line wraps at 360 px; sizes appear when the duration is known (HLS master playlists often give none until the player runs: then no size is shown); toggle row reopens the sheet; subtitle really saved with the video; row size matches the real file.
+Still missing natively: per-download subtitle on/off (needs noSubs in the start-job call from a second button), Pick pages (manga.html), native queue / history pages, DASH variants beyond 10, schedule of a single file.
