@@ -1,5 +1,6 @@
 package com.jabra.mgb
 
+import androidx.core.widget.NestedScrollView
 import android.app.Activity
 import android.content.Context
 import android.graphics.Canvas
@@ -138,7 +139,7 @@ object BlockerStats {
         fl.addView(upd, LinearLayout.LayoutParams(MATCH, dp(44)))
         col.addView(fl, LinearLayout.LayoutParams(MATCH, WRAP))
 
-        d.setContentView(ScrollView(act).apply { addView(col) })
+        d.setContentView(NestedScrollView(act).apply { addView(col) })
         d.behavior.skipCollapsed = true
         d.show()
         d.behavior.state = BottomSheetBehavior.STATE_EXPANDED

@@ -1,5 +1,6 @@
 package com.jabra.mgb
 
+import androidx.core.widget.NestedScrollView
 import android.app.Activity
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -83,7 +84,7 @@ object ToolsSheet {
             }
             col.addView(card, LinearLayout.LayoutParams(MATCH, WRAP))
         }
-        d.setContentView(ScrollView(act).apply { addView(col) })
+        d.setContentView(NestedScrollView(act).apply { addView(col) })
         d.behavior.skipCollapsed = true
         d.show()
         d.behavior.state = BottomSheetBehavior.STATE_EXPANDED

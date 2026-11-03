@@ -1,5 +1,6 @@
 package com.jabra.mgb
 
+import androidx.core.widget.NestedScrollView
 import android.app.Activity
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -91,7 +92,7 @@ object SubName {
             setPadding(dp(4), 0, 0, dp(8))
         })
         val box = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
-        root.addView(ScrollView(act).apply { addView(box) }, LinearLayout.LayoutParams(MATCH, 0, 1f))
+        root.addView(NestedScrollView(act).apply { addView(box) }, LinearLayout.LayoutParams(MATCH, 0, 1f))
         val close = TextView(act).apply {
             text = "DONE"
             gravity = Gravity.CENTER

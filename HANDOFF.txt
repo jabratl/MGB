@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.92 (S88: sheet scroll fix, see the S88 note at the end; before: S87.2)
+
 CURRENT VERSION 0.0.91 (S87.2: auto Diagnose pill + Settings switch + phone check list, see the S87.2 note at the end; before: S87.1)
 
 CURRENT VERSION 0.0.90 (S87.1: DiagRules.kt rules 21-40, see the S87.1 note at the end; before: S86)
@@ -658,3 +660,11 @@ NOT tested (needs build + phone): compile (BaseTransientBottomBar.BaseCallback a
 Could break: a Snackbar already on screen (password Fill bar) is replaced by the pill; 4 s poll runs only while the Activity is started.
 Not done: schedule-missed producer (rule 35 never fires), one-tap fixes opening the Novel / Manga window, pill for other triggers (engine down, many probe failures).
 Next: fix from the first CI log / phone check (docs/PHONE_CHECK.txt), then S17 final check.
+
+
+S88 (0.0.92) - bottom sheet scroll fix
+Goal: user video: in the 3-dot menu, scrolling the list back up made the options jump / the sheet drop all at once. Make it smooth.
+Cause: plain android.widget.ScrollView inside BottomSheetDialog does not do nested scrolling, so BottomSheetBehavior took the drag as soon as the list reached the top.
+Changed: ScrollView(act/ctx) -> androidx.core.widget.NestedScrollView in MenuSheet, ToolsSheet, PrivacyGuard, BlockerStats, DetectedPanel (4 places), DlEngine, SubName (+ import). MenuSheet: OVER_SCROLL_NEVER, tile pop-in 260 ms decelerate. build.gradle.kts 0.0.92, CHANGELOG.txt.
+NOT tested: compile (no Android SDK here) and phone. Check on phone: open 3-dot menu, scroll down, scroll back up fast, then pull down at top = sheet follows finger and closes smoothly.
+Not touched: GrabSet.kt / FloatingDl.kt / TabManager.kt sheets (they use RecyclerView or no ScrollView; check if same jump shows).

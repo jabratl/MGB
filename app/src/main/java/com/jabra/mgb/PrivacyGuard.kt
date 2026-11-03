@@ -1,5 +1,6 @@
 package com.jabra.mgb
 
+import androidx.core.widget.NestedScrollView
 import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.res.ColorStateList
@@ -204,7 +205,7 @@ object PrivacyGuard {
             if (dirty && !reloaded) t.web.reload()
             onClose()
         }
-        d.setContentView(ScrollView(act).apply { addView(col) })
+        d.setContentView(NestedScrollView(act).apply { addView(col) })
         d.behavior.skipCollapsed = true
         d.show()
         d.behavior.state = BottomSheetBehavior.STATE_EXPANDED

@@ -1,5 +1,6 @@
 package com.jabra.mgb
 
+import androidx.core.widget.NestedScrollView
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -614,7 +615,7 @@ object DetectedPanel {
             root.addView(selRow)
 
             list = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), dp(2), dp(12), dp(8)) }
-            root.addView(ScrollView(act).apply { clipToPadding = false; addView(list) }, LinearLayout.LayoutParams(MATCH, 0, 1f))
+            root.addView(NestedScrollView(act).apply { clipToPadding = false; addView(list) }, LinearLayout.LayoutParams(MATCH, 0, 1f))
 
             // sticky DOWNLOAD (n)
             dlBtn = TextView(act).apply {
@@ -1294,7 +1295,7 @@ object DetectedPanel {
                 card.addView(line, LinearLayout.LayoutParams(MATCH, dp(52)))
             }
             col.addView(card, LinearLayout.LayoutParams(MATCH, WRAP))
-            d.setContentView(ScrollView(act).apply { addView(col) })
+            d.setContentView(NestedScrollView(act).apply { addView(col) })
             sheetStyle(d)
             d.behavior.skipCollapsed = true
             d.show()
@@ -1518,7 +1519,7 @@ object DetectedPanel {
             }, LinearLayout.LayoutParams(0, dp(52), 1.5f))
             col.addView(btns, LinearLayout.LayoutParams(MATCH, WRAP))
 
-            d.setContentView(ScrollView(act).apply { addView(col) })
+            d.setContentView(NestedScrollView(act).apply { addView(col) })
             sheetStyle(d)
             d.behavior.skipCollapsed = true
             d.show()
@@ -1662,7 +1663,7 @@ object DetectedPanel {
             val ext = input("mp4, mkv, m3u8", filter.ext, false)
             box.addView(ext, LinearLayout.LayoutParams(MATCH, dp(48)))
 
-            root.addView(ScrollView(act).apply { addView(box) }, LinearLayout.LayoutParams(MATCH, 0, 1f))
+            root.addView(NestedScrollView(act).apply { addView(box) }, LinearLayout.LayoutParams(MATCH, 0, 1f))
 
             val btns = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL

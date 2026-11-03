@@ -1,5 +1,6 @@
 package com.jabra.mgb
 
+import androidx.core.widget.NestedScrollView
 import android.content.Context
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -192,13 +193,15 @@ object MenuSheet {
             setPadding(dp(12), dp(14), dp(12), 0)
         })
 
-        val sv = ScrollView(ctx)
+        val sv = NestedScrollView(ctx)
+        sv.overScrollMode = View.OVER_SCROLL_NEVER // S88: no stretch/glow fighting the sheet drag
         sv.addView(col, ViewGroup.LayoutParams(MATCH, WRAP))
         dlg.setContentView(sv)
         dlg.setOnShowListener { // quiet sheet colour with rounded top
+            val ease = android.view.animation.DecelerateInterpolator(1.6f)
             tiles.forEachIndexed { i, tv -> // S71: tiles pop in one after the other
-                tv.alpha = 0f; tv.translationY = dp(10).toFloat()
-                tv.animate().alpha(1f).translationY(0f).setStartDelay(60L + i * 40L).setDuration(180).start()
+                tv.alpha = 0f; tv.translationY = dp(14).toFloat()
+                tv.animate().alpha(1f).translationY(0f).setStartDelay(80L + i * 45L).setDuration(260).setInterpolator(ease).start()
             }
             dlg.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.background =
                 GradientDrawable().apply {
@@ -285,7 +288,8 @@ object MenuSheet {
         }
         col.addView(card, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
 
-        val sv = ScrollView(ctx)
+        val sv = NestedScrollView(ctx)
+        sv.overScrollMode = View.OVER_SCROLL_NEVER
         sv.addView(col, ViewGroup.LayoutParams(MATCH, WRAP))
         dlg.setContentView(sv)
         dlg.setOnShowListener {

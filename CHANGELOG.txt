@@ -1,3 +1,7 @@
+0.0.92 (S88: bottom sheet scroll fix + smoother open animation)
+- All bottom sheets (3-dot menu, link menu, Tools, Privacy Guard, Blocker stats, Detected panel, DlEngine, SubName): ScrollView -> NestedScrollView. Scrolling back up to the top and pulling down no longer drags / dismisses the whole sheet at once; the list scrolls first, the sheet follows only when the list is at the top.
+- MenuSheet.kt: no overscroll stretch, tiles pop in with a decelerate curve (260 ms).
+
 0.0.91 (S87.2: Diagnose part 5b-2 - auto Diagnose pill)
 - AutoDiag.kt (new): while the app is in front it reads the Diag log every 4 s and shows one small bar with a Diagnose button for: tab crash, the same download failing twice in 10 min, grabber panel found nothing. Max 1 bar per 5 min, swipe away = quiet 1 hour, waits while a dialog / sheet has the focus. Switch prefs mgb_ui auto_diag, default ON.
 - MainActivity.kt: AutoDiag.start in onStart, AutoDiag.stop in onStop / onDestroy.
