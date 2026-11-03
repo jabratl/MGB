@@ -2,7 +2,7 @@ package com.jabra.mgb
 
 /**
  * S86: Diagnose part 5a. Rule engine: facts about the app / page / downloads -> list of Finding
- * (what happened + what to do + optional one tap fix). Rules 1-20 (S86) + rules 21-40 (S87.1, see rules21to40).
+ * (what happened + what to do + optional one tap fix). Rules 1-20 (S86) + rules 21-40 (S87.1, see rules21to40) + rules 41-54 (S89.4, manga page list codes, see rules41to54).
  * Pure logic, no UI, no Android calls (DiagReport collects the Facts).
  *
  * fix ids (DiagScreen.runFix): wifi, storage, webview, reload, settings, downloads, notif, appinfo.
@@ -124,6 +124,7 @@ object DiagRules {
         if (x.bgRestricted) out.add(f("bg-restricted", W, "Android restricts MGB in the background.", "Long downloads may be stopped. Set battery use for MGB to Unrestricted.", "appinfo", "Open app settings"))
 
         rules21to40(x, out)
+        rules41to54(x, out)
 
         return out.sortedBy { when (it.level) { DiagReport.BAD -> 0; DiagReport.WARN -> 1; else -> 2 } }
     }
@@ -167,6 +168,41 @@ object DiagRules {
         if (anyHas(x.jobErrors, "already exists", "exists", "duplicate")) out.add(f("dup-file", I, "A file with the same name already exists.", "Rename or delete the old file in Downloads, then retry.", "downloads", "Open Downloads"))
         val rep = x.failedJobUrls.filter { it.isNotBlank() }.groupingBy { it }.eachCount().filter { it.value >= 2 }
         if (rep.isNotEmpty()) out.add(f("repeat-fail", W, "The same address failed ${(rep.values.maxOrNull() ?: 2)} times in the last 10 minutes.", "Retrying the same link will not help. Open the page again for a fresh link, or try Wi-Fi.", "reload", "Reload page"))
+    }
+
+    /**
+     * S89.4 rules 41-54: manga PAGE LIST codes written by manga.js (S89.1) as "code=<id> host: detail".
+     * Read through Facts.code("manga:<id>") (times seen in the last 30 min) and Facts.mgCodeNotes (newest detail).
+     * A note with "rescued=tab" means the open source tab still delivered the page list: that is Info, not a problem.
+     * Same fix ids as before (reload, settings). Image load codes = S89.5, reader / save codes = S89.6.
+     */
+    private fun rules41to54(x: Facts, out: ArrayList<Finding>) {
+        val B = DiagReport.BAD
+        val W = DiagReport.WARN
+        val I = DiagReport.INFO
+        fun mg(code: String, id: String, level: String, what: String, todo: String, fix: String? = null, label: String? = null, rescuable: Boolean = false) {
+            val n = x.code("manga:$code")
+            if (n <= 0) return
+            val note = x.mgCodeNotes["manga:$code"].orEmpty()
+            val host = if (note.contains(":")) note.substringBefore(":").trim().take(60) else ""
+            val tail = " (" + n + "x" + (if (host.isNotEmpty()) ", " + host else "") + ")"
+            if (rescuable && note.contains("rescued=tab")) out.add(f(id, I, what + tail + " The open tab still got the page list, so the grab worked.", "Nothing to do. Keep the manga page open in its tab while grabbing."))
+            else out.add(f(id, level, what + tail, todo, fix, label))
+        }
+        mg("cloudflare-blocked", "manga-cloudflare", B, "The site showed a check page (Cloudflare) instead of the chapter.", "Open the chapter in this browser tab, pass the check, wait until the first page shows, then grab again.", "reload", "Reload page", true)
+        mg("403-blocked", "manga-403", W, "The site refused the page list (403).", "Open the chapter in a normal tab, wait until the first image shows, then grab again. Some sites block grabbers without a visit first.", "reload", "Reload page", true)
+        mg("401-login", "manga-401", W, "The site wants a login for this chapter (401).", "Log in on the site in this browser, open the chapter once, then grab again.", "reload", "Reload page", true)
+        mg("404-gone", "manga-404", W, "The chapter address is not found any more (404 / 410).", "Open the chapter from the site's own list again to get the new address, then grab.", null, null, true)
+        mg("429-slow-down", "manga-429", W, "The site says too many requests (429).", "Wait a few minutes. Raise the delay between pages or lower the concurrency in Settings.", "settings", "Open Settings", true)
+        mg("5xx-server", "manga-5xx", W, "The site's server had an error (5xx).", "The site is down or busy. Try again in a few minutes.", null, null, true)
+        mg("cors-blocked", "manga-cors", W, "The browser blocked reading the page list (CORS).", "Keep the source tab open and visible, then grab again. MGB reads through that tab when direct reading is blocked.", "reload", "Reload page", true)
+        mg("fetch-error", "manga-fetch", W, "The page list could not be fetched (network error).", "Check Wi-Fi / data (a VPN can also cause this), then grab again.", "wifi", "Open Wi-Fi settings", true)
+        mg("source-tab-closed", "manga-tab-closed", W, "The source tab was closed while MGB still needed it.", "Keep the manga page open in its tab until the grab has finished, then try again.")
+        mg("adapter-failed", "manga-adapter", W, "The site rule for this website failed.", "MGB tries other ways automatically. If no pages come, reload the chapter page and grab again; if it repeats, copy the report (this site may need an update).", "reload", "Reload page")
+        mg("fallback-used", "manga-fallback", I, "The site rule failed, so MGB used another method to find the pages.", "Nothing to do, the grab worked. If it repeats, copy the report so the site rule can be fixed.")
+        mg("no-page-list", "manga-no-list", B, "No page list could be found for this chapter.", "Open the chapter itself (not the series page), scroll to the first image, then grab again. If it repeats, copy the report.", "reload", "Reload page")
+        mg("pages-fewer-than-expected", "manga-fewer", W, "Fewer pages were found than the page says.", "Scroll the whole chapter once so every image loads, then grab again. Check the saved file for missing pages.", "reload", "Reload page")
+        mg("thumbnails-only", "manga-thumbs", W, "Most pages found are small (thumbnails, under 400 px wide).", "Open the chapter reader page instead of the gallery overview, wait until images are sharp, then grab again.", "reload", "Reload page")
     }
 
     /** "Why?" on one failed download row: the row's own text / code + the masked url. Always returns at least one Finding. */
