@@ -1,0 +1,26 @@
+THAZIR real-phone check list (S87.2, 0.0.91). Tick on the phone, send me only the lines that fail (line number + what you see).
+Do each in dark AND light theme, once at normal width.
+
+A. Auto Diagnose pill
+ 1. Settings > Downloads > Report center group: row "Auto Diagnose pill" shows ON; tap = OFF, tap = ON.
+ 2. Download a link that fails (turn Wi-Fi off mid download, or use a dead .mp4 url) two times: after the second failure a bar "This download failed twice" with Diagnose appears above the bottom bar within about 5 s.
+ 3. Tap Diagnose: Report center opens and the failed download is shown first.
+ 4. Trigger again within 5 min: NO second bar (limit).
+ 5. Wait 5 min, fail again, swipe the bar away: no bar for the next hour.
+ 6. Switch the row OFF, fail twice: no bar.
+ 7. Open the grabber panel (menu > Detected files) on a page with no media: after closing the panel a bar "Nothing found on this page" shows.
+ 8. Bar does not appear while a sheet / dialog is open, only after it closes.
+
+B. Report center
+ 9. Menu > Report center opens, verdict on top, Copy / Share / Save .txt work.
+10. Downloads screen: failed job shows "Why?" and opens the same report with the finding.
+11. After a crash, restart: "Last crash" dialog has "Full report".
+
+C. Rules 21-40 (needs real failures)
+12. Novel grabber on a locked chapter: report says locked chapter.
+13. HLS with DRM: report says protected (drm).
+14. Expired token link: report says link expired (token-expired).
+Known: rule 35 (schedule missed) never fires yet (nothing logs it).
+
+D. Build
+15. CI build is green. If red, send the exact error line.

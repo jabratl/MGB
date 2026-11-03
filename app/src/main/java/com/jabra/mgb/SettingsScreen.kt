@@ -472,6 +472,10 @@ object SettingsScreen {
                 Row(R.drawable.ic_info, "Report center", "", "Why something does not work: report, copy, share") { dismiss(); DiagScreen.open(act, null, -1) }, // S85
                 Row(R.drawable.ic_list, "Report log size", DiagScreen.logSizeText(), "Events kept for the report (no page text)"), // S85
                 Row(R.drawable.ic_close, "Clear report log", "", "Delete the diagnose log and the Grabber log") { DiagScreen.askClearLog(act) { fill() } }, // S85
+                Row(R.drawable.ic_info, "Auto Diagnose pill", if (AutoDiag.on(act)) "ON" else "OFF", "Small Diagnose button after a tab crash, a download that fails twice or an empty grabber") { // S87.2
+                    AutoDiag.setOn(act, !AutoDiag.on(act))
+                    fill()
+                },
                 Row(R.drawable.ic_bookmark, "Followed manga", Follow.count().let { if (it > 0) "$it" else "" }, "Alerts for new chapters") { Follow.open(act, "", null) { u -> dismiss(); BookmarksScreen.tabsRef?.openUrl(u) } },
                 Row(R.drawable.ic_history, "Scheduled downloads", Sched.count().let { if (it > 0) "$it" else "" }, "Start at a time you choose") { Sched.open(act) { emptyList() } },
                 Sub("Quality and files"),

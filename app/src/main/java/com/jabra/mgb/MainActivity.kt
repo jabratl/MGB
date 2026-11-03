@@ -307,10 +307,12 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     override fun onStart() {
         super.onStart()
         AppLock.onStart(this) // S45: lock again after the chosen delay
+        AutoDiag.start(this, tabs) // S87.2
     }
 
     override fun onStop() {
         AppLock.onStop(this) // S45
+        AutoDiag.stop() // S87.2
         AdBlock.flushTotal() // S68
         super.onStop()
     }
@@ -331,6 +333,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     override fun onDestroy() {
         AppLock.onDestroy() // S45
+        AutoDiag.stop() // S87.2
         PlayerScreen.onHostDestroy(this) // S35
         floating.stop() // S11
         DownloadsScreen.closeAll() // S12

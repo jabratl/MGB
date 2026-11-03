@@ -766,6 +766,7 @@ object DetectedPanel {
             if (mg != null) list.addView(mangaCard(mg), LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) }) // S55
             if (visible.isEmpty()) {
                 if (mg == null) list.addView(emptyView())
+                if (mg == null && all.isEmpty()) Diag.w("grabber", "panel: nothing found") // S87.2: auto Diagnose pill reads this
             } else {
                 val anim = firstDraw && (Build.VERSION.SDK_INT < 26 || ValueAnimator.areAnimatorsEnabled())
                 firstDraw = false

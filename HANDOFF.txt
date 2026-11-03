@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.91 (S87.2: auto Diagnose pill + Settings switch + phone check list, see the S87.2 note at the end; before: S87.1)
+
 CURRENT VERSION 0.0.90 (S87.1: DiagRules.kt rules 21-40, see the S87.1 note at the end; before: S86)
 
 CURRENT VERSION 0.0.89 (S86: DiagRules.kt rules 1-20 + Why? + crash Full report, see the S86 note at the end; before: S85)
@@ -640,3 +642,19 @@ Checks: braces / parens balanced in both Kotlin files (script); anchors replaced
 NOT tested: compile (CI); keyword matches against real V77 job errors and mgLog wording ("no chapter list", "no pages", "locked", "lazy" are guesses); nothing in the app logs a Diag "schedule ... missed" event yet, so rule 35 (schedule-missed) never fires; hls-nolist depends on info.error + empty info.variants.
 Not done: schedule-missed producer (add Diag.w("schedule", "missed ...") where the V77 scheduler runs late); one-tap fixes that open the Novel / Manga window (need new fix ids in DiagScreen.runFix).
 Next: S87.2 (0.0.91) = (a) auto Diagnose pill: shows when the same url fails twice in 10 min, a tab crash, or the grabber finds nothing; max 1 per 5 min, dismiss = 1 h quiet; (b) Settings switch "Auto Diagnose pill" default ON (SettingsScreen.kt); (c) real-phone check list (S17 style). Attach: MGB_S87_1_v0_0_90.zip + MainActivity.kt (grep pill spot), SettingsScreen.kt, DiagScreen.kt, Diag.kt, DiagReport.kt.
+
+
+S87.2 (0.0.91) - Diagnose part 5b-2: auto Diagnose pill
+Goal: auto pill (tab crash / same download fails twice in 10 min / grabber finds nothing), Settings switch default ON, real-phone check list. Assumption: the "pill" is a Material Snackbar above the bottom bar (same style as the password Fill bar), no new layout.
+Done: S0-S87.2. Current version 0.0.91.
+Changed:
+- AutoDiag.kt (new): 4 s poll of Diag.recent(errorsOnly) from MainActivity onStart to onStop; events older than the start moment never fire; crash > repeated download failure > empty grabber; limits 1 per 5 min, swipe = quiet 1 h (prefs mgb_ui auto_diag, auto_diag_quiet, auto_diag_last); waits while the window has no focus (dialog / sheet open); Diagnose opens DiagScreen (download case focuses that failed download).
+- MainActivity.kt: 3 one-line calls (start, stop x2).
+- SettingsScreen.kt: row "Auto Diagnose pill" after "Clear report log".
+- DetectedPanel.kt: 1 line Diag.w("grabber", ...) when all items are empty and no manga card.
+- docs/PHONE_CHECK.txt (new), build.gradle.kts 0.0.91, CHANGELOG.txt, HANDOFF.txt.
+Checks: braces / brackets balanced in the 4 Kotlin files (parens: AutoDiag -3 only from "1) 2) 3)" in comments, DetectedPanel +1 is old); no nested comment opener; every anchor replaced exactly once; symbols exist (Diag.recent / Event fields, DiagScreen.open 5 args, R.id.bottom_bar, ic_info, Row hint param). NOT compiled (no Kotlin SDK), UI NOT rendered at 360 / 1280 px dark / light.
+NOT tested (needs build + phone): compile (BaseTransientBottomBar.BaseCallback anonymous object); bar shows within about 5 s after the 2nd failure; fires only for "failed CODE" events that carry a url; swipe quiet 1 h; bar not hidden behind the bottom pill; Settings row toggles; panel-empty bar appears after the panel closes; private tab crash logs no url (S83) so the pill text is generic.
+Could break: a Snackbar already on screen (password Fill bar) is replaced by the pill; 4 s poll runs only while the Activity is started.
+Not done: schedule-missed producer (rule 35 never fires), one-tap fixes opening the Novel / Manga window, pill for other triggers (engine down, many probe failures).
+Next: fix from the first CI log / phone check (docs/PHONE_CHECK.txt), then S17 final check.

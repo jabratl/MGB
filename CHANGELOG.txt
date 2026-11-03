@@ -1,3 +1,10 @@
+0.0.91 (S87.2: Diagnose part 5b-2 - auto Diagnose pill)
+- AutoDiag.kt (new): while the app is in front it reads the Diag log every 4 s and shows one small bar with a Diagnose button for: tab crash, the same download failing twice in 10 min, grabber panel found nothing. Max 1 bar per 5 min, swipe away = quiet 1 hour, waits while a dialog / sheet has the focus. Switch prefs mgb_ui auto_diag, default ON.
+- MainActivity.kt: AutoDiag.start in onStart, AutoDiag.stop in onStop / onDestroy.
+- SettingsScreen.kt: row "Auto Diagnose pill" (ON / OFF) in the Report center group.
+- DetectedPanel.kt: one line, Diag.w("grabber", "panel: nothing found") when the panel has no items at all.
+- docs/PHONE_CHECK.txt (new): real-phone check list.
+
 MGB 0.0.90 (S87.1: Diagnose part 5b-1 - rules 21-40)
 - DiagRules.kt: rules 21-40 (rules21to40): novel timeout 180 s / page reloaded / script file missing / script error / saved data unreadable / locked chapter / no chapter list; manga saved data / no pages / lazy images; HLS list unreadable, DRM, blob: video, expired token link, subtitle fail; convert / merge limit, schedule missed, low storage while a job runs, duplicate file, same address failed twice in 10 min. Only existing fix ids are used.
 - DiagReport.kt: assemble fills the new Facts (novel / manga / schedule events, V77 mgLog lines, detected hls / drm / blob counts, failed job errors + urls, running jobs). Urls via Diag.maskUrl, error text via Diag.mask.
