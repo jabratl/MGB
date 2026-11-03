@@ -157,6 +157,21 @@ object ExtScreen {
                 lp.gravity = Gravity.CENTER_HORIZONTAL
                 container.layoutParams = lp
             }
+            // S14: popup of an INSTALLED extension = bottom panel (rounded top, dimmed page behind, tap outside closes), like the Thazir tray
+            if (popupOf != null && page == extIdOf(startUrl) + "/" + popupOf) {
+                window?.let {
+                    it.setLayout(MATCH, (act.resources.displayMetrics.heightPixels * 0.8f).toInt())
+                    it.setGravity(Gravity.BOTTOM)
+                    it.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                    it.setDimAmount(0.45f)
+                    val r = Util.dp(act, 24).toFloat()
+                    it.setBackgroundDrawable(android.graphics.drawable.GradientDrawable().apply {
+                        setColor(act.getColor(R.color.mg_bg))
+                        cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f)
+                    })
+                }
+                setCanceledOnTouchOutside(true)
+            }
 
             val w = WebView(act)
             web = w

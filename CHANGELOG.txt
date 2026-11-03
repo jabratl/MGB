@@ -1,3 +1,14 @@
+0.0.109 (S14 changed: video-style design; badge-tap idea dropped)
+- ExtListScreen.kt: Manage Extensions look like the video: title + Beta pill, search pill with icon, INSTALLED label, flat rows (icon, name, On / Off text = switch, grip). Tap row = details, hold = remove (trash icon and switch removed)
+- ExtScreen.kt: popup of an INSTALLED extension opens as a bottom panel (80% height, rounded top, dim behind, tap outside closes). V77 popup unchanged
+- ExtTray.kt: iconOf() and tint() public (used by the list)
+- NOT done: error-badge tap, root src/ + MGB/ duplicate cleanup
+
+0.0.108 (S13: tray error badge)
+- ExtBackground.kt: errorCount(id) counts worker errors (same events that go to Diagnose); cleared by reset(id)
+- ExtTray.kt: red badge (1..9+) on a tile when its extension had worker errors
+- Not changed: ExtRegistry, ExtScreen, ExtListScreen, MainActivity. Root src/ + MGB/ duplicate cleanup NOT done
+
 0.0.107 (S12: drag-drop reorder)
 - ExtListScreen.kt: grip handle at the left of each card; drag up / down, release = new place, saved; list uses the tray order (hidden while searching)
 - ExtTray.kt: ordered() now public, new saveOrder(); long-press move menu still works

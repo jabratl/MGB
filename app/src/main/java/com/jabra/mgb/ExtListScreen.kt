@@ -105,12 +105,22 @@ object ExtListScreen {
                 contentDescription = "Back"
                 setOnClickListener { dismiss() }
             }, LinearLayout.LayoutParams(dp(44), dp(48)))
-            head.addView(TextView(act).apply {
-                text = "Extensions"
-                textSize = 20f
-                gravity = Gravity.CENTER
-                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-                setTextColor(act.getColor(R.color.mg_text))
+            head.addView(LinearLayout(act).apply { // S14: title + Beta pill, like the Thazir tray look
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(TextView(act).apply {
+                    text = "Manage Extensions"
+                    textSize = 19f
+                    typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                    setTextColor(act.getColor(R.color.mg_text))
+                })
+                addView(TextView(act).apply {
+                    text = "Beta"
+                    textSize = 10f
+                    setTextColor(act.getColor(R.color.mg_text_dim))
+                    background = round(act.getColor(R.color.mg_surface_variant), 8)
+                    setPadding(dp(7), dp(2), dp(7), dp(2))
+                }, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(8) })
             }, LinearLayout.LayoutParams(0, WRAP, 1f))
             head.addView(ImageView(act).apply {
                 setImageResource(R.drawable.ic_add)
@@ -131,6 +141,12 @@ object ExtListScreen {
                 setHintTextColor(act.getColor(R.color.mg_text_dim))
                 background = round(act.getColor(R.color.mg_surface), 22)
                 setPadding(dp(16), 0, dp(16), 0)
+                compoundDrawablePadding = dp(10)
+                act.getDrawable(R.drawable.ic_search)?.mutate()?.let { d ->
+                    d.setTint(act.getColor(R.color.mg_text_dim))
+                    d.setBounds(0, 0, dp(20), dp(20))
+                    setCompoundDrawablesRelative(d, null, null, null)
+                }
                 addTextChangedListener(object : android.text.TextWatcher {
                     override fun afterTextChanged(s: android.text.Editable?) { query = s?.toString().orEmpty().trim(); fill() }
                     override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
@@ -165,12 +181,12 @@ object ExtListScreen {
             col.removeAllViews()
             val all = ExtTray.ordered(act, ExtRegistry.all()) // S12: same order as the tray
             val list = if (query.isEmpty()) all else all.filter { it.name.contains(query, ignoreCase = true) }
-            col.addView(TextView(act).apply {
-                text = "Add an extension from a .zip or .crx file. Chrome Web Store install is not available. " +
-                    "Some Chrome-only features do not work."
-                textSize = 12f
+            col.addView(TextView(act).apply { // S14
+                text = "INSTALLED"
+                textSize = 11f
+                letterSpacing = 0.08f
                 setTextColor(act.getColor(R.color.mg_text_dim))
-                setPadding(dp(6), dp(4), dp(6), dp(10))
+                setPadding(dp(8), dp(8), dp(6), dp(8))
             })
             if (list.isEmpty()) {
                 col.addView(TextView(act).apply {
@@ -180,7 +196,13 @@ object ExtListScreen {
                     setTextColor(act.getColor(R.color.mg_text_dim))
                 }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(28) })
             }
-            for (e in list) col.addView(card(e), LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(10) })
+            for (e in list) col.addView(card(e), LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(4) })
+            col.addView(TextView(act).apply {
+                text = "Add from a .zip or .crx file. Chrome Web Store install is not available. Tap = details, hold = remove."
+                textSize = 12f
+                setTextColor(act.getColor(R.color.mg_text_dim))
+                setPadding(dp(6), dp(10), dp(6), dp(4))
+            })
             col.addView(TextView(act).apply {
                 text = "Add extension"
                 textSize = 15f
@@ -193,66 +215,57 @@ object ExtListScreen {
             }, LinearLayout.LayoutParams(MATCH, dp(48)).apply { topMargin = dp(6) })
         }
 
+        private fun toggle(e: ExtRegistry.Info, on: Boolean) {
+            val why = if (on) ExtSafety.blockReason(e) else null // S8: a blocked extension cannot be turned on
+            if (why != null) { Util.toast(act, why); fill(); return }
+            if (!ExtRegistry.setEnabled(e.id, on)) Util.toast(act, "Could not change")
+            ExtApi.sync(act) // S5: stop / wake its background worker, alarms
+            fill()
+        }
+
+        /** S14: flat row like the Thazir tray: icon, name, On / Off (tap = switch), grip. Tap row = details, hold = remove. */
         private fun card(e: ExtRegistry.Info): View {
             val c = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                background = round(act.getColor(R.color.mg_surface), 16)
-                setPadding(dp(14), dp(10), dp(6), dp(10))
-                alpha = if (e.enabled) 1f else 0.7f
+                background = round(act.getColor(R.color.mg_surface), 14)
+                setPadding(dp(14), dp(8), dp(4), dp(8))
             }
             c.tag = e.id
-            if (query.isEmpty()) c.addView(dragHandle(c, e), LinearLayout.LayoutParams(dp(32), dp(40)).apply { marginEnd = dp(6) }) // S12
-            val txt = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
-            txt.addView(TextView(act).apply {
+            val sz = dp(28)
+            val bmp = ExtTray.iconOf(e)
+            val iconV: View = if (bmp != null) ImageView(act).apply { setImageBitmap(bmp); scaleType = ImageView.ScaleType.FIT_CENTER }
+            else TextView(act).apply {
+                text = e.name.trim().take(1).uppercase().ifEmpty { "?" }
+                textSize = 14f
+                gravity = Gravity.CENTER
+                setTextColor(0xFFFFFFFF.toInt())
+                background = round(ExtTray.tint(e.id), 8)
+            }
+            iconV.alpha = if (e.enabled) 1f else 0.45f
+            c.addView(iconV, LinearLayout.LayoutParams(sz, sz))
+            c.addView(TextView(act).apply {
                 text = e.name
                 textSize = 15f
-                maxLines = 2
+                maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
-                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-                setTextColor(act.getColor(R.color.mg_text))
-            })
-            txt.addView(TextView(act).apply {
-                text = (if (e.enabled) "On" else "Off") + " · v" + e.version + " · " + kinds(e)
-                textSize = 12f
-                setTextColor(act.getColor(R.color.mg_text_dim))
-            })
-            if (e.description.isNotBlank()) txt.addView(TextView(act).apply {
-                text = e.description
-                textSize = 12f
-                maxLines = 2
-                ellipsize = android.text.TextUtils.TruncateAt.END
-                setTextColor(act.getColor(R.color.mg_text_dim))
-            })
-            c.addView(txt, LinearLayout.LayoutParams(0, WRAP, 1f))
-            c.addView(MaterialSwitch(act).apply {
-                isChecked = e.enabled
+                setTextColor(act.getColor(if (e.enabled) R.color.mg_text else R.color.mg_text_dim))
+            }, LinearLayout.LayoutParams(0, WRAP, 1f).apply { marginStart = dp(12) })
+            c.addView(TextView(act).apply {
+                text = if (e.enabled) "On" else "Off"
+                textSize = 13f
+                setTextColor(act.getColor(if (e.enabled) R.color.mg_primary else R.color.mg_text_dim))
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+                isClickable = true
+                isFocusable = true
                 contentDescription = "Turn " + e.name + " on or off"
-                val st = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
-                trackTintList = ColorStateList(st, intArrayOf(act.getColor(R.color.mg_primary), act.getColor(R.color.mg_surface_variant)))
-                thumbTintList = ColorStateList(st, intArrayOf(act.getColor(R.color.mg_on_primary), act.getColor(R.color.mg_text_dim)))
-                setOnCheckedChangeListener { _, on ->
-                    val why = if (on) ExtSafety.blockReason(e) else null // S8: a blocked extension cannot be turned on
-                    if (why != null) {
-                        Util.toast(act, why)
-                        fill()
-                        return@setOnCheckedChangeListener
-                    }
-                    if (!ExtRegistry.setEnabled(e.id, on)) Util.toast(act, "Could not change")
-                    ExtApi.sync(act) // S5: stop / wake its background worker, alarms
-                    fill()
-                }
-            }, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(6) })
-            c.addView(ImageView(act).apply {
-                setImageResource(R.drawable.ic_trash)
-                setColorFilter(act.getColor(R.color.mg_text_dim))
-                setPadding(dp(10), dp(10), dp(10), dp(10))
-                contentDescription = "Remove " + e.name
-                setOnClickListener { askRemove(e) }
-            }, LinearLayout.LayoutParams(dp(44), dp(44)))
+                setOnClickListener { toggle(e, !e.enabled) }
+            })
+            if (query.isEmpty()) c.addView(dragHandle(c, e), LinearLayout.LayoutParams(dp(32), dp(40))) // S12
             c.isClickable = true
             c.isFocusable = true
             c.setOnClickListener { details(e) }
+            c.setOnLongClickListener { askRemove(e); true }
             return c
         }
 
