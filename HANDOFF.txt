@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.80 (S77: group panel overlay + reorder, see the S77 note at the end; before: S76)
+
 CURRENT VERSION 0.0.79 (S76: switcher menu rows, see the S76 note at the end; before: S75)
 
 CURRENT VERSION 0.0.78 (S75: tab switcher group drag-out + Undo, see the S75 note at the end; before: S74)
@@ -473,3 +475,11 @@ Checks: Kotlin braces/parens balance = 0; ClosedTabs.clear, Bookmarks.clearHisto
 NOT tested: dialog look in dark theme, history really cleared (Bookmarks screen), cookies delete logs out, Settings opens above the browser after the switcher closes, menu with 8 rows fits at 360 px.
 Could break: menu is longer (scrolls? PopupWindow has no scroll: check the last row is reachable on a small screen); cache clear only touches the active tab WebView (same as Settings).
 Still missing from the video (NEXT): group panel as dimmed rounded overlay, card flies out of the group card on open, drag reorder inside a group.
+
+======== S77 note (0.0.80) ========
+Source: same Brave recording; these were the last NEXT items of S75 / S76.
+Changed: TabSwitcher.kt (Screen: fields rootV / panelAnim / popFrom; applyPanel() called at the end of render() = rounded top + body backgrounds with 12 dp side margins and a 0x66000000 scrim on rootV while mode == 2 && openGroup != null, grow animation with pivot at popFrom; openGroupView(name, from: View?) stores the tapped card centre, groupCard / groupRow click pass the view; listFor() in a group now follows the group set order; tab cards are drop targets again, dropOn inside a group = reorder(id, over); reorder() rewrites the LinkedHashSet) / app/build.gradle.kts (0.0.80) / CHANGELOG.txt / HANDOFF.txt. S75 + S76 changes are included. No layout xml, no JS change.
+Checks: Kotlin braces/parens balance = 0; all R.color / R.drawable used exist; NOT compiled; UI NOT rendered at 360/1280 dark/light.
+NOT tested (needs real use): build first (cornerRadii float arrays, listOf<View>, emptySet<Int>() in the when branch); panel look in dark + light (scrim strength, panel colour vs card colour mg_surface: cards may blend into the panel, if so use mg_surface_variant for the panel); grow animation from the tapped group card (pivot maths uses rootV screen position); panel with search / select mode; drag a tab onto another tab inside a group = reorder, drop on empty space settles back; order survives force-stop + restart (exportGroups keeps set order); undo bar and drop zone still sit inside the panel body.
+Could break: while the panel is open the bottom pill bar stays full width under the scrim; a tab dropped on a tab card of the group list view of mode 0 still makes a new group (unchanged).
+Brave recording: all items are done now. Still open elsewhere (older NEXT lists): in-page video buttons inside iframes, MediaSession for background audio, favicons in Bookmarks / History lists, S17 final check on a real phone.

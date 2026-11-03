@@ -190,6 +190,9 @@ object TabSwitcher {
         private var zone: TextView? = null // S75: "Remove tab from group" drop zone (group view, while dragging)
         private var undoBar: View? = null // S75
         private val ZONE = Any()
+        private lateinit var rootV: LinearLayout // S77: for the dim scrim behind the group panel
+        private var panelAnim = false // S77: play the panel open animation on the next render
+        private var popFrom: IntArray? = null // S77: screen centre of the group card that was tapped
 
         private fun dp(v: Int) = Util.dp(act, v)
         private fun c(res: Int) = act.getColor(res)
@@ -249,7 +252,7 @@ object TabSwitcher {
             val g = openGroup
             val base = when {
                 mode == 1 -> all.filter { it.priv }
-                mode == 2 && g != null -> all.filter { !it.priv && groups[g]?.contains(it.id) == true }
+                mode == 2 && g != null -> (groups[g] ?: emptySet<Int>()).mapNotNull { id -> all.firstOrNull { !it.priv && it.id == id } } // S77: group order
                 mode == 2 -> emptyList()
                 query.isNotBlank() -> all.filter { !it.priv } // searching: flat list, groups included
                 else -> all.filter { !it.priv && groupOf(it) == null }
@@ -281,6 +284,7 @@ object TabSwitcher {
 
         private fun build() {
             val root = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+            rootV = root
             top = FrameLayout(act)
             root.addView(top, LinearLayout.LayoutParams(MATCH, dp(64)))
             grid = LinearLayout(act).apply {
@@ -513,6 +517,43 @@ object TabSwitcher {
             drawTop()
             drawBar()
             renderList()
+            applyPanel() // S77
+        }
+
+        /** S77: an open group is a rounded panel over a dimmed switcher (like Brave); it grows out of the tapped group card. */
+        private fun applyPanel() {
+            val panel = mode == 2 && openGroup != null
+            val r = dp(22).toFloat()
+            val surf = c(R.color.mg_surface)
+            rootV.setBackgroundColor(if (panel) 0x66000000 else Color.TRANSPARENT)
+            val tl = top.layoutParams as LinearLayout.LayoutParams
+            val bl = body.layoutParams as LinearLayout.LayoutParams
+            val m = if (panel) dp(12) else 0
+            tl.setMargins(m, if (panel) dp(8) else 0, m, 0)
+            bl.setMargins(m, 0, m, if (panel) dp(6) else 0)
+            top.layoutParams = tl
+            body.layoutParams = bl
+            top.background = if (panel) GradientDrawable().apply { setColor(surf); cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f) } else null
+            body.background = if (panel) GradientDrawable().apply { setColor(surf); cornerRadii = floatArrayOf(0f, 0f, 0f, 0f, r, r, r, r) } else null
+            if (panel && panelAnim) {
+                val pf = popFrom
+                val rl = IntArray(2)
+                rootV.getLocationOnScreen(rl)
+                val start = if (pf != null) 0.45f else 0.94f
+                val views = listOf<View>(top, body)
+                for ((i, v) in views.withIndex()) {
+                    v.alpha = 0f
+                    v.scaleX = start
+                    v.scaleY = start
+                    if (pf != null) {
+                        v.pivotX = (pf[0] - rl[0] - m).toFloat()
+                        v.pivotY = (pf[1] - rl[1] - dp(8) - (if (i == 0) 0 else dp(64))).toFloat()
+                    }
+                    v.animate().alpha(1f).scaleX(1f).scaleY(1f).setInterpolator(android.view.animation.DecelerateInterpolator(1.8f)).setDuration(260).start()
+                }
+            }
+            panelAnim = false
+            popFrom = null
         }
 
         private fun groupNames(): List<String> {
@@ -536,7 +577,7 @@ object TabSwitcher {
             }
             val cards = ArrayList<View>()
             if (mode == 0 && query.isBlank() && !selecting) groupNames().forEach { n -> val v = groupCard(n); cards.add(v); targets.add(v to n) } // groups sit in the tab grid first
-            shown.forEach { t -> val v = card(t); cards.add(v); if (openGroup == null) targets.add(v to t) } // S75: inside a group a tab card is not a drop target
+            shown.forEach { t -> val v = card(t); cards.add(v); targets.add(v to t) } // S77: inside a group a tab card = reorder target
             empty.text = when {
                 query.isNotBlank() -> "No tab matches."
                 mode == 1 -> "No private tabs.\nTap + to open one."
@@ -597,7 +638,9 @@ object TabSwitcher {
             render()
         }
 
-        private fun openGroupView(name: String) {
+        private fun openGroupView(name: String, from: View? = null) {
+            popFrom = from?.let { val l = IntArray(2); it.getLocationOnScreen(l); intArrayOf(l[0] + it.width / 2, l[1] + it.height / 2) } // S77
+            panelAnim = true
             backMode = if (mode == 2) 2 else 0
             mode = 2
             openGroup = name
@@ -971,6 +1014,7 @@ object TabSwitcher {
                     val target = tg.second
                     if (target === ZONE) pullOut(t.id) // S75
                     else if (target is String) moveInto(target, setOf(t.id))
+                    else if (target is TabManager.Tab && openGroup != null) reorder(t.id, target.id) // S77
                     else if (target is TabManager.Tab) {
                         groupDialog("New tab group", "Group " + (groups.size + 1), nextColor(), "Save", { render() }) { n, col ->
                             val name = n.ifBlank { "Group " + (groups.size + 1) }
@@ -1001,6 +1045,22 @@ object TabSwitcher {
         }
 
         // ---- S75: pull a tab out of a group (drop zone + undo bar, like the Brave switcher)
+
+        /** S77: drop a tab on another tab inside a group = it takes that place (order is saved with the session). */
+        private fun reorder(id: Int, over: Int) {
+            val g = groups[openGroup ?: return] ?: return
+            val list = g.toMutableList()
+            val oi = list.indexOf(id)
+            val ti = list.indexOf(over)
+            if (oi < 0 || ti < 0 || oi == ti) { render(); return }
+            list.removeAt(oi)
+            val at = list.indexOf(over)
+            list.add(if (oi < ti) at + 1 else at, id)
+            g.clear()
+            g.addAll(list)
+            animateNext = false
+            render()
+        }
 
         private fun tint(): Int = (c(R.color.mg_primary) and 0x00FFFFFF) or 0x33000000
 
@@ -1231,7 +1291,7 @@ object TabSwitcher {
             val box = FrameLayout(act).apply {
                 background = round(c(R.color.mg_surface), 18)
                 clipToOutline = true
-                setOnClickListener { openGroupView(name) }
+                setOnClickListener { v -> openGroupView(name, v) }
                 setOnLongClickListener { v -> v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS); groupMenu(v, name, false); true }
             }
             press(box)
@@ -1267,7 +1327,7 @@ object TabSwitcher {
                 gravity = Gravity.CENTER_VERTICAL
                 background = round(c(R.color.mg_surface), 18)
                 setPadding(dp(10), dp(8), dp(4), dp(8))
-                setOnClickListener { openGroupView(name) }
+                setOnClickListener { v -> openGroupView(name, v) }
             }
             press(row)
             val mini = FrameLayout(act).apply { background = round(c(R.color.mg_surface_variant), 12); clipToOutline = true }

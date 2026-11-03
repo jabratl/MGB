@@ -1,3 +1,8 @@
+MGB 0.0.80 (S77: tab switcher group panel, last items of the Brave recording)
+- An open group is now a rounded panel over a dimmed switcher (header with back, colour dot, name, + and menu on top, tab cards inside).
+- The panel grows out of the group card you tapped (scale + fade, decelerate); from the group list or after Add to group it pops in softly.
+- Inside a group you can drag a tab onto another tab: it takes that place (reorder). The order is kept in the group view and saved with the session.
+
 MGB 0.0.79 (S76: tab switcher menu, Brave-style rows)
 - Switcher menu (3 dots): new "Delete browsing data" (tick history, cookies and site data, cache, recently closed tabs, then Delete) and "Settings" (closes the switcher and opens Settings).
 
