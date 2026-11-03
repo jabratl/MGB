@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.110 (FIX: dispatchDraw NPE in Manage Extensions via refill(); before: 0.0.109). Next: S15 = phone check, panel grab handle + swipe-down close, root src/ + MGB/ cleanup. If the crash stays, send the first 3 lines of the new log + what was tapped.
+
 CURRENT VERSION 0.0.109 (S14: video-style Manage list + popup bottom panel; before: 0.0.108). Next: S15 = phone check of the new look, grab handle + swipe-down close for the panel, root src/ + MGB/ cleanup.
 
 CURRENT VERSION 0.0.108 (S13: error badge on tray tiles; before: 0.0.107). Next: S14 = tap on a badged tile opens its error log / Diagnose, clear badge; root src/ + MGB/ duplicate cleanup.

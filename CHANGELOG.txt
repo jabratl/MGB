@@ -1,3 +1,8 @@
+0.0.110 (FIX: crash in Manage Extensions)
+- Crash: NullPointerException in ViewGroup.dispatchDraw (ScrollView) after 0.0.109. Cause: ExtListScreen.fill() removed all rows inside a touch / click / text handler while they were still drawn
+- ExtListScreen.kt: new refill() = fill() posted after the event; used by search text, On/Off tap, drag release, blocked-toggle, remove confirm. First build unchanged
+- Could break: list refreshes one frame later (not visible). Not reproduced here (no device); needs a phone check
+
 0.0.109 (S14 changed: video-style design; badge-tap idea dropped)
 - ExtListScreen.kt: Manage Extensions look like the video: title + Beta pill, search pill with icon, INSTALLED label, flat rows (icon, name, On / Off text = switch, grip). Tap row = details, hold = remove (trash icon and switch removed)
 - ExtScreen.kt: popup of an INSTALLED extension opens as a bottom panel (80% height, rounded top, dim behind, tap outside closes). V77 popup unchanged

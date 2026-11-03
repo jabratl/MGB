@@ -148,7 +148,7 @@ object ExtListScreen {
                     setCompoundDrawablesRelative(d, null, null, null)
                 }
                 addTextChangedListener(object : android.text.TextWatcher {
-                    override fun afterTextChanged(s: android.text.Editable?) { query = s?.toString().orEmpty().trim(); fill() }
+                    override fun afterTextChanged(s: android.text.Editable?) { query = s?.toString().orEmpty().trim(); refill() }
                     override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
                     override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
                 })
@@ -174,6 +174,13 @@ object ExtListScreen {
             }, LinearLayout.LayoutParams(MATCH, 0, 1f))
             setContentView(root)
             fill()
+        }
+
+        /** S14b: rebuild after the current touch / click / text event is finished. Calling fill() inside the event removed views that were
+         *  still being drawn (NullPointerException in ViewGroup.dispatchDraw, 0.0.109). */
+        private fun refill() {
+            val b = body ?: return
+            b.post { if (isShowing) fill() }
         }
 
         private fun fill() {
@@ -217,10 +224,10 @@ object ExtListScreen {
 
         private fun toggle(e: ExtRegistry.Info, on: Boolean) {
             val why = if (on) ExtSafety.blockReason(e) else null // S8: a blocked extension cannot be turned on
-            if (why != null) { Util.toast(act, why); fill(); return }
+            if (why != null) { Util.toast(act, why); refill(); return }
             if (!ExtRegistry.setEnabled(e.id, on)) Util.toast(act, "Could not change")
             ExtApi.sync(act) // S5: stop / wake its background worker, alarms
-            fill()
+            refill()
         }
 
         /** S14: flat row like the Thazir tray: icon, name, On / Off (tap = switch), grip. Tap row = details, hold = remove. */
@@ -297,7 +304,7 @@ object ExtListScreen {
                         c.translationY = 0f
                         c.elevation = 0f
                         if (ev.actionMasked == android.view.MotionEvent.ACTION_UP) ExtTray.saveOrder(act, ids)
-                        fill()
+                        refill()
                         true
                     }
                     else -> false
@@ -321,7 +328,7 @@ object ExtListScreen {
                     if (!ExtRegistry.remove(e.id)) Util.toast(act, "Could not remove all files")
                     ChromeBridge.removeExtData(act, e.id) // S3: wipe its storage
                     ExtApi.sync(act) // S5: worker, alarms, menus of the removed extension
-                    fill()
+                    refill()
                 }
                 .setNegativeButton("Cancel", null)
                 .show()
