@@ -1,3 +1,9 @@
+MGB 0.0.78 (S75: tab switcher, ideas from a Brave screen recording)
+- Inside an open group you can now long press a tab and drag it: a "Remove tab from group" zone slides up at the bottom; drop the tab there and it leaves the group (flies into the zone, zone lights up while you hover).
+- After you drop a tab into a group, or pull one out, an "N tabs grouped" / "Tab removed from group" bar with Undo shows for 5 seconds (replaces the old toast). Undo restores the old groups and colour.
+- Switcher menu: new "New tab group" (name + colour, opens a new tab inside the group).
+- Smooth motion: drop zone and Undo bar fade + slide with a decelerate curve; inside a group a tab card is not a drop target (no accidental new group).
+
 MGB 0.0.77 (S74: filter lists, EasyList engine for the ad blocker)
 - The blocker now reads filter lists in EasyList syntax: EasyList + EasyPrivacy (downloaded) and a small built-in seed list. The old host list stays as a base.
 - Network rules: ||domain^, |start, text with * and ^, exceptions (@@), $third-party / ~third-party, $script $image $stylesheet $xmlhttprequest $subdocument $media $font $other, $domain=.

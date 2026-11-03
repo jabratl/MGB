@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.78 (S75: tab switcher group drag-out + Undo, see the S75 note at the end; before: S74)
+
 CURRENT VERSION 0.0.77 (S74: filter lists / EasyList engine, see the S74 note at the end; before: S73)
 
 CURRENT VERSION 0.0.76 (S73: audit of S68-S72, no app code change, see the S73 note at the end; before: S72)
@@ -453,3 +455,11 @@ NOT tested: first build compiles (look at FilterList.update and Builder.network 
 Could break: over-blocking on some sites (turn off with Privacy Guard > Blocker on this site); first run downloads about 3 MB on mobile data; RAM use +15-25 MB while the lists are loaded; request type is guessed from file extension + Accept header.
 Still missing: scriptlets / YouTube ads, popup blocking, per-list on/off, custom filter rules, user-added list URLs, percent of pages with ads on the stats screen.
 Next: S75 = fix from the first run (compile error line or bug + what you see + where), or Home "N ads blocked" line opens Blocker stats, or custom filter list URL + per-list switch.
+
+======== S75 note (0.0.78) ========
+Source: user screen recording of the Brave tab switcher (group panel, drag a tab out of a group, "N tabs grouped / Undo", group menu, switcher menu). Assumption: S75 = group drag-out + Undo + New tab group only (TabSwitcher.kt); the rest goes to NEXT.
+Changed: TabSwitcher.kt only (Screen: fields body / zone / undoBar / ZONE; canDrag also true in an open group; targets: tab cards are drop targets only when openGroup == null; showZone / hideZone (drop zone as a drop target, ring() / unring() tint it); pullOut(id); undo(msg, onUndo) / hideUndo(anim) = own bar in bodyFrame, auto hide 5 s, render() hides a stale bar; moveInto() now snapshots old membership and shows Undo instead of a toast; newGroup() + menu row "New tab group") / app/build.gradle.kts (0.0.78) / CHANGELOG.txt / HANDOFF.txt. No layout, no JS change.
+Checks: Kotlin braces/parens balance = 0; every R.color / R.drawable used already exists; NOT compiled (no kotlinc here); UI NOT rendered at 360/1280 dark/light.
+NOT tested (needs real use): build first; long press + drag inside a group view lifts the card; zone appears and lights up on hover; drop = tab leaves the group (last tab out = group disappears and the view goes back); Undo brings back the group + colour; "N tabs grouped" bar after dropping on a group card; bar does not overlap the bottom pill; New tab group opens a tab and the group shows in the grid.
+Could break: dragging inside a group has no re-order (drop elsewhere = card settles back); Undo is dropped as soon as anything else re-renders the switcher.
+From the video, still missing (NEXT): group panel as a dimmed rounded overlay over the grid (now it is a full list view), "Delete browsing data" + "Settings" rows in the switcher menu, tab count inside the Tabs pill, card flies out of the group card when you open it, reorder by drag.

@@ -186,6 +186,10 @@ object TabSwitcher {
         private var lastX = 0f
         private var lastY = 0f
         private var hover: Pair<View, Any>? = null
+        private lateinit var body: FrameLayout // S75: overlay host (drop zone, undo bar)
+        private var zone: TextView? = null // S75: "Remove tab from group" drop zone (group view, while dragging)
+        private var undoBar: View? = null // S75
+        private val ZONE = Any()
 
         private fun dp(v: Int) = Util.dp(act, v)
         private fun c(res: Int) = act.getColor(res)
@@ -289,6 +293,7 @@ object TabSwitcher {
             grid.clipChildren = false
             sv.addView(grid, ViewGroup.LayoutParams(MATCH, WRAP))
             val bodyFrame = FrameLayout(act)
+            body = bodyFrame
             bodyFrame.addView(sv, FrameLayout.LayoutParams(MATCH, MATCH))
             empty = TextView(act).apply {
                 gravity = Gravity.CENTER
@@ -501,6 +506,7 @@ object TabSwitcher {
         }
 
         private fun render() {
+            hideUndo() // S75: any new state makes an old Undo stale
             clean()
             shown = listFor()
             picked.retainAll(shown.map { it.id }.toSet())
@@ -530,7 +536,7 @@ object TabSwitcher {
             }
             val cards = ArrayList<View>()
             if (mode == 0 && query.isBlank() && !selecting) groupNames().forEach { n -> val v = groupCard(n); cards.add(v); targets.add(v to n) } // groups sit in the tab grid first
-            shown.forEach { t -> val v = card(t); cards.add(v); targets.add(v to t) }
+            shown.forEach { t -> val v = card(t); cards.add(v); if (openGroup == null) targets.add(v to t) } // S75: inside a group a tab card is not a drop target
             empty.text = when {
                 query.isNotBlank() -> "No tab matches."
                 mode == 1 -> "No private tabs.\nTap + to open one."
@@ -615,6 +621,7 @@ object TabSwitcher {
             val onList = !(mode == 2 && openGroup == null)
             items.add(MI("New tab", R.drawable.ic_add) { newTab(false) })
             items.add(MI("New private tab", R.drawable.ic_lock) { newTab(true) })
+            if (mode != 1) items.add(MI("New tab group", R.drawable.ic_folder) { newGroup() }) // S75
             if (onList) items.add(MI("Select tabs", R.drawable.ic_check) { startSelect(null) })
             if (mode != 1 && onList) items.add(MI("Bookmark all tabs", R.drawable.ic_bookmark_border) { TabBookmarks.dialog(act, tm) }) // S40
             if (mode != 1 && onList) items.add(MI("Share all tabs", R.drawable.ic_share) { TabBookmarks.shareAll(act, tm) }) // S41
@@ -785,7 +792,7 @@ object TabSwitcher {
 
         // ---- S44: drag a tab onto a group (or onto another tab = new group)
 
-        private fun canDrag() = mode == 0 && query.isBlank() && !selecting && !searching
+        private fun canDrag() = (mode == 0 || (mode == 2 && openGroup != null)) && query.isBlank() && !selecting && !searching // S75: also inside a group
 
         private val scroller = object : Runnable {
             override fun run() {
@@ -821,11 +828,13 @@ object TabSwitcher {
 
         private fun ring(v: View) {
             v.animate().scaleX(1.06f).scaleY(1.06f).setDuration(110).start()
+            if (v === zone) v.background = round(tint(), 16, 2, c(R.color.mg_primary)) // S75
             (v as? FrameLayout)?.foreground = round(Color.TRANSPARENT, 18, 3, c(R.color.mg_primary))
         }
 
         private fun unring(v: View) {
             v.animate().scaleX(1f).scaleY(1f).setDuration(110).start()
+            if (v === zone) v.background = round(Color.TRANSPARENT, 16, 2, c(R.color.mg_primary)) // S75
             (v as? FrameLayout)?.foreground = null
         }
 
@@ -854,6 +863,7 @@ object TabSwitcher {
                     box.parent?.requestDisallowInterceptTouchEvent(true)
                     box.translationZ = dp(12).toFloat()
                     box.animate().scaleX(1.06f).scaleY(1.06f).alpha(0.92f).setDuration(120).start()
+                    if (openGroup != null) showZone() // S75
                     scroll.post(scroller)
                 } else if (!selecting) tabMenu(box, t)
             }
@@ -897,6 +907,7 @@ object TabSwitcher {
                             if (tg != null) dropOn(v, t, tg)
                             else if (hypot(e.rawX - downX, e.rawY - downY) < slop * 2) { settle(v); tabMenu(v, t) }
                             else settle(v)
+                            hideZone() // S75
                             true
                         } else {
                             if (!armed) v.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
@@ -911,6 +922,7 @@ object TabSwitcher {
                             scroll.removeCallbacks(scroller)
                             hover?.first?.let { unring(it) }
                             hover = null
+                            hideZone() // S75
                             settle(v)
                         } else v.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
                         false
@@ -931,7 +943,8 @@ object TabSwitcher {
             v.animate().translationX(v.translationX + dx).translationY(v.translationY + dy).scaleX(0.35f).scaleY(0.35f).alpha(0f)
                 .setDuration(170).withEndAction {
                     val target = tg.second
-                    if (target is String) moveInto(target, setOf(t.id))
+                    if (target === ZONE) pullOut(t.id) // S75
+                    else if (target is String) moveInto(target, setOf(t.id))
                     else if (target is TabManager.Tab) {
                         groupDialog("New tab group", "Group " + (groups.size + 1), nextColor(), "Save", { render() }) { n, col ->
                             val name = n.ifBlank { "Group " + (groups.size + 1) }
@@ -942,13 +955,116 @@ object TabSwitcher {
                 }.start()
         }
 
-        /** Puts the tabs into a group and stays on the tab grid (no jump into the group). */
+        /** Puts the tabs into a group and stays on the tab grid (no jump into the group). S75: Undo bar instead of a toast. */
         private fun moveInto(name: String, ids: Set<Int>) {
+            val before = HashMap<Int, String>()
+            for ((n, g) in groups) for (i in ids) if (i in g) before[i] = n
+            val hadGroup = groups.containsKey(name)
             for (g in groups.values) g.removeAll(ids)
             groups.getOrPut(name) { LinkedHashSet() }.addAll(ids)
-            Util.toast(act, "Moved to $name")
             animateNext = false
             render()
+            val n = groups[name]?.size ?: ids.size
+            undo((if (n == 1) "1 tab" else "$n tabs") + " grouped") {
+                for (g in groups.values) g.removeAll(ids)
+                for ((i, gn) in before) groups.getOrPut(gn) { LinkedHashSet() }.add(i)
+                if (!hadGroup) { groups.remove(name); colors.remove(name) }
+                animateNext = false
+                render()
+            }
+        }
+
+        // ---- S75: pull a tab out of a group (drop zone + undo bar, like the Brave switcher)
+
+        private fun tint(): Int = (c(R.color.mg_primary) and 0x00FFFFFF) or 0x33000000
+
+        private fun showZone() {
+            if (zone != null) return
+            val z = TextView(act).apply {
+                text = "Remove tab from group"
+                gravity = Gravity.CENTER
+                textSize = 14f
+                setTextColor(c(R.color.mg_primary))
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                background = round(Color.TRANSPARENT, 16, 2, c(R.color.mg_primary))
+                elevation = dp(2).toFloat()
+                alpha = 0f
+                translationY = dp(24).toFloat()
+            }
+            body.addView(z, FrameLayout.LayoutParams(MATCH, dp(56), Gravity.BOTTOM).apply { setMargins(dp(16), 0, dp(16), dp(12)) })
+            z.animate().alpha(1f).translationY(0f).setInterpolator(android.view.animation.DecelerateInterpolator(1.6f)).setDuration(200).start()
+            zone = z
+            targets.add(z to ZONE)
+        }
+
+        private fun hideZone() {
+            val z = zone ?: return
+            zone = null
+            targets.removeAll { it.first === z }
+            z.animate().alpha(0f).translationY(dp(24).toFloat()).setDuration(160).withEndAction { body.removeView(z) }.start()
+        }
+
+        private fun pullOut(id: Int) {
+            val name = groups.entries.firstOrNull { id in it.value }?.key
+            val col = if (name != null) colors[name] else null
+            for (g in groups.values) g.remove(id)
+            animateNext = false
+            render()
+            if (name == null) return
+            undo("Tab removed from group") {
+                groups.getOrPut(name) { LinkedHashSet() }.add(id)
+                if (col != null) colors[name] = col
+                animateNext = false
+                render()
+            }
+        }
+
+        private fun undo(msg: String, onUndo: () -> Unit) {
+            hideUndo()
+            val b = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(16), 0, dp(4), 0)
+                background = round(c(R.color.mg_surface_variant), 16, 1, c(R.color.mg_outline))
+                elevation = dp(8).toFloat()
+                alpha = 0f
+                translationY = dp(20).toFloat()
+            }
+            b.addView(TextView(act).apply {
+                text = msg
+                textSize = 14f
+                setTextColor(c(R.color.mg_text))
+            }, LinearLayout.LayoutParams(0, WRAP, 1f))
+            b.addView(TextView(act).apply {
+                text = "Undo"
+                textSize = 14f
+                setTextColor(c(R.color.mg_primary))
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                setPadding(dp(14), dp(14), dp(14), dp(14))
+                setOnClickListener { hideUndo(); onUndo() }
+            }, LinearLayout.LayoutParams(WRAP, WRAP))
+            body.addView(b, FrameLayout.LayoutParams(MATCH, dp(52), Gravity.BOTTOM).apply { setMargins(dp(14), 0, dp(14), dp(12)) })
+            b.animate().alpha(1f).translationY(0f).setInterpolator(android.view.animation.DecelerateInterpolator(1.6f)).setDuration(200).start()
+            undoBar = b
+            b.postDelayed({ if (undoBar === b) hideUndo(true) }, 5000)
+        }
+
+        private fun hideUndo(anim: Boolean = false) {
+            val b = undoBar ?: return
+            undoBar = null
+            if (anim) b.animate().alpha(0f).translationY(dp(20).toFloat()).setDuration(160).withEndAction { body.removeView(b) }.start()
+            else body.removeView(b)
+        }
+
+        private fun newGroup() {
+            groupDialog("New tab group", "Group " + (groups.size + 1), nextColor(), "Save") { n, col ->
+                val name = n.ifBlank { "Group " + (groups.size + 1) }
+                if (groups.containsKey(name)) { Util.toast(act, "A group with this name exists"); return@groupDialog }
+                colors[name] = col
+                val t = tm.newTab(TabManager.HOME_PAGE, 0, true, false)
+                if (t != null) groups[name] = LinkedHashSet<Int>().apply { add(t.id) }
+                dismiss()
+            }
         }
 
         // ---- cards
