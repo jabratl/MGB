@@ -62,7 +62,6 @@ object ExtBackground {
     private val bgs = LinkedHashMap<String, Bg>()
     private val crashes = HashMap<String, ArrayList<Long>>()
     private val parked = HashSet<String>()
-    private val errs = HashMap<String, Int>() // S13: worker errors per extension since app start / last reset (tray badge)
     private val swCache = HashMap<String, SwCache>()
     private val logs = HashMap<String, ArrayList<String>>()
 
@@ -109,11 +108,7 @@ object ExtBackground {
 
     fun urlOf(id: String): String = ContentInjector.EXT_BASE + id + "/" + (swOf(id)?.path ?: PAGE)
 
-    /** S13: number of worker errors (console errors, load errors, crashes) of this extension, for the tray badge. */
-    fun errorCount(id: String): Int = errs[id] ?: 0
-
     fun reset(id: String) {
-        errs.remove(id)
         crashes.remove(id)
         parked.remove(id)
     }
@@ -307,7 +302,6 @@ object ExtBackground {
 
     /** diag = also goes to the Diagnose report (tag "ext", S8). Warnings of the worker stay in the engine log only. */
     private fun log(id: String, line: String, diag: Boolean = true) {
-        if (diag) errs[id] = (errs[id] ?: 0) + 1
         if (diag) Diag.w("ext", if (line.startsWith("worker parked")) "worker parked" else if (line.startsWith("load error") || line.startsWith("did not load")) "worker did not start" else "worker error", nameOf(id) + ": " + line.take(160))
         val l = logs.getOrPut(id) { ArrayList() }
         l.add(line.take(300))

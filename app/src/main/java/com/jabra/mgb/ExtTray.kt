@@ -221,22 +221,6 @@ object ExtTray {
                 }
             }, LinearLayout.LayoutParams(size, size))
         }
-        val n = ExtBackground.errorCount(e.id) // S13: red badge when the worker had errors
-        if (n > 0) {
-            val first = t.getChildAt(0)
-            t.removeViewAt(0)
-            val fl = android.widget.FrameLayout(act)
-            fl.addView(first, android.widget.FrameLayout.LayoutParams(size, size))
-            fl.addView(TextView(act).apply {
-                text = if (n > 9) "9+" else n.toString()
-                textSize = 9f
-                gravity = Gravity.CENTER
-                setTextColor(0xFFFFFFFF.toInt())
-                background = GradientDrawable().apply { setColor(act.getColor(R.color.mg_error)); cornerRadius = dp(9).toFloat() }
-                contentDescription = "$n errors"
-            }, android.widget.FrameLayout.LayoutParams(dp(18), dp(18), Gravity.TOP or Gravity.END))
-            t.addView(fl, 0, LinearLayout.LayoutParams(size, size))
-        }
         t.addView(TextView(act).apply {
             text = e.name
             textSize = 11f
