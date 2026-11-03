@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.92 (S89.7: manga failures in Diagnose complete, S89.0-S89.6 codes + rules, see the S89.7 note at the end; before: 0.0.91 + S89.6)
+
 CURRENT VERSION 0.0.91 + S89.0 + S89.1 + S89.2 + S89.3 + S89.4 + S89.5 + S89.6 (manga reader / save rules, version bump in S89.7, see the S89.6 note at the end; before: S89.5)
 
 CURRENT VERSION 0.0.91 + S89.0 + S89.1 + S89.2 + S89.3 + S89.4 + S89.5 (manga page load rules, version bump in S89.7, see the S89.5 note at the end; before: S89.4)
@@ -747,3 +749,15 @@ Checks: bracket count { } ( ) [ ] balanced in DiagRules.kt; no duplicate rule id
 NOT tested (needs build + phone): Kotlin compile; real mgLog lines producing these findings; text length at 360 px dark / light.
 Could break: mgCodeNotes keeps only the NEWEST detail per code; wrong-order has no fix button (text only); manga-save-incomplete and manga-saved-missing can show together.
 Next: S89.7 (version bump to 0.0.92 in app/build.gradle.kts or build.gradle.kts, CHANGELOG / HANDOFF header, phone check list entries for the new manga codes in docs/PHONE_CHECK.txt, final consistency check of all manga codes vs rules: every code in S89.1-S89.3 must have a rule). Attach: the MGB-main zip WITH the S89.3 patch applied, plus MGB_S89_6_patch.zip.
+
+S89.7 - manga failures to Diagnose, part 7: version 0.0.92 + final check
+Done: S0-S87.2 + S89.0-S89.7. Version 0.0.92.
+- Version: app/build.gradle.kts already had appVersionName = "0.0.92" in the zip that was given (no other file holds the version string; the old MGB/ folder inside the zip is an unrelated 0.0.20 copy, left alone). No change needed, header line updated.
+- docs/PHONE_CHECK.txt: header now S89.7 / 0.0.92, new group E (items 16-25) for the manga findings.
+- Consistency check (script on DiagRules.kt): all 46 fixed code names of S89.1-S89.3 (14 page list + 17 page load + 15 reader / save) have a rule, 0 missing; img-http-NNN is matched by prefix. Rule ids manga-* have no duplicates.
+- Facts: rules are in rules41to54 (14), rules55to72 (18), rules73to87 (15) = 47 manga findings (46 codes + the img-http prefix rule; retry-result gives 2 ids).
+NOT done / open:
+- The MGB-main zip given in S89.5-S89.7 has NO S89.3 code in manga.js / background.js (no save-failed, memory-limit, pages-missing-saved, save-incomplete). If the real repo has no S89.3 patch applied, rules 73-87 never fire; apply it. The detail text of S89.3 lines (e.g. "N page(s) missing") was never verified against the rule that parses it (manga-saved-missing).
+- NOT compiled (no Kotlin SDK), nothing run on a phone: use docs/PHONE_CHECK.txt A-E and the first CI log.
+- manga-no-list / rules 28-30 can show together; old still-missing note stays up to 30 min after a good retry (newest note only).
+Next: first CI log + phone check list (docs/PHONE_CHECK.txt). Then S17 final check.

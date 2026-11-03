@@ -1,3 +1,7 @@
+S89.7 (version 0.0.92: Diagnose for manga failures, part 7 - final check)
+- Version 0.0.92 (app/build.gradle.kts already had it). All 46 manga codes (+ img-http-NNN) from S89.1-S89.3 have a Diagnose rule (checked by script).
+- docs/PHONE_CHECK.txt: header 0.0.92 and new group E (manga findings, items 16-25).
+
 S89.6 (version stays 0.0.91, bump in S89.7: Diagnose for manga failures, part 6 - rules for the reader / save / download codes)
 - DiagRules.kt: new rules73to87 (called after rules55to72). 15 rules for the S89.3 codes: manga-memory, manga-save-failed, manga-dl-failed, manga-dl-timeout, manga-jpeg, manga-save-incomplete (Problem); manga-saved-missing, manga-reencode, manga-postprocess, manga-reader-page, manga-pick-noimg, manga-order (Warning); manga-reader-empty, manga-resume, manga-bookmark (Info).
 - Fix buttons reuse reload / storage / downloads. DiagScreen.kt and DiagReport.kt not changed.

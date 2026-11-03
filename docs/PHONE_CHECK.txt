@@ -1,4 +1,4 @@
-THAZIR real-phone check list (S87.2, 0.0.91). Tick on the phone, send me only the lines that fail (line number + what you see).
+THAZIR real-phone check list (S89.7, 0.0.92). Tick on the phone, send me only the lines that fail (line number + what you see).
 Do each in dark AND light theme, once at normal width.
 
 A. Auto Diagnose pill
@@ -21,6 +21,19 @@ C. Rules 21-40 (needs real failures)
 13. HLS with DRM: report says protected (drm).
 14. Expired token link: report says link expired (token-expired).
 Known: rule 35 (schedule missed) never fires yet (nothing logs it).
+
+E. Manga failures in Report center (S89, needs the S89.1-S89.3 extension code on the phone)
+16. Manga window on a Cloudflare / blocked site: Report center shows "check page (Cloudflare)" or "refused the page list (403)" with host and count; if the open tab still delivered the list it shows as Info ("the grab worked").
+17. Grab a chapter, turn Wi-Fi off after the list loads: some pages fail. Report shows "Some pages failed the first time" (Info), then after the retries "page(s) are still missing" (Problem) with Reload page.
+18. Press Retry failed with Wi-Fi back on: report shows "N page(s) were recovered by the retry" (Info). Note: an older still-missing line can stay for up to 30 min.
+19. Site that expires image links: "could not refresh the expired image links" (Warning).
+20. Save a big chapter as PDF on a weak phone: "ran out of memory" (Problem) with the CBZ hint.
+21. Fill the storage (or deny the Downloads folder) and save: "could not be written to the Downloads folder" with Open storage settings.
+22. Save with pages missing: "saved with N page(s) missing" (Warning); N matches the toast. Check the number is shown (the real log text was not checked).
+23. Close the manga tab while saving: "not saved completely" (Problem).
+24. Open the reader with nothing selected: "reader was opened with no page selected" (Info).
+25. Each Manga finding: text fits at 360 px dark / light, the fix button does the named thing (Reload / Settings / Wi-Fi / storage / Downloads).
+Known: rules 28-30 (text based) can show together with the new manga findings.
 
 D. Build
 15. CI build is green. If red, send the exact error line.
