@@ -281,6 +281,22 @@ object ContentInjector {
             "if(c)Object.defineProperty(window,'chrome',{value:c,configurable:true,writable:true});}catch(e){}})();"
     }
 
+    /**
+     * S16: scripting.executeScript(files) of an installed extension: "var chrome=...;" so the injected file can use chrome.*
+     * (same cfg as its content scripts). null = no chrome (unknown / disabled / bad id).
+     */
+    fun injectPrelude(id: String): String? {
+        return try {
+            if (!ExtRegistry.isValidId(id)) return null
+            val info = ExtRegistry.get(id) ?: return null
+            val mf = File(info.dir, "manifest.json")
+            if (!mf.isFile || mf.length() > 2_000_000L) return null
+            val cfg = JSONObject().put("token", tokenFor(id)).put("kind", "content").put("base", EXT_BASE + id + "/")
+                .put("id", id).put("manifest", JSONObject(mf.readText())).toString()
+            "var chrome=" + shim + "(window," + cfg + ");\n"
+        } catch (e: Exception) { Log.e(TAG, "injectPrelude $id", e); null }
+    }
+
     /** Browser tab WebView: call before the first loadUrl. */
     fun attach(ctx: Context, web: WebView) {
         init(ctx)

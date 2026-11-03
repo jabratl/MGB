@@ -722,6 +722,14 @@ Could break: YouTube changes its JSON / class names (then ads return, page still
 Still missing: popup blocking, per-list on/off, custom filter rules / list URLs, YouTube Shorts ad tuning, Music ad tuning.
 Next: S82 = fix from the first run (bug + what you see + where), or popup blocking, or per-list switch + custom filter list URL.
 
+======== S82+S83 merge note (0.0.106.2) ========
+Done: S0-S83 + multi-extension S0-S9. Current 0.0.106.2 = 0.0.105 (S81 YouTube ads) + 0.0.106 (S82 pop-up / redirect blocking) + 0.0.107 (S83 filter lists on / off + custom lists).
+Mode: FIX. Root cause of CI error "Unresolved reference: injectPrelude (TabsApi.kt:449)": the repo had a newer ContentInjector.kt than the zips the changes were built on; replacing whole files removed injectPrelude. Fix: injectPrelude(id) re-added (ContentInjector.kt), reconstructed from its caller + buildExt cfg (kind "content").
+Changed: ContentInjector.kt (injectPrelude) / TabManager.kt (S82) / FilterList.kt, BlockerStats.kt (S83) / app/build.gradle.kts (0.0.106.2) / CHANGELOG.txt / HANDOFF.txt.
+RULE from now: send ONLY patches / changed files built on the newest GitHub zip; never rebuild from an older zip.
+NOT tested: build (first thing: CI); injectPrelude reconstructed, not the original: check scripting.executeScript(files) of an installed extension still gets chrome; everything in the S81 / S82 / S83 NOT tested lists.
+Next: S84 = fix from the first run, or pop-up switch + Shields look.
+
 ======== MULTI-EXTENSION SUPPORT (S0-S9), version 0.0.104 ========
 Done: S0-S9. Settings > Extensions: add .zip / .crx, list, on/off, remove, permission dialog; content scripts, per-extension storage, popup / options windows, MV3 background worker, chrome.* api, declarativeNetRequest (modifyHeaders), safety (MV2 / nativeMessaging refused, host filter, crash isolation, Diagnose rules 88-92).
 Files added: ExtRegistry.kt, ExtListScreen.kt, ExtApi.kt, ExtBackground.kt, ExtSafety.kt. Changed: ExtUpdater, ContentInjector, ChromeBridge, EngineHost, ExtScreen, TabManager, TabsApi, HeaderModes, DiagRules, DiagReport, SettingsScreen, BrowserExtras, chrome-shim.js.

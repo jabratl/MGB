@@ -1,3 +1,9 @@
+0.0.106.2 (merge of 0.0.105 + 0.0.106 + 0.0.107 on top of the GitHub files; fixes CI error Unresolved reference: injectPrelude)
+- ContentInjector.kt: injectPrelude(id) is back (TabsApi.runScript calls it for scripting.executeScript(files) of an installed extension: "var chrome=...;" with the same cfg as its content scripts). It had been lost when whole files were replaced by the 0.0.105 / 0.0.106 zips
+- 0.0.106 (pop-up / redirect blocking): TabManager.kt (Tab.popup, Tab.openerUrl, onCreateWindow, onPageStarted, onPageFinished, shouldOverrideUrlLoading) + AdBlock.blocksPage (already in the repo)
+- 0.0.107 (filter lists on / off + custom lists): FilterList.kt, BlockerStats.kt ("Manage lists")
+- Base = MGB-main_2.zip from GitHub; only ContentInjector, TabManager, FilterList, BlockerStats, build.gradle.kts, CHANGELOG, HANDOFF are in the fix zip. NOT compiled here
+
 0.0.105 (S81: stronger ad blocking, YouTube ads)
 - NEW assets/shim/yt-adblock.js: document-start script for www / m / music.youtube.com (and YouTube embeds). Cuts adPlacements / playerAds / adSlots out of the player response (ytInitialPlayerResponse, JSON.parse, Response.json), skips an ad that still plays (mute + jump to end + Skip button), CSS hides ad slots / promoted items / banners
 - NEW YtAds.kt: switches the script off when the blocker is off or "allow ads" is set for the site (TabManager.onPageStarted / onPageFinished)

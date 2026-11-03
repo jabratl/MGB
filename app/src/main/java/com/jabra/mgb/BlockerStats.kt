@@ -121,7 +121,10 @@ object BlockerStats {
         }
         flInfo()
         fl.addView(flText)
-        fl.addView(TextView(act).apply { text = "EasyList + EasyPrivacy. Updates itself once a week."; setTextColor(cDim); setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f); setPadding(0, dp(2), 0, dp(10)) })
+        val flNote = TextView(act).apply { setTextColor(cDim); setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f); setPadding(0, dp(2), 0, dp(10)) }
+        fun flNoteSet() { flNote.text = FilterList.activeTitles().joinToString(" + ").ifEmpty { "No list is on" } + ". Updates itself once a week." }
+        flNoteSet()
+        fl.addView(flNote)
         val upd = TextView(act).apply {
             text = "Update filters now"; gravity = Gravity.CENTER; typeface = Typeface.DEFAULT_BOLD
             setTextColor(act.getColor(R.color.mg_on_primary)); setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
@@ -137,6 +140,39 @@ object BlockerStats {
             }
         }
         fl.addView(upd, LinearLayout.LayoutParams(MATCH, dp(44)))
+        // 0.0.107: switch lists on / off, add a list by address, remove a custom list
+        fun after(msg: String) = act.runOnUiThread { Util.toast(act, msg); flNoteSet(); Thread { Thread.sleep(1500); act.runOnUiThread { flInfo() } }.start() }
+        fun addDialog() {
+            val inp = android.widget.EditText(act).apply { hint = "https://example.com/list.txt"; setSingleLine(); inputType = android.text.InputType.TYPE_TEXT_VARIATION_URI or android.text.InputType.TYPE_CLASS_TEXT }
+            val box = android.widget.FrameLayout(act).apply { setPadding(dp(20), dp(8), dp(20), 0); addView(inp) }
+            com.google.android.material.dialog.MaterialAlertDialogBuilder(act).setTitle("Add filter list").setMessage("EasyList / uBlock syntax, https only.").setView(box)
+                .setPositiveButton("Add") { _, _ -> FilterList.addCustom(act, inp.text.toString()) { m -> after(m) }?.let { Util.toast(act, it) } }
+                .setNegativeButton("Cancel", null).show()
+        }
+        fun removeDialog() {
+            val cs = FilterList.lists().filter { it.custom }
+            if (cs.isEmpty()) { Util.toast(act, "No custom lists"); return }
+            com.google.android.material.dialog.MaterialAlertDialogBuilder(act).setTitle("Remove custom list")
+                .setItems(cs.map { it.title }.toTypedArray()) { _, i -> FilterList.removeCustom(act, cs[i].name); flNoteSet(); Util.toast(act, "Removed") }
+                .setNegativeButton("Cancel", null).show()
+        }
+        fun manage() {
+            val ls = FilterList.lists()
+            val on = BooleanArray(ls.size) { ls[it].on }
+            com.google.android.material.dialog.MaterialAlertDialogBuilder(act).setTitle("Filter lists")
+                .setMultiChoiceItems(ls.map { it.title + (if (it.custom) " (custom)" else "") }.toTypedArray(), on) { _, i, c -> on[i] = c }
+                .setPositiveButton("Apply") { _, _ -> FilterList.setEnabledAll(act, ls.indices.associate { ls[it].name to on[it] }) { m -> after(m) } }
+                .setNeutralButton("Add / remove") { _, _ ->
+                    com.google.android.material.dialog.MaterialAlertDialogBuilder(act).setItems(arrayOf("Add list by address", "Remove a custom list")) { _, w -> if (w == 0) addDialog() else removeDialog() }.show()
+                }
+                .setNegativeButton("Cancel", null).show()
+        }
+        val mng = TextView(act).apply {
+            text = "Manage lists"; gravity = Gravity.CENTER; typeface = Typeface.DEFAULT_BOLD
+            setTextColor(cPrimary); setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f); isClickable = true
+            setOnClickListener { manage() }
+        }
+        fl.addView(mng, LinearLayout.LayoutParams(MATCH, dp(44)))
         col.addView(fl, LinearLayout.LayoutParams(MATCH, WRAP))
 
         d.setContentView(NestedScrollView(act).apply { addView(col) })

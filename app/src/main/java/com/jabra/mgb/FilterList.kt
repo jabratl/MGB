@@ -22,10 +22,62 @@ object FilterList {
     private const val MAX_GEN = 2500
     private const val MAX_COS_GEN = 800
     private const val MAX_COS_DOM = 30_000
-    private val SOURCES = listOf(
-        "easylist.txt" to "https://easylist.to/easylist/easylist.txt",
-        "easyprivacy.txt" to "https://easylist.to/easylist/easyprivacy.txt"
+    /** 0.0.107: one list the user can switch on / off (built-in) or add by address (custom). name = file in filesDir/filters. */
+    class ListInfo(val name: String, val title: String, val url: String, val custom: Boolean, val on: Boolean)
+    private class Src(val name: String, val title: String, val url: String)
+    private val BUILTIN = listOf(
+        Src("easylist.txt", "EasyList", "https://easylist.to/easylist/easylist.txt"),
+        Src("easyprivacy.txt", "EasyPrivacy", "https://easylist.to/easylist/easyprivacy.txt"),
+        Src("ubo-filters.txt", "uBlock filters", "https://ublockorigin.github.io/uAssets/filters/filters.txt"),
+        Src("cookie-notices.txt", "Cookie notices (Fanboy)", "https://secure.fanboy.co.nz/fanboy-cookiemonster.txt")
     )
+    private val DEFAULT_OFF = setOf("ubo-filters.txt", "cookie-notices.txt")
+
+    private fun offSet(): Set<String> = prefs?.getStringSet("fl_off", null) ?: DEFAULT_OFF
+    private fun customSrc(): List<Src> =
+        (prefs?.getString("fl_custom", "") ?: "").split("\n").mapNotNull { l ->
+            val i = l.indexOf('|'); if (i <= 0 || i == l.length - 1) null else l.substring(i + 1).let { u -> Src(l.substring(0, i), hostTitle(u), u) }
+        }
+    private fun hostTitle(u: String): String = try { java.net.URI(u).host ?: u } catch (_: Exception) { u }
+    private fun allSrc(): List<Src> = BUILTIN + customSrc()
+    private fun enabledSources(): List<Src> { val off = offSet(); return allSrc().filter { it.name !in off } }
+
+    fun lists(): List<ListInfo> {
+        val off = offSet(); val cn = customSrc().map { it.name }.toSet()
+        return allSrc().map { ListInfo(it.name, it.title, it.url, it.name in cn, it.name !in off) }
+    }
+    fun activeTitles(): List<String> = enabledSources().map { it.title }
+
+    /** Switch lists on / off in one go; a list that is on but not downloaded yet is fetched. [done] on a background thread. */
+    fun setEnabledAll(ctx: Context, on: Map<String, Boolean>, done: (String) -> Unit) {
+        val app = ctx.applicationContext
+        val off = offSet().toMutableSet()
+        for ((n, v) in on) if (v) off.remove(n) else off.add(n)
+        prefs?.edit()?.putStringSet("fl_off", off)?.apply()
+        val missing = enabledSources().any { !File(dir(app), it.name).exists() }
+        if (missing) update(app, done) else { loading = false; load(app, false); done("Lists applied") }
+    }
+
+    /** Adds a list by https address (EasyList syntax), downloads it. Returns an error text or null when started. */
+    fun addCustom(ctx: Context, url: String, done: (String) -> Unit): String? {
+        val u = url.trim()
+        if (!u.startsWith("https://") || u.length > 500 || u.contains('|') || u.contains('\n') || u.contains(' ')) return "Use a full https:// address"
+        if (allSrc().any { it.url == u }) return "This list is already added"
+        if (customSrc().size >= 8) return "At most 8 custom lists"
+        val name = "c" + Integer.toHexString(u.hashCode()) + ".txt"
+        val cur = prefs?.getString("fl_custom", "") ?: ""
+        prefs?.edit()?.putString("fl_custom", (if (cur.isEmpty()) "" else cur + "\n") + name + "|" + u)?.apply()
+        update(ctx.applicationContext, done)
+        return null
+    }
+
+    fun removeCustom(ctx: Context, name: String) {
+        val app = ctx.applicationContext
+        val keep = (prefs?.getString("fl_custom", "") ?: "").split("\n").filter { it.isNotEmpty() && !it.startsWith("$name|") }
+        prefs?.edit()?.putString("fl_custom", keep.joinToString("\n"))?.putStringSet("fl_off", offSet() - name)?.apply()
+        File(dir(app), name).delete()
+        loading = false; load(app, false)
+    }
 
     const val T_SCRIPT = 1; const val T_IMAGE = 2; const val T_STYLE = 4; const val T_XHR = 8
     const val T_SUBDOC = 16; const val T_MEDIA = 32; const val T_FONT = 64; const val T_OTHER = 128
@@ -67,8 +119,8 @@ object FilterList {
             try {
                 val b = Builder()
                 try { ctx.assets.open("filters/seed.txt").bufferedReader().use { r -> r.forEachLine { b.add(it) } } } catch (_: Exception) { }
-                for ((name, _) in SOURCES) {
-                    val f = File(dir(ctx), name)
+                for (s in enabledSources()) {
+                    val f = File(dir(ctx), s.name)
                     if (f.exists()) try { f.bufferedReader().use { r -> r.forEachLine { b.add(it) } } } catch (_: Exception) { }
                 }
                 idx = b.build()
@@ -84,9 +136,12 @@ object FilterList {
         if (updating) { done("Already updating"); return }
         updating = true
         val app = ctx.applicationContext
+        val src = enabledSources()
+        if (src.isEmpty()) { updating = false; loading = false; load(app, false); done("No list is on"); return }
         Thread {
             var ok = 0
-            for ((name, link) in SOURCES) {
+            for (s in src) {
+                val name = s.name; val link = s.url
                 try {
                     val c = URL(link).openConnection() as HttpURLConnection
                     c.connectTimeout = 15000; c.readTimeout = 25000
@@ -113,7 +168,7 @@ object FilterList {
                 prefs?.edit()?.putLong("filters_ts", System.currentTimeMillis())?.apply()
                 loading = false
                 load(app, false)
-                done("Updated $ok of ${SOURCES.size} lists")
+                done("Updated $ok of ${src.size} lists")
             } else done("Update failed (no internet?)")
         }.start()
     }
