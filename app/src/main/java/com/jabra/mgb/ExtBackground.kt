@@ -215,7 +215,7 @@ object ExtBackground {
                     EngineHost.ext(request.url)?.let { return it }
                     // network: CORS-free proxy only for the host permissions of this extension
                     if (!ContentInjector.urlAllowed(ExtApi.hostPats(id), u)) return null
-                    return EngineHost.proxyFor(request, -1)
+                    return EngineHost.proxyFor(request, -1, id) // S7: header rules of this extension
                 }
 
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = true

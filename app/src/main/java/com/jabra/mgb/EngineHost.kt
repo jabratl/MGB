@@ -192,8 +192,8 @@ object EngineHost {
 
     private fun proxy(req: WebResourceRequest): WebResourceResponse? = proxyFor(req, -1)
 
-    /** S8: also used for extension pages opened as tabs (tabId = that tab), so header rules and CORS work there too. */
-    fun proxyFor(req: WebResourceRequest, tabId: Int): WebResourceResponse? {
+    /** S8: also used for extension pages opened as tabs (tabId = that tab), so header rules and CORS work there too. S7: extId = the extension that made the request (its own rules only). */
+    fun proxyFor(req: WebResourceRequest, tabId: Int, extId: String = ContentInjector.EXT_ID): WebResourceResponse? {
         val first = req.url.toString()
         if (!first.startsWith("http://") && !first.startsWith("https://")) return null
         val rh: Map<String, String> = req.requestHeaders ?: emptyMap()
@@ -219,7 +219,7 @@ object EngineHost {
                     CookieManager.getInstance().getCookie(u)?.let { hm["Cookie"] = it }
                 }
                 // S8: declarativeNetRequest header rules (V77 sets Referer / Origin / site headers this way)
-                try { HeaderModes.apply(u, tabId, typeOf(rh), req.method, hm) } catch (e: Exception) { Log.e(TAG, "headerModes", e) }
+                try { HeaderModes.apply(u, tabId, typeOf(rh), req.method, hm, extId) } catch (e: Exception) { Log.e(TAG, "headerModes", e) } // S7: extId = whose rules
                 for ((k, v) in hm) c.setRequestProperty(k, v)
                 try { requestModifier?.invoke(c, req) } catch (e: Exception) { Log.e(TAG, "requestModifier", e) }
                 val code = c.responseCode

@@ -134,7 +134,7 @@
     var NS = {
       tabs: [['sendMessage', 'create', 'update', 'getCurrent', 'remove', 'get', 'query', 'reload', 'captureVisibleTab', 'executeScript'], ['onRemoved', 'onUpdated', 'onCreated', 'onActivated']],
       downloads: [['search', 'download', 'show', 'resume', 'removeFile', 'pause', 'cancel', 'erase', 'open'], ['onChanged', 'onCreated']],
-      declarativeNetRequest: [['updateSessionRules', 'updateDynamicRules', 'getSessionRules', 'getDynamicRules'], []],
+      declarativeNetRequest: [['updateSessionRules', 'updateDynamicRules', 'getSessionRules', 'getDynamicRules', 'getEnabledRulesets', 'updateEnabledRulesets'], []],
       scripting: [['executeScript', 'insertCSS', 'registerContentScripts', 'unregisterContentScripts', 'getRegisteredContentScripts'], []],
       sidePanel: [['open', 'setOptions', 'setPanelBehavior'], []],
       action: [['setBadgeText', 'setBadgeBackgroundColor', 'setIcon', 'setTitle'], []],

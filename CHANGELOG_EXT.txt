@@ -1,3 +1,9 @@
+0.0.100 (S7) declarativeNetRequest for installed extensions
+- Header rules (modifyHeaders) per extension: updateSessionRules / updateDynamicRules / getSessionRules / getDynamicRules, own list and own saved dynamic rules for every extension (the built-in extension is unchanged)
+- Static rulesets from manifest declarative_net_request.rule_resources, getEnabledRulesets / updateEnabledRulesets
+- Rules change only the requests that extension makes itself (worker, popup, options, its pages in a tab), only for sites in its host permissions, only while it is on; removing an extension deletes its rules
+- Needs permission declarativeNetRequest (or declarativeNetRequestWithHostAccess). Block / redirect rules are accepted but do nothing yet; webRequest and downloads are still not available for installed extensions
+- HeaderModes.kt, EngineHost.kt (proxyFor takes the extension id), ExtApi.kt, ExtBackground.kt, ExtScreen.kt, TabManager.kt, chrome-shim.js
 0.0.99 (S6) per-extension chrome.* api
 - NEW ExtApi.kt: gate = every call of an installed extension is checked against its manifest permission (storage, alarms, notifications, contextMenus, scripting, cookies) and api list; V77 rule unchanged
 - popups / options pages of an installed extension can now use chrome.tabs (query, get, create, update, remove, reload, sendMessage, getCurrent), chrome.windows, chrome.action (ignored), chrome.permissions (read-only), chrome.scripting.executeScript / insertCSS, chrome.cookies

@@ -202,7 +202,7 @@ object ExtScreen {
                         val pats = (inf?.hostPermissions ?: emptyList()) + (inf?.permissions ?: emptyList()).filter { it.contains("://") || it == "<all_urls>" }
                         if (!ContentInjector.urlAllowed(pats, request.url.toString())) return null
                     }
-                    return EngineHost.proxyFor(request, -1)
+                    return EngineHost.proxyFor(request, -1, xid ?: ContentInjector.EXT_ID) // S7: header rules of that extension
                 }
 
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {

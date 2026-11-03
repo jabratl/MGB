@@ -32,7 +32,8 @@ object ExtApi {
         "^(runtime\\.(sendMessage|openOptionsPage)|event\\.add|storage\\.(local|sync|session)\\.[A-Za-z]+" +
             "|tabs\\.(sendMessage|create|update|getCurrent|remove|get|query|reload|executeScript)" +
             "|windows\\.(create|get|getCurrent|update)|action\\.[A-Za-z]+|alarms\\.[A-Za-z]+|notifications\\.[A-Za-z]+" +
-            "|contextMenus\\.[A-Za-z]+|scripting\\.(executeScript|insertCSS)|cookies\\.[A-Za-z]+|permissions\\.[A-Za-z]+|commands\\.getAll)$"
+            "|contextMenus\\.[A-Za-z]+|scripting\\.(executeScript|insertCSS)|cookies\\.[A-Za-z]+|permissions\\.[A-Za-z]+|commands\\.getAll" +
+            "|declarativeNetRequest\\.(updateSessionRules|updateDynamicRules|getSessionRules|getDynamicRules|getEnabledRulesets|updateEnabledRulesets))$"
     )
     private val NEEDS = mapOf(
         "storage" to "storage", "alarms" to "alarms", "notifications" to "notifications",
@@ -91,6 +92,9 @@ object ExtApi {
         if (info == null || !info.enabled) return "Extension is turned off"
         if (ctx.kind == ChromeBridge.Kind.CONTENT && !CONTENT_OK.matches(api)) return "Not allowed: $api"
         if (ctx.kind == ChromeBridge.Kind.EXT && !EXT_OK.matches(api)) return "Not supported in MGB: $api"
+        // S7: declarativeNetRequest (or ...WithHostAccess, which still needs a matching host permission to act)
+        if (api.startsWith("declarativeNetRequest.") && "declarativeNetRequest" !in info.permissions &&
+            "declarativeNetRequestWithHostAccess" !in info.permissions) return "Needs the \"declarativeNetRequest\" permission: $api"
         val need = NEEDS[api.substringBefore('.')]
         if (need != null && need !in info.permissions) return "Needs the \"$need\" permission: $api"
         if (api.startsWith("cookies.") && api != "cookies.getAllCookieStores") {
@@ -153,6 +157,7 @@ object ExtApi {
             ExtBackground.reset(id)
             cancelAlarms(id)
             menus.remove(id)
+            HeaderModes.forget(id) // S7: header rules of the removed extension
             mem.remove(id)
             sp.edit().remove("ver_$id").remove("mem_$id").apply()
         }

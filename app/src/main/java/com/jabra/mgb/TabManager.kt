@@ -322,7 +322,7 @@ class TabManager(
             val r = request ?: return null
             if (!r.url.toString().startsWith(ContentInjector.EXT_ORIGIN)) {
                 // S8: extension page -> network goes through the engine proxy (CORS + header rules); web page -> sniff
-                if (tab.isExt) return EngineHost.proxyFor(r, tab.id)
+                if (tab.isExt) return EngineHost.proxyFor(r, tab.id, ExtScreen.extIdOf(tab.url) ?: ContentInjector.EXT_ID) // S7: rules of the extension that owns this page
                 if (AdBlock.shouldBlock(r, tab.url)) return AdBlock.emptyResponse() // S19
                 Sniffer.onRequest(tab, r)
                 return null
