@@ -39,7 +39,8 @@ object ExtScreen {
         "queue.html" to "Queue",
         "manga.html" to "Manga",
         "history.html" to "History",
-        "options.html" to "Settings"
+        "options.html" to "Settings",
+        "novel/studio.html" to "Novel grabber" // N1
     )
 
     private var current: Screen? = null

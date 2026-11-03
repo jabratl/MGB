@@ -171,6 +171,10 @@ object NativeBatch {
                 EngineApi.send(JSONObject().put("type", "play-scan").put("tabId", tabId))
                 Util.toast(act, "Scanning... open Detected files again in a few seconds")
             },
+            ToolsSheet.Item(R.drawable.ic_book, "Novel grabber", "Chapters or a whole novel to EPUB, DOCX, TXT") { // N1
+                if (!ExtScreen.open(act, ContentInjector.EXT_BASE + "novel/studio.html")) Util.toast(act, "Could not open Novel grabber")
+                closePanel()
+            },
             ToolsSheet.Item(R.drawable.ic_share, "Open full Grabber", "Pick pages, job list and the V77 page") {
                 EngineApi.send(JSONObject().put("type", "open-panel").put("tabId", tabId))
                 closePanel()

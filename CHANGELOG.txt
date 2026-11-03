@@ -1,3 +1,10 @@
+MGB 0.0.82 (S79: Novel grabber = Web2EPUB Studio inside the browser)
+- New "Novel grabber" (3-dot menu, Tools sheet of the Detected panel, Settings > Downloads): turns a web-novel chapter, a "Next" chain, a chapter list or a whole catalog into EPUB, DOCX, TXT or a ZIP of .txt files. It is the full Web2EPUB Studio v1.8.0 (catalog finder, load-more / pagination / dropdown / feeds / sitemap, auto order, volumes, smart chapter titles, locked-chapter stop, cache + resume, image compress, reading style) running as a full-screen window like Queue / Manga.
+- New look made for Thazir: live book card (generated cover, title, author, chapter count, format), six bottom tabs (Source, Chapters, Book, Extract, Style, Build), a floating Build strip with progress, same accent gradient and light / dark as the Grabber pages.
+- It reads the page you were on (active tab); finished files are saved through the Thazir download folder (chrome.downloads on a blob).
+- chrome shim: chrome.scripting.executeScript now works (the function is sent as source text and runs in the tab, result comes back; also chrome.tabs.executeScript code / file). New chrome.cookies (get / getAll / set / remove on the WebView cookie jar: name + value only).
+- Files: assets/ext/novel/ (studio.html, studio.js, studio.css, ui.js, lib/*), TabsApi.kt, ExtScreen.kt, chrome-shim.js, MainActivity.kt, NativeBatch.kt, SettingsScreen.kt, ic_book.xml.
+
 MGB 0.0.81 (S78: site icons in Bookmarks and History)
 - Every row in Bookmarks and History now has a small icon tile at the left: the site icon, or the first letter on a soft colour until one exists.
 - Sites you never opened since icons were added get their icon once from https://<site>/favicon.ico (no third-party icon service). Max 150 sites per app run, saved on the phone and reused by the home tiles and the tab switcher.

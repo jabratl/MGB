@@ -4,8 +4,10 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.webkit.CookieManager
 import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONTokener
 import java.util.WeakHashMap
 
 /**
@@ -15,7 +17,8 @@ import java.util.WeakHashMap
  *    message types content.js really uses (CONTENT_MSG).
  *  - tabs.sendMessage: engine/page -> frames of one tab (frameId 0 = main frame).
  *  - tabs.* handlers + tab events (called by TabManager).
- * NOT here: scripting.executeScript / registerContentScripts (needs a shim change), downloads (S7),
+ * N1 (Novel grabber): scripting.executeScript (func source text / files, main frame, 3 min limit) + cookies.* (WebView CookieManager).
+ * NOT here: scripting.registerContentScripts, downloads (S7),
  * DNR + webRequest (S8), offscreen (S9), extension page UI (S10).
  */
 object TabsApi {
@@ -287,6 +290,40 @@ object TabsApi {
             c.ok(null)
         }
 
+        // ---- N1: chrome.scripting.executeScript -> evaluateJavascript in the tab, result polled back ----
+        handle("scripting.executeScript") { c -> runScript(c) }
+
+        // ---- N1: chrome.cookies on top of the WebView CookieManager (name/value only: Android gives no flags) ----
+        ChromeBridge.onSync("cookies.getAll") { c ->
+            val o = c.args.optJSONObject(0) ?: JSONObject()
+            val u = cookieUrl(o)
+            if (u == null) JSONArray() else cookieList(u, o.optString("name").ifEmpty { null })
+        }
+        ChromeBridge.onSync("cookies.get") { c ->
+            val o = c.args.optJSONObject(0) ?: JSONObject()
+            val u = cookieUrl(o)
+            if (u == null) null else cookieList(u, o.optString("name").ifEmpty { null }).optJSONObject(0)
+        }
+        ChromeBridge.onSync("cookies.set") { c ->
+            val o = c.args.optJSONObject(0) ?: JSONObject()
+            val u = o.optString("url")
+            if (u.isEmpty()) throw IllegalArgumentException("cookies.set: url required")
+            val sb = StringBuilder(o.optString("name")).append('=').append(o.optString("value"))
+            sb.append("; Path=").append(o.optString("path", "/"))
+            if (o.optString("domain").isNotEmpty()) sb.append("; Domain=").append(o.optString("domain"))
+            if (o.optBoolean("secure", false)) sb.append("; Secure")
+            if (o.has("expirationDate")) sb.append("; Max-Age=").append(maxOf(0L, (o.optDouble("expirationDate") - System.currentTimeMillis() / 1000.0).toLong()))
+            CookieManager.getInstance().setCookie(u, sb.toString())
+            o.optString("name").let { n -> cookieList(u, n).optJSONObject(0) }
+        }
+        ChromeBridge.onSync("cookies.remove") { c ->
+            val o = c.args.optJSONObject(0) ?: JSONObject()
+            val u = o.optString("url")
+            if (u.isNotEmpty()) CookieManager.getInstance().setCookie(u, o.optString("name") + "=; Path=/; Max-Age=0")
+            JSONObject().put("url", u).put("name", o.optString("name")).put("storeId", "0")
+        }
+        ChromeBridge.onSync("cookies.getAllCookieStores") { JSONArray().put(JSONObject().put("id", "0").put("tabIds", JSONArray())) }
+
         handle("runtime.openOptionsPage") { c ->
             val u = ContentInjector.EXT_BASE + "options.html"
             val m = tm
@@ -350,6 +387,82 @@ object TabsApi {
         ChromeBridge.onSync("permissions.getAll") {
             JSONObject().put("permissions", JSONArray()).put("origins", JSONArray().put("<all_urls>"))
         }
+    }
+
+    // ---------- N1: executeScript / cookies helpers ----------
+
+    private var nextXid = 1
+
+    private fun runScript(c: ChromeBridge.Call) {
+        val inj = c.args.optJSONObject(0) ?: JSONObject()
+        val tid = inj.optJSONObject("target")?.optInt("tabId", -1) ?: -1
+        val t = tm?.byId(tid)
+        if (t == null) { c.fail("No tab with id: $tid."); return }
+        val fn = inj.optString("func", "")
+        val files = inj.optJSONArray("files")
+        val body: String = when {
+            fn.isNotEmpty() -> "(" + fn + ").apply(null," + (inj.optJSONArray("args") ?: JSONArray()).toString() + ")"
+            files != null && files.length() > 0 -> {
+                val sb = StringBuilder()
+                for (i in 0 until files.length()) {
+                    val p = files.optString(i).trimStart('/')
+                    try { sb.append(app?.assets?.open("ext/$p")?.bufferedReader()?.use { it.readText() } ?: "").append("\n;") }
+                    catch (e: Exception) { c.fail("Could not load file: $p"); return }
+                }
+                "(function(){" + sb + "\n})()"
+            }
+            else -> { c.fail("executeScript: func or files required"); return }
+        }
+        val id = nextXid++
+        val start = "(function(){var R=window.__mgbx=window.__mgbx||{};" +
+            "Promise.resolve().then(function(){return " + body + "}).then(" +
+            "function(v){R[" + id + "]={r:v===undefined?null:v}}," +
+            "function(e){R[" + id + "]={e:String(e&&e.message||e)}});return 1})()"
+        val poll = "(function(){var R=window.__mgbx;if(!R)return 'gone';var x=R[" + id + "];if(!x)return null;delete R[" + id + "];" +
+            "try{return JSON.stringify(x)}catch(e){return JSON.stringify({e:'result is not serializable'})}})()"
+        val deadline = System.currentTimeMillis() + 180_000L
+        fun pollOnce() {
+            if (tm?.byId(tid) == null) { c.fail("The tab was closed."); return }
+            t.web.evaluateJavascript(poll) { v ->
+                var s: String? = null
+                if (v != null && v != "null") s = try { JSONTokener(v).nextValue() as? String } catch (e: Exception) { null }
+                when {
+                    s == "gone" -> c.fail("The page was reloaded before the script finished.")
+                    s != null -> try {
+                        val x = JSONObject(s)
+                        if (x.has("e")) c.fail(x.optString("e"))
+                        else c.ok(JSONArray().put(JSONObject().put("frameId", 0).put("result", if (x.isNull("r")) JSONObject.NULL else x.get("r"))))
+                    } catch (e: Exception) { c.fail("Bad script result") }
+                    System.currentTimeMillis() > deadline -> c.fail("Script timed out.")
+                    else -> main.postDelayed({ pollOnce() }, 200)
+                }
+            }
+        }
+        t.web.evaluateJavascript(start) { pollOnce() }
+    }
+
+    private fun cookieUrl(o: JSONObject): String? {
+        val u = o.optString("url")
+        if (u.isNotEmpty()) return u
+        val d = o.optString("domain").trimStart('.')
+        return if (d.isNotEmpty()) "https://$d/" else null
+    }
+
+    private fun cookieList(url: String, name: String?): JSONArray {
+        val out = JSONArray()
+        val raw = (try { CookieManager.getInstance().getCookie(url) } catch (e: Exception) { null }) ?: return out
+        val host = try { android.net.Uri.parse(url).host ?: "" } catch (e: Exception) { "" }
+        for (part in raw.split(";")) {
+            val kv = part.trim()
+            if (kv.isEmpty()) continue
+            val i = kv.indexOf('=')
+            val n = if (i >= 0) kv.substring(0, i) else kv
+            val v = if (i >= 0) kv.substring(i + 1) else ""
+            if (name != null && name != n) continue
+            out.put(JSONObject().put("name", n).put("value", v).put("domain", host).put("hostOnly", true).put("path", "/")
+                .put("secure", url.startsWith("https")).put("httpOnly", false).put("session", true).put("storeId", "0").put("sameSite", "unspecified"))
+        }
+        return out
     }
 
     private fun windowJson(): JSONObject = JSONObject()

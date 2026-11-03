@@ -145,12 +145,29 @@
       permissions: [['contains', 'request', 'getAll'], []],
       offscreen: [['createDocument', 'closeDocument', 'hasDocument'], []],
       commands: [['getAll'], ['onCommand']],
-      webRequest: [[], ['onBeforeRequest', 'onBeforeSendHeaders', 'onHeadersReceived', 'onCompleted', 'onErrorOccurred']]
+      webRequest: [[], ['onBeforeRequest', 'onBeforeSendHeaders', 'onHeadersReceived', 'onCompleted', 'onErrorOccurred']],
+      cookies: [['get', 'getAll', 'set', 'remove', 'getAllCookieStores'], ['onChanged']] // N1: Novel grabber
     };
     Object.keys(NS).forEach(function (ns) {
       var o = chrome[ns] = {};
       NS[ns][0].forEach(function (m) { o[m] = method(ns + '.' + m); });
       NS[ns][1].forEach(function (e) { o[e] = makeEvent(ns + '.' + e, true); });
+    });
+    // N1: a function cannot cross the JSON bridge -> executeScript sends the source text of `func` (Kotlin runs it in the tab).
+    function injection(inj) {
+      var o = {}, k; inj = inj || {};
+      for (k in inj) o[k] = inj[k];
+      if (typeof o.func === 'function') o.func = '(' + o.func.toString() + ')';
+      return o;
+    }
+    chrome.scripting.executeScript = wrap(function (inj) { return call('scripting.executeScript', [injection(inj)]); });
+    // MV2 style chrome.tabs.executeScript(tabId, {code|file}) -> same path
+    chrome.tabs.executeScript = wrap(function (tabId, d) {
+      d = d || {};
+      var inj = { target: { tabId: tabId } };
+      if (d.code) inj.func = '(function(){ return eval(' + JSON.stringify(String(d.code)) + '); })';
+      else if (d.file) inj.files = [d.file];
+      return call('scripting.executeScript', [injection(inj)]).then(function (r) { return (r || []).map(function (x) { return x.result; }); });
     });
   }
 

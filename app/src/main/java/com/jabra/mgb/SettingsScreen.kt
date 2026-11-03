@@ -466,6 +466,7 @@ object SettingsScreen {
             category("downloads", R.drawable.ic_download, "Downloads", "Library, quality, files", listOf( // S64: arranged by what you do
                 Sub("Library"),
                 Row(R.drawable.ic_download, "Downloads", "", "Files saved on this phone") { dismiss(); DownloadsScreen.open(act) },
+                Row(R.drawable.ic_book, "Novel grabber", "", "Web novels and chapters to EPUB, DOCX, TXT") { ext("novel/studio.html") }, // N1
                 Row(R.drawable.ic_list, "Queue", "", "Running, waiting and failed jobs") { ext("queue.html") },
                 Row(R.drawable.ic_history, "Download history", "", "Everything Grabber saved") { ext("history.html") },
                 Row(R.drawable.ic_bookmark, "Followed manga", Follow.count().let { if (it > 0) "$it" else "" }, "Alerts for new chapters") { Follow.open(act, "", null) { u -> dismiss(); BookmarksScreen.tabsRef?.openUrl(u) } },

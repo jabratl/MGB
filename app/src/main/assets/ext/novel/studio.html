@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Novel Studio</title>
+<link rel="stylesheet" href="../theme.css"><link rel="stylesheet" href="studio.css"></head>
+<body data-tab="source">
+
+<header class="top">
+  <div class="brand"><span class="logo"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M9 8h7M9 12h5"/></svg></span><b>Novel Studio</b></div>
+  <span id="status" class="chip">Loading…</span>
+</header>
+
+<section class="hero" aria-label="Book preview">
+  <div id="cover" class="cover"><span id="coverLetter">N</span></div>
+  <div class="hmeta">
+    <div id="hTitle" class="htitle">Untitled book</div>
+    <div id="hAuthor" class="hauthor">Unknown author</div>
+    <div class="hstats"><span id="hCh" class="pill">0 chapters</span><span id="hFmt" class="pill">EPUB</span><span id="hMode" class="pill">Single page</span></div>
+  </div>
+</section>
+
+<main>
+<!-- ============ SOURCE ============ -->
+<section class="card" data-tab="source"><h2>Source</h2>
+  <label>Page URL<input id="srcUrl" inputmode="url" autocapitalize="off" autocomplete="off"></label>
+  <div class="row">
+    <label>Mode<select id="mode">
+      <option value="single">Single page</option>
+      <option value="next">Follow “Next” links (novel chapters)</option>
+      <option value="toc">Chapter list (pick links from this page)</option>
+      <option value="api">API / URL pattern ({n} chapter numbers)</option></select></label>
+  </div>
+  <div class="row">
+    <label>Max chapters (Next mode)<input id="maxCh" type="number" value="50" min="1"></label>
+    <label>Delay (ms)<input id="delay" type="number" value="800" min="0"></label>
+  </div>
+  <div class="btns"><button id="btnFind" class="primary wide">Find catalog · get ALL chapters</button></div>
+  <div id="findInfo" class="muted">Works from a chapter page or the novel page: finds the table of contents, “load more”, pagination, dropdowns, Blogger / WordPress feeds, AJAX lists, sitemap.</div>
+  <div class="btns"><button id="btnTabs">Merge chapter links from open tabs</button></div>
+  <div id="tabPanel" hidden><div class="muted">Open each catalog page in its own tab (e.g. chapters 1-50, 51-100), then tick the tabs to merge:</div><div id="tabList"></div>
+    <div class="btns"><button id="btnTabsGo" class="primary">Merge selected tabs</button><button id="btnTabsClose">Close</button></div></div>
+</section>
+
+<section class="card" data-tab="source"><h2>Loading &amp; speed</h2>
+  <div class="row"><label>Fetch method<select id="fetchMode">
+      <option value="auto">Auto (fast, then real browser if text is missing)</option>
+      <option value="fast">Fast (plain HTTP)</option>
+      <option value="rendered">Rendered browser (JS, lazy-load, ajax)</option></select></label></div>
+  <div class="row"><label>Render wait (ms)<input id="renderWait" type="number" value="1500" min="0"></label>
+    <label>Parallel (1–4)<input id="conc" type="number" value="1" min="1" max="4"></label></div>
+  <label>Speed preset<select id="speed"><option value="">Custom (use the values above)</option><option value="safe">Safe: 1 at a time, 800 ms</option><option value="fast">Fast: 3 parallel, 250 ms</option><option value="turbo">Turbo: 4 parallel, 80 ms</option></select></label>
+  <label class="chk"><input id="inTab" type="checkbox"> Fetch chapters inside the source tab (login / robot-check sites)</label>
+  <label class="chk"><input id="optTab" type="checkbox" checked> Use the open tab’s rendered page for the first chapter</label>
+  <label class="chk"><input id="apiFast" type="checkbox"> Fast API per chapter (by chapter ID, falls back to normal loading)</label>
+  <label>Chapter API template <span class="hint">{id} chapter id · {bid} book id · {csrf} token</span><input id="apiTpl" placeholder="learn it with the button below"></label>
+  <div class="btns"><button id="btnLearn">Learn fast API from the open chapter tab</button></div><div id="learnList" class="muted"></div>
+</section>
+
+<section class="card" data-tab="source"><h2>Output</h2>
+  <div class="row"><label>Format<select id="outFmt"><option value="epub">EPUB</option><option value="docx">DOCX (Word)</option><option value="txt">TXT (one text file)</option><option value="zip">ZIP (one .txt per chapter)</option></select></label>
+    <label>Chapters per file <span class="hint">0 = one file</span><input id="perVol" type="number" value="0" min="0"></label></div>
+  <label>File name pattern <span class="hint">%Title% %Author% %Vol% %Range% %Date%</span><input id="fileName" placeholder="%Title% %Vol%"></label>
+  <label class="chk"><input id="useCache" type="checkbox" checked> Resume / update: reuse chapters downloaded before</label>
+  <div class="btns"><button id="btnClearCache">Clear chapter cache</button></div>
+  <label class="chk"><input id="stopLocked" type="checkbox" checked> Stop early after 5 locked / paid chapters in a row</label>
+  <label class="chk"><input id="autoOrder" type="checkbox" checked> Auto-order catalog by chapter number (fixes newest-first lists)</label>
+</section>
+
+<section class="card" data-tab="source"><h2>Images</h2>
+  <label class="chk"><input id="optImages" type="checkbox" checked> Download &amp; embed images</label>
+  <label class="chk"><input id="optConvert" type="checkbox" checked> Convert WebP / AVIF → JPEG (better reader support)</label>
+  <label class="chk"><input id="imgCompress" type="checkbox"> Compress images (smaller file)</label>
+  <div class="row"><label>Max size (px)<input id="imgMax" type="number" value="1080" min="200" max="4000"></label><label>Format<select id="imgType"><option value="jpg">JPG</option><option value="webp">WebP</option></select></label></div>
+</section>
+
+<!-- ============ CHAPTERS ============ -->
+<section class="card" id="tocCard" data-tab="chapters" hidden><h2>Chapter links</h2>
+  <div class="row"><label>First chapter<select id="rngFrom"></select></label><label>Last chapter<select id="rngTo"></select></label></div>
+  <label class="chk"><input id="tocOnly" type="checkbox" checked> Show detected chapter links only</label>
+  <label>Filter <span class="hint">text or regex</span><input id="tocFilter" placeholder="e.g. chapter|অধ্যায়"></label>
+  <div class="btns"><button id="btnAuto">Auto-detect</button><button id="btnAll">Select shown</button><button id="btnNone">Select none</button><button id="btnRev">Reverse</button></div>
+  <label id="catSrcRow" hidden>Catalog source <span class="hint">switch if the list looks wrong</span><select id="catSrc"></select></label>
+  <div class="btns"><button id="btnExport">Export list (.txt)</button><button id="btnNoLock">Uncheck 🔒 locked</button></div>
+  <div id="tocCount" class="muted"></div><div id="tocList"></div>
+  <label>Or paste chapter URLs <span class="hint">one per line, optional “title | url”</span><textarea id="tocPaste" rows="3" placeholder="https://site.com/novel/ch-1"></textarea></label>
+  <div class="btns"><button id="btnPaste">Use pasted URLs</button></div>
+</section>
+
+<section class="card" id="apiCard" data-tab="chapters" hidden><h2>API / URL pattern</h2>
+  <div class="btns"><button id="btnDetect">Detect API calls of this page</button></div><div id="apiList" class="muted"></div>
+  <label>URL template <span class="hint">{n} or {n:4} for zero-padding</span><input id="apiUrl" placeholder="https://site.com/api/chapter/{n}"></label>
+  <div class="row"><label>From<input id="apiFrom" type="number" value="1"></label><label>To<input id="apiTo" type="number" value="10"></label></div>
+  <div class="row"><label>Text JSON path<input id="apiPath" placeholder="data.chapter.content"></label><label>Title JSON path<input id="apiTitle" placeholder="data.chapter.title"></label></div>
+  <label>POST body <span class="hint">blank = GET</span><textarea id="apiBody" rows="2" placeholder='{"chapterId": {n}}'></textarea></label>
+</section>
+<section class="card empty" id="chEmpty" data-tab="chapters"><h2>Chapters</h2><div class="muted">No chapter list yet. Go to <b>Source</b> and press <b>Find catalog</b>, or set Mode to <b>Chapter list</b> / <b>API pattern</b>.</div></section>
+
+<!-- ============ BOOK ============ -->
+<section class="card" data-tab="book"><h2>Book details</h2>
+  <label>Title<input id="title"></label>
+  <div class="row"><label>Author<input id="author"></label><label>Language<input id="lang" value="en" size="6"></label></div>
+  <label>Cover image URL <span class="hint">blank = auto-generate</span><input id="coverUrl"></label>
+  <label>Series <span class="hint">optional</span><input id="series"></label>
+  <label>Description<textarea id="desc" rows="3"></textarea></label>
+  <label>Chapter titles<select id="titleMode"><option value="smart">Smart — catalog title, completed from the chapter page (recommended)</option><option value="auto">Detect from page</option><option value="number">“Chapter N” numbering</option><option value="toc">Catalog list titles (completed when only “Chapter N”)</option></select></label>
+  <label class="chk"><input id="stripNum" type="checkbox"> Remove “Chapter N / 第N章” from titles</label>
+  <div class="smartbox">
+    <label class="chk"><input id="smartOn" type="checkbox"> Smart chapter headings <span class="hint">understands 第12章 · 제12화 · 第12話 · Chapter 12 · Capítulo 12 · الفصل 12</span></label>
+    <div id="smartOpts" hidden>
+      <label>Novel language
+        <select id="smartLang">
+          <option value="auto">Auto — all languages</option>
+          <option value="zh">中文 Chinese</option>
+          <option value="ja">日本語 Japanese</option>
+          <option value="ko">한국어 Korean</option>
+          <option value="en">English</option>
+          <option value="es">Español Spanish</option>
+          <option value="la">Latin &amp; Latin-script (FR, DE, IT, PT, ID, TR…)</option>
+          <option value="ar">العربية Arabic</option>
+          <option value="custom">Custom — my own prefix / suffix</option>
+        </select></label>
+      <div id="smartCustom" hidden>
+        <div class="row"><label>Prefix <span class="hint">before the number</span><input id="smartPre" placeholder="第 , Chapter"></label>
+        <label>Suffix <span class="hint">optional</span><input id="smartSuf" placeholder="章 , 話"></label></div>
+        <div class="muted">Separate several with a comma. A heading is: prefix + number + suffix + (space / : / -) + title. Number = 12 · 十二 · XII.</div>
+      </div>
+      <label class="chk"><input id="smartSplit" type="checkbox"> Also split one long page into many chapters at every heading</label>
+      <label>Test <span class="hint">paste a few heading lines</span><textarea id="smartTest" rows="3" placeholder="第12章 标题"></textarea></label>
+      <div id="smartOut" class="muted"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ EXTRACT ============ -->
+<section class="card" data-tab="extract"><h2>Extraction</h2>
+  <label>Content CSS selector <span class="hint">blank = auto-detect</span><input id="contentSel" placeholder="#chapter-content"></label>
+  <div class="btns"><button id="btnPick">Pick chapter text on the page</button></div>
+  <label>“Next” link CSS selector <span class="hint">blank = auto</span><input id="nextSel" placeholder="a.next-chap"></label>
+  <label>Remove elements <span class="hint">CSS selectors, comma separated</span><input id="removeSel" placeholder=".ads, .author-note"></label>
+  <label>Text replacements <span class="hint">one per line: find =&gt; replace</span><textarea id="replRules" rows="3" placeholder="Read at example.com =>"></textarea></label>
+  <label>Merge “next page” links into the same chapter <span class="hint">regex on link text</span><input id="pageRe" placeholder="下一页|next page|পরের পৃষ্ঠা"></label>
+</section>
+
+<!-- ============ STYLE ============ -->
+<section class="card" data-tab="style"><h2>Reading style</h2>
+  <div class="row">
+    <label>Font size %<input id="fontSize" type="number" value="100" min="60" max="200"></label>
+    <label>Line height<input id="lineHeight" type="number" value="1.6" step="0.1" min="1" max="3"></label>
+  </div>
+  <label>Align<select id="align"><option>justify</option><option>left</option></select></label>
+  <label class="chk"><input id="indent" type="checkbox"> First-line paragraph indent</label>
+  <div id="stylePrev" class="prev"><p>The lantern swung once, twice, and the corridor learned his name. He kept walking, because stopping felt like an answer.</p><p>Behind him, somebody was already turning the page.</p></div>
+</section>
+
+<!-- ============ BUILD ============ -->
+<section class="card" data-tab="build"><h2>Build</h2>
+  <div class="btns"><button id="btnBuild" class="primary wide">Build EPUB</button></div>
+  <div class="btns"><button id="btnTest">Test 1 chapter</button><button id="btnCancel" disabled>Cancel</button></div>
+  <progress id="bar" value="0" max="1"></progress>
+  <div id="log"></div>
+</section>
+</main>
+
+<div class="strip" id="strip">
+  <div class="sinfo"><div id="sTxt" class="stxt">Ready</div><div class="sbar"><i id="sFill"></i></div></div>
+  <button id="fabBuild" class="primary">Build</button>
+</div>
+
+<nav class="tabs" id="tabs">
+  <button data-go="source" class="on"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg><span>Source</span></button>
+  <button data-go="chapters"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Chapters</span></button>
+  <button data-go="book"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></svg><span>Book</span></button>
+  <button data-go="extract"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg><span>Extract</span></button>
+  <button data-go="style"><svg viewBox="0 0 24 24"><path d="M4 7V5h16v2M9 19h6M12 5v14"/></svg><span>Style</span></button>
+  <button data-go="build"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg><span>Build</span></button>
+</nav>
+
+<script src="ui.js"></script>
+<script type="module" src="studio.js"></script>
+</body></html>
