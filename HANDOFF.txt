@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.91 + S89.0 + S89.1 + S89.2 + S89.3 + S89.4 + S89.5 + S89.6 (manga reader / save rules, version bump in S89.7, see the S89.6 note at the end; before: S89.5)
+
 CURRENT VERSION 0.0.91 + S89.0 + S89.1 + S89.2 + S89.3 + S89.4 + S89.5 (manga page load rules, version bump in S89.7, see the S89.5 note at the end; before: S89.4)
 
 CURRENT VERSION 0.0.91 + S89.0 + S89.1 + S89.2 + S89.3 + S89.4 (manga page list rules, version bump in S89.7, see the S89.4 note at the end; before: S89.3)
@@ -734,3 +736,14 @@ Checks: bracket count { } ( ) [ ] balanced in DiagRules.kt after the edit; no du
 NOT tested (needs build + phone): Kotlin compile (local funs, Map.filter, string templates $rec / $left); real mgLog lines producing these findings; how 18 long texts look in the Diagnose list at 360 px dark / light.
 Could break: mgCodeNotes keeps only the NEWEST detail per code, so after a manual retry that recovered everything an older still-missing line still shows manga-still-missing + img-* Problems for 30 minutes (retry-ok shows too). With several img-http-NNN codes only the first number is named. Rules 28-30 (text based) and manga-no-list / manga-still-missing can show together.
 Next: S89.6 (DiagRules.kt: rules for the reader / save codes: reader-empty, reader-page-failed, bookmark-failed, resume-failed, pick-without-image, wrong-order, save-failed, memory-limit, postprocess-failed, reencode-failed, jpeg-convert-failed, download-failed, download-timeout, pages-missing-saved, save-incomplete; hints in the S89.3 note). Attach: DiagRules.kt (after this patch).
+
+S89.6 - manga failures to Diagnose, part 6: rules for the reader / save / download codes
+Done: S0-S87.2 + S89.0 + S89.1 + S89.2 + S89.3 + S89.4 + S89.5 + S89.6. Version still 0.0.91 (0.0.92 is set in S89.7).
+- DiagRules.kt only: rules73to87(x, out) added, called right after rules55to72 in diagnose(). 15 rules. Problem: manga-memory, manga-save-failed (fix Downloads), manga-dl-failed / manga-dl-timeout (fix storage), manga-jpeg, manga-save-incomplete (fix reload). Warning: manga-saved-missing (pages-missing-saved), manga-reencode, manga-postprocess, manga-reader-page, manga-pick-noimg, manga-order. Info: manga-reader-empty, manga-resume, manga-bookmark.
+- manga-saved-missing reads the first number followed by "page" from the newest note ("saved with N page(s) missing"); if the note has no such number the text says "some pages". Everything else shows only count + host.
+- Fix ids reused: reload / storage / downloads (all exist in DiagScreen). No DiagScreen / DiagReport change.
+- IMPORTANT: the MGB-main zip given for S89.5-S89.6 had NO S89.3 code in manga.js / background.js (grep for save-failed, memory-limit, pages-missing-saved, save-incomplete = nothing). The S89.3 patch was not attached, so the rules follow the code names + hints in the S89.3 note only; the real detail text of those lines was NOT checked. In the real repo the S89.3 patch must be applied (it is on the user's side), else these 15 rules never fire.
+Checks: bracket count { } ( ) [ ] balanced in DiagRules.kt; no duplicate rule ids; 14 mg() calls + pages-missing-saved block = 15 rules; regex checked in the saved file; fix ids exist in DiagScreen (storage, downloads, reload). NOT compiled (no Kotlin SDK).
+NOT tested (needs build + phone): Kotlin compile; real mgLog lines producing these findings; text length at 360 px dark / light.
+Could break: mgCodeNotes keeps only the NEWEST detail per code; wrong-order has no fix button (text only); manga-save-incomplete and manga-saved-missing can show together.
+Next: S89.7 (version bump to 0.0.92 in app/build.gradle.kts or build.gradle.kts, CHANGELOG / HANDOFF header, phone check list entries for the new manga codes in docs/PHONE_CHECK.txt, final consistency check of all manga codes vs rules: every code in S89.1-S89.3 must have a rule). Attach: the MGB-main zip WITH the S89.3 patch applied, plus MGB_S89_6_patch.zip.

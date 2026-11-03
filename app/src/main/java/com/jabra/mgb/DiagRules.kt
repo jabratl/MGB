@@ -2,7 +2,7 @@ package com.jabra.mgb
 
 /**
  * S86: Diagnose part 5a. Rule engine: facts about the app / page / downloads -> list of Finding
- * (what happened + what to do + optional one tap fix). Rules 1-20 (S86) + rules 21-40 (S87.1, see rules21to40) + rules 41-54 (S89.4, manga page list codes, see rules41to54) + rules 55-72 (S89.5, manga page load codes, see rules55to72).
+ * (what happened + what to do + optional one tap fix). Rules 1-20 (S86) + rules 21-40 (S87.1, see rules21to40) + rules 41-54 (S89.4, manga page list codes, see rules41to54) + rules 55-72 (S89.5, manga page load codes, see rules55to72) + rules 73-87 (S89.6, manga reader / save codes, see rules73to87).
  * Pure logic, no UI, no Android calls (DiagReport collects the Facts).
  *
  * fix ids (DiagScreen.runFix): wifi, storage, webview, reload, settings, downloads, notif, appinfo.
@@ -126,6 +126,7 @@ object DiagRules {
         rules21to40(x, out)
         rules41to54(x, out)
         rules55to72(x, out)
+        rules73to87(x, out)
 
         return out.sortedBy { when (it.level) { DiagReport.BAD -> 0; DiagReport.WARN -> 1; else -> 2 } }
     }
@@ -259,6 +260,49 @@ object DiagRules {
         mg("refresh-failed", "manga-refresh", W, "MGB could not refresh the expired image links.", "Reload the chapter page, then grab again.", "reload", "Reload page")
         mg("duplicates-unselected", "manga-dups", I, "Duplicate pages were unselected automatically.", "Nothing to do. Tick them again in the Manga window if you want them.")
         mg("screenshot-failed", "manga-screenshot", W, "Some pages could not be captured as screenshots.", "Keep the manga tab visible with the screen on until the grab has finished, then try again.")
+    }
+
+    /**
+     * S89.6 rules 73-87: manga READER / SAVE / DOWNLOAD codes (S89.3, written by manga.js and background.js).
+     * Same pattern as rules55to72. The exact detail text of these lines was not in the attached files, so the only thing read from a note is the host
+     * (before the first ":") and, for pages-missing-saved, the first number followed by "page" (if none is found the text has no number).
+     */
+    private fun rules73to87(x: Facts, out: ArrayList<Finding>) {
+        val B = DiagReport.BAD
+        val W = DiagReport.WARN
+        val I = DiagReport.INFO
+        fun tailOf(n: Int, note: String): String {
+            val host = if (note.contains(":")) note.substringBefore(":").trim().take(60) else ""
+            return " (" + n + "x" + (if (host.isNotEmpty()) ", " + host else "") + ")"
+        }
+        fun mg(code: String, id: String, level: String, what: String, todo: String, fix: String? = null, label: String? = null) {
+            val n = x.code("manga:$code")
+            if (n <= 0) return
+            out.add(f(id, level, what + tailOf(n, x.mgCodeNotes["manga:$code"].orEmpty()), todo, fix, label))
+        }
+        mg("memory-limit", "manga-memory", B, "The phone ran out of memory while saving the chapter.", "Save fewer pages at once or lower the image size. Use CBZ instead of PDF (PDF needs the most memory). Close other apps and tabs first.")
+        mg("save-failed", "manga-save-failed", B, "Saving the chapter failed.", "Press Save again. If it repeats, save fewer pages or use CBZ, then copy the report.", "downloads", "Open Downloads")
+        mg("download-failed", "manga-dl-failed", B, "The saved file could not be written to the Downloads folder.", "Check free storage space and that MGB may write to the chosen Downloads folder, then save again.", "storage", "Open storage settings")
+        mg("download-timeout", "manga-dl-timeout", B, "The save did not finish in time (the download stayed stuck).", "Keep the screen on and MGB open until the file is written. Check storage space, then save again.", "storage", "Open storage settings")
+        mg("jpeg-convert-failed", "manga-jpeg", B, "Converting pages to JPEG failed.", "Save again. If it repeats, switch the image format / quality in the Manga window or use CBZ, then copy the report.")
+        mg("save-incomplete", "manga-save-incomplete", B, "The chapter was not saved completely (the save stopped early or its tab was closed).", "Keep the manga tab open until the save has finished. Press Retry failed if pages are missing, then save again.", "reload", "Reload page")
+        run {
+            val n = x.code("manga:pages-missing-saved")
+            if (n > 0) {
+                val note = x.mgCodeNotes["manga:pages-missing-saved"].orEmpty()
+                val cnt = Regex("""(\d+)\s*page""").find(note)?.groupValues?.get(1)
+                val what = if (cnt != null) "The chapter was saved with $cnt page(s) missing." else "The chapter was saved with some pages missing."
+                out.add(f("manga-saved-missing", W, what + tailOf(n, note), "Press Retry failed in the Manga window until no page is missing, then save the chapter again."))
+            }
+        }
+        mg("reencode-failed", "manga-reencode", W, "Re-encoding some pages failed. The original pages were kept, the file is still saved.", "Nothing to do. The file may be bigger than expected. If it repeats, copy the report.")
+        mg("postprocess-failed", "manga-postprocess", W, "A post-processing step failed. The original pages were kept, the file is still saved.", "Nothing to do. Check the saved file once. If it repeats, copy the report.")
+        mg("reader-page-failed", "manga-reader-page", W, "A page could not be shown in the reader.", "Go back to the Manga window, press Retry failed, then open the reader again.")
+        mg("pick-without-image", "manga-pick-noimg", W, "Some picked pages have no image data yet.", "Wait until the pages are loaded (or press Retry failed), then open the reader or save again.")
+        mg("wrong-order", "manga-order", W, "The page numbers in the file names go up and down (the order may be wrong).", "Use Sort by name in the Manga window, then check the first and last page before saving.")
+        mg("reader-empty", "manga-reader-empty", I, "The reader was opened with no page selected.", "Select the pages you want in the Manga window, then open the reader.")
+        mg("resume-failed", "manga-resume", I, "The saved reading position is past the end of the chapter, so the reader started at the first page.", "Nothing to do.")
+        mg("bookmark-failed", "manga-bookmark", I, "The reading position could not be saved or loaded.", "Nothing to do for the file itself. If it repeats, clear site data for MGB or copy the report.")
     }
 
     /** "Why?" on one failed download row: the row's own text / code + the masked url. Always returns at least one Finding. */
