@@ -1,3 +1,25 @@
+S90 (version stays 0.0.92: static review of DiagRules.kt, no CI log / phone line was available yet)
+- DiagRules.kt: pages-missing-saved now reads the number from the real log text "chapter done: ok=true missing=N" (background.js). Before it looked for "N page", so the number was never shown.
+- DiagRules.kt: the host shown in "(Nx, host)" is only taken from the text before the first ":" if it looks like a host (a-z 0-9 . -). Lines from background.js ("chapter done: ...") used to show "chapter done" as the host.
+- Static checks: braces/parens balanced, no stray "$" in strings, raw regex strings ok, local fun mg()/tailOf() and Map.filter use ok. 46 code names + img-http-NNN: every JS code has a rule (script). Kotlin was NOT compiled (no SDK here).
+
+S89.7 (version 0.0.92: Diagnose for manga failures, part 7 - final check)
+- Version 0.0.92 (app/build.gradle.kts already had it). All 46 manga codes (+ img-http-NNN) from S89.1-S89.3 have a Diagnose rule (checked by script).
+- docs/PHONE_CHECK.txt: header 0.0.92 and new group E (manga findings, items 16-25).
+
+S89.6 (version stays 0.0.91, bump in S89.7: Diagnose for manga failures, part 6 - rules for the reader / save / download codes)
+- DiagRules.kt: new rules73to87 (called after rules55to72). 15 rules for the S89.3 codes: manga-memory, manga-save-failed, manga-dl-failed, manga-dl-timeout, manga-jpeg, manga-save-incomplete (Problem); manga-saved-missing, manga-reencode, manga-postprocess, manga-reader-page, manga-pick-noimg, manga-order (Warning); manga-reader-empty, manga-resume, manga-bookmark (Info).
+- Fix buttons reuse reload / storage / downloads. DiagScreen.kt and DiagReport.kt not changed.
+
+S89.5 (version stays 0.0.91, bump in S89.7: Diagnose for manga failures, part 5 - rules for the page load codes)
+- DiagRules.kt: new rules55to72 (called after rules41to54). 18 rules for the S89.2 codes, read through Facts.code("manga:<id>") and Facts.mgCodeNotes: manga-img-403 / -404 / -429 / -5xx / -401, manga-img-http (any img-http-NNN), manga-not-image, manga-img-timeout, manga-img-fetch, manga-corrupt, manga-all-methods, manga-still-missing (Problem); manga-rate-limited, manga-refresh, manga-screenshot (Warning); manga-first-pass, manga-dups (Info).
+- retry-result is read for recovered=N / still-missing=M: M > 0 = manga-retry-left (Problem), M = 0 = manga-retry-ok (Info "N recovered"). Fix buttons reuse reload / settings / wifi (no DiagScreen change). DiagReport.kt not changed.
+
+S89.4 (version stays 0.0.91, bump in S89.7: Diagnose for manga failures, part 4 - rules for the page list codes)
+- DiagRules.kt: new rules41to54 (called after rules21to40). 14 rules, one per S89.1 code, read through Facts.code("manga:<id>") and Facts.mgCodeNotes: manga-cloudflare (Problem), manga-403 / manga-401 / manga-404 / manga-429 / manga-5xx / manga-cors / manga-fetch / manga-tab-closed / manga-adapter / manga-fewer / manga-thumbs (Warning), manga-no-list (Problem), manga-fallback (Info). Text shows the count and the host only.
+- A note with "rescued=tab" turns cloudflare / 403 / 401 / 404 / 429 / 5xx / cors / fetch into Info ("the grab worked"). Fix buttons reuse the existing ids reload / settings / wifi (no DiagScreen change).
+- DiagReport.kt not changed (Facts.mgCodes / mgCodeNotes were already filled in S89.0).
+
 S89.3 (version stays 0.0.91, bump in S89.7: Diagnose for manga failures, part 3 - reader / save / convert / download logs)
 - manga.js (area "manga", lines "code=<id> host: detail", no full urls): reader-empty (reader opened with 0 selected), reader-page-failed (first failed page, once per reader open), bookmark-failed (localStorage save / load threw), resume-failed (saved page is past the end), pick-without-image (picked pages with no blob, at reader open and at save), wrong-order (file numbers go up and down, or Sort by name impossible), save-failed / memory-limit (any Save error, CBZ / ZIP / PDF / EPUB, memory-limit when the error text says quota / memory / allocation), postprocess-failed, reencode-failed (CBZ / ZIP re-encode, count of files kept as original), jpeg-convert-failed (PDF / EPUB page to JPEG), download-failed (chrome.downloads.download threw, or the download ended "interrupted"), download-timeout (waitDownload gave up after 120 s).
 - background.js: manga-done with missing > 0 logs pages-missing-saved; manga-done ok=false or the chapter tab closed before it finished logs save-incomplete (also says when nobody was waiting, so the auto notice in content.js was not shown).

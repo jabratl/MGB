@@ -29,7 +29,7 @@ E. Manga failures in Report center (S89, needs the S89.1-S89.3 extension code on
 19. Site that expires image links: "could not refresh the expired image links" (Warning).
 20. Save a big chapter as PDF on a weak phone: "ran out of memory" (Problem) with the CBZ hint.
 21. Fill the storage (or deny the Downloads folder) and save: "could not be written to the Downloads folder" with Open storage settings.
-22. Save with pages missing: "saved with N page(s) missing" (Warning); N matches the toast. Check the number is shown (the real log text was not checked).
+22. Save with pages missing: "saved with N page(s) missing" (Warning); N matches the toast. The number comes from the log text "missing=N" (fixed in S90): check it is shown and equals the toast.
 23. Close the manga tab while saving: "not saved completely" (Problem).
 24. Open the reader with nothing selected: "reader was opened with no page selected" (Info).
 25. Each Manga finding: text fits at 360 px dark / light, the fix button does the named thing (Reload / Settings / Wi-Fi / storage / Downloads).

@@ -186,7 +186,7 @@ object DiagRules {
             val n = x.code("manga:$code")
             if (n <= 0) return
             val note = x.mgCodeNotes["manga:$code"].orEmpty()
-            val host = if (note.contains(":")) note.substringBefore(":").trim().take(60) else ""
+            val host = note.substringBefore(":", "").trim().take(60).takeIf { Regex("[a-z0-9.-]+").matches(it) } ?: ""
             val tail = " (" + n + "x" + (if (host.isNotEmpty()) ", " + host else "") + ")"
             if (rescuable && note.contains("rescued=tab")) out.add(f(id, I, what + tail + " The open tab still got the page list, so the grab worked.", "Nothing to do. Keep the manga page open in its tab while grabbing."))
             else out.add(f(id, level, what + tail, todo, fix, label))
@@ -218,7 +218,7 @@ object DiagRules {
         val W = DiagReport.WARN
         val I = DiagReport.INFO
         fun tailOf(n: Int, note: String): String {
-            val host = if (note.contains(":")) note.substringBefore(":").trim().take(60) else ""
+            val host = note.substringBefore(":", "").trim().take(60).takeIf { Regex("[a-z0-9.-]+").matches(it) } ?: ""
             return " (" + n + "x" + (if (host.isNotEmpty()) ", " + host else "") + ")"
         }
         fun mg(code: String, id: String, level: String, what: String, todo: String, fix: String? = null, label: String? = null) {
@@ -265,14 +265,14 @@ object DiagRules {
     /**
      * S89.6 rules 73-87: manga READER / SAVE / DOWNLOAD codes (S89.3, written by manga.js and background.js).
      * Same pattern as rules55to72. The exact detail text of these lines was not in the attached files, so the only thing read from a note is the host
-     * (before the first ":") and, for pages-missing-saved, the first number followed by "page" (if none is found the text has no number).
+     * (before the first ":") and, for pages-missing-saved, the number after "missing=" (real text, checked in S90: "chapter done: ok=true missing=3").
      */
     private fun rules73to87(x: Facts, out: ArrayList<Finding>) {
         val B = DiagReport.BAD
         val W = DiagReport.WARN
         val I = DiagReport.INFO
         fun tailOf(n: Int, note: String): String {
-            val host = if (note.contains(":")) note.substringBefore(":").trim().take(60) else ""
+            val host = note.substringBefore(":", "").trim().take(60).takeIf { Regex("[a-z0-9.-]+").matches(it) } ?: ""
             return " (" + n + "x" + (if (host.isNotEmpty()) ", " + host else "") + ")"
         }
         fun mg(code: String, id: String, level: String, what: String, todo: String, fix: String? = null, label: String? = null) {
@@ -290,7 +290,7 @@ object DiagRules {
             val n = x.code("manga:pages-missing-saved")
             if (n > 0) {
                 val note = x.mgCodeNotes["manga:pages-missing-saved"].orEmpty()
-                val cnt = Regex("""(\d+)\s*page""").find(note)?.groupValues?.get(1)
+                val cnt = Regex("""missing=(\d+)""").find(note)?.groupValues?.get(1)
                 val what = if (cnt != null) "The chapter was saved with $cnt page(s) missing." else "The chapter was saved with some pages missing."
                 out.add(f("manga-saved-missing", W, what + tailOf(n, note), "Press Retry failed in the Manga window until no page is missing, then save the chapter again."))
             }
