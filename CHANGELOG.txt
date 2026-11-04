@@ -1,3 +1,7 @@
+0.0.114 (CI only: same code as 0.0.113, version bumped to start a fresh build after a failed run; no code change)
+- The 0.0.113 run failed (release api HTTP 500, then a re-run of the old commit re-applied the zip and the push was rejected). Re-run of a failed run must not be used for zip uploads.
+- NEXT: phone test of 0.0.114 with mgb_s2_test.zip (tap 1 = badge 1, tap 2 = popup); then S4 or S3.
+
 0.0.113 (S2 FIX: tap on the tray button of an extension without popup said "has no popup" although the worker has action.onClicked)
 - Root cause: the tap only looked at the REMEMBERED listener list (ExtApi.mem). A worker that was stopped or never ran in this build (e.g. extension installed on 0.0.111, app updated to 0.0.112) has no action.onClicked in that list, so ExtTray fell through to the "has no popup" toast. This is my reading of the code, not proven on the phone.
 - ExtApi.kt: new actionClickedWake(xid, tab, cb): if no listener is known, the worker is started (ExtBackground.ensure), then the listener list is checked again, then onClicked is sent. actionClicked() unchanged.
