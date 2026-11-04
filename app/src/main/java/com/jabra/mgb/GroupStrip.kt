@@ -1,0 +1,171 @@
+package com.jabra.mgb
+
+import android.app.Activity
+import android.graphics.drawable.GradientDrawable
+import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
+
+/**
+ * S13: Brave-like group strip above the bottom bar. Shown while the active tab is in a group:
+ * [^ collapse] [one round chip per tab of the group, active one has a ring + red x] [+ new tab in this group].
+ * Collapsed = one small pill "name - n". Groups themselves live in TabSwitcher; this only draws and calls TabManager.
+ */
+object GroupStrip {
+    private var act: Activity? = null
+    private var tm: TabManager? = null
+    private var row: LinearLayout? = null
+    private var chips: LinearLayout? = null
+    private var scroll: HorizontalScrollView? = null
+    private var arrow: ImageView? = null
+    private var hasInfo = false
+    private var sig = ""
+    private val collapsed = HashSet<String>()
+
+    private fun dp(v: Int) = Util.dp(act!!, v)
+
+    fun attach(a: Activity, t: TabManager) {
+        act = a; tm = t; sig = ""; hasInfo = false
+        val bar = a.findViewById<View>(R.id.bottom_bar) ?: return
+        val parent = bar.parent as? ViewGroup ?: return
+        val r = LinearLayout(a).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            visibility = View.GONE
+            setPadding(dp(4), 0, dp(4), 0)
+            background = GradientDrawable().apply {
+                setColor(a.getColor(R.color.mg_surface))
+                setStroke(dp(1), a.getColor(R.color.mg_outline))
+                cornerRadius = dp(22).toFloat()
+            }
+        }
+        val up = ImageView(a).apply {
+            setImageResource(R.drawable.ic_chevron)
+            setPadding(dp(6), dp(6), dp(6), dp(6))
+            contentDescription = "Collapse group"
+            setOnClickListener { toggle() }
+        }
+        val sv = HorizontalScrollView(a).apply { isHorizontalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER }
+        val box = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        sv.addView(box, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        val plus = ImageView(a).apply {
+            setImageResource(R.drawable.ic_add)
+            setPadding(dp(6), dp(6), dp(6), dp(6))
+            contentDescription = "New tab in group"
+            setOnClickListener { addTab() }
+        }
+        r.addView(up, LinearLayout.LayoutParams(dp(36), dp(36)))
+        r.addView(sv, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+        r.addView(plus, LinearLayout.LayoutParams(dp(36), dp(36)))
+        parent.addView(r, parent.indexOfChild(bar), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44)).apply {
+            setMargins(dp(10), dp(6), dp(10), 0)
+        })
+        row = r; chips = box; scroll = sv; arrow = up
+        refresh()
+    }
+
+    /** Rebuilds the strip when something it shows changed (cheap: skipped when the signature is the same). */
+    fun refresh() {
+        val m = tm ?: return
+        val cur = m.active
+        val info = if (cur != null && !cur.priv) TabSwitcher.groupInfoOf(cur.id) else null
+        hasInfo = info != null && cur != null
+        sync()
+        if (info == null || cur == null) { sig = ""; return }
+        val tabsIn = info.ids.mapNotNull { m.byId(it) }
+        val s = info.name + "|" + info.color + "|" + cur.id + "|" + (info.name in collapsed) + "|" +
+            tabsIn.joinToString(",") { val h = Util.host(it.url); "${it.id}:$h:${Favicons.get(h) != null}" }
+        if (s == sig) return
+        sig = s
+        build(info, tabsIn, cur)
+    }
+
+    /** Only visibility: follows the bottom bar (it hides while scrolling) and whether the active tab is in a group. */
+    fun sync() {
+        val a = act ?: return
+        val r = row ?: return
+        val barOn = a.findViewById<View>(R.id.bottom_bar)?.visibility == View.VISIBLE
+        val v = if (hasInfo && barOn) View.VISIBLE else View.GONE
+        if (r.visibility != v) r.visibility = v
+    }
+
+    private fun toggle() {
+        val cur = tm?.active ?: return
+        val info = TabSwitcher.groupInfoOf(cur.id) ?: return
+        if (!collapsed.remove(info.name)) collapsed.add(info.name)
+        sig = ""; refresh()
+    }
+
+    private fun addTab() {
+        val m = tm ?: return
+        val cur = m.active ?: return
+        if (TabSwitcher.groupInfoOf(cur.id) == null) return
+        val t = m.newTab(TabManager.HOME_PAGE) ?: return
+        TabSwitcher.joinGroupOf(t.id, cur.id)
+        sig = ""; refresh()
+    }
+
+    private fun disc(color: Int, ring: Boolean, size: Int) = GradientDrawable().apply {
+        shape = GradientDrawable.OVAL
+        setColor(color)
+        if (ring) setStroke(dp(2), act!!.getColor(R.color.mg_text))
+        setSize(size, size)
+    }
+
+    private fun build(info: TabSwitcher.GroupInfo, tabsIn: List<TabManager.Tab>, cur: TabManager.Tab) {
+        val a = act ?: return
+        val box = chips ?: return
+        box.removeAllViews()
+        val isCollapsed = info.name in collapsed
+        arrow?.rotation = if (isCollapsed) 90f else -90f
+        arrow?.contentDescription = if (isCollapsed) "Expand group" else "Collapse group"
+        if (isCollapsed) {
+            val p = TextView(a).apply {
+                text = info.name + " \u00B7 " + tabsIn.size
+                setTextColor(0xFFFFFFFF.toInt()); textSize = 13f; maxLines = 1
+                setPadding(dp(14), 0, dp(14), 0); gravity = Gravity.CENTER
+                background = GradientDrawable().apply { setColor(info.color); cornerRadius = dp(16).toFloat() }
+                setOnClickListener { toggle() }
+            }
+            box.addView(p, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(32)))
+            return
+        }
+        var activeChip: View? = null
+        for (t in tabsIn) {
+            val on = t === cur
+            val f = FrameLayout(a)
+            val d = FrameLayout(a).apply { background = disc(info.color, on, dp(34)) }
+            val host = Util.host(t.url)
+            val ic = if (t.home) null else Favicons.get(host)
+            if (ic != null) {
+                d.addView(ImageView(a).apply { setImageBitmap(ic); setPadding(dp(7), dp(7), dp(7), dp(7)) },
+                    FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            } else {
+                val letter = (if (t.home) "+" else host.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "?")
+                d.addView(TextView(a).apply { text = letter; setTextColor(0xFFFFFFFF.toInt()); textSize = 14f; gravity = Gravity.CENTER },
+                    FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            }
+            d.contentDescription = t.title.ifBlank { host }
+            d.setOnClickListener { if (!on) tm?.switchTo(t) }
+            f.addView(d, FrameLayout.LayoutParams(dp(34), dp(34), Gravity.CENTER))
+            if (on) {
+                activeChip = f
+                val x = TextView(a).apply {
+                    text = "\u00D7"; setTextColor(0xFFFFFFFF.toInt()); textSize = 11f; gravity = Gravity.CENTER
+                    background = disc(a.getColor(R.color.mg_error), false, dp(16))
+                    contentDescription = "Close tab"
+                    setOnClickListener { tm?.close(t) }
+                }
+                f.addView(x, FrameLayout.LayoutParams(dp(16), dp(16), Gravity.TOP or Gravity.END))
+            }
+            box.addView(f, LinearLayout.LayoutParams(dp(40), dp(40)))
+        }
+        val ac = activeChip
+        if (ac != null) scroll?.post { scroll?.smoothScrollTo((ac.left - dp(60)).coerceAtLeast(0), 0) }
+    }
+}

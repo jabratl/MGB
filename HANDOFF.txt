@@ -1,3 +1,4 @@
+CURRENT VERSION 0.0.122 (S13: group strip above the bottom bar, see the 0.0.122 entry in CHANGELOG.txt; before: 0.0.121)
 CURRENT VERSION 0.0.121 (S12 FIX: "Closed X Undo" bar now 2.5 s + hard dismiss, see the 0.0.121 entry in CHANGELOG.txt; before: 0.0.120)
 CURRENT VERSION 0.0.120 (S7: final audit of the extension UI + popup panel width on wide screens, see the 0.0.120 entry in CHANGELOG.txt; S5 and S6 phone tests of 0.0.119 passed except match_about_blank; before: 0.0.119)
 CURRENT VERSION 0.0.119 (S5: declarativeNetRequest block / redirect on page requests + webRequest events, see the 0.0.119 entry in CHANGELOG.txt; before: 0.0.118 = S6)

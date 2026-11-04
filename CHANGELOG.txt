@@ -1,3 +1,12 @@
+0.0.122 (S13 BUILD: Brave-like group strip above the bottom bar)
+- New GroupStrip.kt: when the active tab is in a group, a rounded strip sits above the bottom bar: ^ (collapse / expand), one round chip per tab of the group (group colour, favicon or first letter; active tab has a ring + red x to close it), + (new home tab that joins the group). Collapsed = one pill "name - n". Tap a chip = switch to that tab.
+- TabSwitcher.kt: small public API (groupInfoOf, joinGroupOf, onChanged); onChanged also fires when the switcher closes and after "Open in new tab in group". Group logic itself not changed.
+- MainActivity.kt: GroupStrip.attach + refresh in onTabsChanged / onActiveChanged / onPageInfo (active tab), sync() in onScroll so the strip hides with the bottom bar.
+- Private tabs and tabs without a group: no strip. Groups still live in memory + session as before. V77 not changed.
+- Could break: strip height (44 dp + 6 dp) takes space above the bottom bar; if a tab closes while its x is tapped the active tab changes (normal close rule).
+- NOT compiled, NOT run on a phone, NOT rendered at 360 / 1280 px, light / dark not looked at.
+- NEXT: phone check of 0.0.122 (group 2 tabs, chips, x, +, collapse, scroll hide); then S7 phone check of 0.0.120 / 0.0.121. Not done: drag chip to reorder, long press chip menu.
+
 0.0.121 (S12 FIX: "Closed X  Undo" bar stayed on screen too long)
 - Cause: ExtScreen.undoBar() showed a Snackbar for 5 s; Material can stretch that (accessibility timeout, queued bars) and the bar is not swipe-dismissable here, so it looked stuck.
 - ExtScreen.kt: duration 5 s -> 2.5 s, old bar dismissed before a new one, hard dismiss after 3 s. Undo still works while it shows.

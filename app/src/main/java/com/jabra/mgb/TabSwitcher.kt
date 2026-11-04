@@ -98,6 +98,7 @@ object TabSwitcher {
             val t = tm.newTab(url, openerId, false) ?: return
             groups.getOrPut(name) { LinkedHashSet() }.add(t.id)
             Util.toast(ctx, "Opened in group $name")
+            onChanged?.invoke() // S13
         }
         val names = groups.keys.toList()
         val et = android.widget.EditText(ctx).apply {
@@ -156,6 +157,15 @@ object TabSwitcher {
 
     private fun groupOf(t: TabManager.Tab): String? = groups.entries.firstOrNull { t.id in it.value }?.key
 
+    /** S12: bottom group strip (GroupStrip.kt) reads / joins groups through these. */
+    var onChanged: (() -> Unit)? = null
+    class GroupInfo(val name: String, val color: Int, val ids: List<Int>)
+    fun groupInfoOf(id: Int): GroupInfo? {
+        val e = groups.entries.firstOrNull { id in it.value } ?: return null
+        return GroupInfo(e.key, colorOf(e.key), e.value.toList())
+    }
+    fun joinGroupOf(newId: Int, refId: Int) { groups.entries.firstOrNull { refId in it.value }?.value?.add(newId) }
+
     private class MI(val label: String, val icon: Int, val on: () -> Unit)
 
     private class Screen(private val act: Activity, private val tm: TabManager) :
@@ -199,7 +209,7 @@ object TabSwitcher {
         private val night get() = (act.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         private val cardW get() = (act.resources.displayMetrics.widthPixels - dp(40)) / 2
 
-        init { setOnDismissListener { if (current === this) current = null } }
+        init { setOnDismissListener { if (current === this) current = null; onChanged?.invoke() } } // S13: groups may have changed
 
         private fun round(color: Int, r: Int, stroke: Int = 0, strokeColor: Int = 0) = GradientDrawable().apply {
             setColor(color)

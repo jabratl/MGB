@@ -63,6 +63,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         EngineHost.start(this) // S6: background.js engine (hidden WebView)
         tabs = TabManager(this, findViewById<FrameLayout>(R.id.web_container), this)
         TabsApi.attach(tabs)
+        GroupStrip.attach(this, tabs); TabSwitcher.onChanged = { GroupStrip.refresh() } // S13
         BookmarksScreen.tabsRef = tabs // S25
         TabsApi.onNativePanel = { floating.openSheet() } // MGB S51: Grabber page button -> Files detected! panel
         window.decorView.post { DlMode.init(this) } // S54: Smart download buttons on first start
@@ -88,6 +89,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                 if (acc > Util.dp(this, 40) && barView.visibility == View.VISIBLE) barView.visibility = View.GONE
                 else if (acc < -Util.dp(this, 20) && barView.visibility != View.VISIBLE) barView.visibility = View.VISIBLE
             }
+            GroupStrip.sync() // S13
         }
         floating = FloatingDl(this, findViewById<FrameLayout>(R.id.web_container).parent as FrameLayout, tabs) // S11
 
@@ -287,18 +289,21 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     override fun onTabsChanged() {
         btnTabs.text = tabs.count.toString()
+        GroupStrip.refresh() // S13
     }
 
     override fun onActiveChanged(tab: TabManager.Tab?) {
         FindBar.close() // S21
         findViewById<View>(R.id.bottom_bar).visibility = View.VISIBLE // S33
         refreshAll(tab)
+        GroupStrip.refresh() // S13
         floating.poke() // S11
     }
 
     override fun onPageInfo(tab: TabManager.Tab) {
         if (tab === tabs.active) {
             refreshAll(tab)
+            GroupStrip.refresh() // S13
             if (tab.progress >= 100) floating.poke() // S11
         }
     }
