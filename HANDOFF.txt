@@ -1,3 +1,4 @@
+CURRENT VERSION 0.0.120 (S7: final audit of the extension UI + popup panel width on wide screens, see the 0.0.120 entry in CHANGELOG.txt; S5 and S6 phone tests of 0.0.119 passed except match_about_blank; before: 0.0.119)
 CURRENT VERSION 0.0.119 (S5: declarativeNetRequest block / redirect on page requests + webRequest events, see the 0.0.119 entry in CHANGELOG.txt; before: 0.0.118 = S6)
 CURRENT VERSION 0.0.118 (S6: about:blank / origin fallback content scripts, storage.session.setAccessLevel, getContexts for installed extensions, frameIds check, see the 0.0.118 entry in CHANGELOG.txt; before: 0.0.117 = CI bump of 0.0.116)
 CURRENT VERSION 0.0.116 (S4: contextMenus shown in link / image menus + tray page menu, see the 0.0.116 entry in CHANGELOG.txt; before: 0.0.115)

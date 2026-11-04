@@ -1,3 +1,12 @@
+0.0.120 (S7 FIX/AUDIT: final check of the extension UI, one small layout fix)
+- Phone tests of 0.0.119 PASSED: S5 (all 8 checks: block, redirect, transform, allow, webRequest, isRegexSupported) and S6 checks 2-8 (storage.session access level, getContexts, frameIds). S6 check 1 (match_about_blank content script inside an about:blank iframe) FAILS: the WebView does not run a document-start script in that empty frame. Kept as a known limit (NEXT), not fixed.
+- Static audit (no render possible here): ExtListScreen (list capped at 640 dp, rows use weight + ellipsis), ExtTray (COLS tiles by weight, label 2 lines + ellipsis), ExtScreen (popup content centered, max 480 dp) use only mg_* theme colors (DayNight), so light + dark follow the app theme; only fixed colors are white text on a tint / badge / error color. No change there.
+- ExtScreen.kt: popup of an installed extension (bottom panel): window width = min(screen, 480 dp) and centered (was full width with a 480 dp column inside, so on 1280 px the rounded panel was wide and the content narrow). 2 lines.
+- V77 not changed. NOT compiled, NOT run on a phone, NOT rendered at 360 / 410 / 1280 px, light / dark not looked at.
+- Could break: popup window width / gravity (if the panel looks off-center, undo these 2 lines).
+- Known limits (NEXT): match_about_blank in WebView, iframe frames (frameId > 0), webRequest onHeadersReceived / onCompleted, getMatchedRules, live badge update while tray is open, setIcon, toolbar button outside the tray.
+- NEXT: phone check of 0.0.120: open the popup of an extension at phone size, then on a wide / landscape screen (panel narrow, centered); try 3 real extensions (install, popup, a content script page).
+
 0.0.119 (S5 BUILD: declarativeNetRequest block / redirect / allow / upgradeScheme on web page requests + basic webRequest events, installed extensions only)
 - S6 phone test of 0.0.118 still open. No code of S6 changed.
 - Before: DNR rules of an installed extension only changed headers of the extension's OWN requests; block / redirect rules were stored but never acted; webRequest listeners never got an event.
