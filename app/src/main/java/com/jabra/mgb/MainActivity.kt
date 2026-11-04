@@ -93,7 +93,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         }
         floating = FloatingDl(this, findViewById<FrameLayout>(R.id.web_container).parent as FrameLayout, tabs) // S11
 
-        btnHome.setOnClickListener { if (tabs.active?.home != true) tabs.newTab(TabManager.HOME_PAGE) } // S22
+        btnHome.setOnClickListener { tabs.goHome() } // S22, 0.0.130: Home opens in the same tab
         btnTabs.setOnClickListener { tabs.showSwitcher() }
         btnShield.setOnClickListener { PrivacyGuard.show(this, tabs) { refreshShield() } } // S68
         btnEngine.setOnClickListener { EnginePicker.show(this, btnEngine) { refreshShield() } } // S69
@@ -119,7 +119,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                 when {
                     tabs.inFullscreen -> tabs.exitFullscreen() // S14
                     urlBar.hasFocus() -> leaveUrlBar()
-                    t != null && t.web.canGoBack() -> t.web.goBack()
+                    t != null && tabs.canBack(t) -> tabs.back(t) // 0.0.130: Home counts as a page
                     t != null && tabs.count > 1 -> tabs.close(t)
                     else -> {
                         isEnabled = false
@@ -162,8 +162,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Quick(R.drawable.ic_play, "Grabber") { if (V77Alt.on(this)) openExt("popup.html") else floating.openSheet() } // S65: V77 only when the backup switch is ON
         )
         val acts = listOf(
-            MenuSheet.Act(R.drawable.ic_back, web?.canGoBack() == true) { web?.goBack() },
-            MenuSheet.Act(R.drawable.ic_forward, web?.canGoForward() == true) { web?.goForward() },
+            MenuSheet.Act(R.drawable.ic_back, cur != null && tabs.canBack(cur)) { cur?.let { tabs.back(it) } },
+            MenuSheet.Act(R.drawable.ic_forward, cur != null && tabs.canFwd(cur)) { cur?.let { tabs.fwd(it) } },
             MenuSheet.Act(if (marked) R.drawable.ic_bookmark else R.drawable.ic_bookmark_border, canMark) { toggleBookmark() },
             MenuSheet.Act(R.drawable.ic_ext, true) { ExtTray.show(this) }, // S10: Thazir Extensions tray
             MenuSheet.Act(if (cur?.loading == true) R.drawable.ic_close else R.drawable.ic_reload, cur != null) { reloadOrStop() }

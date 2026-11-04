@@ -1,3 +1,11 @@
+0.0.130 (S21 MODIFY, part 1 of 2: Home button stays in the same tab)
+- TabManager.kt: Tab.keepUrl + Tab.homeFwd; new goHome / toHome / showKept / canBack / canFwd / back / fwd. Home button on a tab with a website now shows the speed dial IN THAT TAB; the page and its back/forward list stay alive under it (media paused, loading stopped). Back from Home returns to the page, forward from that page returns to Home. Opening a site from the speed dial loads it in the same tab, old page = previous. onPageStarted: another address leaves Home, the same page loading keeps it; a new page cuts the Home entry ahead. leaveHome clears both.
+- MainActivity.kt: Home button -> tabs.goHome() (no new tab); system back / swipe and the menu Back / Forward use tabs.back / canBack / fwd / canFwd.
+- app/build.gradle.kts: 0.0.129 -> 0.0.130.
+- Could break: Back / Forward on a tab that has Home ahead; a page that redirects while Home is open (leaves Home); a reload of the page clears the Home-ahead entry only if the address changes.
+- Checked: bracket balance of TabManager.kt and MainActivity.kt, exact-match patches. NOT compiled (no Android SDK), NOT run on a phone.
+- NEXT: part 2 = tab switcher close animation like Quetta (card shrinks + fades, rest glide in, "Closed <title>  Undo" bar).
+
 0.0.129 (S20 MODIFY: Settings screen look, small and visual only)
 - SettingsScreen.kt: title left aligned 22 sp bold (no centering spacer); search box pill (radius 28, 48 dp high); category cards radius 24 + 1 dp hairline outline; category icon badge is a rounded square instead of a circle; card header padding 16/12, card gap 12 dp; group labels (sub titles) in accent colour, medium weight. No logic, ids or rows changed.
 - app/build.gradle.kts: 0.0.128 -> 0.0.129.

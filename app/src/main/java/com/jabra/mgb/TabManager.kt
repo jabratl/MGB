@@ -70,6 +70,10 @@ class TabManager(
         var pending: String? = null
         /** S13: speed dial is shown over this tab until the first navigation. */
         var home: Boolean = false
+        /** 0.0.130: Home was opened over a live page of this tab: that page (and its back/forward list) stays under the speed dial. */
+        var keepUrl: String? = null
+        /** 0.0.130: a Home entry sits ahead of the page we came back to (forward goes to Home again). */
+        var homeFwd: Boolean = false
         /** S14: desktop user agent + wide viewport (not saved in the session). */
         var desktop: Boolean = false
         /** 0.0.109: page of an installed extension: desktop user agent + wide viewport (extensions like WebToEpub refuse the mobile one). */
@@ -389,9 +393,13 @@ class TabManager(
                 container.post { close(tab) }
                 return
             }
+            if (view != null && !view.canGoForward() && url != tab.url) tab.homeFwd = false // 0.0.130: a new page cuts the Home entry ahead
             tab.url = url ?: tab.url
             tab.progress = 0
-            if (tab.home) { tab.home = false; syncHome() } // S13
+            if (tab.home) { // S13
+                val kept = tab.keepUrl // 0.0.130: same page loading under Home keeps Home; another address leaves it
+                if (kept == null || (url != null && url != kept)) { tab.home = false; tab.keepUrl = null; tab.homeFwd = false; syncHome() }
+            }
             if (!tab.isExt && view != null) { // S41: text size of this site
                 val z = TextZoom.get(ctx, Util.host(url ?: ""))
                 if (view.settings.textZoom != z) view.settings.textZoom = z
@@ -681,7 +689,53 @@ class TabManager(
     fun leaveHome(t: Tab) {
         if (!t.home) return
         t.home = false
+        t.keepUrl = null // 0.0.130
+        t.homeFwd = false
         if (t === active) syncHome()
+    }
+
+    // ---------- 0.0.130: Home inside the same tab ----------
+
+    private fun hasPage(t: Tab): Boolean { val u = t.web.url; return !u.isNullOrBlank() && u != "about:blank" && !u.startsWith("about:") }
+
+    /** Home button: the speed dial opens in THIS tab; the page stays under it (back / forward still reach it). */
+    fun goHome() {
+        val t = active
+        if (t == null || t.isExt) { newTab(HOME_PAGE, 0, true, t?.priv == true); return }
+        if (t.home) return
+        toHome(t)
+    }
+
+    private fun toHome(t: Tab) {
+        if (hasPage(t)) {
+            TabSwitcher.snap(t) // thumbnail of the page we leave
+            t.keepUrl = t.web.url
+            t.web.stopLoading()
+            t.web.evaluateJavascript("document.querySelectorAll('video,audio').forEach(function(m){try{m.pause()}catch(e){}})", null)
+        } else t.keepUrl = null
+        t.homeFwd = false
+        t.home = true
+        if (t === active) syncHome()
+        listener.onPageInfo(t)
+    }
+
+    /** From Home back to the page that was open before (true = handled). */
+    private fun showKept(t: Tab): Boolean {
+        if (!t.home || t.keepUrl == null) return false
+        t.home = false
+        t.keepUrl = null
+        t.homeFwd = true
+        if (t === active) syncHome()
+        listener.onPageInfo(t)
+        return true
+    }
+
+    fun canBack(t: Tab): Boolean = (t.home && t.keepUrl != null) || t.web.canGoBack()
+    fun canFwd(t: Tab): Boolean = !t.home && (t.web.canGoForward() || t.homeFwd)
+    fun back(t: Tab) { if (!showKept(t)) t.web.goBack() }
+    fun fwd(t: Tab) {
+        if (t.home) return
+        if (t.web.canGoForward()) t.web.goForward() else if (t.homeFwd) { val u = t.web.url; if (u != null) { toHome(t); t.homeFwd = false } }
     }
 
     /** Load url in the active tab (an extension page tab gets a new tab instead). */
