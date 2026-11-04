@@ -113,19 +113,19 @@ object SettingsScreen {
             }, LinearLayout.LayoutParams(dp(44), dp(48)))
             head.addView(TextView(act).apply {
                 text = "Settings"
-                textSize = 20f
-                gravity = Gravity.CENTER
-                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                textSize = 22f // 0.0.129: left aligned larger title
+                gravity = Gravity.CENTER_VERTICAL or Gravity.START
+                typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
                 setTextColor(act.getColor(R.color.mg_text))
+                setPadding(dp(6), 0, 0, 0)
             }, LinearLayout.LayoutParams(0, WRAP, 1f))
-            head.addView(View(act), LinearLayout.LayoutParams(dp(44), dp(48)))
             root.addView(head, LinearLayout.LayoutParams(MATCH, dp(56)))
 
             // S48: search box (outside the ScrollView so it survives fill())
             val sbox = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                background = round(act.getColor(R.color.mg_surface), 24)
+                background = round(act.getColor(R.color.mg_surface), 28) // 0.0.129: pill
                 setPadding(dp(14), 0, dp(6), 0)
             }
             sbox.addView(ImageView(act).apply {
@@ -166,10 +166,10 @@ object SettingsScreen {
                 }
             }
             clear.setOnClickListener { edit.setText("") }
-            sbox.addView(edit, LinearLayout.LayoutParams(0, dp(44), 1f))
+            sbox.addView(edit, LinearLayout.LayoutParams(0, dp(48), 1f))
             sbox.addView(clear, LinearLayout.LayoutParams(dp(40), dp(40)))
-            root.addView(sbox, LinearLayout.LayoutParams(MATCH, dp(44)).apply {
-                marginStart = dp(16); marginEnd = dp(16); topMargin = dp(2); bottomMargin = dp(6)
+            root.addView(sbox, LinearLayout.LayoutParams(MATCH, dp(48)).apply {
+                marginStart = dp(16); marginEnd = dp(16); topMargin = dp(2); bottomMargin = dp(8)
             })
 
             val col = LinearLayout(act).apply {
@@ -202,7 +202,8 @@ object SettingsScreen {
             text = title.uppercase()
             textSize = 11f
             letterSpacing = 0.08f
-            setTextColor(act.getColor(R.color.mg_text_dim))
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL) // 0.0.129: accent group label
+            setTextColor(act.getColor(R.color.mg_primary))
             setPadding(dp(18), dp(14), dp(16), dp(4))
         }
 
@@ -280,7 +281,9 @@ object SettingsScreen {
             val isOpen = searching || openCat == key
             val card = LinearLayout(act).apply {
                 orientation = LinearLayout.VERTICAL
-                background = round(act.getColor(R.color.mg_surface), 22)
+                background = round(act.getColor(R.color.mg_surface), 24).apply { // 0.0.129: hairline outline
+                    setStroke(dp(1), ColorUtils.setAlphaComponent(act.getColor(R.color.mg_outline), 0x99))
+                }
             }
             val chev = ImageView(act).apply {
                 setImageResource(R.drawable.ic_chevron)
@@ -326,7 +329,7 @@ object SettingsScreen {
             val header = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(14), dp(10), dp(14), dp(10))
+                setPadding(dp(16), dp(12), dp(14), dp(12))
                 isClickable = true
                 isFocusable = true
                 contentDescription = title
@@ -338,15 +341,16 @@ object SettingsScreen {
             }
             val badge = FrameLayout(act).apply {
                 background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(ColorUtils.setAlphaComponent(act.getColor(R.color.mg_primary), 0x26))
+                    shape = GradientDrawable.RECTANGLE // 0.0.129: squircle badge
+                    cornerRadius = dp(13).toFloat()
+                    setColor(ColorUtils.setAlphaComponent(act.getColor(R.color.mg_primary), 0x1F))
                 }
             }
             badge.addView(ImageView(act).apply {
                 setImageResource(icon)
                 setColorFilter(act.getColor(R.color.mg_primary))
             }, FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER))
-            header.addView(badge, LinearLayout.LayoutParams(dp(40), dp(40)).apply { marginEnd = dp(14) })
+            header.addView(badge, LinearLayout.LayoutParams(dp(42), dp(42)).apply { marginEnd = dp(14) })
             val texts = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
             texts.addView(TextView(act).apply {
                 text = title
@@ -365,7 +369,7 @@ object SettingsScreen {
             header.addView(chev, LinearLayout.LayoutParams(dp(24), dp(24)))
             card.addView(header, LinearLayout.LayoutParams(MATCH, WRAP))
             card.addView(content, LinearLayout.LayoutParams(MATCH, WRAP))
-            col.addView(card, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(10) })
+            col.addView(card, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
             cats[key] = Pair(content, chev)
         }
 

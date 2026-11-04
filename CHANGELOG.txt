@@ -1,3 +1,10 @@
+0.0.129 (S20 MODIFY: Settings screen look, small and visual only)
+- SettingsScreen.kt: title left aligned 22 sp bold (no centering spacer); search box pill (radius 28, 48 dp high); category cards radius 24 + 1 dp hairline outline; category icon badge is a rounded square instead of a circle; card header padding 16/12, card gap 12 dp; group labels (sub titles) in accent colour, medium weight. No logic, ids or rows changed.
+- app/build.gradle.kts: 0.0.128 -> 0.0.129.
+- Could break: nothing functional; only look. Check 360 px: header, search, card outline in light + dark.
+- Checked: bracket balance of SettingsScreen.kt; patches applied with exact-match asserts. NOT compiled (no Android SDK), NOT run on a phone.
+- NEXT: phone-check S18 + S19 + this (see HANDOFF.txt).
+
 0.0.126 (S17 MODIFY: Home 3-dot menu without page rows + dead "Clear" removed from Downloads)
 - MenuSheet.kt: page header (title + share) and the divider above the icon row are skipped when the title is blank and there are no page rows (showPage). Signature unchanged.
 - MainActivity.kt showMenu(): on a Home tab (normal or private) title = "" and page = emptyList(), so Home shows only the tiles card + general rows + the icon row (back / forward / bookmark / extensions / reload), like Quetta. On any site nothing changes (host title, share, Find / Desktop / Translate / Reader / ...).

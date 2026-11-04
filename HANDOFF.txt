@@ -1,16 +1,13 @@
-HANDOFF - MGB (Thazir) S19 done -> S20 next
-Done: S19 (0.0.128). Current version: 0.0.128. Previous: 0.0.127 (S18). Make Private dropped by decision.
+HANDOFF - MGB (Thazir) S20 (settings look) done -> S21 next
+Done: S20 (0.0.129) = Settings look only (SettingsScreen.kt): left title, pill search, outlined cards, squircle icon badge, accent group labels. Includes S17 (0.0.126), S18 (0.0.127), S19 (0.0.128) merged in one tree.
+Make Private was dropped by decision.
 
-What changed:
-- DownloadsScreen.kt: "Select" row in file menu; select mode (check boxes, tap/long press toggles, top card with All / Remove / Delete / Done); Back leaves select mode; removeMany() writes mgHist once.
-- app/build.gradle.kts 0.0.127 -> 0.0.128; CHANGELOG.txt + HANDOFF.txt updated.
+NOT tested (needs real use): compile (no Android SDK), phone run, 360/1280 px render, light/dark.
+ - Phone check: Settings (header, search, open/close a category, light + dark); Downloads > 3-dot on a file: Select, Rename, Open in File Manager, Share, Open Original Site; Home 3-dot menu without page rows.
 
-Checks done: bracket balance of DownloadsScreen.kt; patches applied with exact-match asserts.
-NOT tested (needs real use): compile (no Android SDK), phone run, 360/1280 px render (4 buttons in top card), light/dark.
- - Phone check: Downloads > 3-dot on a file > Select; tap rows, All, Remove, Delete (confirm), Done, Back; also test S18 menu rows (Open in File Manager, Rename, Open Original Site) which are still untested.
+NEXT: S21 = phone-check 0.0.126-0.0.129; compile errors first. Idea after: multi-Share in Downloads select mode (DownloadsApi.shareFiles with ACTION_SEND_MULTIPLE).
 
-NEXT: S20 = phone-check S18 + S19 first; fix whatever breaks (compile errors go first). Idea after: multi-Share in select mode (needs a DownloadsApi.shareFiles with ACTION_SEND_MULTIPLE).
-
+CURRENT VERSION 0.0.129 (S20: Settings look, see the 0.0.129 entry in CHANGELOG.txt; before: 0.0.128)
 CURRENT VERSION 0.0.128 (S19: Downloads multi-select, see the 0.0.128 entry in CHANGELOG.txt; before: 0.0.127)
 CURRENT VERSION 0.0.127 (S18: Downloads saved-file menu like Quetta, see the 0.0.127 entry in CHANGELOG.txt; before: 0.0.126)
 CURRENT VERSION 0.0.126 (S17: Home menu without page rows + Downloads "Clear" removed, see the 0.0.126 entry in CHANGELOG.txt; before: 0.0.125)
