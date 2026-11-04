@@ -1,3 +1,10 @@
+0.0.138 (SETTINGS STEP C MODIFY: utility rows)
+- SettingsScreen.kt: (1) "Reset to default" = last row of the cards General, Tabs and motion, Downloads, Grabber and buttons, Privacy and security, Data and backup (confirm dialog + toast). It removes ONLY the fixed mgb_ui keys listed in the RESET map of that card (bookmarks, passwords, other prefs files, per-site data dl_site_modes are never touched). Grabber: V77 backup is switched off through V77Alt first, then DlMode.apply(SMART) writes the default button switches. General: re-applies theme / orientation / dark pages; the screen recreates if the theme changed. Passwords, Extensions, About have nothing to reset, so no row.
+- (2) "Backup" row card at the top (under the quick tiles): dialog Export data / Import data = Backup.exportData / importData (Backup.kt unchanged).
+- (3) "Default browser" row in General (value "Default" when MGB is the default): Android 10+ opens the phone's Default apps page (ACTION_MANAGE_DEFAULT_APPS_SETTINGS), older = app details.
+- (4) Small restart icon on Theme, Rotate browser with phone, Extra native download button; the last two also show a Snackbar "Restart needed to apply this fully" with "Apply now" (= recreate the screen). Theme recreates itself, so no Snackbar there.
+- Other files: build.gradle.kts (version) only.
+
 0.0.137 (SETTINGS STEP B MODIFY: look and motion)
 - SettingsScreen.kt: (1) every category badge has its own soft tint (icon + 17% background), light and dark aware. (2) Opening a card: chevron rotates and the content slides in (one TransitionSet = ChangeBounds + Slide, replaces AutoTransition, so no second animation fights it); with Reduce motion (TabPrefs.reduce) there is no slide and the chevron jumps. (3) A switch row you just toggled flashes a short highlight that fades (700 ms) and the thumb slides; skipped with Reduce motion. (4) 43 rows that had no hint got one short hint line (map HINTS, text only, max 32 characters, max 2 lines); search also looks in these hints.
 - TabPrefs.kt: tint(key, night) = fixed hue per category key (hash hue for unknown keys).

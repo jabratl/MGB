@@ -33,6 +33,7 @@ import android.view.inputmethod.InputMethodManager
 import androidx.core.graphics.ColorUtils
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.materialswitch.MaterialSwitch
+import com.google.android.material.snackbar.Snackbar
 
 /**
  * S27: native Settings screen (full-screen Dialog, no manifest entry). The V77 options page stays reachable
@@ -84,6 +85,17 @@ object SettingsScreen {
         private val BIG = mapOf("downloads" to "Downloads", "grabber" to "Grabber and buttons")
         private val NO_RECENT = setOf("Forget removed links")
         private var flashLabel: String? = null // Step B: row that was just toggled
+        /** Step C: the ONLY mgb_ui keys each card's "Reset to default" may remove. Nothing else is ever touched. */
+        private val RESET = mapOf(
+            "general" to listOf("night", "dark_pages", "engine", "tr_lang", "hide_bar", "pull_refresh", "rotate_browser"),
+            "tabs" to listOf("swipe_close", "close_confirm", "reduce_motion"),
+            "downloads" to listOf("auto_diag"),
+            "grabber" to listOf("web_play", "bg_audio", "v77_backup", "v77_prev_mode", "dl_mode", "native_btn", "video_btn"),
+            "privacy" to listOf("https_only", "hide_ad_space", "hide_cookie"),
+            "data" to listOf("auto_backup")
+        )
+        private val RESTART = setOf("Theme", "Rotate browser with phone", "Extra native download button") // Step C: restart icon
+        private val RESTART_BAR = setOf("Rotate browser with phone", "Extra native download button") // Snackbar (Theme recreates itself)
         private var flashAt = 0L
         /** Step B: one short hint line for rows that have none (text only, kept under about 34 characters). */
         private val HINTS = mapOf(
@@ -134,6 +146,7 @@ object SettingsScreen {
         /** S21f: hidden search words per row label (the row is found by these too). */
         private val KW = mapOf(
             "Theme" to "dark light night mode appearance colour",
+            "Default browser" to "links open http https set app phone settings",
             "Dark pages" to "dark mode night websites black",
             "Search engine" to "google bing duckduckgo default address bar",
             "Translate to" to "language translation",
@@ -332,6 +345,7 @@ object SettingsScreen {
                         if (r.value.isNotEmpty() && r.label !in NO_RECENT) noteRecent(r.label) // Step A
                         if (r.value == "ON" || r.value == "OFF") { flashLabel = r.label; flashAt = android.os.SystemClock.uptimeMillis() } // Step B
                         r.onClick.invoke()
+                        if (r.label in RESTART_BAR) restartBar() // Step C
                     }
                 }
             }
@@ -354,6 +368,12 @@ object SettingsScreen {
                 setTextColor(act.getColor(R.color.mg_text_dim))
             })
             line.addView(labelBox, LinearLayout.LayoutParams(0, WRAP, 1f))
+            if (r.label in RESTART) line.addView(ImageView(act).apply { // Step C: restart needed
+                setImageResource(R.drawable.ic_reload)
+                setColorFilter(act.getColor(R.color.mg_text_dim))
+                alpha = 0.7f
+                contentDescription = "Restart needed"
+            }, LinearLayout.LayoutParams(dp(16), dp(16)).apply { marginStart = dp(6) })
             if (r.value == "ON" || r.value == "OFF") {
                 val sw = switchFor(r.value == "ON")
                 line.addView(sw, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(8) })
@@ -459,6 +479,10 @@ object SettingsScreen {
                     is Row -> (box ?: content).addView(rowView(item), LinearLayout.LayoutParams(MATCH, WRAP))
                 }
             }
+            if (!link && !searching && RESET.containsKey(key)) { // Step C: Reset to default, last row of the card
+                content.addView(rowView(Row(R.drawable.ic_reload, "Reset to default", "", "Only the settings of this card") { resetCard(key, title) }),
+                    LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(6) })
+            }
             val header = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -506,6 +530,73 @@ object SettingsScreen {
             if (!link) card.addView(content, LinearLayout.LayoutParams(MATCH, WRAP))
             col.addView(card, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
             if (!link) cats[key] = Pair(content, chev)
+        }
+
+        // ---- Step C: utility rows ----
+        private fun resetCard(key: String, title: String) {
+            val keys = RESET[key] ?: return
+            confirm("Reset \"$title\" to default? Only the settings of this card change. Bookmarks, passwords and files are not touched.", "Reset") {
+                try {
+                    val themeBefore = UiMode.mode(act)
+                    if (key == "grabber" && V77Alt.on(act)) V77Alt.set(act, false) // restores the saved mode first
+                    val ed = act.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE).edit()
+                    for (k in keys) ed.remove(k)
+                    ed.apply()
+                    if (key == "grabber") DlMode.apply(act, DlMode.SMART) // writes the default button switches
+                    if (key == "general") {
+                        Orient.apply(act)
+                        UiMode.apply(act)
+                        BookmarksScreen.tabsRef?.applyDarkPages()
+                    }
+                    Util.toast(act, "$title reset to default")
+                    if (key == "general" && themeBefore != 0) { dismiss(); act.recreate() } else fill()
+                } catch (e: Exception) {
+                    Log.e(TAG, "reset failed", e)
+                    Util.toast(act, "Could not reset")
+                }
+            }
+        }
+
+        /** Shortcut to the Data card actions: Export / Import. */
+        private fun backupCard(): View {
+            val card = LinearLayout(act).apply {
+                orientation = LinearLayout.VERTICAL
+                background = round(act.getColor(R.color.mg_surface), 24).apply {
+                    setStroke(dp(1), ColorUtils.setAlphaComponent(act.getColor(R.color.mg_outline), 0x99))
+                }
+            }
+            card.addView(rowView(Row(R.drawable.ic_share, "Backup", "", "Export or import your data") {
+                MaterialAlertDialogBuilder(act).setTitle("Backup")
+                    .setItems(arrayOf("Export data", "Import data")) { _, i -> if (i == 0) Backup.exportData(act) else Backup.importData(act) }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }), LinearLayout.LayoutParams(MATCH, WRAP))
+            return card
+        }
+
+        private fun isDefaultBrowser(): Boolean = try {
+            val i = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("http://example.com"))
+            act.packageManager.resolveActivity(i, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName == act.packageName
+        } catch (_: Exception) { false }
+
+        /** Android 10+: the "Default apps" page of the phone, else the app details page. */
+        private fun openDefaultBrowser() {
+            val details = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                android.net.Uri.parse("package:" + act.packageName))
+            val first = if (android.os.Build.VERSION.SDK_INT >= 29)
+                android.content.Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS) else details
+            try { act.startActivity(first) } catch (e: Exception) {
+                try { act.startActivity(details) } catch (e2: Exception) { Util.toast(act, "Could not open phone settings") }
+            }
+        }
+
+        private fun restartBar() {
+            try {
+                val v = findViewById<View>(android.R.id.content) ?: return
+                Snackbar.make(v, "Restart needed to apply this fully", Snackbar.LENGTH_LONG)
+                    .setAction("Apply now") { dismiss(); act.recreate() }
+                    .show()
+            } catch (_: Exception) { }
         }
 
         // ---- Step A: sub-pages and Recent ----
@@ -696,6 +787,7 @@ object SettingsScreen {
             if (query.trim().isEmpty() && subPage == null) {
                 recentRow(prefs)?.let { col.addView(it, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(12) }) } // Step A
                 col.addView(quickRow(prefs), LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(12) }) // S21f
+                col.addView(backupCard(), LinearLayout.LayoutParams(MATCH, WRAP)) // Step C
             }
             category("general", R.drawable.ic_settings, "General", "Theme, search, pages, display", listOf(
                 Sub("Appearance"),
@@ -726,7 +818,8 @@ object SettingsScreen {
                     Orient.setRotateBrowser(act, !Orient.rotateBrowser(act))
                     Orient.apply(act)
                     fill()
-                }
+                },
+                Row(R.drawable.ic_screen, "Default browser", if (isDefaultBrowser()) "Default" else "", "Make MGB open web links") { openDefaultBrowser() } // Step C
             ))
             category("tabs", R.drawable.ic_list, "Tabs and motion", "Swipe, close, animations", listOf( // S21f
                 Sub("Tabs"),
