@@ -1,3 +1,10 @@
+0.0.121 (S12 FIX: "Closed X  Undo" bar stayed on screen too long)
+- Cause: ExtScreen.undoBar() showed a Snackbar for 5 s; Material can stretch that (accessibility timeout, queued bars) and the bar is not swipe-dismissable here, so it looked stuck.
+- ExtScreen.kt: duration 5 s -> 2.5 s, old bar dismissed before a new one, hard dismiss after 3 s. Undo still works while it shows.
+- Could break: Undo has less time (2.5 s). If you want no bar at all, delete the undoBar() call in setOnDismissListener.
+- NOT compiled, NOT run on a phone.
+- NEXT: S7 phone check of 0.0.120/0.0.121.
+
 0.0.120 (S7 FIX/AUDIT: final check of the extension UI, one small layout fix)
 - Phone tests of 0.0.119 PASSED: S5 (all 8 checks: block, redirect, transform, allow, webRequest, isRegexSupported) and S6 checks 2-8 (storage.session access level, getContexts, frameIds). S6 check 1 (match_about_blank content script inside an about:blank iframe) FAILS: the WebView does not run a document-start script in that empty frame. Kept as a known limit (NEXT), not fixed.
 - Static audit (no render possible here): ExtListScreen (list capped at 640 dp, rows use weight + ellipsis), ExtTray (COLS tiles by weight, label 2 lines + ellipsis), ExtScreen (popup content centered, max 480 dp) use only mg_* theme colors (DayNight), so light + dark follow the app theme; only fixed colors are white text on a tint / badge / error color. No change there.

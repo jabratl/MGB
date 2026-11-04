@@ -44,6 +44,7 @@ object ExtScreen {
     )
 
     private var current: Screen? = null
+    private var undoSnack: com.google.android.material.snackbar.Snackbar? = null // S12: only one "Closed X" bar at a time
 
     /** S4: id of an installed extension for https://appassets.androidplatform.net/ext/<id>/..., else null. */
     fun extIdOf(url: String): String? {
@@ -319,8 +320,13 @@ object ExtScreen {
             val root = act.findViewById<android.view.View>(android.R.id.content) ?: return
             root.post {
                 if (current != null || act.isFinishing || act.isDestroyed) return@post
-                com.google.android.material.snackbar.Snackbar.make(root, "Closed $name", 5000)
-                    .setAction("Undo") { open(act, url) }.show()
+                try { undoSnack?.dismiss() } catch (_: Exception) { }
+                val bar = com.google.android.material.snackbar.Snackbar.make(root, "Closed $name", 2500)
+                    .setAction("Undo") { open(act, url) }
+                undoSnack = bar
+                bar.show()
+                // S12: hard stop, so the bar can never stay (a11y services / queued bars can make Snackbar longer than asked)
+                root.postDelayed({ try { bar.dismiss() } catch (_: Exception) { } }, 3000)
             }
         }
 
