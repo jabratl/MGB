@@ -1,3 +1,6 @@
+0.0.117 (CI only: same code as 0.0.116, version bumped to start a fresh build after the push of 0.0.116 failed with GitHub Internal Server Error; no code change)
+- NEXT: phone test of 0.0.117 (= S4 contextMenus of 0.0.116) with mgb_s4_test.zip; then S6 or S5.
+
 0.0.116 (S4 BUILD: chrome.contextMenus of installed extensions are shown: long press on a link / image, and tray > Page menu for page / selection; onClicked is sent)
 - S3 phone test of 0.0.115 PASSED (all 15 checks OK in the popup).
 - Before: contextMenus.create was only stored, no menu showed, onClicked never fired.
