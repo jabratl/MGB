@@ -1,3 +1,12 @@
+0.0.125 (S16 FIX: dragged tab card cut off in the group panel + smoother tab animations)
+- Root cause: TabSwitcher.kt grid LinearLayout has padding and clipToPadding defaults to true, so a card dragged out of the grid content rect (row bottom) was clipped to a thin strip and vanished. Fix: grid.clipToPadding = false (1 line).
+- TabSwitcher.kt: new glide (FLIP) animation. Tab / group cards carry a key (tag); before a re-render their screen positions are saved, after layout each card eases from its old spot to its new one (300 ms, standard-decelerate). Used for: reorder inside a group, close tab (cards after it slide up), drop into a group / pull out (gap closes).
+- Reorder drop: no more fly-away + shrink; the dropped card keeps its lifted size, glides home above the others and lands. Pick-up is a little bigger and softer (1.08, 150 ms); settle uses a gentler overshoot (260 ms).
+- app/build.gradle.kts: 0.0.124 -> 0.0.125. GroupStrip.kt / V77 not changed.
+- Could break: glide uses getLocationOnScreen in a pre-draw listener, so a render while the grid scrolls may start cards a few px off; a stale pendingGlide is consumed by the next render of the tab grid (only after a cancelled new-group dialog).
+- Checked: bracket balance of TabSwitcher.kt, patch applied with exact-match asserts. NOT compiled (no Android SDK here), NOT run on a phone, NOT rendered at 360 / 1280 px, light / dark not looked at.
+- NEXT: phone check of 0.0.125 (group panel > long press a card > drag outside its row, up / down / sideways: card must stay whole; drop on another card = glide reorder; x on a card = others slide up; drop on "Remove tab from group"). Ideas: live reorder while dragging, tap-to-open zoom, strip chip glide.
+
 0.0.124 (S15 BUILD: group panel from the strip arrow + smoother tab animations)
 - TabSwitcher.kt: new public showGroup(act, tm, name, anchor). It opens the existing S77 group panel ("< dot N tabs + :" with all tab cards) directly over the page: translucent window, dim scrim fades in, panel grows out of the strip arrow (emphasized-decelerate, 320 ms) and shrinks back into it on close (back, "<", tap outside, tab tap). Panel ends just above the strip, the switcher bottom pill is hidden in this mode. Normal switcher unchanged (same Screen, extra optional ctor params startGroup / anchor).
 - Animations: tab / group cards enter softer (start 0.9, 320 ms, 30 ms stagger, emphasized-decelerate); strip slides up + fades in when it appears; active chip pops (overshoot) when another tab of the group becomes active.

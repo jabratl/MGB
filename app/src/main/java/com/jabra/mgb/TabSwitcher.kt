@@ -221,6 +221,8 @@ object TabSwitcher {
         private val fromStrip = startGroup != null // S15: panel opened from the group strip (transparent window, page visible behind)
         private var closing = false // S15
         private var stripTop = -1 // S15: screen y of the strip arrow, the panel ends just above it
+        private var pendingGlide: Map<Any, FloatArray>? = null // S16: card positions before a re-render, cards glide from there to their new slot
+        private var liftKey: Any? = null // S16: the dropped card keeps its lifted size while it glides home, then settles
 
         private fun dp(v: Int) = Util.dp(act, v)
         private fun c(res: Int) = act.getColor(res)
@@ -343,6 +345,7 @@ object TabSwitcher {
             scroll = sv
             sv.clipChildren = false
             grid.clipChildren = false
+            grid.clipToPadding = false // S16 FIX: grid has padding, so the default clipToPadding cut a dragged card at the row bottom
             sv.addView(grid, ViewGroup.LayoutParams(MATCH, WRAP))
             val bodyFrame = FrameLayout(act)
             body = bodyFrame
@@ -623,6 +626,7 @@ object TabSwitcher {
             val anim = animateNext
             animateNext = false
             if (mode == 2 && openGroup == null) { // list of groups
+                pendingGlide = null
                 val names = groupNames()
                 empty.text = if (groups.isEmpty()) "No groups yet.\nLong press a tab > Add tab to group." else "No match."
                 empty.visibility = if (names.isEmpty()) View.VISIBLE else View.GONE
@@ -632,7 +636,7 @@ object TabSwitcher {
                 return
             }
             val cards = ArrayList<View>()
-            if (mode == 0 && query.isBlank() && !selecting) groupNames().forEach { n -> val v = groupCard(n); cards.add(v); targets.add(v to n) } // groups sit in the tab grid first
+            if (mode == 0 && query.isBlank() && !selecting) groupNames().forEach { n -> val v = groupCard(n); v.tag = "g:" + n; cards.add(v); targets.add(v to n) } // groups sit in the tab grid first
             shown.forEach { t -> val v = card(t); cards.add(v); targets.add(v to t) } // S77: inside a group a tab card = reorder target
             empty.text = when {
                 query.isNotBlank() -> "No tab matches."
@@ -641,7 +645,52 @@ object TabSwitcher {
             }
             empty.visibility = if (cards.isEmpty()) View.VISIBLE else View.GONE
             layoutCards(cards)
-            if (anim) enter(cards)
+            val pg = pendingGlide
+            pendingGlide = null
+            if (anim) enter(cards) else if (pg != null) glide(pg) // S16
+        }
+
+        /** S16: screen position of every tab card now (includes the drag offset), used as the start of the glide after a re-render. */
+        private fun snapPos(): Map<Any, FloatArray> {
+            val m = HashMap<Any, FloatArray>()
+            val l = IntArray(2)
+            for (p in targets) { val k = p.first.tag ?: continue; p.first.getLocationOnScreen(l); m[k] = floatArrayOf(l[0].toFloat(), l[1].toFloat()) }
+            return m
+        }
+
+        /** S16: FLIP glide. Before the next draw every card that existed before is moved back to its old spot and eases into the new one. */
+        private fun glide(prev: Map<Any, FloatArray>) {
+            val lk = liftKey
+            liftKey = null
+            val vo = grid.viewTreeObserver
+            vo.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    val o = grid.viewTreeObserver
+                    if (o.isAlive) o.removeOnPreDrawListener(this)
+                    val l = IntArray(2)
+                    for (p in targets) {
+                        val v = p.first
+                        val a = prev[v.tag ?: continue] ?: continue
+                        v.getLocationOnScreen(l)
+                        val dx = a[0] - l[0]
+                        val dy = a[1] - l[1]
+                        val lifted = v.tag == lk
+                        if (!lifted && abs(dx) < 1f && abs(dy) < 1f) continue
+                        v.translationX = if (lifted) dx + v.width * 0.04f else dx // lifted: the old rect was scaled 1.08 about its centre
+                        v.translationY = if (lifted) dy + v.height * 0.04f else dy
+                        val an = v.animate().translationX(0f).translationY(0f).setStartDelay(0).setDuration(300)
+                            .setInterpolator(android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f))
+                        if (lifted) { // above the other cards while it travels, then lands
+                            v.scaleX = 1.08f; v.scaleY = 1.08f
+                            v.translationZ = dp(12).toFloat()
+                            (v.parent as? View)?.translationZ = dp(10).toFloat()
+                            an.scaleX(1f).scaleY(1f).withEndAction { v.translationZ = 0f; (v.parent as? View)?.translationZ = 0f }
+                        }
+                        an.start()
+                    }
+                    return true
+                }
+            })
         }
 
         private fun enter(views: List<View>) {
@@ -788,6 +837,7 @@ object TabSwitcher {
 
         private fun closeAnimated(v: View, t: TabManager.Tab) {
             v.animate().alpha(0f).scaleX(0.82f).scaleY(0.82f).translationY(-dp(18).toFloat()).setInterpolator(android.view.animation.AccelerateInterpolator()).setDuration(150).withEndAction { // S72
+                pendingGlide = snapPos() // S16: the cards after it slide into the gap
                 tm.close(t)
                 render()
             }.start()
@@ -987,14 +1037,14 @@ object TabSwitcher {
                     (box.parent as? View)?.translationZ = dp(10).toFloat() // this row draws above the other rows
                     box.parent?.requestDisallowInterceptTouchEvent(true)
                     box.translationZ = dp(12).toFloat()
-                    box.animate().scaleX(1.06f).scaleY(1.06f).alpha(0.92f).setDuration(120).start()
+                    box.animate().scaleX(1.08f).scaleY(1.08f).alpha(0.94f).setDuration(150).setInterpolator(android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f)).start() // S16
                     if (openGroup != null) showZone() // S75
                     scroll.post(scroller)
                 } else if (!selecting) tabMenu(box, t)
             }
             fun settle(v: View) {
                 v.animate().translationX(0f).translationY(0f).scaleX(1f).scaleY(1f).alpha(1f)
-                    .setInterpolator(OvershootInterpolator(1.1f)).setDuration(220)
+                    .setInterpolator(OvershootInterpolator(0.9f)).setDuration(260) // S16
                     .withEndAction { v.translationZ = 0f; (v.parent as? View)?.translationZ = 0f }.start()
             }
             box.setOnTouchListener { v, e ->
@@ -1059,6 +1109,13 @@ object TabSwitcher {
 
         /** The dragged card flies into the target and shrinks away, then the lists are rebuilt. */
         private fun dropOn(v: View, t: TabManager.Tab, tg: Pair<View, Any>) {
+            val over = tg.second
+            if (over is TabManager.Tab && openGroup != null) { // S16: reorder = no fly-away, the dropped card and its neighbours glide to the new order
+                pendingGlide = snapPos()
+                liftKey = t.id
+                reorder(t.id, over.id)
+                return
+            }
             val a = IntArray(2)
             val b = IntArray(2)
             v.getLocationOnScreen(a)
@@ -1067,6 +1124,7 @@ object TabSwitcher {
             val dy = (b[1] + tg.first.height / 2f) - (a[1] + v.height / 2f)
             v.animate().translationX(v.translationX + dx).translationY(v.translationY + dy).scaleX(0.35f).scaleY(0.35f).alpha(0f)
                 .setDuration(170).withEndAction {
+                    pendingGlide = snapPos() // S16: the remaining cards close the gap smoothly
                     val target = tg.second
                     if (target === ZONE) pullOut(t.id) // S75
                     else if (target is String) moveInto(target, setOf(t.id))
@@ -1267,6 +1325,7 @@ object TabSwitcher {
                     else { tm.switchTo(t); dismiss() }
                 }
             }
+            box.tag = t.id // S16: key for the glide animation
             dragTouch(box, t) // S44: long press = lift the card (drag into a group) or the menu
             box.addView(previewOf(t, cardW, true), FrameLayout.LayoutParams(MATCH, MATCH).apply { topMargin = dp(HEAD_H) })
             val fg = if (hi) c(R.color.mg_on_primary) else c(R.color.mg_text)
