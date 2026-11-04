@@ -121,6 +121,7 @@ object SettingsScreen {
             "App lock" to "Ask for fingerprint or PIN",
             "Lock after" to "Time before the app locks",
             "Site permissions" to "Camera, mic, location per site",
+            "Site settings" to "Permissions, JS, desktop, text size per site",
             "HTTPS-only mode" to "Prefer secure https pages",
             "Ad blocker" to "Blocks ads and trackers",
             "Hide ad spaces on pages" to "Removes empty ad boxes",
@@ -164,6 +165,7 @@ object SettingsScreen {
             "Background audio in player" to "music screen off",
             "App lock" to "fingerprint biometric pin password security",
             "Site permissions" to "camera microphone location mic",
+            "Site settings" to "site host website per-site javascript desktop zoom text size permissions reset",
             "HTTPS-only mode" to "secure ssl http upgrade",
             "Ad blocker" to "ads popup pop-up tracker adblock block",
             "Hide ad spaces on pages" to "ads empty space cosmetic",
@@ -923,6 +925,9 @@ object SettingsScreen {
                 Row(R.drawable.ic_lock, "Lock after", AppLock.delayLabel(act)) { AppLock.pickDelay(act) { fill() } }, // S45
                 Row(R.drawable.ic_shield, "Site permissions", "${SitePerms.count(act)} saved") { // S45
                     fa?.let { SitePerms.screen(it) { fill() } }
+                },
+                Row(R.drawable.ic_list, "Site settings", "${SiteSettings.count(act)} sites") { // STEP D
+                    SiteSettings.open(act) { fill() }
                 },
                 Row(R.drawable.ic_lock, "HTTPS-only mode", if (HttpsOnly.on(act)) "ON" else "OFF") { // S41
                     HttpsOnly.set(act, !HttpsOnly.on(act))

@@ -1,3 +1,10 @@
+0.0.139 (SETTINGS STEP D BUILD: per-site settings page)
+- SiteSettings.kt (NEW): full-screen page "Site settings" (back arrow, host search). Lists every host that has any saved site setting from the 4 existing stores: SitePerms (camera/mic/location), SiteConfig (JS off / Ads allowed / Desktop), TextZoom (percent), DlMode (button mode per site). Hosts are merged (www. and case ignored). Row = host + short summary.
+- Tap a host: switches (checkboxes), text size (slider 50-250%), Download buttons (opens DlMode.siteDialog), each permission (Allow / Block / Reset). "Reset this site" (confirm) clears all four for that host. No new storage; reads prefs mgb_perm / mgb_zoom / mgb_ui dl_site_modes directly for the host list only, every write goes through the existing setters.
+- SettingsScreen.kt: one row "Site settings" (value "N sites") in Privacy and security under Site permissions; hint + search words added.
+- TextZoom.kt: set() is now public (was private), nothing else changed.
+- PageInfo.kt, SitePerms.kt, DlMode.kt: NOT changed (existing getters/setters were enough). build.gradle.kts: version.
+
 0.0.138 (SETTINGS STEP C MODIFY: utility rows)
 - SettingsScreen.kt: (1) "Reset to default" = last row of the cards General, Tabs and motion, Downloads, Grabber and buttons, Privacy and security, Data and backup (confirm dialog + toast). It removes ONLY the fixed mgb_ui keys listed in the RESET map of that card (bookmarks, passwords, other prefs files, per-site data dl_site_modes are never touched). Grabber: V77 backup is switched off through V77Alt first, then DlMode.apply(SMART) writes the default button switches. General: re-applies theme / orientation / dark pages; the screen recreates if the theme changed. Passwords, Extensions, About have nothing to reset, so no row.
 - (2) "Backup" row card at the top (under the quick tiles): dialog Export data / Import data = Backup.exportData / importData (Backup.kt unchanged).

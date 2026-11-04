@@ -16,7 +16,7 @@ object TextZoom {
 
     fun get(ctx: Context, host: String): Int = if (host.isEmpty()) 100 else sp(ctx).getInt(host, 100)
 
-    private fun set(ctx: Context, host: String, v: Int) {
+    fun set(ctx: Context, host: String, v: Int) { // STEP D: public for Site settings
         if (host.isEmpty()) return
         if (v == 100) sp(ctx).edit().remove(host).apply() else sp(ctx).edit().putInt(host, v).apply()
     }
