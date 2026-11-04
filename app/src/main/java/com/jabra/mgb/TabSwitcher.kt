@@ -836,10 +836,34 @@ object TabSwitcher {
         }
 
         private fun closeAnimated(v: View, t: TabManager.Tab) {
-            v.animate().alpha(0f).scaleX(0.82f).scaleY(0.82f).translationY(-dp(18).toFloat()).setInterpolator(android.view.animation.AccelerateInterpolator()).setDuration(150).withEndAction { // S72
+            // S21b: Quetta-like close = card shrinks + fades, neighbours glide in, "Closed <title>  Undo" bar
+            val all = tm.allTabs()
+            val idx = all.indexOf(t)
+            val url = t.web.url ?: t.url
+            val keep = !t.priv && !t.isExt && !t.home && url.startsWith("http")
+            val title = t.title.ifBlank { Util.host(url) }.let { if (it.length > 26) it.take(25) + "\u2026" else it }
+            val gName = groupOf(t)
+            val gIdx = gName?.let { groups[it]?.toList()?.indexOf(t.id) } ?: -1
+            val gCol = gName?.let { colors[it] }
+            val onlyOne = all.size == 1
+            v.animate().alpha(0f).scaleX(0.6f).scaleY(0.6f).setInterpolator(android.view.animation.AccelerateInterpolator(1.2f)).setDuration(190).withEndAction {
                 pendingGlide = snapPos() // S16: the cards after it slide into the gap
                 tm.close(t)
                 render()
+                if (keep) undo("Closed $title") {
+                    val nt = tm.newTab(url, 0, false, false) ?: return@undo
+                    ClosedTabs.remove(url)
+                    tm.moveTo(nt, idx)
+                    if (gName != null) {
+                        val l = ArrayList(groups[gName] ?: emptySet<Int>())
+                        l.add(gIdx.coerceIn(0, l.size), nt.id)
+                        groups[gName] = LinkedHashSet<Int>(l)
+                        if (gCol != null && !colors.containsKey(gName)) colors[gName] = gCol
+                    }
+                    if (onlyOne) tm.allTabs().firstOrNull { it.home && !it.priv && it !== nt }?.let { tm.close(it) } // the Home tab made by closing the last tab
+                    pendingGlide = null
+                    render()
+                }
             }.start()
         }
 

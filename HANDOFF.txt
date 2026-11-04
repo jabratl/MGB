@@ -1,9 +1,10 @@
-HANDOFF - MGB (Thazir) S21 part 1 done -> S21 part 2 next
-Done: S21 part 1 (0.0.130) = Home button opens Home in the SAME tab, page + history kept (TabManager.kt, MainActivity.kt). Earlier: S17-S20 (0.0.126-0.0.129) merged and in the repo.
-Changed: TabManager.kt (Tab.keepUrl, Tab.homeFwd, goHome/toHome/showKept/canBack/canFwd/back/fwd, onPageStarted, leaveHome); MainActivity.kt (Home click, system back, menu back/forward); build.gradle.kts; CHANGELOG.txt; HANDOFF.txt.
-Checks: bracket balance, exact-match patches. NOT tested (needs real use): compile (no Android SDK); phone: open a site > Home button = Home in same tab, no new tab; back swipe = site; forward = Home; open a site from the speed dial then back = old site then Home; tab switcher shows 1 card.
-NEXT: S21 part 2 = tab switcher (TabSwitcher.kt, FLIP glide exists since S16): Quetta-like close animation (card scales down + fades, neighbours glide in), "Closed <title>  Undo" bar (reopen at same index; ClosedTabs exists), last tab closed = Home. Keep ids, only patch.
+HANDOFF - MGB (Thazir) S21 done (part 1 + part 2)
+Done: S21 part 1 (0.0.130) Home button = Home in the SAME tab, page + back/forward kept. S21 part 2 (0.0.131) tab switcher close animation + "Closed <title> Undo" (same index + group), last tab closed = Home.
+Changed (0.0.131): TabSwitcher.kt (closeAnimated), TabManager.kt (moveTo), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt. Part 1 files (TabManager.kt, MainActivity.kt) are in MGB_S21a_v0_0_130.zip: apply that first (this zip's TabManager.kt already contains it).
+Checks: bracket balance, exact-match patches. NOT tested (needs real use): compile; open a site > Home button = same tab, no new tab; swipe back = site, forward = Home; close a tab in the switcher = shrink + fade, others glide, Undo bar; Undo = same place + group; close the last tab = Home, Undo = page back (no extra Home tab).
+NEXT: fix from the first CI log / phone check, then S17 final check.
 
+CURRENT VERSION 0.0.131 (S21 part 2: tab close + Undo, see the 0.0.131 entry in CHANGELOG.txt; before: 0.0.130)
 CURRENT VERSION 0.0.130 (S21 part 1: Home in the same tab, see the 0.0.130 entry in CHANGELOG.txt; before: 0.0.129)
 CURRENT VERSION 0.0.129 (S20: Settings look, see the 0.0.129 entry in CHANGELOG.txt; before: 0.0.128)
 CURRENT VERSION 0.0.128 (S19: Downloads multi-select, see the 0.0.128 entry in CHANGELOG.txt; before: 0.0.127)

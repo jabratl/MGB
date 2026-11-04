@@ -753,6 +753,12 @@ class TabManager(
     // ---------- tab switcher ----------
 
     fun allTabs(): List<Tab> = tabs.toList() // S31
+    fun moveTo(t: Tab, index: Int) { // S21b: Undo puts a reopened tab back at its old place
+        val i = tabs.indexOf(t)
+        if (i < 0) return
+        tabs.removeAt(i)
+        tabs.add(index.coerceIn(0, tabs.size), t)
+    }
 
     /** S33: vertical scroll of any tab WebView (positive = page moves up, finger swipes up). */
     var onScroll: ((Int) -> Unit)? = null
