@@ -1,3 +1,12 @@
+0.0.124 (S15 BUILD: group panel from the strip arrow + smoother tab animations)
+- TabSwitcher.kt: new public showGroup(act, tm, name, anchor). It opens the existing S77 group panel ("< dot N tabs + :" with all tab cards) directly over the page: translucent window, dim scrim fades in, panel grows out of the strip arrow (emphasized-decelerate, 320 ms) and shrinks back into it on close (back, "<", tap outside, tab tap). Panel ends just above the strip, the switcher bottom pill is hidden in this mode. Normal switcher unchanged (same Screen, extra optional ctor params startGroup / anchor).
+- Animations: tab / group cards enter softer (start 0.9, 320 ms, 30 ms stagger, emphasized-decelerate); strip slides up + fades in when it appears; active chip pops (overshoot) when another tab of the group becomes active.
+- GroupStrip.kt: ^ tap = openPanel() (the panel). Old collapse / expand is kept on long press of ^ and on tap of the collapsed pill.
+- app/build.gradle.kts: 0.0.123 -> 0.0.124. V77 not changed.
+- Could break: panel bottom edge uses decorView.height - arrow top (a few px off with unusual system bars); Theme_Translucent_NoTitleBar dialog on some OEMs may draw a status bar tint; if the group is deleted / emptied while the panel is open the panel closes.
+- Checked: bracket balance of the 2 changed .kt files. NOT compiled (no Android SDK here), NOT run on a phone, NOT rendered at 360 / 1280 px, light / dark not looked at.
+- NEXT: phone check of 0.0.124 (group of 2-3 tabs > tap ^ > panel opens from arrow > tap a tab / "<" / outside / back; drag reorder inside; + and menu; long press ^ collapses; light + dark; landscape).
+
 0.0.123 (S14 BUILD: "Customise menu" like Brave, with installed extensions inside)
 - New MenuCustom.kt: full-screen screen (back, title, close). Sections: Main menu, Quick tiles, Extensions, Page actions. One switch per row, saved at once (prefs mgb_menu_custom: "off" = hidden keys, "pin" = pinned extension ids), no rebuild on toggle, soft fade-in, haptic tick, "Reset to default" button, centered 560 dp column on wide screens, system bar / cutout insets.
 - Extensions section: every turned-on installed extension (icon from its manifest, else coloured letter, name, version) with a switch = pin it into the 3-dot menu. A pinned extension is a row before Settings; tap = same as its tray tile (popup / action click / options page).

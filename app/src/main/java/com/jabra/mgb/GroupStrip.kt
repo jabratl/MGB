@@ -26,6 +26,7 @@ object GroupStrip {
     private var hasInfo = false
     private var sig = ""
     private val collapsed = HashSet<String>()
+    private var lastCur = -1 // S15: pop animation when the active chip changes
 
     private fun dp(v: Int) = Util.dp(act!!, v)
 
@@ -48,7 +49,8 @@ object GroupStrip {
             setImageResource(R.drawable.ic_chevron)
             setPadding(dp(6), dp(6), dp(6), dp(6))
             contentDescription = "Collapse group"
-            setOnClickListener { toggle() }
+            setOnClickListener { openPanel() } // S15: tap = group panel with all tabs (Brave style)
+            setOnLongClickListener { toggle(); true } // old collapse / expand moved to long press
         }
         val sv = HorizontalScrollView(a).apply { isHorizontalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER }
         val box = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
@@ -91,7 +93,22 @@ object GroupStrip {
         val r = row ?: return
         val barOn = a.findViewById<View>(R.id.bottom_bar)?.visibility == View.VISIBLE
         val v = if (hasInfo && barOn) View.VISIBLE else View.GONE
-        if (r.visibility != v) r.visibility = v
+        if (r.visibility != v) {
+            r.visibility = v
+            if (v == View.VISIBLE) { // S15: strip slides up softly
+                r.alpha = 0f; r.translationY = dp(14).toFloat()
+                r.animate().alpha(1f).translationY(0f).setInterpolator(android.view.animation.PathInterpolator(0.05f, 0.7f, 0.1f, 1f)).setDuration(260).start()
+            }
+        }
+    }
+
+    /** S15: ^ opens the group as a panel above the strip: all tabs of the group as cards. */
+    private fun openPanel() {
+        val a = act ?: return
+        val m = tm ?: return
+        val cur = m.active ?: return
+        val info = TabSwitcher.groupInfoOf(cur.id) ?: return
+        TabSwitcher.showGroup(a, m, info.name, arrow)
     }
 
     private fun toggle() {
@@ -166,6 +183,11 @@ object GroupStrip {
             box.addView(f, LinearLayout.LayoutParams(dp(40), dp(40)))
         }
         val ac = activeChip
+        if (ac != null && lastCur != cur.id) { // S15: ring pops when another tab of the group becomes active
+            ac.scaleX = 0.7f; ac.scaleY = 0.7f
+            ac.animate().scaleX(1f).scaleY(1f).setInterpolator(android.view.animation.OvershootInterpolator(2.2f)).setDuration(280).start()
+        }
+        lastCur = cur.id
         if (ac != null) scroll?.post { scroll?.smoothScrollTo((ac.left - dp(60)).coerceAtLeast(0), 0) }
     }
 }

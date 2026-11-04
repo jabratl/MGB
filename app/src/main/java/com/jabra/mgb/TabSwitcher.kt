@@ -166,10 +166,25 @@ object TabSwitcher {
     }
     fun joinGroupOf(newId: Int, refId: Int) { groups.entries.firstOrNull { refId in it.value }?.value?.add(newId) }
 
+    /** S15: opens group [name] directly as a panel over the page (grows out of [anchor], e.g. the strip arrow), like Brave. */
+    fun showGroup(act: Activity, tm: TabManager, name: String, anchor: View?) {
+        if (act.isFinishing || act.isDestroyed || !groups.containsKey(name)) return
+        try { current?.dismiss() } catch (_: Exception) { }
+        try {
+            tm.active?.let { snap(it) }
+            val s = Screen(act, tm, name, anchor)
+            current = s
+            s.show()
+        } catch (e: Exception) {
+            Log.e(TAG, "group panel failed", e)
+            current = null
+        }
+    }
+
     private class MI(val label: String, val icon: Int, val on: () -> Unit)
 
-    private class Screen(private val act: Activity, private val tm: TabManager) :
-        Dialog(act, com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar) {
+    private class Screen(private val act: Activity, private val tm: TabManager, private val startGroup: String? = null, private val anchor: View? = null) :
+        Dialog(act, if (startGroup != null) android.R.style.Theme_Translucent_NoTitleBar else com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar) {
 
         private val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         private val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
@@ -203,6 +218,9 @@ object TabSwitcher {
         private lateinit var rootV: LinearLayout // S77: for the dim scrim behind the group panel
         private var panelAnim = false // S77: play the panel open animation on the next render
         private var popFrom: IntArray? = null // S77: screen centre of the group card that was tapped
+        private val fromStrip = startGroup != null // S15: panel opened from the group strip (transparent window, page visible behind)
+        private var closing = false // S15
+        private var stripTop = -1 // S15: screen y of the strip arrow, the panel ends just above it
 
         private fun dp(v: Int) = Util.dp(act, v)
         private fun c(res: Int) = act.getColor(res)
@@ -219,14 +237,34 @@ object TabSwitcher {
 
         override fun onCreate(savedInstanceState: Bundle?) {
             super.onCreate(savedInstanceState)
+            if (startGroup != null) { // S15: start inside the open group panel
+                mode = 2; openGroup = startGroup; backMode = 0; panelAnim = true
+                anchor?.let { a -> val l = IntArray(2); a.getLocationOnScreen(l); popFrom = intArrayOf(l[0] + a.width / 2, l[1] + a.height / 2); stripTop = l[1] }
+            }
             build()
             window?.let {
                 it.setLayout(MATCH, MATCH)
                 it.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-                it.setWindowAnimations(android.R.style.Animation_Dialog)
-                val g = if (night) intArrayOf(0xFF2B2347.toInt(), 0xFF0A0C10.toInt()) else intArrayOf(0xFFECE6F8.toInt(), 0xFFFFFFFF.toInt())
-                it.setBackgroundDrawable(GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, g))
+                if (fromStrip) {
+                    it.setWindowAnimations(0)
+                    it.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                } else {
+                    it.setWindowAnimations(android.R.style.Animation_Dialog)
+                    val g = if (night) intArrayOf(0xFF2B2347.toInt(), 0xFF0A0C10.toInt()) else intArrayOf(0xFFECE6F8.toInt(), 0xFFFFFFFF.toInt())
+                    it.setBackgroundDrawable(GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, g))
+                }
             }
+        }
+
+        /** S15: panel from the strip shrinks back into the arrow before it goes away. */
+        override fun dismiss() {
+            if (!fromStrip || closing || !isShowing) { super.dismiss(); return }
+            closing = true
+            val ease = android.view.animation.AccelerateInterpolator(1.4f)
+            for (v in listOf<View>(top, body)) v.animate().alpha(0f).scaleX(0.4f).scaleY(0.4f).setInterpolator(ease).setDuration(190).start()
+            val sc = rootV.background
+            if (sc != null) android.animation.ValueAnimator.ofInt(255, 0).apply { duration = 190; addUpdateListener { sc.alpha = it.animatedValue as Int } }.start()
+            rootV.postDelayed({ try { super@Screen.dismiss() } catch (_: Exception) { } }, 200)
         }
 
         // back: search -> select -> open group -> close the switcher
@@ -522,6 +560,7 @@ object TabSwitcher {
         private fun render() {
             hideUndo() // S75: any new state makes an old Undo stale
             clean()
+            if (fromStrip && openGroup == null) { if (!closing) dismiss(); return } // S15: group gone (deleted / emptied)
             shown = listFor()
             picked.retainAll(shown.map { it.id }.toSet())
             drawTop()
@@ -536,11 +575,18 @@ object TabSwitcher {
             val r = dp(22).toFloat()
             val surf = c(R.color.mg_surface)
             rootV.setBackgroundColor(if (panel) 0x66000000 else Color.TRANSPARENT)
+            if (fromStrip) { // S15: tap outside the panel closes it; the panel itself swallows taps
+                rootV.setOnClickListener { dismiss() }
+                top.isClickable = true; body.isClickable = true
+                bar.visibility = if (panel) View.GONE else View.VISIBLE
+                if (panel && panelAnim) { val sc = rootV.background; sc.alpha = 0; android.animation.ValueAnimator.ofInt(0, 255).apply { duration = 260; addUpdateListener { sc.alpha = it.animatedValue as Int } }.start() }
+            }
             val tl = top.layoutParams as LinearLayout.LayoutParams
             val bl = body.layoutParams as LinearLayout.LayoutParams
             val m = if (panel) dp(12) else 0
             tl.setMargins(m, if (panel) dp(8) else 0, m, 0)
-            bl.setMargins(m, 0, m, if (panel) dp(6) else 0)
+            val bm = if (fromStrip && panel && stripTop > 0) maxOf(dp(6), act.window.decorView.height - stripTop + dp(10)) else if (panel) dp(6) else 0 // S15: end above the strip
+            bl.setMargins(m, 0, m, bm)
             top.layoutParams = tl
             body.layoutParams = bl
             top.background = if (panel) GradientDrawable().apply { setColor(surf); cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f) } else null
@@ -549,7 +595,7 @@ object TabSwitcher {
                 val pf = popFrom
                 val rl = IntArray(2)
                 rootV.getLocationOnScreen(rl)
-                val start = if (pf != null) 0.45f else 0.94f
+                val start = if (fromStrip) 0.3f else if (pf != null) 0.45f else 0.94f
                 val views = listOf<View>(top, body)
                 for ((i, v) in views.withIndex()) {
                     v.alpha = 0f
@@ -559,7 +605,7 @@ object TabSwitcher {
                         v.pivotX = (pf[0] - rl[0] - m).toFloat()
                         v.pivotY = (pf[1] - rl[1] - dp(8) - (if (i == 0) 0 else dp(64))).toFloat()
                     }
-                    v.animate().alpha(1f).scaleX(1f).scaleY(1f).setInterpolator(android.view.animation.DecelerateInterpolator(1.8f)).setDuration(260).start()
+                    v.animate().alpha(1f).scaleX(1f).scaleY(1f).setInterpolator(if (fromStrip) android.view.animation.PathInterpolator(0.05f, 0.7f, 0.1f, 1f) else android.view.animation.DecelerateInterpolator(1.8f)).setDuration(if (fromStrip) 320L else 260L).start()
                 }
             }
             panelAnim = false
@@ -602,9 +648,9 @@ object TabSwitcher {
             for ((i, v) in views.withIndex()) {
                 v.alpha = 0f
                 v.translationY = dp(16).toFloat()
-                v.scaleX = 0.94f; v.scaleY = 0.94f // S72
-                v.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setInterpolator(android.view.animation.DecelerateInterpolator(1.6f))
-                    .setDuration(240).setStartDelay((minOf(i, 10) * 24).toLong()).start()
+                v.scaleX = 0.9f; v.scaleY = 0.9f // S72 / S15: a little deeper start, softer finish
+                v.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setInterpolator(android.view.animation.PathInterpolator(0.05f, 0.7f, 0.1f, 1f))
+                    .setDuration(320).setStartDelay((minOf(i, 10) * 30).toLong()).start()
             }
         }
 
@@ -660,7 +706,7 @@ object TabSwitcher {
             render()
         }
 
-        private fun closeGroupView() { openGroup = null; mode = backMode; animateNext = true; endSelect(false); render() }
+        private fun closeGroupView() { if (fromStrip) { dismiss(); return }; openGroup = null; mode = backMode; animateNext = true; endSelect(false); render() }
 
         private fun newTab(p: Boolean) {
             val t = tm.newTab(TabManager.HOME_PAGE, 0, true, p)
