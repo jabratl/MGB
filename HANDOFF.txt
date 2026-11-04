@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.111 (S1: runtime.connect / onConnect / tabs.connect ports, see the 0.0.111 entry in CHANGELOG.txt; before: 0.0.110)
+
 CURRENT VERSION 0.0.110 (FIX: extension requests use the user agent of the tab that opened the site, see the 0.0.110 entry in CHANGELOG.txt; S0 phone test of 0.0.109 passed; before: 0.0.109)
 
 CURRENT VERSION 0.0.109 (FIX: extension pages open in a full desktop tab + source page found, see the 0.0.109 entry in CHANGELOG.txt; before: 0.0.108)

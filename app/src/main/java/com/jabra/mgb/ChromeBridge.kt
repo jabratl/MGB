@@ -51,7 +51,7 @@ object ChromeBridge {
         val ids = HashSet<String>()
         val tabId: Int get() = tabIds[web] ?: -1
         fun post(s: String) = runMain {
-            try { proxy.postMessage(s) } catch (e: Exception) { ctxs.remove(this) }
+            try { proxy.postMessage(s) } catch (e: Exception) { drop(this) }
         }
     }
 
@@ -85,7 +85,14 @@ object ChromeBridge {
 
     fun unbind(web: WebView) {
         tabIds.remove(web)
+        for (c in ctxs.filter { it.web === web }) drop(c) // 0.0.111: ports of these frames are closed
         ctxs.removeAll { it.web === web }
+    }
+
+    /** 0.0.111 (S1): a frame went away (page left, WebView gone, shim said bye): ExtApi closes its ports. */
+    var onCtxGone: ((Ctx) -> Unit)? = null
+    private fun drop(c: Ctx) {
+        if (ctxs.remove(c)) try { onCtxGone?.invoke(c) } catch (e: Exception) { Log.e("MGB.bridge", "ctxGone", e) }
     }
 
     fun contexts(): List<Ctx> = ctxs.toList()
@@ -137,7 +144,7 @@ object ChromeBridge {
             ctx = Ctx(kind, view, origin.toString(), isMain, proxy)
             ctxs.add(ctx)
             val same = ctxs.filter { it.web === view }
-            if (same.size > MAX_CTX_PER_WEB) ctxs.remove(same.first())
+            if (same.size > MAX_CTX_PER_WEB) drop(same.first())
         }
         ctx.ids.add(xid)
         ExtBackground.touch(view) // S5: a call from a worker keeps it alive
@@ -145,7 +152,7 @@ object ChromeBridge {
         val args = m.optJSONArray("p") ?: JSONArray()
         when (api) {
             "__hello" -> return
-            "__bye" -> { ctxs.remove(ctx); return }
+            "__bye" -> { drop(ctx); return }
             "__reply" -> {
                 val rid = args.optInt(0)
                 if (replyOwner[rid] == xid) { replyOwner.remove(rid); replies.remove(rid)?.invoke(args.opt(1)) }

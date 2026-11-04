@@ -27,10 +27,10 @@ object ExtApi {
     private const val CH = "mgb_ext"
     private const val NO_RECEIVER = "Could not establish connection. Receiving end does not exist."
 
-    private val CONTENT_OK = Regex("^(runtime\\.sendMessage|storage\\.(local|sync)\\.[A-Za-z]+)$")
+    private val CONTENT_OK = Regex("^(runtime\\.(sendMessage|connect)|port\\.(post|disconnect)|storage\\.(local|sync)\\.[A-Za-z]+)$") // 0.0.111: + ports
     private val EXT_OK = Regex(
-        "^(runtime\\.(sendMessage|openOptionsPage)|event\\.add|storage\\.(local|sync|session)\\.[A-Za-z]+" +
-            "|tabs\\.(sendMessage|create|update|getCurrent|remove|get|query|reload|executeScript)" +
+        "^(runtime\\.(sendMessage|openOptionsPage|connect)|port\\.(post|disconnect)|event\\.add|storage\\.(local|sync|session)\\.[A-Za-z]+" +
+            "|tabs\\.(sendMessage|connect|create|update|getCurrent|remove|get|query|reload|executeScript)" +
             "|windows\\.(create|get|getCurrent|update)|action\\.[A-Za-z]+|alarms\\.[A-Za-z]+|notifications\\.[A-Za-z]+" +
             "|contextMenus\\.[A-Za-z]+|scripting\\.(executeScript|insertCSS)|cookies\\.[A-Za-z]+|permissions\\.[A-Za-z]+|commands\\.getAll" +
             "|declarativeNetRequest\\.(updateSessionRules|updateDynamicRules|getSessionRules|getDynamicRules|getEnabledRulesets|updateEnabledRulesets))$"
@@ -119,6 +119,7 @@ object ExtApi {
         inited = true
         app = ctx.applicationContext
         registerHandlers()
+        ChromeBridge.onCtxGone = { ctxGone(it) } // 0.0.111
         loadAlarms()
         doSync(true)
     }
@@ -266,6 +267,83 @@ object ExtApi {
         if (ExtBackground.has(xid)) ExtBackground.ensure(xid) { go() } else go()
     }
 
+    // ---------- long-lived ports: runtime.connect / tabs.connect (S1, 0.0.111) ----------
+    // The shim makes the port id and sends port.post / port.disconnect with it; Kotlin only routes by id.
+    // from = frame that connected, targets = frames of the SAME extension that got runtime.onConnect.
+
+    private class Port(val id: String, val xid: String, val name: String, val from: ChromeBridge.Ctx) {
+        var targets: List<ChromeBridge.Ctx> = emptyList()
+        var ready = false
+        val queue = ArrayList<Any>()
+        val held = ArrayList<ChromeBridge.Ctx>()
+    }
+
+    private val ports = HashMap<String, Port>()
+
+    private fun portUi(b: () -> Unit) { if (Looper.myLooper() == Looper.getMainLooper()) b() else main.post { b() } }
+
+    private fun portEvent(to: ChromeBridge.Ctx, xid: String, event: String, args: JSONArray) =
+        to.post(JSONObject().put("e", event).put("x", xid).put("p", args).toString())
+
+    private fun portRelease(p: Port, only: ChromeBridge.Ctx? = null) {
+        for (t in p.held.filter { only == null || it === only }) { p.held.remove(t); ExtBackground.release(t.web) }
+    }
+
+    /** err goes to the side that did not close it; skip = the frame that closed it (gets nothing). */
+    private fun portClose(p: Port, err: String?, skip: ChromeBridge.Ctx?) {
+        if (ports.remove(p.id) == null) return
+        portRelease(p)
+        val a = JSONArray().put(p.id)
+        if (err != null) a.put(err)
+        if (p.from !== skip) portEvent(p.from, p.xid, "port.disc", a)
+        for (t in p.targets) if (t !== skip) portEvent(t, p.xid, "port.disc", JSONArray().put(p.id))
+    }
+
+    private fun portTargetGone(p: Port, ctx: ChromeBridge.Ctx, err: String?) {
+        p.targets = p.targets.filter { it !== ctx }
+        portRelease(p, ctx)
+        if (p.targets.isEmpty() && p.ready) portClose(p, err, ctx)
+    }
+
+    private fun portAttach(p: Port, targets: List<ChromeBridge.Ctx>) {
+        if (ports[p.id] !== p) return // closed while the worker was starting
+        if (targets.isEmpty()) { portClose(p, NO_RECEIVER, null); return }
+        p.targets = targets
+        val info = JSONObject().put("id", p.id).put("name", p.name).put("sender", TabsApi.senderOf(p.from, p.xid))
+        for (t in targets) {
+            if (ExtBackground.hold(t.web)) p.held.add(t) // an open port keeps its worker alive
+            portEvent(t, p.xid, "runtime.onConnect", JSONArray().put(info))
+        }
+        p.ready = true
+        for (m in p.queue) for (t in targets) portEvent(t, p.xid, "port.msg", JSONArray().put(p.id).put(m))
+        p.queue.clear()
+    }
+
+    private fun newPort(c: ChromeBridge.Call): Port? {
+        val pid = c.args.optString(0)
+        val name = if (c.api == "tabs.connect") c.args.optString(2) else c.args.optString(1)
+        val pidOk = if (c.api == "tabs.connect") c.args.optString(1) else pid
+        if (pidOk.isEmpty() || pidOk.length > 80 || ports.containsKey(pidOk) || ports.size > 200) { c.fail("Invalid port"); return null }
+        val p = Port(pidOk, c.extId, name.take(200), c.ctx)
+        ports[pidOk] = p
+        c.ok(null) // like chrome: connect never fails here; "no receiver" arrives as onDisconnect with lastError
+        return p
+    }
+
+    /** tabs.connect (TabsApi finds the frames of the tab); call on the main thread. */
+    fun openPort(c: ChromeBridge.Call, targets: List<ChromeBridge.Ctx>) {
+        val p = newPort(c) ?: return
+        portAttach(p, targets)
+    }
+
+    /** ChromeBridge: a frame went away. */
+    fun ctxGone(ctx: ChromeBridge.Ctx) = portUi {
+        for (p in ports.values.toList()) {
+            if (p.from === ctx) portClose(p, null, ctx)
+            else if (p.targets.any { it === ctx }) portTargetGone(p, ctx, null)
+        }
+    }
+
     // ---------- alarms ----------
 
     private class Alarm(val xid: String, val name: String, var whenMs: Long, val periodMs: Long) {
@@ -389,6 +467,37 @@ object ExtApi {
 
     private fun registerHandlers() {
         ChromeBridge.on("ext.runtime.sendMessage") { c -> send(c) }
+
+        // 0.0.111 (S1): ports
+        ChromeBridge.on("ext.runtime.connect") { c -> portUi {
+            val p = newPort(c)
+            if (p != null) {
+                val xid = c.extId
+                fun go() = portAttach(p, ChromeBridge.contexts().filter {
+                    it.kind == ChromeBridge.Kind.EXT && it !== c.ctx && xid in it.ids && TabsApi.listens(it, "runtime.onConnect")
+                })
+                if (ExtBackground.has(xid)) ExtBackground.ensure(xid) { go() } else go()
+            }
+        } }
+        ChromeBridge.on("ext.port.post") { c -> portUi {
+            val p = ports[c.args.optString(0)]
+            if (p != null && p.xid == c.extId) {
+                val m: Any = c.args.opt(1) ?: JSONObject.NULL
+                val a = JSONArray().put(p.id).put(m)
+                if (c.ctx === p.from) { if (p.ready) { for (t in p.targets) portEvent(t, p.xid, "port.msg", a) } else p.queue.add(m) }
+                else if (p.targets.any { it === c.ctx }) portEvent(p.from, p.xid, "port.msg", a)
+            }
+            c.ok(null)
+        } }
+        ChromeBridge.on("ext.port.disconnect") { c -> portUi {
+            val p = ports[c.args.optString(0)]
+            if (p != null && p.xid == c.extId) {
+                if (c.ctx === p.from) portClose(p, null, c.ctx)
+                else if (p.targets.any { it === c.ctx }) portTargetGone(p, c.ctx, if (c.args.optBoolean(1, false)) NO_RECEIVER else null)
+            }
+            c.ok(null)
+        } }
+
 
         // permissions: read-only view of the manifest (no run-time grants on Android)
         ChromeBridge.onSync("ext.permissions.getAll") { c ->

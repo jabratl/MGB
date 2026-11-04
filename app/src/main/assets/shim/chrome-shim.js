@@ -78,6 +78,43 @@
     if (!asyncResp && !done) respond();
   }
 
+  // ---------- ports (0.0.111, S1): runtime.connect / runtime.onConnect / tabs.connect ----------
+  var NO_RECV = 'Could not establish connection. Receiving end does not exist.';
+  var ports = {};
+  function newPortId() { return 'p' + (++seq) + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
+  function makePort(pid, name, sender) {
+    var port = { name: String(name || ''), sender: sender, _dead: false };
+    port.onMessage = makeEvent('port.' + pid + '.onMessage', false);
+    port.onDisconnect = makeEvent('port.' + pid + '.onDisconnect', false);
+    port.postMessage = function (m) {
+      if (port._dead) throw new Error('Attempting to use a disconnected port object');
+      call('port.post', [pid, m === undefined ? null : m]).then(null, function () { /* port gone */ });
+    };
+    port.disconnect = function () {
+      if (port._dead) return;
+      port._dead = true; delete ports[pid];
+      call('port.disconnect', [pid]).then(null, function () { /* ignore */ });
+      delete listeners['port.' + pid + '.onMessage']; delete listeners['port.' + pid + '.onDisconnect'];
+    };
+    ports[pid] = port;
+    return port;
+  }
+  function closePort(pid, err) {
+    var port = ports[pid];
+    if (!port || port._dead) return;
+    port._dead = true; delete ports[pid];
+    if (err) lastError = { message: String(err) };
+    fire('port.' + pid + '.onDisconnect', [port]);
+    lastError = undefined;
+    delete listeners['port.' + pid + '.onMessage']; delete listeners['port.' + pid + '.onDisconnect'];
+  }
+  function incomingPort(info) {
+    if (!info || !info.id) return;
+    if (!(listeners['runtime.onConnect'] || []).length) { call('port.disconnect', [info.id, true]).then(null, function () { /* ignore */ }); return; }
+    var port = makePort(info.id, info.name, info.sender);
+    fire('runtime.onConnect', [port]);
+  }
+
   function onNative(ev) {
     var m;
     try { m = JSON.parse(ev.data); } catch (e) { return; }
@@ -86,6 +123,9 @@
     if (m.e) {
       var a = m.p || [];
       if (m.e === 'runtime.onMessage' && m.q) { deliverMessage(a, m.q); return; }
+      if (m.e === 'runtime.onConnect') { incomingPort(a[0]); return; }
+      if (m.e === 'port.msg') { var pp = ports[a[0]]; if (pp && !pp._dead) fire('port.' + a[0] + '.onMessage', [a[1], pp]); return; }
+      if (m.e === 'port.disc') { closePort(a[0], a[1]); return; }
       fire(m.e, a);
       if (m.e === 'storage.onChanged' && a[1]) fire('storage.' + a[1] + '.onChanged', [a[0]]);
       return;
@@ -112,7 +152,7 @@
     }),
     onMessage: makeEvent('runtime.onMessage', isExt),
     // 0.0.108: events / calls many extensions touch at load time; a missing one threw and stopped the whole content script
-    onConnect: makeEvent('runtime.onConnect', false),
+    onConnect: makeEvent('runtime.onConnect', isExt), // 0.0.111: announced so a stopped worker wakes for a port
     onConnectExternal: makeEvent('runtime.onConnectExternal', false),
     onMessageExternal: makeEvent('runtime.onMessageExternal', false),
     onSuspend: makeEvent('runtime.onSuspend', false),
@@ -121,16 +161,15 @@
     reload: function () { /* not supported */ },
     requestUpdateCheck: wrap(function () { return Promise.resolve({ status: 'no_update' }); }),
     connect: function (a, b) {
-      // long-lived ports are not available yet: behave like "no receiver" (onDisconnect with lastError) instead of throwing
+      // 0.0.111 (S1): real long-lived port (Kotlin: ExtApi ports). Another extension id = no receiver (external connections are not supported)
       var info = (typeof a === 'object' && a) ? a : (b || {});
-      var disc = makeEvent('port.' + (++seq) + '.onDisconnect', false), msgEv = makeEvent('port.' + seq + '.onMessage', false);
-      var port = { name: String(info.name || ''), sender: undefined, onMessage: msgEv, onDisconnect: disc,
-        postMessage: function () { /* dropped */ }, disconnect: function () { /* nothing open */ } };
-      setTimeout(function () {
-        lastError = { message: 'Could not establish connection. Receiving end does not exist.' };
-        fire('port.' + seq + '.onDisconnect', [port]);
-        lastError = undefined;
-      }, 0);
+      var pid = newPortId();
+      var port = makePort(pid, info.name, undefined);
+      if (typeof a === 'string' && a !== CFG.id) {
+        setTimeout(function () { closePort(pid, NO_RECV); }, 0);
+        return port;
+      }
+      call('runtime.connect', [pid, String(info.name || '')]).then(null, function (e) { closePort(pid, String((e && e.message) || e)); });
       return port;
     }
   };
@@ -214,6 +253,14 @@
       if (typeof o.func === 'function') o.func = '(' + o.func.toString() + ')';
       return o;
     }
+    // 0.0.111: chrome.tabs.connect(tabId, {name, frameId}) = port to the content scripts of that tab
+    chrome.tabs.connect = function (tabId, info) {
+      info = info || {};
+      var pid = newPortId();
+      var port = makePort(pid, info.name, undefined);
+      call('tabs.connect', [tabId, pid, String(info.name || ''), info.frameId === undefined ? null : info.frameId]).then(null, function (e) { closePort(pid, String((e && e.message) || e)); });
+      return port;
+    };
     chrome.scripting.executeScript = wrap(function (inj) { return call('scripting.executeScript', [injection(inj)]); });
     // MV2 style chrome.tabs.executeScript(tabId, {code|file}) -> same path
     chrome.tabs.executeScript = wrap(function (tabId, d) {

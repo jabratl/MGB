@@ -232,6 +232,19 @@ object TabsApi {
             fanOut(targets, msg, senderOf(c.ctx, c.extId), c.extId) { r -> c.ok(r) }
         }
 
+        handle("tabs.connect") { c -> // 0.0.111 (S1): long-lived port to the content scripts of one tab (args: tabId, portId, name, frameId|null)
+            if (c.extId == ContentInjector.EXT_ID) { c.fail("Not implemented: tabs.connect"); return@handle }
+            val t = tm?.byId(c.args.optInt(0, -1))
+            var targets: List<ChromeBridge.Ctx> =
+                if (t == null) emptyList() else ChromeBridge.contexts().filter { it.web === t.web && it !== c.ctx && c.extId in it.ids }
+            if (!c.args.isNull(3)) {
+                val f = c.args.optInt(3)
+                targets = if (f == 0) targets.filter { it.isMainFrame }.takeLast(1)
+                else targets.filter { !it.isMainFrame && frameIdOf(it) == f }
+            }
+            ExtApi.openPort(c, targets)
+        }
+
         handle("tabs.get") { c ->
             val t = tm?.byId(c.args.optInt(0, -1))
             if (t == null) c.fail("No tab with id: ${c.args.opt(0)}.") else c.ok(ExtApi.tabFor(c.extId, tabJson(t)))
