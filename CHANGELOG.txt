@@ -1,3 +1,8 @@
+0.0.137 (SETTINGS STEP B MODIFY: look and motion)
+- SettingsScreen.kt: (1) every category badge has its own soft tint (icon + 17% background), light and dark aware. (2) Opening a card: chevron rotates and the content slides in (one TransitionSet = ChangeBounds + Slide, replaces AutoTransition, so no second animation fights it); with Reduce motion (TabPrefs.reduce) there is no slide and the chevron jumps. (3) A switch row you just toggled flashes a short highlight that fades (700 ms) and the thumb slides; skipped with Reduce motion. (4) 43 rows that had no hint got one short hint line (map HINTS, text only, max 32 characters, max 2 lines); search also looks in these hints.
+- TabPrefs.kt: tint(key, night) = fixed hue per category key (hash hue for unknown keys).
+- No new setting, no colors.xml change. Other files: build.gradle.kts (version).
+
 0.0.136 (SETTINGS STEP A MODIFY: sub-pages + Recent)
 - SettingsScreen.kt: "Downloads" and "Grabber and buttons" are now one card each that opens its own page inside the same Dialog (title changes, rows shown flat, no accordion). Small categories stay accordion. Search and quick tiles are hidden while a page is open; typing in search always returns to the main list.
 - Back order: page -> Settings -> close (arrow in the bar and the phone Back both use goBack()). Scroll position of the main list is restored.

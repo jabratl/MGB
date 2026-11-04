@@ -14,7 +14,10 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebStorage
-import android.transition.AutoTransition
+import android.animation.ValueAnimator
+import android.transition.ChangeBounds
+import android.transition.Slide
+import android.transition.TransitionSet
 import android.transition.TransitionManager
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
@@ -80,6 +83,54 @@ object SettingsScreen {
         private var searchEdit: EditText? = null
         private val BIG = mapOf("downloads" to "Downloads", "grabber" to "Grabber and buttons")
         private val NO_RECENT = setOf("Forget removed links")
+        private var flashLabel: String? = null // Step B: row that was just toggled
+        private var flashAt = 0L
+        /** Step B: one short hint line for rows that have none (text only, kept under about 34 characters). */
+        private val HINTS = mapOf(
+            "Theme" to "Light, dark or follow phone",
+            "Dark pages" to "Darken websites (reload page)",
+            "Search engine" to "Used in the address bar",
+            "Translate to" to "Language for page translation",
+            "Hide bar while scrolling" to "Bottom bar hides on scroll",
+            "Pull down to refresh" to "Swipe down to reload the page",
+            "Rotate browser with phone" to "Landscape follows the phone",
+            "Swipe a tab card to close it" to "In the tab switcher",
+            "Convert .ts to .mp4" to "Merge HLS pieces into MP4",
+            "Sub-folders in the chosen folder" to "Use sub-folders for new files",
+            "Play video links in built-in player" to "Open video links in MGB player",
+            "Video button on pages" to "Video button shown on web pages",
+            "Background audio in player" to "Keep playing with screen off",
+            "Button mode" to "Which download buttons to show",
+            "Grabber button on pages" to "Floating Grabber button",
+            "Grabber button opens Files detected panel" to "Opens the native detected list",
+            "Grabber button on video players" to "Button on top of videos",
+            "Forget removed links" to "Brings back hidden links",
+            "Extra native download button" to "Second button, native downloader",
+            "App lock" to "Ask for fingerprint or PIN",
+            "Lock after" to "Time before the app locks",
+            "Site permissions" to "Camera, mic, location per site",
+            "HTTPS-only mode" to "Prefer secure https pages",
+            "Ad blocker" to "Blocks ads and trackers",
+            "Hide ad spaces on pages" to "Removes empty ad boxes",
+            "Sites with ads allowed" to "Pages where ads stay on",
+            "Hide cookie banners" to "Hides cookie consent popups",
+            "Auto backup (daily)" to "Saves a backup file each day",
+            "Export data" to "Save bookmarks and settings",
+            "Import data" to "Restore from a backup file",
+            "Recently closed tabs" to "Reopen tabs you closed",
+            "Clear browsing history" to "Deletes the visited pages list",
+            "Clear cookies and site data" to "Logs you out of sites",
+            "Clear cache" to "Frees stored page files",
+            "Saved passwords" to "View and edit saved logins",
+            "Import passwords (file or paste)" to "Add logins from CSV or text",
+            "Export passwords (CSV)" to "Save logins to a CSV file",
+            "Password generator" to "Make a strong random password",
+            "addy.io API key" to "Needed to create aliases",
+            "Create email alias" to "New hidden email address",
+            "My email aliases" to "List, edit or delete aliases",
+            "Check for updates" to "Look for a newer version",
+            "Engine status" to "Shows the web engine state"
+        )
         /** S21f: hidden search words per row label (the row is found by these too). */
         private val KW = mapOf(
             "Theme" to "dark light night mode appearance colour",
@@ -261,6 +312,8 @@ object SettingsScreen {
             setPadding(dp(18), dp(14), dp(16), dp(4))
         }
 
+        private fun hintOf(r: Row): String = r.hint.ifEmpty { HINTS[r.label] ?: "" } // Step B
+
         private fun rowView(r: Row): View {
             val line = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -277,6 +330,7 @@ object SettingsScreen {
                     setOnClickListener {
                         if (r.value == "ON" || r.value == "OFF") it.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK) // S21f
                         if (r.value.isNotEmpty() && r.label !in NO_RECENT) noteRecent(r.label) // Step A
+                        if (r.value == "ON" || r.value == "OFF") { flashLabel = r.label; flashAt = android.os.SystemClock.uptimeMillis() } // Step B
                         r.onClick.invoke()
                     }
                 }
@@ -292,15 +346,33 @@ object SettingsScreen {
                 maxLines = 2
                 setTextColor(act.getColor(R.color.mg_text))
             })
-            if (r.hint.isNotEmpty()) labelBox.addView(TextView(act).apply { // S64: one line of help under the title
-                text = r.hint
+            val hintText = hintOf(r)
+            if (hintText.isNotEmpty()) labelBox.addView(TextView(act).apply { // S64: one line of help under the title
+                text = hintText
                 textSize = 12f
                 maxLines = 2
                 setTextColor(act.getColor(R.color.mg_text_dim))
             })
             line.addView(labelBox, LinearLayout.LayoutParams(0, WRAP, 1f))
             if (r.value == "ON" || r.value == "OFF") {
-                line.addView(switchFor(r.value == "ON"), LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(8) })
+                val sw = switchFor(r.value == "ON")
+                line.addView(sw, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(8) })
+                // Step B: the row just toggled gets a short highlight that fades, and the thumb slides
+                if (flashLabel == r.label && android.os.SystemClock.uptimeMillis() - flashAt < 1500 && !TabPrefs.reduce(act)) {
+                    flashLabel = null
+                    val d = ColorDrawable(act.getColor(R.color.mg_primary))
+                    d.alpha = 0x40
+                    line.background = d
+                    ValueAnimator.ofInt(0x40, 0).setDuration(700).apply {
+                        addUpdateListener { d.alpha = it.animatedValue as Int }
+                        addListener(object : android.animation.AnimatorListenerAdapter() {
+                            override fun onAnimationEnd(a: android.animation.Animator) { line.background = null }
+                        })
+                    }.start()
+                    val on = r.value == "ON"
+                    sw.isChecked = !on
+                    sw.post { sw.isChecked = on }
+                }
             } else if (r.value.isNotEmpty()) {
                 line.addView(TextView(act).apply {
                     text = r.value
@@ -328,7 +400,7 @@ object SettingsScreen {
                 for (item in items) {
                     when (item) {
                         is Sub -> pend = item
-                        is Row -> if (item.label.contains(q, true) || item.hint.contains(q, true) || (KW[item.label]?.contains(q, true) == true)) { // S21f: search keywords
+                        is Row -> if (item.label.contains(q, true) || hintOf(item).contains(q, true) || (KW[item.label]?.contains(q, true) == true)) { // S21f: search keywords
                             pend?.let { out.add(it) }
                             pend = null
                             out.add(item)
@@ -400,16 +472,18 @@ object SettingsScreen {
                 }
                 setOnClickListener { if (link) openPage(key) else toggle(key, card) }
             }
+            val night = (act.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            val tint = TabPrefs.tint(key, night) // Step B: own soft tint per category
             val badge = FrameLayout(act).apply {
                 background = GradientDrawable().apply {
                     shape = GradientDrawable.RECTANGLE // 0.0.129: squircle badge
                     cornerRadius = dp(13).toFloat()
-                    setColor(ColorUtils.setAlphaComponent(act.getColor(R.color.mg_primary), 0x1F))
+                    setColor(ColorUtils.setAlphaComponent(tint, 0x2B))
                 }
             }
             badge.addView(ImageView(act).apply {
                 setImageResource(icon)
-                setColorFilter(act.getColor(R.color.mg_primary))
+                setColorFilter(tint)
             }, FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER))
             header.addView(badge, LinearLayout.LayoutParams(dp(42), dp(42)).apply { marginEnd = dp(14) })
             val texts = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
@@ -509,18 +583,31 @@ object SettingsScreen {
             val col = body ?: return
             if (query.isNotBlank()) return // S48: all matches stay open while searching
             val opening = openCat != key
-            try {
-                TransitionManager.beginDelayedTransition(col, AutoTransition().setDuration(200))
+            val calm = TabPrefs.reduce(act) // Step B: Reduce motion = no slide, no rotate animation
+            if (!calm) try {
+                // one transition owns the layout change: card bounds + content slide (chevron uses its own rotate below)
+                val slide = Slide(Gravity.TOP)
+                for ((_, v) in cats) slide.addTarget(v.first)
+                val ts = TransitionSet().apply {
+                    ordering = TransitionSet.ORDERING_TOGETHER
+                    addTransition(ChangeBounds())
+                    addTransition(slide)
+                    duration = 220
+                    interpolator = android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f)
+                }
+                TransitionManager.beginDelayedTransition(col, ts)
             } catch (_: Exception) { }
             openCat = if (opening) key else null
             for ((k, v) in cats) {
                 val show = k == openCat
                 v.first.visibility = if (show) View.VISIBLE else View.GONE
-                v.second.animate().rotation(if (show) 90f else 0f).setDuration(200).start()
+                val deg = if (show) 90f else 0f
+                v.second.animate().cancel()
+                if (calm) v.second.rotation = deg else v.second.animate().rotation(deg).setDuration(220).start()
             }
             if (opening) card.postDelayed({
                 sv?.smoothScrollTo(0, (card.top - dp(8)).coerceAtLeast(0))
-            }, 240)
+            }, if (calm) 0L else 240L)
         }
 
         private fun hideBar(): Boolean =
