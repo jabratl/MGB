@@ -473,6 +473,9 @@ object TabsApi {
             val ok = info != null && (ExtApi.hostAllows(info, t.url) || ("activeTab" in info.permissions && (tm?.active === t || sourceTabFor(c)?.id == t.id)))
             if (!ok) { c.fail("Cannot access contents of the page. Extension manifest must request permission to access this host."); return }
         }
+        // 0.0.118 (S6): only the main frame can be reached (evaluateJavascript); a request for other frames fails like Chrome instead of running in the wrong frame
+        val fids = inj.optJSONObject("target")?.optJSONArray("frameIds")
+        if (fids != null && fids.length() > 0 && (0 until fids.length()).none { fids.optInt(it, -1) == 0 }) { c.fail("No frame with id " + fids.optInt(0) + " in tab " + tid + "."); return }
         val fn = inj.optString("func", "")
         val files = inj.optJSONArray("files")
         val body: String = when {

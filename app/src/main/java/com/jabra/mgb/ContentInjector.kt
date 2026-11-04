@@ -139,6 +139,18 @@ object ContentInjector {
         return "^" + scheme + "://" + h + glob(path) + "(#.*)?$"
     }
 
+    /** 0.0.118 (S6): match_origin_as_fallback ignores the path: same patterns with the path replaced by a wildcard. */
+    private fun originOnlyRegexList(arr: JSONArray?): JSONArray {
+        val out = JSONArray()
+        if (arr != null) for (i in 0 until arr.length()) {
+            val p = arr.optString(i)
+            val m = PATTERN.find(p)
+            val q = if (p == "<all_urls>" || m == null) p else m.groupValues[1] + "://" + m.groupValues[2] + "/*"
+            patRegex(q)?.let { out.put(it) }
+        }
+        return out
+    }
+
     private fun regexList(arr: JSONArray?): JSONArray {
         val out = JSONArray()
         if (arr != null) for (i in 0 until arr.length()) patRegex(arr.optString(i))?.let { out.put(it) }
@@ -225,12 +237,24 @@ object ContentInjector {
                 for (j in 0 until css.length()) extFile(dir, css.optString(j))?.let { cssSrc.append(fixExtUrls(id, it.readText())).append("\n") }
                 if (src.isEmpty() && cssSrc.isEmpty()) continue
                 val matches = e.optJSONArray("matches")
-                val origins = originsOf(matches)
+                val fb = e.optBoolean("match_origin_as_fallback", false)
+                val ab = e.optBoolean("match_about_blank", false) && !fb // 0.0.118 (S6): Chrome ignores match_about_blank when match_origin_as_fallback is true
+                // such a frame has an about: / data: / blob: url, the origin rule of the WebView may not match it: the script checks the url itself
+                val origins = if (fb || ab) setOf("*") else originsOf(matches)
                 if (origins.isEmpty()) continue
                 val pre = StringBuilder()
                 pre.append("var __u=location.href;var __m=").append(regexList(matches)).append(";var __x=")
                     .append(regexList(e.optJSONArray("exclude_matches"))).append(";")
-                    .append("if(!__m.some(function(r){return new RegExp(r).test(__u)})||__x.some(function(r){return new RegExp(r).test(__u)}))return;\n")
+                if (fb || ab) {
+                    // 0.0.118 (S6): frame without a real url -> use the url of the frame that created it (origin, else the parent origin)
+                    pre.append("if(/^(about:|data:|blob:|filesystem:)/.test(__u)){")
+                    pre.append(if (fb) "" else "if(!/^about:(blank|srcdoc)/.test(__u))return;")
+                    pre.append("var __b=location.origin;if(!__b||__b==='null'){try{__b=(location.ancestorOrigins&&location.ancestorOrigins[0])||''}catch(_){__b=''}}")
+                    pre.append("if(!/^https?:\\/\\//.test(__b))return;__u=__b+'/';")
+                    if (fb) pre.append("__m=").append(originOnlyRegexList(matches)).append(";")
+                    pre.append("}\n")
+                }
+                pre.append("if(!__m.some(function(r){return new RegExp(r).test(__u)})||__x.some(function(r){return new RegExp(r).test(__u)}))return;\n")
                 if (cssSrc.isNotEmpty()) {
                     pre.append("try{var __s=document.createElement('style');__s.textContent=").append(JSONObject.quote(cssSrc.toString()))
                         .append(";(document.head||document.documentElement).appendChild(__s);}catch(_){}\n")
@@ -378,6 +402,7 @@ object ContentInjector {
         .put("js", o.optJSONArray("js") ?: JSONArray())
         .put("css", o.optJSONArray("css") ?: JSONArray())
         .put("all_frames", o.optBoolean("allFrames", false))
+        .put("match_origin_as_fallback", o.optBoolean("matchOriginAsFallback", false)) // 0.0.118 (S6)
         .put("run_at", o.optString("runAt", "document_idle"))
         .put("world", o.optString("world", "ISOLATED"))
 

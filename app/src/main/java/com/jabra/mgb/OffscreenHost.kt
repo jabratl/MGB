@@ -60,7 +60,7 @@ object OffscreenHost {
             }
         }
         ChromeBridge.onSync("offscreen.hasDocument") { web != null }
-        ChromeBridge.onSync("runtime.getContexts") { c -> contexts(c.args.optJSONObject(0)) }
+        ChromeBridge.onSync("runtime.getContexts") { c -> contexts(c.args.optJSONObject(0), c.extId) }
     }
 
     // ---------- document ----------
@@ -178,7 +178,7 @@ object OffscreenHost {
         return (0 until a.length()).map { a.optInt(it) }
     }
 
-    private fun contexts(f: JSONObject?): JSONArray {
+    private fun contexts(f: JSONObject?, xid: String = ContentInjector.EXT_ID): JSONArray {
         val types = strList(f, "contextTypes")
         val urls = strList(f, "documentUrls")
         val tabs = intList(f, "tabIds")
@@ -195,8 +195,19 @@ object OffscreenHost {
             )
         }
         val ow = web
-        if (ow != null) add("OFFSCREEN_DOCUMENT", docUrl, -1, 0, ow)
         val all = ChromeBridge.contexts().filter { it.kind == ChromeBridge.Kind.EXT }
+        if (xid != ContentInjector.EXT_ID) {
+            // 0.0.118 (S6): an installed extension sees only its own worker / popup / tabs (V77 list below is unchanged)
+            val base = ContentInjector.EXT_BASE + xid + "/"
+            all.firstOrNull { ExtBackground.idOf(it.web) == xid }?.let { add("BACKGROUND", ExtBackground.urlOf(xid), -1, -1, it) }
+            for (x in all) {
+                if (!x.isMainFrame || EngineHost.isEngine(x.web) || ExtBackground.idOf(x.web) != null || x.web === ow) continue
+                if (ExtScreen.isScreen(x.web)) { val u = ExtScreen.urlOf(x.web); if (u.startsWith(base)) add("POPUP", u, -1, 0, x) }
+                else if (x.tabId > 0) { val u = TabsApi.senderOf(x, xid).optString("url"); if (u.startsWith(base)) add("TAB", u, x.tabId, 0, x) }
+            }
+            return out
+        }
+        if (ow != null) add("OFFSCREEN_DOCUMENT", docUrl, -1, 0, ow)
         all.firstOrNull { EngineHost.isEngine(it.web) }
             ?.let { add("BACKGROUND", ContentInjector.EXT_BASE + "_engine.html", -1, -1, it) }
         for (x in all) {

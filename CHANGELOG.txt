@@ -1,5 +1,14 @@
-0.0.117 (CI only: same code as 0.0.116, version bumped to start a fresh build after the push of 0.0.116 failed with GitHub Internal Server Error; no code change)
-- NEXT: phone test of 0.0.117 (= S4 contextMenus of 0.0.116) with mgb_s4_test.zip; then S6 or S5.
+0.0.118 (S6 MODIFY: match_about_blank, match_origin_as_fallback, storage.session access level, runtime.getContexts for installed extensions, executeScript frameIds)
+- S4 phone test of 0.0.117 PASSED. 0.0.117 = CI bump of 0.0.116 (no code change).
+- ContentInjector.kt: content script with match_about_blank (about:blank / about:srcdoc frames) or match_origin_as_fallback (also data: / blob: / filesystem:, path ignored) now runs in those frames: origin rule "*", the script uses the origin of the frame (else the parent origin) as its url and checks matches / exclude_matches itself. match_about_blank is ignored when match_origin_as_fallback is true (like Chrome). registerContentScripts: matchOriginAsFallback is passed on (was stored only).
+- ExtApi.kt + chrome-shim.js: chrome.storage.session.setAccessLevel({accessLevel}) (+ QUOTA_BYTES). Content scripts of an installed extension get "Access to storage is not allowed from this context." for storage.session.* until a trusted page (worker / popup / options) opened it with TRUSTED_AND_UNTRUSTED_CONTEXTS (kept in memory). runtime.getContexts allowed for installed extensions (gate).
+- OffscreenHost.kt: runtime.getContexts of an installed extension lists only its own worker (BACKGROUND), popup window and extension tabs; V77 list unchanged.
+- TabsApi.kt: scripting.executeScript with target.frameIds that does not contain 0 fails with "No frame with id N in tab T." (before it ran in the main frame and said frameId 0). allFrames still = main frame only.
+- V77 not changed. Checked: node --check shim + test extension, Kotlin bracket balance of the 4 changed .kt files. NOT compiled, NOT run on a phone. Test extension: mgb_s6_test.zip (open https://example.com, wait 2 s: box at the bottom shows checks 1-4; then tap the tray button: popup shows 5-8).
+- Could break: ContentInjector.buildExt pre-script (extension with match_about_blank / fallback only), gate regex of ExtApi (storage.session for content), OffscreenHost.contexts signature.
+- Not done (NEXT): executeScript / insertCSS / tabs.sendMessage into real iframes (allFrames, frameIds > 0: WebView cannot run script in one iframe by itself), sender.url of an iframe is its origin + "/" (not the full url), no documentId / frameType, storage.session.onChanged is not sent to content scripts, webNavigation.getAllFrames.
+- Unproven: whether the WebView runs a document-start script in an about:blank iframe at all (origin rule "*" is used for that reason).
+- NEXT: phone test of 0.0.118 with mgb_s6_test.zip; then S5 (declarativeNetRequest / webRequest) or S7.
 
 0.0.116 (S4 BUILD: chrome.contextMenus of installed extensions are shown: long press on a link / image, and tray > Page menu for page / selection; onClicked is sent)
 - S3 phone test of 0.0.115 PASSED (all 15 checks OK in the popup).

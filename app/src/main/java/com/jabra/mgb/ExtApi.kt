@@ -27,14 +27,15 @@ object ExtApi {
     private const val CH = "mgb_ext"
     private const val NO_RECEIVER = "Could not establish connection. Receiving end does not exist."
 
-    private val CONTENT_OK = Regex("^(runtime\\.(sendMessage|connect)|port\\.(post|disconnect)|storage\\.(local|sync)\\.[A-Za-z]+)$") // 0.0.111: + ports
+    private val CONTENT_OK = Regex("^(runtime\\.(sendMessage|connect)|port\\.(post|disconnect)|storage\\.(local|sync|session)\\.[A-Za-z]+)$") // 0.0.118: storage.session only after setAccessLevel (see gate) // 0.0.111: + ports
     private val EXT_OK = Regex(
-        "^(runtime\\.(sendMessage|openOptionsPage|connect)|port\\.(post|disconnect)|event\\.add|storage\\.(local|sync|session)\\.[A-Za-z]+" +
+        "^(runtime\\.(sendMessage|openOptionsPage|connect|getContexts)|port\\.(post|disconnect)|event\\.add|storage\\.(local|sync|session)\\.[A-Za-z]+" +
             "|tabs\\.(sendMessage|connect|create|update|getCurrent|remove|get|query|reload|executeScript)" +
             "|windows\\.(create|get|getCurrent|update)|action\\.[A-Za-z]+|alarms\\.[A-Za-z]+|notifications\\.[A-Za-z]+" +
             "|contextMenus\\.[A-Za-z]+|scripting\\.(executeScript|insertCSS|registerContentScripts|updateContentScripts|unregisterContentScripts|getRegisteredContentScripts)|cookies\\.[A-Za-z]+|permissions\\.[A-Za-z]+|commands\\.getAll" +
             "|declarativeNetRequest\\.(updateSessionRules|updateDynamicRules|getSessionRules|getDynamicRules|getEnabledRulesets|updateEnabledRulesets))$"
     )
+    private val sessionOpen = HashSet<String>() // 0.0.118 (S6): extensions that called storage.session.setAccessLevel({accessLevel:"TRUSTED_AND_UNTRUSTED_CONTEXTS"}) (memory only, like the data)
     private val NEEDS = mapOf(
         "storage" to "storage", "alarms" to "alarms", "notifications" to "notifications",
         "contextMenus" to "contextMenus", "scripting" to "scripting", "cookies" to "cookies"
@@ -91,6 +92,9 @@ object ExtApi {
         val info = ExtRegistry.get(xid)
         if (info == null || !info.enabled) return "Extension is turned off"
         if (ctx.kind == ChromeBridge.Kind.CONTENT && !CONTENT_OK.matches(api)) return "Not allowed: $api"
+        // 0.0.118 (S6): storage.session is for trusted contexts (popup, worker, options) unless the extension opened it for content scripts
+        if (ctx.kind == ChromeBridge.Kind.CONTENT && api.startsWith("storage.session.") &&
+            (api == "storage.session.setAccessLevel" || synchronized(sessionOpen) { xid !in sessionOpen })) return "Access to storage is not allowed from this context."
         if (ctx.kind == ChromeBridge.Kind.EXT && !EXT_OK.matches(api)) {
             Diag.w("ext", "api not supported", info.name + ": " + api) // S16: so the Report center shows which chrome.* call an extension needs
             return "Not supported in MGB: $api"
@@ -584,6 +588,12 @@ object ExtApi {
 
     private fun registerHandlers() {
         ChromeBridge.on("ext.runtime.sendMessage") { c -> send(c) }
+        ChromeBridge.onSync("storage.session.setAccessLevel") { c -> // 0.0.118 (S6)
+            val lv = c.args.optJSONObject(0)?.optString("accessLevel", "") ?: ""
+            if (lv != "TRUSTED_CONTEXTS" && lv != "TRUSTED_AND_UNTRUSTED_CONTEXTS") throw IllegalArgumentException("Invalid value for 'accessLevel'.")
+            synchronized(sessionOpen) { if (lv == "TRUSTED_CONTEXTS") sessionOpen.remove(c.extId) else sessionOpen.add(c.extId) }
+            null
+        }
 
         // 0.0.112 (S2): action button (installed extensions only; V77 keeps its no-op handlers in TabsApi)
         ChromeBridge.onSync("ext.action.setBadgeText") { c ->

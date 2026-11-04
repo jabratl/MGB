@@ -188,6 +188,9 @@
     };
   }
   var storage = { local: area('local'), sync: area('sync'), session: area('session'), onChanged: makeEvent('storage.onChanged', false) };
+  // 0.0.118 (S6): session storage is closed for content scripts until a trusted page calls setAccessLevel
+  storage.session.setAccessLevel = wrap(function (o) { return call('storage.session.setAccessLevel', [o || {}]); });
+  storage.session.QUOTA_BYTES = 10485760;
 
   // ---------- i18n (S15): messages come from the extension's _locales (CFG.messages, built by Kotlin) ----------
   var msgs = CFG.messages || {};
