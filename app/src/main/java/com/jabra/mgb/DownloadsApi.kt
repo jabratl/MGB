@@ -228,6 +228,7 @@ object DownloadsApi {
     private fun newItem(url: String): DlItem = synchronized(items) {
         val n = DlItem(nextId++, url)
         items[n.id] = n
+        DlFly.fire() // S21e: badge flies to the menu button
         if (items.size > MAX_ITEMS) {   // forget the oldest finished ones
             val drop = items.values.filter { it.state != "in_progress" }.take(items.size - MAX_ITEMS)
             for (d in drop) { items.remove(d.id); Downloader.partFile(d.id).delete() }

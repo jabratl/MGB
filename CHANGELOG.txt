@@ -1,3 +1,10 @@
+0.0.134 (S21e MODIFY: download fly animation)
+- DlFly.kt (NEW): when a download starts, a rose download badge flies in an arc from the middle of the screen to the 3-dot menu button (620 ms, shrinks + fades), then the button pops. One animation per 600 ms (batches), skipped when system animations are off.
+- DownloadsApi.kt: newItem() calls DlFly.fire() (1 line). MainActivity.kt: DlFly.attach in onCreate, detach in onDestroy.
+- app/build.gradle.kts: 0.0.133 -> 0.0.134.
+- Could break: nothing functional (look only); the badge starts at the screen middle, not at the tapped link; downloads started by V77 jobs also fire it.
+- Checked: bracket balance, exact-match patches. NOT compiled, NOT run on a phone.
+
 0.0.133 (S21d MODIFY: close-all Undo, tab grow-in, smooth load line)
 - TabSwitcher.kt closeList(): Close all / Close picked no longer asks; tabs close at once and a "N tabs closed  Undo" bar brings the http tabs back (same index, group + colour). Private / Home / extension tabs are not restored.
 - TabManager.kt switchTo(): the page also grows from 97% to 100% while it fades in (new tab / switch).

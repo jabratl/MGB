@@ -100,6 +100,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         btnShield.setOnClickListener { PrivacyGuard.show(this, tabs) { refreshShield() } } // S68
         btnEngine.setOnClickListener { EnginePicker.show(this, btnEngine) { refreshShield() } } // S69
         findViewById<ImageView>(R.id.btn_menu).setOnClickListener { showMenu() } // S22
+        DlFly.attach(this, findViewById(R.id.btn_menu)) // S21e
 
         urlBar.setOnEditorActionListener { _, actionId, event ->
             val go = actionId == EditorInfo.IME_ACTION_GO ||
@@ -361,6 +362,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     }
 
     override fun onDestroy() {
+        DlFly.detach() // S21e
         AppLock.onDestroy() // S45
         AutoDiag.stop() // S87.2
         PlayerScreen.onHostDestroy(this) // S35
