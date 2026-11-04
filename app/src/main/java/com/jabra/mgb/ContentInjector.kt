@@ -200,9 +200,13 @@ object ContentInjector {
     private fun fixExtUrls(id: String, css: String): String =
         css.replace("chrome-extension://__MSG_@@extension_id__/", EXT_BASE + id + "/").replace("chrome-extension://$id/", EXT_BASE + id + "/")
 
-    private fun buildExt(id: String, dir: File, mf: File): List<Entry> {
+    private fun buildExt(id: String, dir: File, mf: File, extra: List<JSONObject> = emptyList()): List<Entry> {
         val manifest = JSONObject(mf.readText())
-        val cs = manifest.optJSONArray("content_scripts") ?: return emptyList()
+        // 0.0.115 (S3): manifest content_scripts + scripts added with chrome.scripting.registerContentScripts (same build path)
+        val cs = JSONArray()
+        manifest.optJSONArray("content_scripts")?.let { for (i in 0 until it.length()) cs.put(it.get(i)) }
+        for (x in extra) cs.put(x)
+        if (cs.length() == 0) return emptyList()
         val cfgJson = JSONObject().put("token", tokenFor(id)).put("kind", "content").put("base", EXT_BASE + id + "/")
             .put("id", id).put("manifest", manifest).put("messages", messagesFor(id, dir, manifest)).toString()
         val out = ArrayList<Entry>()
@@ -254,10 +258,10 @@ object ContentInjector {
                 val mf = File(dir, "manifest.json")
                 if (!mf.isFile) continue
                 live.add(id)
-                val sig = "${info.version}:${mf.lastModified()}:${mf.length()}:${dir.lastModified()}"
+                val sig = "${info.version}:${mf.lastModified()}:${mf.length()}:${dir.lastModified()}:r${regVer[id] ?: 0}"
                 val c = extCache[id]
                 if (c != null && c.sig == sig) { out.addAll(c.entries); continue }
-                val built = buildExt(id, dir, mf)
+                val built = buildExt(id, dir, mf, regOf(ctx, id).values.map { regToCs(it) })
                 extCache[id] = ExtCache(sig, built)
                 out.addAll(built)
             } catch (ex: Exception) {
@@ -266,6 +270,178 @@ object ContentInjector {
         }
         extCache.keys.retainAll(live)
         return out
+    }
+
+    // ---------- 0.0.115 (S3): chrome.scripting.registerContentScripts / updateContentScripts / unregisterContentScripts / getRegisteredContentScripts ----------
+    // Stored in Chrome format per extension: files/ext_reg/<id>.json (persistAcrossSessions=false stays in memory). Applied on the NEXT page load of a tab.
+
+    private val regs = HashMap<String, LinkedHashMap<String, JSONObject>>() // xid -> script id -> script
+    private val regVer = HashMap<String, Int>() // changes whenever the list of an extension changes (cache signature)
+
+    private fun regFile(ctx: Context, id: String) = File(File(ctx.filesDir, "ext_reg"), "$id.json")
+
+    @Synchronized private fun regOf(ctx: Context, id: String): LinkedHashMap<String, JSONObject> = regs.getOrPut(id) {
+        val m = LinkedHashMap<String, JSONObject>()
+        try {
+            val f = regFile(ctx, id)
+            if (f.isFile) {
+                val a = JSONArray(f.readText())
+                for (i in 0 until a.length()) {
+                    val o = a.optJSONObject(i) ?: continue
+                    val k = o.optString("id")
+                    if (k.isNotEmpty()) m[k] = o
+                }
+            }
+        } catch (e: Exception) { Log.e(TAG, "$id registered scripts: load failed", e) }
+        m
+    }
+
+    private fun regChanged(ctx: Context, id: String) {
+        regVer[id] = (regVer[id] ?: 0) + 1
+        try {
+            val keep = JSONArray()
+            for (o in regOf(ctx, id).values) if (o.optBoolean("persistAcrossSessions", true)) keep.put(o)
+            val f = regFile(ctx, id)
+            if (keep.length() == 0) { f.delete(); return }
+            f.parentFile?.mkdirs()
+            f.writeText(keep.toString())
+        } catch (e: Exception) { Log.e(TAG, "$id registered scripts: save failed", e) }
+    }
+
+    /** true if the host permission pattern `have` covers the match pattern `want` (path part ignored, like the origin rule). */
+    private fun covers(have: String, want: String): Boolean {
+        if (have == "<all_urls>") return true
+        val h = PATTERN.find(have) ?: return false
+        if (want == "<all_urls>") return h.groupValues[1] == "*" && h.groupValues[2] == "*"
+        val w = PATTERN.find(want) ?: return false
+        if (h.groupValues[1] != "*" && h.groupValues[1] != w.groupValues[1]) return false
+        val hh = h.groupValues[2]
+        val wh = w.groupValues[2]
+        return when {
+            hh == "*" -> true
+            wh == "*" -> false
+            hh.startsWith("*.") -> wh == hh.substring(2) || wh.endsWith(hh.substring(1))
+            else -> hh == wh
+        }
+    }
+
+    private fun strList(v: Any?, name: String): JSONArray {
+        val out = JSONArray()
+        if (v == null || v == JSONObject.NULL) return out
+        if (v !is JSONArray) throw IllegalArgumentException("Invalid value for '$name'.")
+        for (i in 0 until v.length()) {
+            val x = v.opt(i)
+            if (x !is String) throw IllegalArgumentException("Invalid value for '$name'.")
+            out.put(x)
+        }
+        return out
+    }
+
+    /** One script as the extension gave it -> checked + only the known keys. Throws IllegalArgumentException with a Chrome-like text. */
+    private fun regClean(ctx: Context, xid: String, o: JSONObject, hostPats: List<String>): JSONObject {
+        val k = o.opt("id")
+        if (k !is String || k.isEmpty()) throw IllegalArgumentException("Script must have a non-empty 'id'.")
+        if (k.startsWith("_")) throw IllegalArgumentException("Script ID '$k' must not start with '_'.")
+        val matches = strList(o.opt("matches"), "matches")
+        if (matches.length() == 0) throw IllegalArgumentException("Script '$k' must specify 'matches'.")
+        for (i in 0 until matches.length()) {
+            val p = matches.getString(i)
+            if (patRegex(p) == null) throw IllegalArgumentException("Invalid match pattern '$p' in script '$k'.")
+            if (hostPats.none { covers(it, p) }) throw IllegalArgumentException("Cannot access contents of '$p': the extension has no host permission for it.")
+        }
+        val excl = strList(o.opt("excludeMatches"), "excludeMatches")
+        for (i in 0 until excl.length()) if (patRegex(excl.getString(i)) == null) throw IllegalArgumentException("Invalid match pattern '" + excl.getString(i) + "' in script '$k'.")
+        val js = strList(o.opt("js"), "js")
+        val css = strList(o.opt("css"), "css")
+        if (js.length() == 0 && css.length() == 0) throw IllegalArgumentException("Script '$k' must specify at least one 'js' or 'css' file.")
+        val dir = File(File(ctx.filesDir, "exts"), xid)
+        for (i in 0 until js.length()) if (extFile(dir, js.getString(i)) == null) throw IllegalArgumentException("Could not load javascript '" + js.getString(i) + "' for script '$k'.")
+        for (i in 0 until css.length()) if (extFile(dir, css.getString(i)) == null) throw IllegalArgumentException("Could not load css '" + css.getString(i) + "' for script '$k'.")
+        val runAt = if (o.has("runAt") && !o.isNull("runAt")) o.optString("runAt") else "document_idle"
+        if (runAt != "document_start" && runAt != "document_end" && runAt != "document_idle") throw IllegalArgumentException("Invalid value for 'runAt'.")
+        val world = if (o.has("world") && !o.isNull("world")) o.optString("world") else "ISOLATED"
+        if (world != "ISOLATED" && world != "MAIN") throw IllegalArgumentException("Invalid value for 'world'.")
+        val c = JSONObject().put("id", k).put("matches", matches).put("runAt", runAt).put("world", world)
+            .put("allFrames", o.optBoolean("allFrames", false))
+            .put("matchOriginAsFallback", o.optBoolean("matchOriginAsFallback", false))
+            .put("persistAcrossSessions", o.optBoolean("persistAcrossSessions", true))
+        if (excl.length() > 0) c.put("excludeMatches", excl)
+        if (js.length() > 0) c.put("js", js)
+        if (css.length() > 0) c.put("css", css)
+        return c
+    }
+
+    /** Chrome format -> manifest content_scripts format (what buildExt reads). */
+    private fun regToCs(o: JSONObject): JSONObject = JSONObject()
+        .put("matches", o.optJSONArray("matches") ?: JSONArray())
+        .put("exclude_matches", o.optJSONArray("excludeMatches") ?: JSONArray())
+        .put("js", o.optJSONArray("js") ?: JSONArray())
+        .put("css", o.optJSONArray("css") ?: JSONArray())
+        .put("all_frames", o.optBoolean("allFrames", false))
+        .put("run_at", o.optString("runAt", "document_idle"))
+        .put("world", o.optString("world", "ISOLATED"))
+
+    /** registerContentScripts: all or nothing. Throws IllegalArgumentException (shown as chrome.runtime.lastError / rejected promise). */
+    @Synchronized fun regAdd(ctx: Context, xid: String, arr: JSONArray?, hostPats: List<String>) {
+        if (arr == null) throw IllegalArgumentException("Invalid argument: scripts must be an array.")
+        val m = regOf(ctx, xid)
+        val seen = HashSet<String>()
+        val fresh = ArrayList<JSONObject>()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: throw IllegalArgumentException("Invalid script at index $i.")
+            val c = regClean(ctx, xid, o, hostPats)
+            val k = c.getString("id")
+            if (k in m || !seen.add(k)) throw IllegalArgumentException("Duplicate script ID '$k'")
+            fresh.add(c)
+        }
+        if (m.size + fresh.size > 500) throw IllegalArgumentException("Too many registered content scripts.")
+        for (c in fresh) m[c.getString("id")] = c
+        regChanged(ctx, xid)
+    }
+
+    /** updateContentScripts: every id must exist; the given keys replace the old ones. */
+    @Synchronized fun regUpdate(ctx: Context, xid: String, arr: JSONArray?, hostPats: List<String>) {
+        if (arr == null) throw IllegalArgumentException("Invalid argument: scripts must be an array.")
+        val m = regOf(ctx, xid)
+        val upd = LinkedHashMap<String, JSONObject>()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: throw IllegalArgumentException("Invalid script at index $i.")
+            val k = o.optString("id")
+            val old = m[k] ?: throw IllegalArgumentException("Content script with ID '$k' does not exist.")
+            val merged = JSONObject(old.toString())
+            val keys = o.keys()
+            while (keys.hasNext()) { val key = keys.next(); merged.put(key, o.get(key)) }
+            upd[k] = regClean(ctx, xid, merged, hostPats)
+        }
+        for ((k, v) in upd) m[k] = v
+        regChanged(ctx, xid)
+    }
+
+    /** unregisterContentScripts: ids null = all. An unknown id fails the whole call. */
+    @Synchronized fun regRemove(ctx: Context, xid: String, ids: JSONArray?) {
+        val m = regOf(ctx, xid)
+        if (ids == null) m.clear()
+        else {
+            for (i in 0 until ids.length()) { val k = ids.optString(i); if (k !in m) throw IllegalArgumentException("Nonexistent script ID '$k'") }
+            for (i in 0 until ids.length()) m.remove(ids.optString(i))
+        }
+        regChanged(ctx, xid)
+    }
+
+    /** getRegisteredContentScripts: ids null = all. */
+    @Synchronized fun regList(ctx: Context, xid: String, ids: JSONArray?): JSONArray {
+        val want = HashSet<String>()
+        if (ids != null) for (i in 0 until ids.length()) want.add(ids.optString(i))
+        val out = JSONArray()
+        for (o in regOf(ctx, xid).values) if (ids == null || o.optString("id") in want) out.put(JSONObject(o.toString()))
+        return out
+    }
+
+    /** The extension was removed: its registered scripts go with it. */
+    @Synchronized fun regForget(ctx: Context, xid: String) {
+        regs.remove(xid)
+        regVer.remove(xid)
+        try { regFile(ctx, xid).delete() } catch (_: Exception) { }
     }
 
     private val PATTERN = Regex("^(\\*|https?)://([^/]*)(/.*)?$")

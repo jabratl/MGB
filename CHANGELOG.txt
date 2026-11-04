@@ -1,3 +1,14 @@
+0.0.115 (S3 BUILD: chrome.scripting.registerContentScripts / updateContentScripts / unregisterContentScripts / getRegisteredContentScripts for installed extensions)
+- S2 phone test of 0.0.113 PASSED (badge, title, popup after setPopup, onClicked with tab, enable/disable all OK). 0.0.114 = version bump only.
+- Before: these four calls were refused ("Not supported in MGB").
+- ExtApi.kt: gate regex allows the 4 calls (still needs the "scripting" permission); handlers ext.scripting.* call ContentInjector and then refresh open tabs; removed extension -> regForget.
+- ContentInjector.kt: new section: scripts stored in Chrome format per extension (files/ext_reg/<id>.json; persistAcrossSessions=false stays in memory), checks like Chrome (unique id, id not starting with _, matches valid + covered by host_permissions, js/css files exist, runAt, world), all-or-nothing register, update merges keys, unregister with unknown id fails, get with ids filter. buildExt() now takes the registered scripts as extra content_scripts entries (same path as manifest ones: url regex, css, run_at, all_frames, world); cache signature includes a change counter.
+- chrome-shim.js: scripting.updateContentScripts added to the method list.
+- V77 not changed. Checked: node --check shim; covers() (host permission vs match pattern) logic ported to python, 9 checks pass; Kotlin bracket balance of ContentInjector / ExtApi. NOT compiled, NOT run on a phone. Test extension: mgb_s3_test.zip (popup: run all checks, list, unregister all).
+- Applies on the NEXT page load of a tab (like Chrome). Not done: matchOriginAsFallback / match_about_blank (S6), registered scripts of a disabled extension are kept but not injected, host permission is checked at register time only.
+- Could break: buildExt() was changed (manifest scripts + extra). If an extension with plain manifest content scripts stops working, this is the place.
+- NEXT: phone test of 0.0.115 with mgb_s3_test.zip; then S4 (contextMenus) or S6.
+
 0.0.114 (CI only: same code as 0.0.113, version bumped to start a fresh build after a failed run; no code change)
 - The 0.0.113 run failed (release api HTTP 500, then a re-run of the old commit re-applied the zip and the push was rejected). Re-run of a failed run must not be used for zip uploads.
 - NEXT: phone test of 0.0.114 with mgb_s2_test.zip (tap 1 = badge 1, tap 2 = popup); then S4 or S3.

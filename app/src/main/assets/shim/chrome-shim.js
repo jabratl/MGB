@@ -228,7 +228,7 @@
       tabs: [['sendMessage', 'create', 'update', 'getCurrent', 'remove', 'get', 'query', 'reload', 'captureVisibleTab', 'executeScript'], ['onRemoved', 'onUpdated', 'onCreated', 'onActivated']],
       downloads: [['search', 'download', 'show', 'resume', 'removeFile', 'pause', 'cancel', 'erase', 'open'], ['onChanged', 'onCreated']],
       declarativeNetRequest: [['updateSessionRules', 'updateDynamicRules', 'getSessionRules', 'getDynamicRules', 'getEnabledRulesets', 'updateEnabledRulesets'], []],
-      scripting: [['executeScript', 'insertCSS', 'registerContentScripts', 'unregisterContentScripts', 'getRegisteredContentScripts'], []],
+      scripting: [['executeScript', 'insertCSS', 'registerContentScripts', 'updateContentScripts', 'unregisterContentScripts', 'getRegisteredContentScripts'], []],
       sidePanel: [['open', 'setOptions', 'setPanelBehavior'], []],
       action: [['setBadgeText', 'setBadgeBackgroundColor', 'setBadgeTextColor', 'setIcon', 'setTitle', 'setPopup', 'getBadgeText', 'getBadgeBackgroundColor', 'getBadgeTextColor', 'getTitle', 'getPopup', 'enable', 'disable', 'isEnabled', 'openPopup'], ['onClicked']], // 0.0.112 (S2)
       notifications: [['create', 'clear', 'update'], ['onClicked', 'onClosed', 'onButtonClicked']],

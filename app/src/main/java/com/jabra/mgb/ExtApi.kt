@@ -32,7 +32,7 @@ object ExtApi {
         "^(runtime\\.(sendMessage|openOptionsPage|connect)|port\\.(post|disconnect)|event\\.add|storage\\.(local|sync|session)\\.[A-Za-z]+" +
             "|tabs\\.(sendMessage|connect|create|update|getCurrent|remove|get|query|reload|executeScript)" +
             "|windows\\.(create|get|getCurrent|update)|action\\.[A-Za-z]+|alarms\\.[A-Za-z]+|notifications\\.[A-Za-z]+" +
-            "|contextMenus\\.[A-Za-z]+|scripting\\.(executeScript|insertCSS)|cookies\\.[A-Za-z]+|permissions\\.[A-Za-z]+|commands\\.getAll" +
+            "|contextMenus\\.[A-Za-z]+|scripting\\.(executeScript|insertCSS|registerContentScripts|updateContentScripts|unregisterContentScripts|getRegisteredContentScripts)|cookies\\.[A-Za-z]+|permissions\\.[A-Za-z]+|commands\\.getAll" +
             "|declarativeNetRequest\\.(updateSessionRules|updateDynamicRules|getSessionRules|getDynamicRules|getEnabledRulesets|updateEnabledRulesets))$"
     )
     private val NEEDS = mapOf(
@@ -163,6 +163,7 @@ object ExtApi {
             cancelAlarms(id)
             menus.remove(id)
             HeaderModes.forget(id) // S7: header rules of the removed extension
+            ContentInjector.regForget(a, id) // 0.0.115 (S3): registered content scripts of the removed extension
             mem.remove(id)
             sp.edit().remove("ver_$id").remove("mem_$id").apply()
         }
@@ -588,6 +589,22 @@ object ExtApi {
             val p = actionView(c.extId, TabsApi.activeTab()?.id ?: -1).popup ?: throw IllegalStateException("This extension has no popup")
             main.post { ExtScreen.openSibling(ContentInjector.EXT_BASE + c.extId + "/" + p.trimStart('/')) }
             null
+        }
+
+        // 0.0.115 (S3): registered content scripts (installed extensions only; they apply on the next page load of a tab)
+        fun regDone() { val a = app; if (a != null) main.post { ContentInjector.refresh(a) } }
+        fun idsOf(c: ChromeBridge.Call): JSONArray? = c.args.optJSONObject(0)?.optJSONArray("ids")
+        ChromeBridge.onSync("ext.scripting.registerContentScripts") { c ->
+            ContentInjector.regAdd(app ?: throw IllegalStateException("Not ready"), c.extId, c.args.optJSONArray(0), hostPats(c.extId)); regDone(); null
+        }
+        ChromeBridge.onSync("ext.scripting.updateContentScripts") { c ->
+            ContentInjector.regUpdate(app ?: throw IllegalStateException("Not ready"), c.extId, c.args.optJSONArray(0), hostPats(c.extId)); regDone(); null
+        }
+        ChromeBridge.onSync("ext.scripting.unregisterContentScripts") { c ->
+            ContentInjector.regRemove(app ?: throw IllegalStateException("Not ready"), c.extId, idsOf(c)); regDone(); null
+        }
+        ChromeBridge.onSync("ext.scripting.getRegisteredContentScripts") { c ->
+            ContentInjector.regList(app ?: throw IllegalStateException("Not ready"), c.extId, idsOf(c))
         }
 
         // 0.0.111 (S1): ports
