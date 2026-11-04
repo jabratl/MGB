@@ -332,6 +332,13 @@ object ExtApi {
         return true
     }
 
+    /** 0.0.113: like actionClicked, but a worker that is stopped or never ran (no listener remembered yet) is started first and asked again. cb(true) = onClicked was sent. cb runs on the main thread. */
+    fun actionClickedWake(xid: String, tab: TabManager.Tab?, cb: (Boolean) -> Unit) {
+        if (hasClickListener(xid)) { cb(actionClicked(xid, tab)); return }
+        if (!ExtBackground.has(xid)) { cb(false); return }
+        ExtBackground.ensure(xid) { ok -> cb(ok && hasClickListener(xid) && actionClicked(xid, tab)) }
+    }
+
     // ---------- long-lived ports: runtime.connect / tabs.connect (S1, 0.0.111) ----------
     // The shim makes the port id and sends port.post / port.disconnect with it; Kotlin only routes by id.
     // from = frame that connected, targets = frames of the SAME extension that got runtime.onConnect.

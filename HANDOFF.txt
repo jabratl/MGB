@@ -1,3 +1,4 @@
+CURRENT VERSION 0.0.113 (S2 FIX: tray tap starts a stopped worker before it decides "has no popup", see the 0.0.113 entry in CHANGELOG.txt; before: 0.0.112)
 CURRENT VERSION 0.0.112 (S2: extension button in the tray, chrome.action badge / popup / onClicked, see the 0.0.112 entry in CHANGELOG.txt; before: 0.0.111)
 
 CURRENT VERSION 0.0.111 (S1: runtime.connect / onConnect / tabs.connect ports, see the 0.0.111 entry in CHANGELOG.txt; before: 0.0.110)

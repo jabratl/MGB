@@ -194,10 +194,14 @@ object ExtTray {
             if (!ExtScreen.openExtPage(act, e.id, page)) Util.toast(act, "Could not open " + e.name)
             return
         }
-        if (ExtApi.actionClicked(e.id, tab)) return
-        val opt = e.options
-        if (opt == null) { Util.toast(act, e.name + " has no popup"); return }
-        if (!ExtScreen.openExtPage(act, e.id, opt)) Util.toast(act, "Could not open " + e.name)
+        // 0.0.113: a stopped / never started worker is started first (its listeners are not known before it ran)
+        ExtApi.actionClickedWake(e.id, tab) { sent ->
+            if (!sent) {
+                val opt = e.options
+                if (opt == null) { EngineHost.addLog("ext button: " + e.name + " has no popup and no action.onClicked listener"); Util.toast(act, e.name + " has no popup") }
+                else if (!ExtScreen.openExtPage(act, e.id, opt)) Util.toast(act, "Could not open " + e.name)
+            }
+        }
     }
 
     private fun tile(act: Activity, e: ExtRegistry.Info, onTap: () -> Unit): View {
