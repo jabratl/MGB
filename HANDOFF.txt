@@ -1,3 +1,4 @@
+CURRENT VERSION 0.0.132 (S21c: swipe-to-close card, tab fade, count pop; see CHANGELOG 0.0.132; apply after 0.0.131 zip). NOT tested: compile, swipe feel, fade flicker.
 HANDOFF - MGB (Thazir) S21 done (part 1 + part 2)
 Done: S21 part 1 (0.0.130) Home button = Home in the SAME tab, page + back/forward kept. S21 part 2 (0.0.131) tab switcher close animation + "Closed <title> Undo" (same index + group), last tab closed = Home.
 Changed (0.0.131): TabSwitcher.kt (closeAnimated), TabManager.kt (moveTo), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt. Part 1 files (TabManager.kt, MainActivity.kt) are in MGB_S21a_v0_0_130.zip: apply that first (this zip's TabManager.kt already contains it).

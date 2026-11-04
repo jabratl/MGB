@@ -295,7 +295,13 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     // ---------- TabManager.Listener ----------
 
     override fun onTabsChanged() {
-        btnTabs.text = tabs.count.toString()
+        val tabCount = tabs.count.toString()
+        if (btnTabs.text.toString() != tabCount) { // S21c: the count pops when it changes
+            btnTabs.text = tabCount
+            btnTabs.animate().cancel()
+            btnTabs.scaleX = 1.35f; btnTabs.scaleY = 1.35f
+            btnTabs.animate().scaleX(1f).scaleY(1f).setInterpolator(android.view.animation.OvershootInterpolator(2f)).setDuration(260).start()
+        }
         GroupStrip.refresh() // S13
     }
 

@@ -835,7 +835,7 @@ object TabSwitcher {
             popup(anchor, items, if (inView) 0 else -anchor.height + dp(44))
         }
 
-        private fun closeAnimated(v: View, t: TabManager.Tab) {
+        private fun closeAnimated(v: View, t: TabManager.Tab, dir: Float = 0f) {
             // S21b: Quetta-like close = card shrinks + fades, neighbours glide in, "Closed <title>  Undo" bar
             val all = tm.allTabs()
             val idx = all.indexOf(t)
@@ -846,7 +846,8 @@ object TabSwitcher {
             val gIdx = gName?.let { groups[it]?.toList()?.indexOf(t.id) } ?: -1
             val gCol = gName?.let { colors[it] }
             val onlyOne = all.size == 1
-            v.animate().alpha(0f).scaleX(0.6f).scaleY(0.6f).setInterpolator(android.view.animation.AccelerateInterpolator(1.2f)).setDuration(190).withEndAction {
+            (if (dir != 0f) v.animate().translationX(dir * v.width * 1.1f).alpha(0f).setInterpolator(android.view.animation.AccelerateInterpolator(1.1f)).setDuration(160)
+            else v.animate().alpha(0f).scaleX(0.6f).scaleY(0.6f).setInterpolator(android.view.animation.AccelerateInterpolator(1.2f)).setDuration(190)).withEndAction {
                 pendingGlide = snapPos() // S16: the cards after it slide into the gap
                 tm.close(t)
                 render()
@@ -1050,6 +1051,7 @@ object TabSwitcher {
             var downY = 0f
             var armed = false
             var dragging = false
+            var swiping = false // S21c: swipe a card sideways = close it
             val slop = ViewConfiguration.get(act).scaledTouchSlop
             val lift = Runnable {
                 armed = true
@@ -1075,7 +1077,7 @@ object TabSwitcher {
                 when (e.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
                         downX = e.rawX; downY = e.rawY; lastX = downX; lastY = downY
-                        armed = false; dragging = false
+                        armed = false; dragging = false; swiping = false
                         v.animate().scaleX(0.96f).scaleY(0.96f).setDuration(80).start()
                         v.postDelayed(lift, ViewConfiguration.getLongPressTimeout().toLong())
                         false
@@ -1087,6 +1089,18 @@ object TabSwitcher {
                             v.translationY = e.rawY - downY + dragShift
                             updateHover(v)
                             true
+                        } else if (swiping) {
+                            val dx = e.rawX - downX
+                            v.translationX = dx
+                            v.alpha = 1f - minOf(1f, abs(dx) / (v.width * 0.9f))
+                            true
+                        } else if (!armed && !selecting && abs(e.rawX - downX) > slop * 2 && abs(e.rawX - downX) > abs(e.rawY - downY) * 1.6f) {
+                            swiping = true
+                            v.removeCallbacks(lift)
+                            v.parent?.requestDisallowInterceptTouchEvent(true)
+                            v.animate().cancel()
+                            v.animate().scaleX(1f).scaleY(1f).setDuration(100).start()
+                            true
                         } else {
                             if (!armed && (abs(e.rawX - downX) > slop || abs(e.rawY - downY) > slop)) {
                                 v.removeCallbacks(lift)
@@ -1097,7 +1111,15 @@ object TabSwitcher {
                     }
                     MotionEvent.ACTION_UP -> {
                         v.removeCallbacks(lift)
-                        if (dragging) {
+                        if (swiping) {
+                            swiping = false
+                            val dx = e.rawX - downX
+                            if (abs(dx) > v.width * 0.35f) {
+                                v.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                closeAnimated(v, t, if (dx > 0) 1f else -1f)
+                            } else settle(v)
+                            true
+                        } else if (dragging) {
                             dragging = false
                             dragView = null
                             scroll.removeCallbacks(scroller)
@@ -1115,6 +1137,7 @@ object TabSwitcher {
                     }
                     MotionEvent.ACTION_CANCEL -> {
                         v.removeCallbacks(lift)
+                        if (swiping) { swiping = false; settle(v) }
                         if (dragging) {
                             dragging = false
                             dragView = null

@@ -161,9 +161,11 @@ class TabManager(
     fun switchTo(tab: Tab) {
         if (active === tab) return
         exitFullscreen() // S14
-        active?.let { TabSwitcher.snap(it); container.removeView(it.web) } // S32: thumbnail of the tab we leave
+        active?.let { TabSwitcher.snap(it); container.removeView(it.web); it.web.animate().cancel(); it.web.alpha = 1f } // S32: thumbnail of the tab we leave
         active = tab
         container.addView(tab.web, FrameLayout.LayoutParams(MATCH, MATCH))
+        tab.web.alpha = 0f // S21c: soft cross-fade when a tab becomes active
+        tab.web.animate().alpha(1f).setDuration(150).start()
         tab.web.requestFocus()
         TabsApi.onActivated(tab) // S6
         tab.pending?.let { tab.pending = null; tab.web.loadUrl(it) }

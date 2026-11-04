@@ -1,3 +1,11 @@
+0.0.132 (S21c MODIFY: small tab polish)
+- TabSwitcher.kt: swipe a tab card left / right to close it (35% of the width, haptic tick, card flies out, others glide, Undo bar). Not in select mode; long press drag unchanged.
+- TabManager.kt: switchTo() cross-fades the new tab in (150 ms).
+- MainActivity.kt: the tab count on the bottom bar pops (overshoot) when it changes.
+- app/build.gradle.kts: 0.0.131 -> 0.0.132.
+- Could break: swipe vs vertical scroll on the grid (needs a mostly sideways move); WebView alpha fade may flicker on some phones (remove the 2 alpha lines in switchTo).
+- Checked: bracket balance, exact-match patches. NOT compiled, NOT run on a phone.
+
 0.0.131 (S21 MODIFY, part 2 of 2: tab switcher close like Quetta + Undo)
 - TabSwitcher.kt closeAnimated(): card shrinks to 60% + fades (190 ms), the other cards glide into the gap (S16 glide), then a "Closed <title>  Undo" bar (existing undo bar, 5 s). Undo reopens the page at the SAME index, back in its group at the same place (group colour restored), and removes it from Recently closed. Closing the last tab = Home tab as before; Undo then replaces that Home tab with the page. No Undo for private / Home / extension tabs.
 - TabManager.kt: new moveTo(tab, index).
