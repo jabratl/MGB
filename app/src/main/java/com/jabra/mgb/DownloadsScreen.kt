@@ -109,10 +109,7 @@ object DownloadsScreen {
                     override fun afterTextChanged(e: android.text.Editable?) { query = e?.toString().orEmpty(); sig = ""; render() }
                 })
             }
-            findViewById<View>(R.id.xd_clear).setOnClickListener {
-                EngineApi.send(JSONObject().put("type", "jobs-clear"))
-                main.postDelayed({ sig = ""; render() }, 400)
-            }
+            findViewById<View>(R.id.xd_clear)?.visibility = View.GONE // 0.0.126: Clear did nothing, hidden (id + layout kept)
             main.post(tick)
         }
 

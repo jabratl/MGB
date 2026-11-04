@@ -199,14 +199,15 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                 else Util.toast(this, if (AdBlock.toggle()) "Ad blocker ON (reload the page)" else "Ad blocker OFF (reload the page)")
             }
         )
+        val onHome = cur?.home == true // 0.0.126: Home / private Home has no page functions, so no page header + rows
         val title = when {
             cur == null -> "Thazir"
-            cur.home -> if (cur.priv) "Private tab" else "Home"
+            onHome -> ""
             else -> Util.host(cur.url).ifBlank { "New tab" }
         }
         val quick = quickAll.filter { MenuCustom.on(this, it.key) }
         val general = generalTop.filter { MenuCustom.on(this, it.key) } + MenuCustom.pinnedRows(this) + generalEnd
-        val page = pageAll.filter { MenuCustom.on(this, it.key) }
+        val page = if (onHome) emptyList() else pageAll.filter { MenuCustom.on(this, it.key) }
         val share: (() -> Unit)? = if (canMark) ({ tabs.active?.let { if (it.url.startsWith("http")) tabs.shareText(it.url) } }) else null
         MenuSheet.show(this, quick, general, title, share, page, acts, "Thazir ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
     }

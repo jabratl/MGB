@@ -1,3 +1,12 @@
+0.0.126 (S17 MODIFY: Home 3-dot menu without page rows + dead "Clear" removed from Downloads)
+- MenuSheet.kt: page header (title + share) and the divider above the icon row are skipped when the title is blank and there are no page rows (showPage). Signature unchanged.
+- MainActivity.kt showMenu(): on a Home tab (normal or private) title = "" and page = emptyList(), so Home shows only the tiles card + general rows + the icon row (back / forward / bookmark / extensions / reload), like Quetta. On any site nothing changes (host title, share, Find / Desktop / Translate / Reader / ...).
+- DownloadsScreen.kt: xd_clear is set GONE (it only sent jobs-clear and did nothing visible). Id and layout kept, so nothing else breaks.
+- app/build.gradle.kts: 0.0.125 -> 0.0.126.
+- Could break: cur == null (no tab) still shows title "Thazir" + page rows; Customise menu "Page actions" section is unaffected but its rows are simply not shown on Home.
+- Checked: bracket balance of the 3 changed .kt files, patches applied with exact-match asserts. NOT compiled (no Android SDK here), NOT run on a phone, NOT rendered at 360 / 1280 px, light / dark not looked at.
+- NEXT: S18 = Downloads saved-file menu like Quetta (see HANDOFF.txt).
+
 0.0.125 (S16 FIX: dragged tab card cut off in the group panel + smoother tab animations)
 - Root cause: TabSwitcher.kt grid LinearLayout has padding and clipToPadding defaults to true, so a card dragged out of the grid content rect (row bottom) was clipped to a thin strip and vanished. Fix: grid.clipToPadding = false (1 line).
 - TabSwitcher.kt: new glide (FLIP) animation. Tab / group cards carry a key (tag); before a re-render their screen positions are saved, after layout each card eases from its old spot to its new one (300 ms, standard-decelerate). Used for: reorder inside a group, close tab (cards after it slide up), drop into a group / pull out (gap closes).

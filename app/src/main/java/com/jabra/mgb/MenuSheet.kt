@@ -169,10 +169,11 @@ object MenuSheet {
             background = ripple?.constantState?.newDrawable()
             setOnClickListener { dlg.dismiss(); onShare?.invoke() }
         }, LinearLayout.LayoutParams(dp(48), dp(48)))
-        c2.addView(head, LinearLayout.LayoutParams(MATCH, dp(48)))
+        val showPage = pageTitle.isNotBlank() || page.isNotEmpty() // 0.0.126: Home passes blank title + no rows = only the icon row
+        if (showPage) c2.addView(head, LinearLayout.LayoutParams(MATCH, dp(48)))
         for (m in page) c2.addView(itemRow(m), LinearLayout.LayoutParams(MATCH, dp(52)))
         if (acts.isNotEmpty()) {
-            addDivider(c2)
+            if (showPage) addDivider(c2)
             val arow = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
             for (a in acts) {
                 arow.addView(ImageView(ctx).apply {
