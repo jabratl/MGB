@@ -1,3 +1,5 @@
+CURRENT VERSION 0.0.109 (FIX: extension pages open in a full desktop tab + source page found, see the 0.0.109 entry in CHANGELOG.txt; before: 0.0.108)
+
 CURRENT VERSION 0.0.108 (FIX: installed extensions did not run on web pages; root cause = chrome-shim.js without the extension id, see the 0.0.108 entry in CHANGELOG.txt; before: 0.0.106.2)
 
 CURRENT VERSION 0.0.104 (S9: multi-extension support S0-S9 finished; notes are in the section "MULTI-EXTENSION SUPPORT (S0-S9)" at the end of this file; HANDOFF.txt / CHANGELOG.txt had no 0.0.92 / S89.4-S90 notes when S9 started, add them from the S89 chat; before: 0.0.92)

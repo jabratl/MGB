@@ -72,6 +72,8 @@ class TabManager(
         var home: Boolean = false
         /** S14: desktop user agent + wide viewport (not saved in the session). */
         var desktop: Boolean = false
+        /** 0.0.109: page of an installed extension: desktop user agent + wide viewport (extensions like WebToEpub refuse the mobile one). */
+        var extWide: Boolean = false
         /** S26: private tab: own WebView profile (cookies / storage), no history, not saved in the session. */
         var priv: Boolean = false
         val loading: Boolean get() = progress < 100
@@ -137,6 +139,12 @@ class TabManager(
         tabs.add(tab)
         ChromeBridge.bindTab(web, tab.id)
         if (url != null) tab.url = url
+        if (url != null && ExtScreen.extIdOf(url) != null) { // 0.0.109
+            tab.extWide = true
+            web.settings.userAgentString = BrowserExtras.desktopUa(ctx)
+            web.settings.useWideViewPort = true
+            web.settings.loadWithOverviewMode = true
+        }
         UiMode.applyPage(web, UiMode.darkPages(ctx) && !tab.isExt) // S20
         if (url == HOME_PAGE) tab.home = true // S13: speed dial, nothing to load
         TabsApi.onCreated(tab) // S6
@@ -400,6 +408,7 @@ class TabManager(
             tab.progress = 100
             tab.popup = false // 0.0.106: the pop-up passed the check
             if (tab.desktop && !tab.isExt) view?.evaluateJavascript(BrowserExtras.DESKTOP_JS, null) // S14
+            if (tab.extWide && tab.isExt) view?.evaluateJavascript(BrowserExtras.DESKTOP_JS, null) // 0.0.109
             if (!tab.isExt && !tab.priv && tab.url.startsWith("http")) view?.evaluateJavascript(PasswordStore.HOOK_JS, null) // S30
             if (!tab.isExt && !tab.priv && tab.url.startsWith("http") && WebVideo.onFor(ctx, tab.url)) view?.evaluateJavascript(WebVideo.JS, null) // S45
             if (!tab.isExt) YtAds.flag(view, tab.url) // 0.0.105

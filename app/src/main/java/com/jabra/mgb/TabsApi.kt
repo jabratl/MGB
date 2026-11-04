@@ -84,6 +84,15 @@ object TabsApi {
         return o
     }
 
+    /** 0.0.109: caller is a page of an installed extension that is open as a TAB -> the web page it was opened for (opener, else the first normal tab). null = not that case. */
+    fun sourceTabFor(c: ChromeBridge.Call): TabManager.Tab? {
+        if (c.extId == ContentInjector.EXT_ID) return null
+        val m = tm ?: return null
+        val me = if (c.ctx.tabId > 0) m.byId(c.ctx.tabId) else null
+        if (me == null || !me.isExt) return null
+        return m.byId(me.openerId)?.takeIf { !it.isExt } ?: m.all().lastOrNull { !it.isExt && !it.home }
+    }
+
     private fun frameIdOf(c: ChromeBridge.Ctx): Int {
         if (c.isMainFrame) return 0
         return synchronized(frameIds) { frameIds.getOrPut(c) { nextFrame++ } }
@@ -233,13 +242,26 @@ object TabsApi {
             c.ok(if (t == null) null else ExtApi.tabFor(c.extId, tabJson(t)))
         }
 
-        handle("tabs.query") { c -> c.ok(ExtApi.tabsFor(c.extId, query(c.args.optJSONObject(0) ?: JSONObject()))) }
+        handle("tabs.query") { c ->
+            val q = c.args.optJSONObject(0) ?: JSONObject()
+            val src = if (q.optBoolean("active", false)) sourceTabFor(c) else null
+            if (src == null) c.ok(ExtApi.tabsFor(c.extId, query(q)))
+            else { // 0.0.109: asked from an extension page that is open as a tab: "active" = the page it was opened for, not the extension tab itself
+                val q2 = JSONObject(q.toString()); q2.remove("active")
+                val all = query(q2); val out = JSONArray()
+                for (i in 0 until all.length()) { val o = all.optJSONObject(i); if (o != null && o.optInt("id") == src.id) out.put(o) }
+                c.ok(ExtApi.tabsFor(c.extId, out))
+            }
+        }
 
         handle("tabs.create") { c ->
             val m = tm
             if (m == null) { c.fail("No browser window"); return@handle }
             val o = c.args.optJSONObject(0) ?: JSONObject()
-            val opener = if (o.has("openerTabId")) o.optInt("openerTabId") else maxOf(c.ctx.tabId, 0)
+            val own = c.extId != ContentInjector.EXT_ID // 0.0.109: installed extension (V77 keeps its windows)
+            val opener = if (o.has("openerTabId")) o.optInt("openerTabId")
+                else if (own && c.ctx.tabId <= 0) (m.active?.takeIf { !it.isExt }?.id ?: 0) // from a popup window: the page under it is the source
+                else maxOf(c.ctx.tabId, 0)
             val u = fullUrl(o.optString("url", ""), c.extId)
             // S39: V77 "Play" (player.html?url=...) = built-in native player, not the Chromium page player
             if (WebPlay.fromExtPlayerUrl(m.host(), u, (m.byId(opener) ?: m.active)?.web?.settings?.userAgentString)) {
@@ -247,7 +269,7 @@ object TabsApi {
                 return@handle
             }
             // S10: popup / queue / manga / history / options open as a full-screen window, not as a tab
-            if (ExtScreen.isScreenUrl(u) && ExtScreen.open(m.host(), u)) {
+            if (!own && ExtScreen.isScreenUrl(u) && ExtScreen.open(m.host(), u)) {
                 c.ok(JSONObject().put("id", -1).put("windowId", 1).put("index", 0).put("active", true).put("url", u).put("status", "complete"))
                 return@handle
             }
@@ -432,7 +454,7 @@ object TabsApi {
         if (c.extId != ContentInjector.EXT_ID) {
             // S6: an installed extension needs a host permission for the page (activeTab = the tab that is on screen)
             val info = ExtRegistry.get(c.extId)
-            val ok = info != null && (ExtApi.hostAllows(info, t.url) || ("activeTab" in info.permissions && tm?.active === t))
+            val ok = info != null && (ExtApi.hostAllows(info, t.url) || ("activeTab" in info.permissions && (tm?.active === t || sourceTabFor(c)?.id == t.id)))
             if (!ok) { c.fail("Cannot access contents of the page. Extension manifest must request permission to access this host."); return }
         }
         val fn = inj.optString("func", "")
