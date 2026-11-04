@@ -118,6 +118,19 @@ object ExtTray {
         }
         col.addView(grid, LinearLayout.LayoutParams(MATCH_W, WRAP_H).apply { topMargin = dp(6) })
 
+        if (ExtMenus.hasPageItems()) { // 0.0.116 (S4): menu items of extensions for the page / selected text
+            col.addView(TextView(act).apply {
+                text = "Page menu (extensions)"
+                textSize = 15f
+                gravity = Gravity.CENTER
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                setTextColor(cAccent)
+                background = round(cCard, 24)
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { dlg.dismiss(); ExtMenus.showPage(act) }
+            }, LinearLayout.LayoutParams(MATCH_W, dp(48)).apply { topMargin = dp(12) })
+        }
         col.addView(TextView(act).apply {
             text = "Manage Extensions"
             textSize = 15f

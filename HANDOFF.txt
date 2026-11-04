@@ -1,3 +1,4 @@
+CURRENT VERSION 0.0.116 (S4: contextMenus shown in link / image menus + tray page menu, see the 0.0.116 entry in CHANGELOG.txt; before: 0.0.115)
 CURRENT VERSION 0.0.115 (S3: scripting.registerContentScripts and friends, see the 0.0.115 entry in CHANGELOG.txt; before: 0.0.114 = CI bump of 0.0.113)
 CURRENT VERSION 0.0.114 (CI only: same code as 0.0.113, see CHANGELOG.txt; S2 fix 0.0.113 still needs the phone test)
 CURRENT VERSION 0.0.113 (S2 FIX: tray tap starts a stopped worker before it decides "has no popup", see the 0.0.113 entry in CHANGELOG.txt; before: 0.0.112)

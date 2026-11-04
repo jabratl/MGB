@@ -1,3 +1,15 @@
+0.0.116 (S4 BUILD: chrome.contextMenus of installed extensions are shown: long press on a link / image, and tray > Page menu for page / selection; onClicked is sent)
+- S3 phone test of 0.0.115 PASSED (all 15 checks OK in the popup).
+- Before: contextMenus.create was only stored, no menu showed, onClicked never fired.
+- ExtMenus.kt (NEW): rows(tab, link, img, selection) = MenuSheet.Item rows of every enabled extension that has the "contextMenus" permission. Contexts all / link / image / selection / page, documentUrlPatterns, targetUrlPatterns, %s in title = selected text, enabled / visible, checkbox + radio (check mark in the label), a child is shown as "Parent > Child" (parent itself is not a row), separators skipped, no rows in private tabs, max 30 rows. Click -> ExtApi.menuToggle + ExtApi.menuClicked (info: menuItemId, parentMenuItemId, pageUrl, frameUrl, linkUrl, srcUrl, mediaType, selectionText, checked, wasChecked; tab). showPage(): reads the selected text of the tab on screen, then shows the rows (MenuSheet.showLink).
+- ExtApi.kt: items are SAVED per extension (prefs menus_<id>, loaded on first use, removed with the extension; a disabled extension keeps them). create: parentId must exist, auto ids never collide after a restart; update / remove of an unknown id fail like Chrome; remove also removes children; removeAll clears + saves. New menuItems / menuToggle, menuClicked kept (was already there).
+- TabManager.kt: ONE line in showLinkMenu: rows.addAll(ExtMenus.rows(...)) before "if (rows.isEmpty()) return". If your TabManager.kt differs from the copy I had (0.0.112), add only this line there.
+- ExtTray.kt: button "Page menu (extensions)" above "Manage Extensions", only when some extension has a page / selection / all item.
+- V77 not changed. Checked: Kotlin bracket balance of ExtApi / ExtMenus / ExtTray / TabManager; test extension node --check + JSON. NOT compiled, NOT run on a phone. NOT seen: MenuSheet.kt (I only call MenuSheet.Item(label, icon) { } and MenuSheet.showLink(ctx, title, url, rows) exactly like TabManager does).
+- Not done: long press on plain text / empty page (stays the normal text selection), separators, real submenus, editable / frame contexts, menu items in the toolbar (action context), icon per item.
+- Could break: compile error if MenuSheet.showLink wants a different type than ArrayList<MenuSheet.Item> (send MenuSheet.kt then).
+- Test extension: mgb_s4_test.zip. NEXT: phone test of 0.0.116; then S6 or S5.
+
 0.0.115 (S3 BUILD: chrome.scripting.registerContentScripts / updateContentScripts / unregisterContentScripts / getRegisteredContentScripts for installed extensions)
 - S2 phone test of 0.0.113 PASSED (badge, title, popup after setPopup, onClicked with tab, enable/disable all OK). 0.0.114 = version bump only.
 - Before: these four calls were refused ("Not supported in MGB").

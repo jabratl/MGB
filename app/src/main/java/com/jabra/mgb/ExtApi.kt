@@ -17,7 +17,7 @@ import org.json.JSONObject
  *  - gate(): which api an extension page / content script may call (permission from its manifest, host check for cookies).
  *    ChromeBridge asks it for every message of a non-V77 extension. Unknown / V77-only apis answer "Not supported in MGB".
  *  - runtime.sendMessage between the pieces of ONE extension (content script, popup, options, worker); wakes the worker.
- *  - alarms (own timers, saved), notifications (system notification, toast if not allowed), contextMenus (stored only),
+ *  - alarms (own timers, saved), notifications (system notification, toast if not allowed), contextMenus (saved; shown by ExtMenus in link / image menus and the tray page menu, 0.0.116),
  *    permissions (read-only view of the manifest), tab events with url / title removed when the extension may not see them.
  *  - sync(): called after install / update / toggle / remove: stops workers, drops alarms, fires runtime.onInstalled.
  * Handlers are registered as "ext.<api>"; ChromeBridge prefers them for a non-V77 extension and falls back to the plain one.
@@ -165,7 +165,7 @@ object ExtApi {
             HeaderModes.forget(id) // S7: header rules of the removed extension
             ContentInjector.regForget(a, id) // 0.0.115 (S3): registered content scripts of the removed extension
             mem.remove(id)
-            sp.edit().remove("ver_$id").remove("mem_$id").apply()
+            sp.edit().remove("ver_$id").remove("mem_$id").remove("menus_$id").apply()
         }
         if (first) main.postDelayed({ startupWake() }, 1500)
     }
@@ -519,12 +519,56 @@ object ExtApi {
         }
     }
 
-    // ---------- context menus (stored; MGB has no page menu hook yet) ----------
+    // ---------- context menus (0.0.116, S4): saved per extension (menus_<id> in prefs), shown by ExtMenus ----------
 
-    /** For a later TabManager long-press hook: the items an extension created. */
-    fun menuItems(xid: String): List<JSONObject> = menus[xid]?.values?.toList() ?: emptyList()
+    /** The items of one extension in creation order; loaded from prefs on first use (a worker restart / app restart keeps them, like Chrome). */
+    private fun menuMap(xid: String): LinkedHashMap<String, JSONObject> = menus.getOrPut(xid) {
+        val m = LinkedHashMap<String, JSONObject>()
+        try {
+            val raw = prefs()?.getString("menus_$xid", null)
+            if (raw != null) {
+                val a = JSONArray(raw)
+                for (i in 0 until a.length()) {
+                    val o = a.optJSONObject(i) ?: continue
+                    val k = o.optString("id")
+                    if (k.isNotEmpty()) m[k] = o
+                }
+            }
+        } catch (_: Exception) { }
+        m
+    }
 
-    /** For a later TabManager long-press hook: tell the extension an item was clicked. */
+    private fun saveMenus(xid: String) {
+        val a = JSONArray()
+        menus[xid]?.values?.forEach { a.put(it) }
+        prefs()?.edit()?.putString("menus_$xid", a.toString())?.apply()
+    }
+
+    /** For ExtMenus: the items an extension created (copies are not needed, ExtMenus only reads). */
+    fun menuItems(xid: String): List<JSONObject> = synchronized(menus) { menuMap(xid).values.toList() }
+
+    /** A checkbox flips, a radio becomes checked (the other radios of the same parent are cleared). info gets checked / wasChecked, parentMenuItemId. Saved. */
+    fun menuToggle(xid: String, id: String, info: JSONObject) {
+        synchronized(menus) {
+            val m = menuMap(xid)
+            val o = m[id] ?: return
+            val pid = o.optString("parentId", "")
+            if (pid.isNotEmpty()) info.put("parentMenuItemId", pid)
+            val type = o.optString("type", "normal")
+            if (type != "checkbox" && type != "radio") return
+            val was = o.optBoolean("checked", false)
+            info.put("wasChecked", was)
+            if (type == "checkbox") o.put("checked", !was)
+            else {
+                for (x in m.values) if (x !== o && x.optString("type") == "radio" && x.optString("parentId", "") == pid) x.put("checked", false)
+                o.put("checked", true)
+            }
+            info.put("checked", o.optBoolean("checked", false))
+            saveMenus(xid)
+        }
+    }
+
+    /** ExtMenus: tell the extension an item was clicked (a stopped worker is started first). */
     fun menuClicked(xid: String, id: String, info: JSONObject, tab: JSONObject?) {
         val inf = ExtRegistry.get(xid) ?: return
         val t = if (tab == null) JSONObject.NULL else tabFor(inf.id, tab)
@@ -709,26 +753,43 @@ object ExtApi {
         // context menus
         ChromeBridge.onSync("ext.contextMenus.create") { c ->
             val o = c.args.optJSONObject(0) ?: JSONObject()
-            val m = menus.getOrPut(c.extId) { LinkedHashMap() }
-            if (m.size >= 100) throw IllegalStateException("Too many context menu items")
-            var id = o.optString("id", "")
-            if (id.isEmpty()) { id = "menu" + (++menuSeq); o.put("id", id) }
-            if (m.containsKey(id)) throw IllegalArgumentException("Cannot create item with duplicate id $id")
-            m[id] = JSONObject(o.toString())
-            id
+            synchronized(menus) {
+                val m = menuMap(c.extId)
+                if (m.size >= 100) throw IllegalStateException("Too many context menu items")
+                var id = o.optString("id", "")
+                if (id.isEmpty()) { do { id = "menu" + (++menuSeq) } while (m.containsKey(id)); o.put("id", id) }
+                if (m.containsKey(id)) throw IllegalArgumentException("Cannot create item with duplicate id $id")
+                val pid = o.optString("parentId", "")
+                if (pid.isNotEmpty() && !m.containsKey(pid)) throw IllegalArgumentException("Cannot find menu item with id $pid")
+                m[id] = JSONObject(o.toString())
+                saveMenus(c.extId)
+                id
+            }
         }
         ChromeBridge.onSync("ext.contextMenus.update") { c ->
-            val cur = menus[c.extId]?.get(c.args.optString(0, ""))
-            val p = c.args.optJSONObject(1)
-            if (cur != null && p != null) for (k in p.keys().asSequence().toList()) cur.put(k, p.get(k))
+            synchronized(menus) {
+                val id = c.args.optString(0, "")
+                val cur = menuMap(c.extId)[id] ?: throw IllegalArgumentException("Cannot find menu item with id $id")
+                val p = c.args.optJSONObject(1)
+                if (p != null) for (k in p.keys().asSequence().toList()) if (k != "id") cur.put(k, p.get(k))
+                saveMenus(c.extId)
+            }
             null
         }
         ChromeBridge.onSync("ext.contextMenus.remove") { c ->
-            menus[c.extId]?.remove(c.args.optString(0, ""))
+            synchronized(menus) {
+                val m = menuMap(c.extId)
+                val id = c.args.optString(0, "")
+                if (!m.containsKey(id)) throw IllegalArgumentException("Cannot find menu item with id $id")
+                m.remove(id)
+                var again = true // children go with their parent
+                while (again) { again = false; for (k in m.keys.toList()) { val pp = m[k]?.optString("parentId", "") ?: ""; if (pp.isNotEmpty() && !m.containsKey(pp)) { m.remove(k); again = true } } }
+                saveMenus(c.extId)
+            }
             null
         }
         ChromeBridge.onSync("ext.contextMenus.removeAll") { c ->
-            menus.remove(c.extId)
+            synchronized(menus) { menuMap(c.extId).clear(); saveMenus(c.extId) }
             null
         }
     }

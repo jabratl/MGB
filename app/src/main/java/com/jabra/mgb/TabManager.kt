@@ -567,6 +567,7 @@ class TabManager(
             rows.add(MenuSheet.Item("Download image", R.drawable.ic_download) { downloadImage(tab, i) })
             if (i.startsWith("http")) rows.add(MenuSheet.Item("Share image address", R.drawable.ic_share) { shareText(i) })
         }
+        rows.addAll(ExtMenus.rows(tab, l.ifEmpty { null }, i.ifEmpty { null }, null)) // 0.0.116 (S4): chrome.contextMenus of installed extensions
         if (rows.isEmpty()) return
         val shown = if (l.isNotEmpty()) l else i
         MenuSheet.showLink(ctx, text?.trim().orEmpty().ifBlank { if (l.isEmpty()) "Image" else "" }, shown, rows)
