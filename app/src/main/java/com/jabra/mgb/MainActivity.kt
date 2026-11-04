@@ -60,6 +60,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         btnShield = findViewById(R.id.btn_shield) // S68
         btnEngine = findViewById(R.id.btn_engine) // S69
         progress = findViewById(R.id.progress)
+        progress.trackColor = android.graphics.Color.TRANSPARENT // S21d: only the accent line, thicker
+        progress.trackThickness = (3 * resources.displayMetrics.density).toInt()
         EngineHost.start(this) // S6: background.js engine (hidden WebView)
         tabs = TabManager(this, findViewById<FrameLayout>(R.id.web_container), this)
         TabsApi.attach(tabs)
@@ -268,10 +270,18 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     private fun refreshAll(tab: TabManager.Tab?) {
         val loading = tab?.loading == true
-        if (loading) {
+        if (loading) { // S21d: smooth line, fades out when the page is done
+            progress.animate().cancel()
+            progress.alpha = 1f
             progress.visibility = android.view.View.VISIBLE
-            progress.progress = tab!!.progress
-        } else progress.visibility = android.view.View.GONE
+            progress.setProgressCompat(maxOf(tab!!.progress, 8), true)
+        } else if (progress.visibility == android.view.View.VISIBLE) {
+            progress.setProgressCompat(100, true)
+            progress.animate().alpha(0f).setStartDelay(180).setDuration(260).withEndAction {
+                progress.visibility = android.view.View.GONE
+                progress.alpha = 1f
+            }.start()
+        }
         btnTabs.setTextColor(getColor(if (tab?.priv == true) R.color.mg_primary else R.color.mg_text)) // S26
         refreshUrlField()
         refreshShield()

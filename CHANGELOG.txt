@@ -1,3 +1,11 @@
+0.0.133 (S21d MODIFY: close-all Undo, tab grow-in, smooth load line)
+- TabSwitcher.kt closeList(): Close all / Close picked no longer asks; tabs close at once and a "N tabs closed  Undo" bar brings the http tabs back (same index, group + colour). Private / Home / extension tabs are not restored.
+- TabManager.kt switchTo(): the page also grows from 97% to 100% while it fades in (new tab / switch).
+- MainActivity.kt: the load line (R.id.progress) is 3 dp, no track, animates smoothly, fades out when the page is done.
+- app/build.gradle.kts: 0.0.132 -> 0.0.133.
+- Could break: closing many tabs by mistake has no dialog (Undo lasts 5 s); WebView scale/alpha fade may flicker on some phones; load line looks thicker.
+- Checked: bracket balance, exact-match patches. NOT compiled, NOT run on a phone.
+
 0.0.132 (S21c MODIFY: small tab polish)
 - TabSwitcher.kt: swipe a tab card left / right to close it (35% of the width, haptic tick, card flies out, others glide, Undo bar). Not in select mode; long press drag unchanged.
 - TabManager.kt: switchTo() cross-fades the new tab in (150 ms).

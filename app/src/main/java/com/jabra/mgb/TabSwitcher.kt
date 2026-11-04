@@ -975,15 +975,38 @@ object TabSwitcher {
 
         private fun closeList(list: List<TabManager.Tab>) {
             if (list.isEmpty()) return
-            MaterialAlertDialogBuilder(act)
-                .setMessage("Close " + list.size + " tab" + (if (list.size == 1) "" else "s") + "?")
-                .setPositiveButton("Close") { _, _ ->
-                    for (t in list) tm.close(t)
-                    endSelect(false)
-                    render()
+            // S21d: no confirm dialog: close at once and offer Undo (http tabs come back at the same place and group)
+            class Snap(val url: String, val idx: Int, val g: String?, val col: Int?)
+            val all = tm.allTabs()
+            val snaps = ArrayList<Snap>()
+            for (t in list) {
+                val url = t.web.url ?: t.url
+                if (t.priv || t.isExt || t.home || !url.startsWith("http")) continue
+                val g = groupOf(t)
+                snaps.add(Snap(url, all.indexOf(t), g, g?.let { colors[it] }))
+            }
+            snaps.sortBy { it.idx }
+            val n = list.size
+            val onlyAll = n == all.size
+            for (t in list) tm.close(t)
+            endSelect(false)
+            render()
+            if (snaps.isNotEmpty()) undo((if (n == 1) "1 tab" else "$n tabs") + " closed") {
+                for (s in snaps) {
+                    val nt = tm.newTab(s.url, 0, false, false) ?: continue
+                    ClosedTabs.remove(s.url)
+                    tm.moveTo(nt, s.idx)
+                    if (s.g != null) {
+                        val l = ArrayList(groups[s.g] ?: emptySet<Int>())
+                        l.add(nt.id)
+                        groups[s.g] = LinkedHashSet<Int>(l)
+                        if (s.col != null && !colors.containsKey(s.g)) colors[s.g] = s.col
+                    }
                 }
-                .setNegativeButton("Cancel", null)
-                .show()
+                if (onlyAll) tm.allTabs().filter { it.home && !it.priv }.forEach { h -> if (tm.allTabs().size > 1) tm.close(h) } // the Home tab made by closing everything
+                pendingGlide = null
+                render()
+            }
         }
 
         private fun closeAll() = closeList(shown)
