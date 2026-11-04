@@ -1,3 +1,12 @@
+0.0.110 (FIX: installed extension got 403 (Cloudflare) from a site that the browser tab opens fine, WebToEpub on twbook.cc)
+- S0 phone test of 0.0.109 passed: runtime.id, i18n, tabs.query, sendMessage worker<->popup, scripting.executeScript, alarms, content script (all OK)
+- ROOT CAUSE (likely, not proven): the extension page runs with the desktop user agent (0.0.109) but the site was opened in a normal tab with the phone user agent, and the Cloudflare cookie (cf_clearance) is tied to the user agent. EngineHost.proxyFor sent cookie + desktop UA, so Cloudflare answered 403. Quetta uses one user agent everywhere
+- EngineHost.kt: noteUa() remembers the user agent of the last normal tab per host; proxyFor() of an INSTALLED extension sends that user agent for the host (V77 unchanged; header rules still run after and may override). A 403 for an extension request is written to the engine log (cookie yes / no, user agent) so the next report shows the cause
+- TabManager.kt: onPageFinished of a normal tab calls EngineHost.noteUa
+- Could break: nothing for V77. If the extension fetches a host you never opened in a tab, nothing changes. If 403 stays: the engine log line "ext 403 ... cookie=..." tells if the cookie was missing; the other possible cause is the TLS fingerprint of HttpURLConnection (not fixable here)
+- Checked: Kotlin bracket balance of EngineHost / TabManager. NOT compiled, NOT run on a phone
+- NEXT: S1 (runtime.connect ports)
+
 0.0.109 (FIX: extension page not in a full tab, mobile view error in WebToEpub, extension could not find the page it was opened for)
 - ROOT CAUSE: tabs.create of an installed extension's own page (popup.html?id=..) went to the small extension window (ExtScreen) with the phone user agent; WebToEpub checks navigator.userAgent for Android / Mobile and stops. An extension page that is open as a tab also had no way to find its source page: tabs.query({active:true}) returned the extension tab itself
 - TabsApi.kt: tabs.create from an INSTALLED extension always opens a real tab (V77 keeps its windows); opener = the page under the popup window when the call comes from a window. tabs.query with active:true asked from an extension tab now returns the page it was opened for (openerTabId, else the last normal tab) - new sourceTabFor(). scripting.executeScript with only the activeTab permission also works on that source page

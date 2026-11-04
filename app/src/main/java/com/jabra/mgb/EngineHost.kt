@@ -50,6 +50,16 @@ object EngineHost {
 
     fun isEngine(w: WebView): Boolean = w === web
 
+    // 0.0.110: user agent a normal tab used per host. A Cloudflare cookie (cf_clearance) is tied to that user agent, so requests of an
+    // installed extension to the same host must send the same one (the extension tab itself uses the desktop user agent since 0.0.109)
+    private val hostUa = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private fun hostOf(u: String): String = try { android.net.Uri.parse(u).host?.lowercase() ?: "" } catch (e: Exception) { "" }
+    fun noteUa(url: String?, ua: String?) {
+        if (url == null || ua.isNullOrBlank() || !url.startsWith("http")) return
+        val h = hostOf(url)
+        if (h.isNotEmpty()) hostUa[h] = ua
+    }
+
     @Synchronized fun addLog(s: String) {
         logBuf.add(s.take(400))
         if (logBuf.size > 120) logBuf.removeAt(0)
@@ -275,11 +285,13 @@ object EngineHost {
                 if (!hm.containsKey("Cookie")) {
                     CookieManager.getInstance().getCookie(u)?.let { hm["Cookie"] = it }
                 }
+                if (extId != ContentInjector.EXT_ID) hostUa[hostOf(u)]?.let { hm["User-Agent"] = it } // 0.0.110 (V77 unchanged)
                 // S8: declarativeNetRequest header rules (V77 sets Referer / Origin / site headers this way)
                 try { HeaderModes.apply(u, tabId, typeOf(rh), req.method, hm, extId) } catch (e: Exception) { Log.e(TAG, "headerModes", e) } // S7: extId = whose rules
                 for ((k, v) in hm) c.setRequestProperty(k, v)
                 try { requestModifier?.invoke(c, req) } catch (e: Exception) { Log.e(TAG, "requestModifier", e) }
                 val code = c.responseCode
+                if (code == 403 && extId != ContentInjector.EXT_ID) addLog("ext 403 " + hostOf(u) + " cookie=" + hm.containsKey("Cookie") + " ua=" + (hm["User-Agent"] ?: "").take(60)) // 0.0.110
                 for ((k, vs) in c.headerFields) {
                     if (k != null && k.equals("set-cookie", true)) {
                         for (v in vs) CookieManager.getInstance().setCookie(u, v)
