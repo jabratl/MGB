@@ -1,3 +1,15 @@
+0.0.123 (S14 BUILD: "Customise menu" like Brave, with installed extensions inside)
+- New MenuCustom.kt: full-screen screen (back, title, close). Sections: Main menu, Quick tiles, Extensions, Page actions. One switch per row, saved at once (prefs mgb_menu_custom: "off" = hidden keys, "pin" = pinned extension ids), no rebuild on toggle, soft fade-in, haptic tick, "Reset to default" button, centered 560 dp column on wide screens, system bar / cutout insets.
+- Extensions section: every turned-on installed extension (icon from its manifest, else coloured letter, name, version) with a switch = pin it into the 3-dot menu. A pinned extension is a row before Settings; tap = same as its tray tile (popup / action click / options page).
+- Settings and Customise menu are locked ON (tap shows why), so the menu can never be emptied of its way back.
+- MenuSheet.kt: Item gets key (default = label) and bmp (extension icon); Quick gets key. Tiles card is skipped when all 4 tiles are hidden.
+- MainActivity.kt: lists split (generalTop / generalEnd, quickAll / pageAll) and filtered by MenuCustom.on; new row "Customise menu" after Settings. Desktop / Mobile site share the key "Desktop site".
+- ExtTray.kt: openExt private -> public (1 word). Version 0.0.122 -> 0.0.123 (app/build.gradle.kts). V77 not changed.
+- Default = everything shown, no extension pinned, so the menu looks the same until the user changes it.
+- Could break: Item / Quick constructors got new defaulted params (all existing callers use label, icon, enabled, trail + trailing lambda, so they still compile); Dialog insets on Android 15 edge-to-edge; extension icon decode on the main thread when the menu opens (cached, scaled to 96 px).
+- Checked: bracket balance (nested-comment aware) of the 4 changed .kt files. NOT compiled (no Android SDK here), NOT run on a phone, NOT rendered at 360 / 1280 px, light / dark not looked at.
+- NEXT: phone check of 0.0.123 (menu > Customise menu; hide rows and reopen the menu; pin an extension and tap it; Reset; 360 px + landscape; light + dark). Then S7 phone check of 0.0.120 / 0.0.121 / 0.0.122. Idea for later: drag to reorder rows, per-extension "show in tray" switch.
+
 0.0.122 (S13 BUILD: Brave-like group strip above the bottom bar)
 - New GroupStrip.kt: when the active tab is in a group, a rounded strip sits above the bottom bar: ^ (collapse / expand), one round chip per tab of the group (group colour, favicon or first letter; active tab has a ring + red x to close it), + (new home tab that joins the group). Collapsed = one pill "name - n". Tap a chip = switch to that tab.
 - TabSwitcher.kt: small public API (groupInfoOf, joinGroupOf, onChanged); onChanged also fires when the switcher closes and after "Open in new tab in group". Group logic itself not changed.

@@ -155,7 +155,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         val web = cur?.web
         val canMark = cur != null && !cur.home && !cur.isExt && cur.url.startsWith("http")
         val marked = cur != null && canMark && Bookmarks.isBookmarked(cur.url)
-        val quick = listOf(
+        val quickAll = listOf(
             MenuSheet.Quick(R.drawable.ic_bookmark, "Bookmarks") { BookmarksScreen.open(this, BookmarksScreen.Mode.BOOKMARKS, tabs) },
             MenuSheet.Quick(R.drawable.ic_history, "History") { BookmarksScreen.open(this, BookmarksScreen.Mode.HISTORY, tabs) },
             MenuSheet.Quick(R.drawable.ic_download, "Downloads") { DownloadsScreen.open(this) },
@@ -169,19 +169,22 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Act(if (cur?.loading == true) R.drawable.ic_close else R.drawable.ic_reload, cur != null) { reloadOrStop() }
         )
         // S27: general card (app level) and page card (this page)
-        val general = listOf(
+        val generalTop = listOf(
             MenuSheet.Item("New private tab", R.drawable.ic_lock) { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) }, // S26
             MenuSheet.Item("Bookmark all tabs", R.drawable.ic_bookmark_border) { TabBookmarks.dialog(this, tabs) }, // S40
             MenuSheet.Item("Passwords", R.drawable.ic_lock) { PasswordStore.screen(this) }, // S40
             MenuSheet.Item("Recently closed tabs", R.drawable.ic_history) { Backup.closedTabs(this, tabs) }, // S29
             MenuSheet.Item("Novel grabber", R.drawable.ic_book, true, "EPUB · DOCX · TXT") { openExt("novel/studio.html") }, // N1
             MenuSheet.Item("Queue", R.drawable.ic_list) { openExt("queue.html") },
-            MenuSheet.Item("Report center", R.drawable.ic_info) { DiagScreen.open(this, tabs, -1) }, // S85
-            MenuSheet.Item("Settings", R.drawable.ic_settings) { SettingsScreen.open(this) }
+            MenuSheet.Item("Report center", R.drawable.ic_info) { DiagScreen.open(this, tabs, -1) } // S85
         )
-        val page = listOf(
+        val generalEnd = listOf( // 0.0.123 (S14): Settings + Customise menu stay last, pinned extensions sit before them
+            MenuSheet.Item("Settings", R.drawable.ic_settings) { SettingsScreen.open(this) },
+            MenuSheet.Item(MenuCustom.CUSTOMISE, R.drawable.ic_edit) { MenuCustom.open(this) }
+        )
+        val pageAll = listOf(
             MenuSheet.Item("Find on page", R.drawable.ic_search, canMark) { FindBar.open(this, tabs.active?.web) },
-            MenuSheet.Item(if (cur?.desktop == true) "Mobile site" else "Desktop site", R.drawable.ic_desktop, cur != null && !cur.home && !cur.isExt) {
+            MenuSheet.Item(if (cur?.desktop == true) "Mobile site" else "Desktop site", R.drawable.ic_desktop, cur != null && !cur.home && !cur.isExt, "", "Desktop site") {
                 tabs.active?.let { tabs.setDesktop(it, !it.desktop) }
             },
             MenuSheet.Item("Translate page", R.drawable.ic_search, canMark, if (Translate.hasLang(this)) Translate.lang(this) else "") { Translate.page(this, tabs) }, // S41
@@ -201,6 +204,9 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             cur.home -> if (cur.priv) "Private tab" else "Home"
             else -> Util.host(cur.url).ifBlank { "New tab" }
         }
+        val quick = quickAll.filter { MenuCustom.on(this, it.key) }
+        val general = generalTop.filter { MenuCustom.on(this, it.key) } + MenuCustom.pinnedRows(this) + generalEnd
+        val page = pageAll.filter { MenuCustom.on(this, it.key) }
         val share: (() -> Unit)? = if (canMark) ({ tabs.active?.let { if (it.url.startsWith("http")) tabs.shareText(it.url) } }) else null
         MenuSheet.show(this, quick, general, title, share, page, acts, "Thazir ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
     }

@@ -197,7 +197,7 @@ object ExtTray {
             .show()
     }
 
-    private fun openExt(act: Activity, e: ExtRegistry.Info) {
+    fun openExt(act: Activity, e: ExtRegistry.Info) { // 0.0.123: public, the pinned rows of Customise menu use it
         // 0.0.112 (S2): like Chrome: popup (manifest or chrome.action.setPopup) first, else action.onClicked, else the options page
         val tab = TabsApi.activeTab()
         val v = ExtApi.actionView(e.id, tab?.id ?: -1)

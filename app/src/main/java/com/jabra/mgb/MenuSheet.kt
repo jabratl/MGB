@@ -25,10 +25,11 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
  */
 object MenuSheet {
 
-    class Quick(val icon: Int, val label: String, val onClick: () -> Unit)
+    class Quick(val icon: Int, val label: String, val key: String = label, val onClick: () -> Unit)
     class Act(val icon: Int, val enabled: Boolean = true, val onClick: () -> Unit)
     /** icon 0 = no icon. trail = small text on the right (for example ON / OFF). */
-    class Item(val label: String, val icon: Int = 0, val enabled: Boolean = true, val trail: String = "", val onClick: () -> Unit)
+    /** 0.0.123: key = saved id of the row in Customise menu (default = label). bmp = extension icon (shown without tint). */
+    class Item(val label: String, val icon: Int = 0, val enabled: Boolean = true, val trail: String = "", val key: String = label, val bmp: android.graphics.Bitmap? = null, val onClick: () -> Unit)
 
     private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
     private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
@@ -73,7 +74,11 @@ object MenuSheet {
                 background = ripple?.constantState?.newDrawable()
                 setOnClickListener { dlg.dismiss(); m.onClick() }
             }
-            if (m.icon != 0) r.addView(ImageView(ctx).apply {
+            if (m.bmp != null) r.addView(ImageView(ctx).apply { // 0.0.123: extension icon, own colours
+                setImageBitmap(m.bmp)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+            }, LinearLayout.LayoutParams(dp(24), dp(24)).apply { marginEnd = dp(16); marginStart = dp(-1) })
+            else if (m.icon != 0) r.addView(ImageView(ctx).apply {
                 setImageResource(m.icon)
                 setColorFilter(cDim)
             }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(16) })
@@ -133,8 +138,8 @@ object MenuSheet {
             })
             qrow.addView(t, LinearLayout.LayoutParams(0, WRAP, 1f).apply { marginStart = dp(4); marginEnd = dp(4) })
         }
-        c1.addView(qrow, LinearLayout.LayoutParams(MATCH, WRAP))
-        if (general.isNotEmpty()) addDivider(c1)
+        if (quick.isNotEmpty()) c1.addView(qrow, LinearLayout.LayoutParams(MATCH, WRAP)) // 0.0.123: tiles can be hidden
+        if (quick.isNotEmpty() && general.isNotEmpty()) addDivider(c1)
         for (m in general) c1.addView(itemRow(m), LinearLayout.LayoutParams(MATCH, dp(52)))
         col.addView(c1, LinearLayout.LayoutParams(MATCH, WRAP))
 
