@@ -70,6 +70,46 @@ object SettingsScreen {
         private var sv: ScrollView? = null
         private var openCat: String? = null // S46
         private var query = "" // S48 search text
+        /** S21f: hidden search words per row label (the row is found by these too). */
+        private val KW = mapOf(
+            "Theme" to "dark light night mode appearance colour",
+            "Dark pages" to "dark mode night websites black",
+            "Search engine" to "google bing duckduckgo default address bar",
+            "Translate to" to "language translation",
+            "Hide bar while scrolling" to "bottom bar toolbar fullscreen immersive",
+            "Pull down to refresh" to "reload swipe",
+            "Rotate browser with phone" to "landscape portrait auto rotate orientation",
+            "Swipe a tab card to close it" to "gesture tab switcher remove",
+            "Ask before Close all" to "confirm dialog tabs",
+            "Reduce motion" to "animation animations effects fade transitions speed",
+            "Download folder" to "storage location save path sd card",
+            "Download quality" to "resolution 1080 720 best height",
+            "Convert .ts to .mp4" to "hls merge remux",
+            "Subtitles and file names" to "srt vtt naming template language",
+            "Play video links in built-in player" to "external player exoplayer",
+            "Background audio in player" to "music screen off",
+            "App lock" to "fingerprint biometric pin password security",
+            "Site permissions" to "camera microphone location mic",
+            "HTTPS-only mode" to "secure ssl http upgrade",
+            "Ad blocker" to "ads popup pop-up tracker adblock block",
+            "Hide ad spaces on pages" to "ads empty space cosmetic",
+            "Hide cookie banners" to "consent gdpr popup cookies",
+            "Auto backup (daily)" to "save restore",
+            "Export data" to "backup save file bookmarks",
+            "Import data" to "restore backup file",
+            "Recently closed tabs" to "reopen history undo",
+            "Clear browsing history" to "delete history privacy",
+            "Clear cookies and site data" to "logout delete storage",
+            "Clear cache" to "delete temporary files storage space",
+            "Saved passwords" to "logins credentials vault",
+            "Password generator" to "random strong",
+            "Create email alias" to "addy.io mask spam",
+            "Extensions" to "addons plugins chrome crx zip",
+            "Check for updates" to "upgrade version new release",
+            "Novel grabber" to "epub docx web2epub book",
+            "Report center" to "diagnose problem error crash log"
+        )
+
         private val SUB_FOLD = 14 // S48: rows per category before sub groups fold
         private val cats = LinkedHashMap<String, Pair<View, View>>() // key -> (content, chevron)
 
@@ -220,7 +260,10 @@ object SettingsScreen {
                     if (act.theme.resolveAttribute(android.R.attr.selectableItemBackground, out, true)) {
                         foreground = act.getDrawable(out.resourceId)
                     }
-                    setOnClickListener { r.onClick.invoke() }
+                    setOnClickListener {
+                        if (r.value == "ON" || r.value == "OFF") it.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK) // S21f
+                        r.onClick.invoke()
+                    }
                 }
             }
             line.addView(ImageView(act).apply {
@@ -267,7 +310,7 @@ object SettingsScreen {
                 for (item in items) {
                     when (item) {
                         is Sub -> pend = item
-                        is Row -> if (item.label.contains(q, true) || item.hint.contains(q, true)) {
+                        is Row -> if (item.label.contains(q, true) || item.hint.contains(q, true) || (KW[item.label]?.contains(q, true) == true)) { // S21f: search keywords
                             pend?.let { out.add(it) }
                             pend = null
                             out.add(item)
@@ -427,6 +470,44 @@ object SettingsScreen {
         }
 
         /** (Re)build the categories, used at start and after a toggle. S46: accordion + sub groups. */
+        /** S21f: four quick switches above the categories (hidden while searching). */
+        private fun quickRow(prefs: android.content.SharedPreferences): View {
+            val row = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL }
+            fun chip(icon: Int, label: String, on: Boolean, tap: () -> Unit) {
+                val c = LinearLayout(act).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.CENTER
+                    setPadding(dp(4), dp(12), dp(4), dp(10))
+                    background = round(if (on) ColorUtils.setAlphaComponent(act.getColor(R.color.mg_primary), 0x2A) else act.getColor(R.color.mg_surface), 18).apply {
+                        setStroke(dp(1), if (on) act.getColor(R.color.mg_primary) else ColorUtils.setAlphaComponent(act.getColor(R.color.mg_outline), 0x99))
+                    }
+                    isClickable = true
+                    setOnClickListener { it.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK); tap(); fill() }
+                }
+                c.addView(ImageView(act).apply {
+                    setImageResource(icon)
+                    setColorFilter(act.getColor(if (on) R.color.mg_primary else R.color.mg_text_dim))
+                }, LinearLayout.LayoutParams(dp(22), dp(22)))
+                c.addView(TextView(act).apply {
+                    text = label
+                    textSize = 11f
+                    gravity = Gravity.CENTER
+                    maxLines = 2
+                    setPadding(0, dp(6), 0, 0)
+                    setTextColor(act.getColor(if (on) R.color.mg_primary else R.color.mg_text))
+                })
+                row.addView(c, LinearLayout.LayoutParams(0, WRAP, 1f).apply { marginStart = dp(3); marginEnd = dp(3) })
+            }
+            chip(R.drawable.ic_shield, "Ad blocker", AdBlock.enabled) { AdBlock.toggle() }
+            chip(R.drawable.ic_theme, "Dark pages", UiMode.darkPages(act)) {
+                UiMode.setDarkPages(act, !UiMode.darkPages(act))
+                BookmarksScreen.tabsRef?.applyDarkPages()
+            }
+            chip(R.drawable.ic_screen, "Hide bar on scroll", prefs.getBoolean("hide_bar", false)) { prefs.edit().putBoolean("hide_bar", !prefs.getBoolean("hide_bar", false)).apply() }
+            chip(R.drawable.ic_play, "Reduce motion", TabPrefs.reduceSwitch(act)) { TabPrefs.set(act, "reduce_motion", !TabPrefs.reduceSwitch(act)) }
+            return row
+        }
+
         private fun fill() {
             val col = body ?: return
             val keepY = sv?.scrollY ?: 0
@@ -436,6 +517,7 @@ object SettingsScreen {
             val prefs = act.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE)
             val fa = act as? androidx.fragment.app.FragmentActivity
 
+            if (query.trim().isEmpty()) col.addView(quickRow(prefs), LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(12) }) // S21f
             category("general", R.drawable.ic_settings, "General", "Theme, search, pages, display", listOf(
                 Sub("Appearance"),
                 Row(R.drawable.ic_theme, "Theme", UiMode.label(act)) { dismiss(); UiMode.pick(act) },
@@ -464,6 +546,22 @@ object SettingsScreen {
                 Row(R.drawable.ic_screen, "Rotate browser with phone", if (Orient.rotateBrowser(act)) "ON" else "OFF") { // S35
                     Orient.setRotateBrowser(act, !Orient.rotateBrowser(act))
                     Orient.apply(act)
+                    fill()
+                }
+            ))
+            category("tabs", R.drawable.ic_list, "Tabs and motion", "Swipe, close, animations", listOf( // S21f
+                Sub("Tabs"),
+                Row(R.drawable.ic_list, "Swipe a tab card to close it", if (TabPrefs.swipeClose(act)) "ON" else "OFF") {
+                    TabPrefs.set(act, "swipe_close", !TabPrefs.swipeClose(act))
+                    fill()
+                },
+                Row(R.drawable.ic_close, "Ask before Close all", if (TabPrefs.confirmClose(act)) "ON" else "OFF", "OFF = tabs close at once and Undo brings them back") {
+                    TabPrefs.set(act, "close_confirm", !TabPrefs.confirmClose(act))
+                    fill()
+                },
+                Sub("Motion"),
+                Row(R.drawable.ic_play, "Reduce motion", if (TabPrefs.reduceSwitch(act)) "ON" else "OFF", "Turns off the tab fade, close, count and download animations") {
+                    TabPrefs.set(act, "reduce_motion", !TabPrefs.reduceSwitch(act))
                     fill()
                 }
             ))

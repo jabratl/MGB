@@ -310,7 +310,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         if (btnTabs.text.toString() != tabCount) { // S21c: the count pops when it changes
             btnTabs.text = tabCount
             btnTabs.animate().cancel()
-            btnTabs.scaleX = 1.35f; btnTabs.scaleY = 1.35f
+            if (!TabPrefs.reduce(this)) btnTabs.scaleX = 1.35f
+            if (!TabPrefs.reduce(this)) btnTabs.scaleY = 1.35f
             btnTabs.animate().scaleX(1f).scaleY(1f).setInterpolator(android.view.animation.OvershootInterpolator(2f)).setDuration(260).start()
         }
         GroupStrip.refresh() // S13

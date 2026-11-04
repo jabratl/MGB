@@ -1,3 +1,13 @@
+0.0.135 (S21f MODIFY: Settings = Tabs card, Reduce motion, quick switches, search words)
+- TabPrefs.kt (NEW): prefs mgb_ui swipe_close (default ON), close_confirm (OFF), reduce_motion (OFF); TabPrefs.reduce(ctx) = our switch OR the phone's animator scale 0.
+- SettingsScreen.kt: new category "Tabs and motion" (Swipe a tab card to close it / Ask before Close all / Reduce motion); 4 quick switch tiles above the categories (Ad blocker, Dark pages, Hide bar on scroll, Reduce motion; hidden while searching); search also matches hidden keywords per row label (map KW, about 35 rows); ON/OFF rows give a haptic tick.
+- TabSwitcher.kt: swipe-to-close obeys the switch; Close all asks only when "Ask before Close all" is ON (else Undo as in 0.0.133); close animation duration 0 with Reduce motion.
+- TabManager.kt / MainActivity.kt / DlFly.kt: tab fade + grow-in, tab count pop and the download fly are skipped with Reduce motion.
+- app/build.gradle.kts: 0.0.134 -> 0.0.135.
+- Not done: tab suspend time, inactive-tab cleanup, other older animations (card enter stagger, menu pop-in) do not follow Reduce motion yet.
+- Could break: quick tiles at 360 px (label 2 lines); Ad blocker tile toggles without the "reload the page" toast.
+- Checked: bracket balance, exact-match patches, drawables used exist. NOT compiled, NOT run on a phone.
+
 0.0.134 (S21e MODIFY: download fly animation)
 - DlFly.kt (NEW): when a download starts, a rose download badge flies in an arc from the middle of the screen to the 3-dot menu button (620 ms, shrinks + fades), then the button pops. One animation per 600 ms (batches), skipped when system animations are off.
 - DownloadsApi.kt: newItem() calls DlFly.fire() (1 line). MainActivity.kt: DlFly.attach in onCreate, detach in onDestroy.

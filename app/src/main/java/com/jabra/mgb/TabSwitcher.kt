@@ -846,8 +846,8 @@ object TabSwitcher {
             val gIdx = gName?.let { groups[it]?.toList()?.indexOf(t.id) } ?: -1
             val gCol = gName?.let { colors[it] }
             val onlyOne = all.size == 1
-            (if (dir != 0f) v.animate().translationX(dir * v.width * 1.1f).alpha(0f).setInterpolator(android.view.animation.AccelerateInterpolator(1.1f)).setDuration(160)
-            else v.animate().alpha(0f).scaleX(0.6f).scaleY(0.6f).setInterpolator(android.view.animation.AccelerateInterpolator(1.2f)).setDuration(190)).withEndAction {
+            (if (dir != 0f) v.animate().translationX(dir * v.width * 1.1f).alpha(0f).setInterpolator(android.view.animation.AccelerateInterpolator(1.1f)).setDuration(if (TabPrefs.reduce(act)) 0L else 160L)
+            else v.animate().alpha(0f).scaleX(0.6f).scaleY(0.6f).setInterpolator(android.view.animation.AccelerateInterpolator(1.2f)).setDuration(if (TabPrefs.reduce(act)) 0L else 190L)).withEndAction {
                 pendingGlide = snapPos() // S16: the cards after it slide into the gap
                 tm.close(t)
                 render()
@@ -975,6 +975,16 @@ object TabSwitcher {
 
         private fun closeList(list: List<TabManager.Tab>) {
             if (list.isEmpty()) return
+            if (TabPrefs.confirmClose(act)) { // S21f: Settings > Tabs > Ask before Close all
+                MaterialAlertDialogBuilder(act)
+                    .setMessage("Close " + list.size + " tab" + (if (list.size == 1) "" else "s") + "?")
+                    .setPositiveButton("Close") { _, _ -> doCloseList(list) }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            } else doCloseList(list)
+        }
+
+        private fun doCloseList(list: List<TabManager.Tab>) {
             // S21d: no confirm dialog: close at once and offer Undo (http tabs come back at the same place and group)
             class Snap(val url: String, val idx: Int, val g: String?, val col: Int?)
             val all = tm.allTabs()
@@ -1117,7 +1127,7 @@ object TabSwitcher {
                             v.translationX = dx
                             v.alpha = 1f - minOf(1f, abs(dx) / (v.width * 0.9f))
                             true
-                        } else if (!armed && !selecting && abs(e.rawX - downX) > slop * 2 && abs(e.rawX - downX) > abs(e.rawY - downY) * 1.6f) {
+                        } else if (!armed && !selecting && abs(e.rawX - downX) > slop * 2 && abs(e.rawX - downX) > abs(e.rawY - downY) * 1.6f && TabPrefs.swipeClose(act)) {
                             swiping = true
                             v.removeCallbacks(lift)
                             v.parent?.requestDisallowInterceptTouchEvent(true)

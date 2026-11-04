@@ -39,8 +39,7 @@ object DlFly {
 
     private fun play(act: Activity, target: View) {
         if (act.isFinishing || target.width == 0) return
-        val off = Settings.Global.getFloat(act.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
-        if (off) return
+        if (TabPrefs.reduce(act)) return // S21f
         val d = act.resources.displayMetrics.density
         val root = act.window.decorView as? ViewGroup ?: return
         val size = (44 * d).toInt()

@@ -1,3 +1,4 @@
+CURRENT VERSION 0.0.135 (S21f: Settings Tabs card, Reduce motion, quick switches, search keywords; see CHANGELOG 0.0.135; apply after 0.0.134). NOT tested: compile (Row hint param order, round().apply, local fun chip), tiles at 360 px, search by keyword.
 CURRENT VERSION 0.0.134 (S21e: download fly animation; see CHANGELOG 0.0.134; apply after 0.0.133). NOT tested: compile, badge path / look, menu pop.
 CURRENT VERSION 0.0.133 (S21d: close-all Undo, tab grow-in, smooth load line; see CHANGELOG 0.0.133; apply after 0.0.132). NOT tested: compile, Undo of many tabs, fade flicker, load line look.
 CURRENT VERSION 0.0.132 (S21c: swipe-to-close card, tab fade, count pop; see CHANGELOG 0.0.132; apply after 0.0.131 zip). NOT tested: compile, swipe feel, fade flicker.
