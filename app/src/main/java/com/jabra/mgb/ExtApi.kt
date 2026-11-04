@@ -267,6 +267,71 @@ object ExtApi {
         if (ExtBackground.has(xid)) ExtBackground.ensure(xid) { go() } else go()
     }
 
+    // ---------- action button (S2, 0.0.112): badge, title, popup, enabled, onClicked. The button lives in ExtTray ----------
+
+    private class Act {
+        var text: String? = null; var color: Int? = null; var textColor: Int? = null
+        var title: String? = null; var popup: String? = null; var enabled: Boolean? = null
+    }
+    private val acts = HashMap<String, Act>() // xid -> values for every tab
+    private val actTabs = HashMap<String, LinkedHashMap<Int, Act>>() // xid -> tabId -> values for that tab only
+    private val DEF_BADGE = 0xFF5F6368.toInt()
+
+    /** What the button of one extension shows / does for one tab (tabId <= 0 = no tab). popup null = no popup. */
+    class ActionView(val text: String, val color: Int, val textColor: Int?, val title: String, val popup: String?, val enabled: Boolean)
+
+    fun actionView(xid: String, tabId: Int): ActionView = synchronized(acts) {
+        val info = ExtRegistry.get(xid)
+        val g = acts[xid]
+        val t = if (tabId > 0) actTabs[xid]?.get(tabId) else null
+        val popup = t?.popup ?: g?.popup ?: info?.popup
+        ActionView(t?.text ?: g?.text ?: "", t?.color ?: g?.color ?: DEF_BADGE, t?.textColor ?: g?.textColor,
+            t?.title ?: g?.title ?: (info?.name ?: ""), popup?.ifEmpty { null }, t?.enabled ?: g?.enabled ?: true)
+    }
+
+    private fun colorOf(v: Any?): Int? = try {
+        when (v) {
+            is String -> {
+                val x = v.trim()
+                android.graphics.Color.parseColor(if (Regex("^#[0-9a-fA-F]{3}$").matches(x)) "#" + x.substring(1).map { "$it$it" }.joinToString("") else x)
+            }
+            is JSONArray -> android.graphics.Color.argb(if (v.length() > 3) v.optInt(3) else 255, v.optInt(0), v.optInt(1), v.optInt(2))
+            else -> null
+        }
+    } catch (e: Exception) { null }
+
+    private fun tabIdOf(v: Any?): Int = when (v) {
+        is Number -> v.toInt()
+        is JSONObject -> if (v.has("tabId") && !v.isNull("tabId")) v.optInt("tabId", -1) else -1
+        else -> -1
+    }
+
+    private fun actSet(xid: String, tabId: Int, f: (Act) -> Unit) = synchronized(acts) {
+        val a = if (tabId > 0) {
+            val m = actTabs.getOrPut(xid) { LinkedHashMap() }
+            if (m.size > 200 && !m.containsKey(tabId)) m.remove(m.keys.first())
+            m.getOrPut(tabId) { Act() }
+        } else acts.getOrPut(xid) { Act() }
+        f(a)
+    }
+
+    private fun popupRel(xid: String, v: Any?): String {
+        val s = (v?.toString() ?: "").trim()
+        return s.removePrefix(ContentInjector.EXT_BASE + xid + "/").trimStart('/')
+    }
+
+    private fun hasClickListener(xid: String): Boolean =
+        remembers(xid, "action.onClicked") ||
+            ChromeBridge.contexts().any { it.kind == ChromeBridge.Kind.EXT && xid in it.ids && TabsApi.listens(it, "action.onClicked") }
+
+    /** ExtTray: the button was tapped and the extension has no popup. true = action.onClicked was sent (a stopped worker is started first). */
+    fun actionClicked(xid: String, tab: TabManager.Tab?): Boolean {
+        if (!hasClickListener(xid)) return false
+        val a = JSONArray().put(if (tab != null) tabFor(xid, TabsApi.tabJson(tab)) else JSONObject.NULL)
+        emitExt(xid, "action.onClicked", a, true)
+        return true
+    }
+
     // ---------- long-lived ports: runtime.connect / tabs.connect (S1, 0.0.111) ----------
     // The shim makes the port id and sends port.post / port.disconnect with it; Kotlin only routes by id.
     // from = frame that connected, targets = frames of the SAME extension that got runtime.onConnect.
@@ -467,6 +532,56 @@ object ExtApi {
 
     private fun registerHandlers() {
         ChromeBridge.on("ext.runtime.sendMessage") { c -> send(c) }
+
+        // 0.0.112 (S2): action button (installed extensions only; V77 keeps its no-op handlers in TabsApi)
+        ChromeBridge.onSync("ext.action.setBadgeText") { c ->
+            val d = c.args.optJSONObject(0); val t = d?.opt("text")
+            actSet(c.extId, tabIdOf(d)) { it.text = if (t == null || t == JSONObject.NULL) "" else t.toString().take(4) }
+            null
+        }
+        ChromeBridge.onSync("ext.action.setBadgeBackgroundColor") { c ->
+            val d = c.args.optJSONObject(0); val col = colorOf(d?.opt("color"))
+            if (col != null) actSet(c.extId, tabIdOf(d)) { it.color = col }
+            null
+        }
+        ChromeBridge.onSync("ext.action.setBadgeTextColor") { c ->
+            val d = c.args.optJSONObject(0); val col = colorOf(d?.opt("color"))
+            if (col != null) actSet(c.extId, tabIdOf(d)) { it.textColor = col }
+            null
+        }
+        ChromeBridge.onSync("ext.action.setTitle") { c ->
+            val d = c.args.optJSONObject(0); val t = d?.opt("title")
+            actSet(c.extId, tabIdOf(d)) { it.title = if (t == null || t == JSONObject.NULL) null else t.toString().take(200) }
+            null
+        }
+        ChromeBridge.onSync("ext.action.setIcon") { null } // the tray keeps the manifest icon
+        ChromeBridge.onSync("ext.action.setPopup") { c ->
+            val d = c.args.optJSONObject(0)
+            actSet(c.extId, tabIdOf(d)) { it.popup = popupRel(c.extId, d?.opt("popup")) } // "" = no popup (button sends onClicked)
+            null
+        }
+        ChromeBridge.onSync("ext.action.getBadgeText") { c -> actionView(c.extId, tabIdOf(c.args.optJSONObject(0))).text }
+        ChromeBridge.onSync("ext.action.getBadgeBackgroundColor") { c ->
+            val k = actionView(c.extId, tabIdOf(c.args.optJSONObject(0))).color
+            JSONArray().put(android.graphics.Color.red(k)).put(android.graphics.Color.green(k)).put(android.graphics.Color.blue(k)).put(android.graphics.Color.alpha(k))
+        }
+        ChromeBridge.onSync("ext.action.getBadgeTextColor") { c ->
+            val k = actionView(c.extId, tabIdOf(c.args.optJSONObject(0))).textColor ?: 0xFFFFFFFF.toInt()
+            JSONArray().put(android.graphics.Color.red(k)).put(android.graphics.Color.green(k)).put(android.graphics.Color.blue(k)).put(android.graphics.Color.alpha(k))
+        }
+        ChromeBridge.onSync("ext.action.getTitle") { c -> actionView(c.extId, tabIdOf(c.args.optJSONObject(0))).title }
+        ChromeBridge.onSync("ext.action.getPopup") { c ->
+            val p = actionView(c.extId, tabIdOf(c.args.optJSONObject(0))).popup
+            if (p == null) "" else ContentInjector.EXT_BASE + c.extId + "/" + p.trimStart('/')
+        }
+        ChromeBridge.onSync("ext.action.enable") { c -> actSet(c.extId, tabIdOf(c.args.opt(0))) { it.enabled = true }; null }
+        ChromeBridge.onSync("ext.action.disable") { c -> actSet(c.extId, tabIdOf(c.args.opt(0))) { it.enabled = false }; null }
+        ChromeBridge.onSync("ext.action.isEnabled") { c -> actionView(c.extId, tabIdOf(c.args.opt(0))).enabled }
+        ChromeBridge.onSync("ext.action.openPopup") { c ->
+            val p = actionView(c.extId, TabsApi.activeTab()?.id ?: -1).popup ?: throw IllegalStateException("This extension has no popup")
+            main.post { ExtScreen.openSibling(ContentInjector.EXT_BASE + c.extId + "/" + p.trimStart('/')) }
+            null
+        }
 
         // 0.0.111 (S1): ports
         ChromeBridge.on("ext.runtime.connect") { c -> portUi {

@@ -48,6 +48,9 @@ object TabsApi {
 
     fun attach(t: TabManager?) { tm = t }
 
+    /** 0.0.112 (S2): the tab on screen (ExtTray: badge of that tab, tab argument of action.onClicked). */
+    fun activeTab(): TabManager.Tab? = tm?.active
+
     private fun ui(b: () -> Unit) {
         if (Looper.myLooper() == Looper.getMainLooper()) b() else main.post { b() }
     }

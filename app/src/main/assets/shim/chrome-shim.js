@@ -230,7 +230,7 @@
       declarativeNetRequest: [['updateSessionRules', 'updateDynamicRules', 'getSessionRules', 'getDynamicRules', 'getEnabledRulesets', 'updateEnabledRulesets'], []],
       scripting: [['executeScript', 'insertCSS', 'registerContentScripts', 'unregisterContentScripts', 'getRegisteredContentScripts'], []],
       sidePanel: [['open', 'setOptions', 'setPanelBehavior'], []],
-      action: [['setBadgeText', 'setBadgeBackgroundColor', 'setIcon', 'setTitle'], []],
+      action: [['setBadgeText', 'setBadgeBackgroundColor', 'setBadgeTextColor', 'setIcon', 'setTitle', 'setPopup', 'getBadgeText', 'getBadgeBackgroundColor', 'getBadgeTextColor', 'getTitle', 'getPopup', 'enable', 'disable', 'isEnabled', 'openPopup'], ['onClicked']], // 0.0.112 (S2)
       notifications: [['create', 'clear', 'update'], ['onClicked', 'onClosed', 'onButtonClicked']],
       contextMenus: [['create', 'update', 'remove', 'removeAll'], ['onClicked']],
       alarms: [['create', 'get', 'getAll', 'clear', 'clearAll'], ['onAlarm']],

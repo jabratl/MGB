@@ -185,9 +185,19 @@ object ExtTray {
     }
 
     private fun openExt(act: Activity, e: ExtRegistry.Info) {
-        val page = e.popup ?: e.options
-        if (page == null) { Util.toast(act, e.name + " has no popup"); return }
-        if (!ExtScreen.openExtPage(act, e.id, page)) Util.toast(act, "Could not open " + e.name)
+        // 0.0.112 (S2): like Chrome: popup (manifest or chrome.action.setPopup) first, else action.onClicked, else the options page
+        val tab = TabsApi.activeTab()
+        val v = ExtApi.actionView(e.id, tab?.id ?: -1)
+        if (!v.enabled) { Util.toast(act, e.name + " is turned off for this page"); return }
+        val page = v.popup
+        if (page != null) {
+            if (!ExtScreen.openExtPage(act, e.id, page)) Util.toast(act, "Could not open " + e.name)
+            return
+        }
+        if (ExtApi.actionClicked(e.id, tab)) return
+        val opt = e.options
+        if (opt == null) { Util.toast(act, e.name + " has no popup"); return }
+        if (!ExtScreen.openExtPage(act, e.id, opt)) Util.toast(act, "Could not open " + e.name)
     }
 
     private fun tile(act: Activity, e: ExtRegistry.Info, onTap: () -> Unit): View {
@@ -222,12 +232,13 @@ object ExtTray {
             }, LinearLayout.LayoutParams(size, size))
         }
         val n = ExtBackground.errorCount(e.id) // S13: red badge when the worker had errors
-        if (n > 0) {
+        val av = ExtApi.actionView(e.id, TabsApi.activeTab()?.id ?: -1) // 0.0.112 (S2): badge text / colour / title / enabled from chrome.action
+        if (n > 0 || av.text.isNotEmpty()) {
             val first = t.getChildAt(0)
             t.removeViewAt(0)
             val fl = android.widget.FrameLayout(act)
             fl.addView(first, android.widget.FrameLayout.LayoutParams(size, size))
-            fl.addView(TextView(act).apply {
+            if (n > 0) fl.addView(TextView(act).apply {
                 text = if (n > 9) "9+" else n.toString()
                 textSize = 9f
                 gravity = Gravity.CENTER
@@ -235,8 +246,21 @@ object ExtTray {
                 background = GradientDrawable().apply { setColor(act.getColor(R.color.mg_error)); cornerRadius = dp(9).toFloat() }
                 contentDescription = "$n errors"
             }, android.widget.FrameLayout.LayoutParams(dp(18), dp(18), Gravity.TOP or Gravity.END))
+            if (av.text.isNotEmpty()) fl.addView(TextView(act).apply {
+                text = av.text
+                textSize = 9f
+                maxLines = 1
+                gravity = Gravity.CENTER
+                setPadding(dp(4), 0, dp(4), 0)
+                minWidth = dp(16)
+                val lum = (0.299 * android.graphics.Color.red(av.color) + 0.587 * android.graphics.Color.green(av.color) + 0.114 * android.graphics.Color.blue(av.color)) / 255.0
+                setTextColor(av.textColor ?: (if (lum > 0.6) 0xFF000000.toInt() else 0xFFFFFFFF.toInt()))
+                background = GradientDrawable().apply { setColor(av.color); cornerRadius = dp(8).toFloat() }
+            }, android.widget.FrameLayout.LayoutParams(android.widget.FrameLayout.LayoutParams.WRAP_CONTENT, dp(16), Gravity.BOTTOM or Gravity.END))
             t.addView(fl, 0, LinearLayout.LayoutParams(size, size))
         }
+        if (av.title.isNotEmpty()) t.contentDescription = av.title
+        if (!av.enabled) t.alpha = 0.4f
         t.addView(TextView(act).apply {
             text = e.name
             textSize = 11f
