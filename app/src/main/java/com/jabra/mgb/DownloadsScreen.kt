@@ -58,6 +58,9 @@ object DownloadsScreen {
         private var empty: TextView? = null
         private var sig = ""
         private var query = "" // S66: search box
+        private var selecting = false // S19: multi-select of saved files
+        private val picked = HashSet<String>()
+        private fun keyOf(h: JSONObject) = h.optInt("id", 0).toString() + ":" + h.optLong("time")
         private val tick = object : Runnable {
             override fun run() {
                 render()
@@ -84,7 +87,7 @@ object DownloadsScreen {
             }
             list = findViewById(R.id.xd_list)
             empty = findViewById(R.id.xd_empty)
-            findViewById<View>(R.id.xd_back).setOnClickListener { dismiss() }
+            findViewById<View>(R.id.xd_back).setOnClickListener { if (selecting) endSelect() else dismiss() }
             findViewById<View>(R.id.xd_close).setOnClickListener { dismiss() }
             // S25: same top pills as the Bookmarks screen (needs BookmarksScreen.tabsRef, set by MainActivity)
             val title = findViewById<View>(R.id.xd_title)
@@ -114,7 +117,7 @@ object DownloadsScreen {
         }
 
         @Suppress("OVERRIDE_DEPRECATION")
-        override fun onBackPressed() { dismiss() }
+        override fun onBackPressed() { if (selecting) endSelect() else dismiss() }
 
         private fun pctOf(j: JSONObject): Int = (j.optDouble("pct", 0.0).coerceIn(0.0, 1.0) * 100).toInt()
 
@@ -125,27 +128,123 @@ object DownloadsScreen {
             return if (q.isEmpty()) all.take(30) else all.filter { it.optString("title").lowercase().contains(q) }.take(100)
         }
 
-        /** S66: Share / Remove from list / Delete file. */
+        /** S18: Quetta-style bottom sheet: Open in File Manager (folder path), Share, Open Original Site (domain), Rename, Remove from list, Delete (red). */
         private fun fileMenu(h: JSONObject) {
             val id = h.optInt("id", 0)
-            val names = if (id > 0) arrayOf("Share", "Remove from list", "Delete file from phone") else arrayOf("Remove from list")
-            MaterialAlertDialogBuilder(act)
-                .setTitle(h.optString("title").ifBlank { "file" })
-                .setItems(names) { _, w ->
-                    when (names[w]) {
-                        "Share" -> DownloadsApi.shareFile(act, id)
-                        "Remove from list" -> removeFromList(h)
-                        else -> MaterialAlertDialogBuilder(act)
-                            .setTitle("Delete this file from your phone?")
-                            .setPositiveButton("Delete") { _, _ ->
-                                Util.toast(act, if (DownloadsApi.deleteFile(id)) "File deleted" else "File not found")
-                                removeFromList(h)
-                            }
-                            .setNegativeButton("Cancel", null)
-                            .show()
+            val title = h.optString("title").ifBlank { "file" }
+            val src = h.optString("src")
+            val web = src.startsWith("http://") || src.startsWith("https://")
+            val rows = ArrayList<MenuSheet.Item>()
+            rows.add(MenuSheet.Item("Select", R.drawable.ic_check) { selecting = true; picked.clear(); picked.add(keyOf(h)); sig = ""; render() }) // S19
+            if (id > 0) {
+                rows.add(MenuSheet.Item("Open in File Manager", R.drawable.ic_folder, trail = DownloadsApi.folderPath(id)) { DownloadsApi.showFile(act, id) })
+                rows.add(MenuSheet.Item("Share...", R.drawable.ic_share) { DownloadsApi.shareFile(act, id) })
+            }
+            if (web) rows.add(MenuSheet.Item("Open Original Site", R.drawable.ic_open, trail = Util.host(src)) {
+                dismiss() // close Downloads, then open the page in a new tab
+                TabsApi.openTab(src)
+            })
+            if (id > 0) rows.add(MenuSheet.Item("Rename", R.drawable.ic_edit) { renameFile(h) })
+            rows.add(MenuSheet.Item("Remove from list", R.drawable.ic_close) { removeFromList(h) })
+            if (id > 0) rows.add(MenuSheet.Item("Delete", R.drawable.ic_trash, danger = true) {
+                MaterialAlertDialogBuilder(act)
+                    .setTitle("Delete this file from your phone?")
+                    .setPositiveButton("Delete") { _, _ ->
+                        Util.toast(act, if (DownloadsApi.deleteFile(id)) "File deleted" else "File not found")
+                        removeFromList(h)
                     }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            })
+            MenuSheet.showLink(act, title, if (web) src else DownloadsApi.folderPath(id), rows)
+        }
+
+        /** S18: rename the file on the phone, then the title in the saved-files list. */
+        private fun renameFile(h: JSONObject) {
+            val id = h.optInt("id", 0)
+            val old = h.optString("title").ifBlank { "file" }
+            val et = android.widget.EditText(act).apply {
+                setText(old)
+                setSingleLine(true)
+                setSelection(0, old.substringBeforeLast('.', old).length) // select the name, keep the extension
+                setPadding(Util.dp(act, 24), Util.dp(act, 16), Util.dp(act, 24), Util.dp(act, 8))
+            }
+            MaterialAlertDialogBuilder(act)
+                .setTitle("Rename")
+                .setView(et)
+                .setPositiveButton("Rename") { _, _ ->
+                    val nn = et.text.toString().trim()
+                    if (nn.isEmpty() || nn == old) return@setPositiveButton
+                    val done = DownloadsApi.renameFile(id, nn)
+                    if (done == null) { Util.toast(act, "Could not rename (name taken or file moved)"); return@setPositiveButton }
+                    val a = try { ChromeBridge.local.get("mgHist").optJSONArray("mgHist") } catch (e: Exception) { null }
+                    if (a != null) {
+                        for (k in 0 until a.length()) {
+                            val x = a.optJSONObject(k) ?: continue
+                            if (x.optInt("id") == id && x.optLong("time") == h.optLong("time")) x.put("title", done)
+                        }
+                        ChromeBridge.storageSet("local", JSONObject().put("mgHist", a))
+                    }
+                    Util.toast(act, "Renamed")
+                    sig = ""
+                    render()
                 }
+                .setNegativeButton("Cancel", null)
                 .show()
+            et.requestFocus()
+        }
+
+        // ---------- S19: select mode ----------
+
+        private fun endSelect() { selecting = false; picked.clear(); sig = ""; render() }
+
+        private fun toggle(h: JSONObject) {
+            val k = keyOf(h)
+            if (!picked.remove(k)) picked.add(k)
+            sig = ""
+            render()
+        }
+
+        /** Top bar in select mode: count + All / Remove / Delete / Done. */
+        private fun selBar(hist: List<JSONObject>): View {
+            val c = card()
+            c.addView(label(picked.size.toString() + " selected", 15f, act.getColor(R.color.mg_text), 1))
+            val bar = actionRow()
+            fun small(b: MaterialButton) = b.apply { setPadding(dp(12), 0, dp(12), 0) }
+            bar.addView(small(button("All") {
+                if (picked.size >= hist.size) picked.clear() else hist.forEach { picked.add(keyOf(it)) }
+                sig = ""; render()
+            }))
+            bar.addView(small(button("Remove") { if (picked.isNotEmpty()) removeMany(hist.filter { picked.contains(keyOf(it)) }, false) }))
+            bar.addView(small(button("Delete", true) {
+                val sel = hist.filter { picked.contains(keyOf(it)) }
+                if (sel.isNotEmpty()) MaterialAlertDialogBuilder(act)
+                    .setTitle("Delete " + sel.size + " file(s) from your phone?")
+                    .setPositiveButton("Delete") { _, _ -> removeMany(sel, true) }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }).apply { backgroundTintList = android.content.res.ColorStateList.valueOf(act.getColor(R.color.mg_error)); setTextColor(0xFFFFFFFF.toInt()) })
+            bar.addView(small(button("Done") { endSelect() }))
+            c.addView(bar)
+            return c
+        }
+
+        /** Remove the chosen entries from mgHist in one write; withFiles also deletes the files from the phone. */
+        private fun removeMany(sel: List<JSONObject>, withFiles: Boolean) {
+            var gone = 0
+            if (withFiles) for (h in sel) { val id = h.optInt("id", 0); if (id > 0 && DownloadsApi.deleteFile(id)) gone++ }
+            val keys = sel.map { keyOf(it) }.toSet()
+            val a = try { ChromeBridge.local.get("mgHist").optJSONArray("mgHist") } catch (e: Exception) { null }
+            if (a != null) {
+                val out = org.json.JSONArray()
+                for (k in 0 until a.length()) {
+                    val x = a.optJSONObject(k) ?: continue
+                    if (!keys.contains(keyOf(x))) out.put(x)
+                }
+                ChromeBridge.storageSet("local", JSONObject().put("mgHist", out))
+            }
+            Util.toast(act, if (withFiles) "$gone file(s) deleted" else keys.size.toString() + " removed from list")
+            endSelect()
         }
 
         /** Same as the V77 history page Remove: drops the entry (id + time) from storage.local mgHist. */
@@ -167,10 +266,12 @@ object DownloadsScreen {
             val hist = histOf()
             val s = jobs.joinToString("|") {
                 it.optString("key") + ":" + it.optString("state") + ":" + pctOf(it) + ":" + it.optBoolean("paused") + ":" + it.optString("text")
-            } + "?" + query + "#" + hist.joinToString("|") { it.optString("id") + ":" + it.optLong("time") }
+            } + "?" + query + "#" + hist.joinToString("|") { it.optString("id") + ":" + it.optLong("time") } +
+                "~" + selecting + picked.sorted().joinToString(",")
             if (s == sig) return
             sig = s
             box.removeAllViews()
+            if (selecting) box.addView(selBar(hist)) // S19
             empty?.visibility = if (jobs.isEmpty() && hist.isEmpty()) View.VISIBLE else View.GONE
             empty?.text = if (query.isBlank()) "No downloads yet\nFiles you save show up here" else "No saved file matches"
             val running = jobs.filter { it.optString("state") == "run" }
@@ -303,6 +404,18 @@ object DownloadsScreen {
             val size = EngineApi.fmtSize(h.optLong("size", 0))
             val ago = java.text.SimpleDateFormat("d MMM, HH:mm", java.util.Locale.getDefault()).format(java.util.Date(h.optLong("time")))
             val head = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            val isOn = selecting && picked.contains(keyOf(h))
+            if (selecting) head.addView(android.widget.ImageView(act).apply { // S19: round check box
+                val ov = android.graphics.drawable.GradientDrawable.OVAL
+                if (isOn) {
+                    setImageResource(R.drawable.ic_check)
+                    setColorFilter(act.getColor(R.color.mg_on_primary))
+                    setPadding(dp(3), dp(3), dp(3), dp(3))
+                    background = android.graphics.drawable.GradientDrawable().apply { shape = ov; setColor(act.getColor(R.color.mg_primary)) }
+                } else {
+                    background = android.graphics.drawable.GradientDrawable().apply { shape = ov; setStroke(dp(2), act.getColor(R.color.mg_outline)) }
+                }
+            }, LinearLayout.LayoutParams(dp(24), dp(24)).apply { marginEnd = dp(12) })
             head.addView(tile(if (media) R.drawable.ic_play else R.drawable.ic_download))
             val col = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
             col.addView(label(title, 15f, act.getColor(R.color.mg_text), 2))
@@ -314,10 +427,15 @@ object DownloadsScreen {
                 setPadding(dp(8), dp(8), dp(8), dp(8))
                 contentDescription = "More"
                 setOnClickListener { fileMenu(h) }
+                if (selecting) visibility = View.GONE
             }, LinearLayout.LayoutParams(dp(40), dp(40)))
             c.addView(head)
-            c.setOnLongClickListener { fileMenu(h); true }
-            if (id > 0) {
+            c.setOnLongClickListener { if (selecting) toggle(h) else fileMenu(h); true }
+            if (selecting) { // S19: tap toggles, no Show / Open buttons
+                c.isClickable = true
+                c.setOnClickListener { toggle(h) }
+                if (isOn) c.background = round(act.getColor(R.color.mg_surface_variant), 16)
+            } else if (id > 0) {
                 // S65: both buttons call DownloadsApi directly (the old engine eval did nothing when the id was unknown)
                 val actions = actionRow()
                 actions.addView(button("Show") { DownloadsApi.showFile(act, id) })

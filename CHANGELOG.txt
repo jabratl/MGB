@@ -777,3 +777,17 @@ MGB 0.0.1 (S0+S1)
 - S0: Gradle project + GitHub Actions build (debug APK, or signed release when keystore secrets exist). Placeholder MainActivity.
 - S1: colour tokens (light + dark), Theme.MGB, Util.kt helpers.
 - Source extension to embed later: media-grabber V77 (v2.79.2).
+0.0.127 (S18 MODIFY: Downloads saved-file menu like Quetta)
+- DownloadsScreen.kt: fileMenu(h) is now a bottom sheet (MenuSheet.showLink) with icon rows: Open in File Manager (shows /storage/emulated/0/Download/...), Share..., Open Original Site (shows domain, opens mgHist "src" in a new tab), Rename, Remove from list, Delete (red, still asks first). Opened by long press and by the row 3-dot. Show / Open buttons and ids untouched. New renameFile(h) dialog (updates the title in mgHist).
+- DownloadsApi.kt: new folderPath(id) and renameFile(id, name) (media uri / document uri / plain file). Nothing else changed.
+- MenuSheet.kt: Item got an optional danger flag (red label + icon) and showLink shows the optional trail text as a small second line. Defaults keep every old caller the same.
+- NOT done (see NEXT): Select (multi-select) and Make Private. Vault.kt is only a string encrypt / unlock helper, not a file vault, so Make Private needs its own step.
+- app/build.gradle.kts: 0.0.126 -> 0.0.127.
+- Could break: rename on a file in a picked SD / folder uri depends on the provider; failure shows "Could not rename" and changes nothing. MediaStore rename may ask nothing on Android 10+ for own files but fail on files from other apps.
+- Checked: bracket balance of 3 changed .kt files; patches applied with exact-match asserts. NOT compiled (no Android SDK), NOT run on a phone, NOT rendered at 360 / 1280 px, light / dark not looked at.
+0.0.128 (S19 MODIFY: Downloads multi-select)
+- DownloadsScreen.kt: new "Select" row first in the saved-file menu. Select mode: round check box on each saved-file row, tap or long press toggles, Show / Open buttons and the row 3-dot are hidden while selecting; top card shows "N selected" with All / Remove (from list) / Delete (red, asks first, deletes files from the phone) / Done. Back arrow and phone Back leave select mode first. Remove / Delete write mgHist once.
+- Make Private dropped (decision: not wanted). No other file changed.
+- app/build.gradle.kts: 0.0.127 -> 0.0.128.
+- Could break: the list re-renders every second, select mode is in the render signature so it keeps state; All selects only the rows now visible (search filter / latest 30). 4 buttons in the top card are tight at 360 px (padding trimmed to 12 dp).
+- Checked: bracket balance of DownloadsScreen.kt; patches applied with exact-match asserts. NOT compiled (no Android SDK), NOT run on a phone, NOT rendered at 360 / 1280 px, light / dark not looked at.

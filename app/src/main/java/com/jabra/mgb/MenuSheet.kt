@@ -29,7 +29,7 @@ object MenuSheet {
     class Act(val icon: Int, val enabled: Boolean = true, val onClick: () -> Unit)
     /** icon 0 = no icon. trail = small text on the right (for example ON / OFF). */
     /** 0.0.123: key = saved id of the row in Customise menu (default = label). bmp = extension icon (shown without tint). */
-    class Item(val label: String, val icon: Int = 0, val enabled: Boolean = true, val trail: String = "", val key: String = label, val bmp: android.graphics.Bitmap? = null, val onClick: () -> Unit)
+    class Item(val label: String, val icon: Int = 0, val enabled: Boolean = true, val trail: String = "", val key: String = label, val bmp: android.graphics.Bitmap? = null, val danger: Boolean = false, val onClick: () -> Unit)
 
     private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
     private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
@@ -288,9 +288,13 @@ object MenuSheet {
                 isClickable = true
                 setOnClickListener { dlg.dismiss(); m.onClick() }
             }
-            r.addView(TextView(ctx).apply { text = m.label; textSize = 16f; setTextColor(cText); maxLines = 1 }, LinearLayout.LayoutParams(0, WRAP, 1f))
-            if (m.icon != 0) r.addView(ImageView(ctx).apply { setImageResource(m.icon); setColorFilter(cDim) }, LinearLayout.LayoutParams(dp(22), dp(22)))
-            card.addView(r, LinearLayout.LayoutParams(MATCH, dp(50)))
+            val cRow = if (m.danger) ctx.getColor(R.color.mg_error) else cText // 0.0.127: red Delete
+            val lc = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL }
+            lc.addView(TextView(ctx).apply { text = m.label; textSize = 16f; setTextColor(cRow); maxLines = 1 })
+            if (m.trail.isNotBlank()) lc.addView(TextView(ctx).apply { text = m.trail; textSize = 12f; setTextColor(cDim); maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.MIDDLE })
+            r.addView(lc, LinearLayout.LayoutParams(0, WRAP, 1f))
+            if (m.icon != 0) r.addView(ImageView(ctx).apply { setImageResource(m.icon); setColorFilter(if (m.danger) cRow else cDim) }, LinearLayout.LayoutParams(dp(22), dp(22)))
+            card.addView(r, LinearLayout.LayoutParams(MATCH, if (m.trail.isNotBlank()) dp(60) else dp(50)))
         }
         col.addView(card, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
 

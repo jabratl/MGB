@@ -437,6 +437,40 @@ object DownloadsApi {
         return Pair("primary:$path", path)
     }
 
+    /** S18: readable folder of a saved file, e.g. /storage/emulated/0/Download/MGB/ ("" when the file is unknown). */
+    fun folderPath(id: Int): String {
+        val i = synchronized(items) { items[id] } ?: return ""
+        val f = folderOf(i)
+        return if (f.first.startsWith("primary:")) "/storage/emulated/0/" + f.second.trim('/') + "/" else f.second
+    }
+
+    /** S18: rename a finished file on the phone. Returns the new display name, or null when it did not work. */
+    fun renameFile(id: Int, newName: String): String? {
+        val i = synchronized(items) { items[id] } ?: return null
+        val nn = newName.trim().replace('/', '_').replace('\\', '_')
+        if (nn.isEmpty() || i.state != "complete" || !checkExists(i)) return null
+        var newUri = i.uri
+        try {
+            if (i.uri.startsWith("content:")) {
+                val u = Uri.parse(i.uri)
+                if (u.authority == "media") {
+                    val cv = android.content.ContentValues().apply { put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, nn) }
+                    if (app.contentResolver.update(u, cv, null, null) < 1) return null
+                } else {
+                    newUri = (android.provider.DocumentsContract.renameDocument(app.contentResolver, u, nn) ?: return null).toString()
+                }
+            } else {
+                val f = File(i.uri)
+                val t = File(f.parentFile, nn)
+                if (t.exists() || !f.renameTo(t)) return null
+                newUri = t.absolutePath
+            }
+        } catch (e: Exception) { return null }
+        fun swap(p: String) = if (p.contains('/')) p.substringBeforeLast('/') + "/" + nn else nn
+        change(i) { uri = newUri; if (filename.isNotEmpty()) filename = swap(filename); if (rel.isNotEmpty()) rel = swap(rel) }
+        return nn
+    }
+
     /** Show = open the folder of the file. Falls back to the system Downloads app, then to a message with the path. */
     fun showFile(c: Context, id: Int) {
         val i = synchronized(items) { items[id] }

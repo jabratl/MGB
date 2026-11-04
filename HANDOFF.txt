@@ -1,4 +1,21 @@
+HANDOFF - MGB (Thazir) S19 done -> S20 next
+Done: S19 (0.0.128). Current version: 0.0.128. Previous: 0.0.127 (S18). Make Private dropped by decision.
+
+What changed:
+- DownloadsScreen.kt: "Select" row in file menu; select mode (check boxes, tap/long press toggles, top card with All / Remove / Delete / Done); Back leaves select mode; removeMany() writes mgHist once.
+- app/build.gradle.kts 0.0.127 -> 0.0.128; CHANGELOG.txt + HANDOFF.txt updated.
+
+Checks done: bracket balance of DownloadsScreen.kt; patches applied with exact-match asserts.
+NOT tested (needs real use): compile (no Android SDK), phone run, 360/1280 px render (4 buttons in top card), light/dark.
+ - Phone check: Downloads > 3-dot on a file > Select; tap rows, All, Remove, Delete (confirm), Done, Back; also test S18 menu rows (Open in File Manager, Rename, Open Original Site) which are still untested.
+
+NEXT: S20 = phone-check S18 + S19 first; fix whatever breaks (compile errors go first). Idea after: multi-Share in select mode (needs a DownloadsApi.shareFiles with ACTION_SEND_MULTIPLE).
+
+CURRENT VERSION 0.0.128 (S19: Downloads multi-select, see the 0.0.128 entry in CHANGELOG.txt; before: 0.0.127)
+CURRENT VERSION 0.0.127 (S18: Downloads saved-file menu like Quetta, see the 0.0.127 entry in CHANGELOG.txt; before: 0.0.126)
 CURRENT VERSION 0.0.126 (S17: Home menu without page rows + Downloads "Clear" removed, see the 0.0.126 entry in CHANGELOG.txt; before: 0.0.125)
+
+===== OLDER HISTORY (kept from the previous HANDOFF.txt) =====
 CURRENT VERSION 0.0.125 (S16 FIX: dragged tab card clipped in the group panel (grid clipToPadding) + glide animations, see the 0.0.125 entry in CHANGELOG.txt; before: 0.0.124)
 CURRENT VERSION 0.0.124 (S15: group panel from the strip arrow + smoother tab animations, see the 0.0.124 entry in CHANGELOG.txt; before: 0.0.123)
 CURRENT VERSION 0.0.123 (S14: Customise menu + pinned extensions, see the 0.0.123 entry in CHANGELOG.txt; before: 0.0.122)
