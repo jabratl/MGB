@@ -56,7 +56,12 @@ class TabManager(
         fun onPageInfo(tab: Tab)
     }
 
-    class Tab(val id: Int, val web: WebView, val openerId: Int) {
+    class Tab(val id: Int, var web: WebView, val openerId: Int) { // STEP E: web is replaced when the tab is suspended
+        /** STEP E: last time this tab was shown or left (saved in the session, drives Suspend and the Older section). */
+        @Volatile var lastActive: Long = System.currentTimeMillis()
+        /** STEP E: suspended = its WebView was freed; the page (and history) comes back from savedState / pending when the tab is opened. */
+        var suspended: Boolean = false
+        var savedState: android.os.Bundle? = null
         var url: String = ""
         /** 0.0.106: opened by window.open / target=_blank: its first pages are checked against the ad lists. */
         var popup: Boolean = false
@@ -91,6 +96,12 @@ class TabManager(
         /** S13: marker url of a speed-dial tab (never loaded into the WebView). */
         const val HOME_PAGE = "about:home"
         const val MAX_TABS = 30
+        /** STEP E: a tab not opened for this long sits in the "Older" section of the switcher. */
+        const val OLD_MS = 7L * 24 * 60 * 60 * 1000
+        private const val SUSPEND_KEY = "tab_suspend_min" // prefs mgb_ui: 0 Off, 5, 15
+        fun suspendMin(c: Context): Int = c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).getInt(SUSPEND_KEY, 0)
+        fun setSuspendMin(c: Context, m: Int) { c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).edit().putInt(SUSPEND_KEY, m).apply() }
+        fun suspendLabel(c: Context): String = suspendMin(c).let { if (it <= 0) "Off" else "After $it min" }
         private const val PREFS = "mgb_session"
         private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
@@ -107,6 +118,82 @@ class TabManager(
     private var fsPortrait = true // S29: orientation before fullscreen video
 
     init { Bookmarks.init(ctx); ClosedTabs.init(ctx) } // S13, S29
+
+    // ---------- STEP E: suspend background tabs ----------
+    private val sweeper = android.os.Handler(android.os.Looper.getMainLooper())
+    private val sweepRun = object : Runnable {
+        override fun run() {
+            try { sweep() } catch (e: Throwable) { android.util.Log.w("Thazir.suspend", "sweep failed", e) }
+            sweeper.postDelayed(this, 60_000L)
+        }
+    }
+    init { sweeper.postDelayed(sweepRun, 60_000L) }
+
+    /** Older section: not the open tab, not private, not opened for 7 days. */
+    fun isOld(t: Tab): Boolean = t !== active && !t.priv && System.currentTimeMillis() - t.lastActive > OLD_MS
+
+    private fun sweep() {
+        val min = suspendMin(ctx)
+        if (min <= 0) return
+        if (DownloadsApi.active().isNotEmpty()) return // a download is running: suspend nothing
+        val now = System.currentTimeMillis()
+        for (t in tabs.toList()) {
+            if (t === active || t.priv || t.home || t.isExt || t.suspended || t.pending != null || t.loading) continue
+            if (now - t.lastActive < min * 60_000L) continue
+            if (!t.url.startsWith("http")) continue
+            if (TabSwitcher.groupInfoOf(t.id) != null) continue // grouped tabs stay alive
+            val js = "(function(){var m=document.querySelectorAll('video,audio');if(!m.length)return 0;for(var i=0;i<m.length;i++)if(!m[i].paused&&!m[i].ended)return 1;return 2})()"
+            try {
+                t.web.evaluateJavascript(js) { r ->
+                    val v = r?.trim('"') ?: "0"
+                    val music = (ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager).isMusicActive
+                    val playing = v == "1" || (v == "2" && music) // plays media (or may play inside a frame)
+                    if (!playing && tabs.contains(t) && t !== active && !t.suspended && !t.loading) doSuspend(t)
+                }
+            } catch (_: Throwable) { }
+        }
+    }
+
+    /** Frees the WebView of a background tab. Keeps: url, title, thumbnail (TabSwitcher.thumbs), page history (saveState). */
+    private fun doSuspend(t: Tab) {
+        val old = t.web
+        val u = old.url ?: t.url
+        if (!u.startsWith("http")) return
+        val b = android.os.Bundle()
+        try { old.saveState(b) } catch (_: Throwable) { }
+        val fresh = createWebView(false)
+        fresh.webViewClient = client(t)
+        fresh.webChromeClient = chrome(t)
+        fresh.setOnLongClickListener(longPress(t))
+        if (t.desktop) { // same as setDesktop, without the reload
+            fresh.settings.userAgentString = BrowserExtras.desktopUa(ctx)
+            fresh.settings.useWideViewPort = true
+            fresh.settings.loadWithOverviewMode = true
+        }
+        UiMode.applyPage(fresh, UiMode.darkPages(ctx))
+        (old.parent as? ViewGroup)?.removeView(old)
+        old.stopLoading()
+        ChromeBridge.unbind(old)
+        old.webChromeClient = null
+        old.destroy()
+        t.web = fresh
+        ChromeBridge.bindTab(fresh, t.id)
+        t.url = u
+        t.savedState = if (b.isEmpty) null else b
+        t.pending = u
+        t.suspended = true
+        android.util.Log.i("Thazir.suspend", "suspended tab " + t.id)
+    }
+
+    private fun resume(t: Tab) {
+        t.suspended = false
+        val b = t.savedState
+        t.savedState = null
+        if (b != null) {
+            val ok = try { t.web.restoreState(b) != null } catch (_: Throwable) { false }
+            if (ok) t.pending = null // restored with its history; otherwise pending reloads the url
+        }
+    }
 
     var active: Tab? = null
         private set
@@ -161,8 +248,10 @@ class TabManager(
     fun switchTo(tab: Tab) {
         if (active === tab) return
         exitFullscreen() // S14
-        active?.let { TabSwitcher.snap(it); container.removeView(it.web); it.web.animate().cancel(); it.web.alpha = 1f; it.web.scaleX = 1f; it.web.scaleY = 1f } // S32: thumbnail of the tab we leave
+        active?.let { it.lastActive = System.currentTimeMillis(); TabSwitcher.snap(it); container.removeView(it.web); it.web.animate().cancel(); it.web.alpha = 1f; it.web.scaleX = 1f; it.web.scaleY = 1f } // S32: thumbnail of the tab we leave
         active = tab
+        tab.lastActive = System.currentTimeMillis() // STEP E
+        if (tab.suspended) resume(tab) // STEP E: history comes back, or pending reloads the page below
         container.addView(tab.web, FrameLayout.LayoutParams(MATCH, MATCH))
         if (!TabPrefs.reduce(ctx)) { // S21f: not with Reduce motion
             tab.web.alpha = 0f // S21c: soft cross-fade when a tab becomes active
@@ -207,6 +296,7 @@ class TabManager(
     }
 
     fun destroyAll() {
+        sweeper.removeCallbacks(sweepRun) // STEP E
         exitFullscreen() // S14
         ExtScreen.closeAll() // S10
         BookmarksScreen.closeAll() // S13
@@ -227,6 +317,7 @@ class TabManager(
     fun saveSession() {
         val arr = JSONArray()
         val idx = HashMap<Int, Int>() // S41: tab id -> position in the saved list (groups)
+        val ts = JSONArray() // STEP E: last opened time of each saved tab (same order)
         var activeIdx = 0
         for (t in tabs) {
             if (t.priv) continue // S26: private tabs are never saved
@@ -235,9 +326,11 @@ class TabManager(
             if (t === active) activeIdx = arr.length()
             idx[t.id] = arr.length()
             arr.put(u)
+            ts.put(t.lastActive)
         }
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString("tabs", arr.toString())
+            .putString("ts", ts.toString())
             .putString("groups", TabSwitcher.exportGroups(idx))
             .putInt("active", activeIdx)
             .apply()
@@ -250,6 +343,7 @@ class TabManager(
         val arr = try { JSONArray(raw) } catch (_: Exception) { return false }
         if (arr.length() == 0) return false
         val act = sp.getInt("active", 0).coerceIn(0, arr.length() - 1)
+        val ts = try { JSONArray(sp.getString("ts", "[]") ?: "[]") } catch (_: Exception) { JSONArray() } // STEP E
         var target: Tab? = null
         val ids = ArrayList<Int>()
         for (i in 0 until arr.length()) {
@@ -257,6 +351,7 @@ class TabManager(
             ids.add(t.id)
             val u = arr.getString(i)
             t.url = u
+            ts.optLong(i, 0L).let { if (it > 0L) t.lastActive = it } // STEP E
             if (u == HOME_PAGE) t.home = true else t.pending = u // S13
             if (i == act) target = t
         }

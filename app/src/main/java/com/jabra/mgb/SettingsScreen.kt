@@ -88,7 +88,7 @@ object SettingsScreen {
         /** Step C: the ONLY mgb_ui keys each card's "Reset to default" may remove. Nothing else is ever touched. */
         private val RESET = mapOf(
             "general" to listOf("night", "dark_pages", "engine", "tr_lang", "hide_bar", "pull_refresh", "rotate_browser"),
-            "tabs" to listOf("swipe_close", "close_confirm", "reduce_motion"),
+            "tabs" to listOf("swipe_close", "close_confirm", "reduce_motion", "tab_suspend_min"),
             "downloads" to listOf("auto_diag"),
             "grabber" to listOf("web_play", "bg_audio", "v77_backup", "v77_prev_mode", "dl_mode", "native_btn", "video_btn"),
             "privacy" to listOf("https_only", "hide_ad_space", "hide_cookie"),
@@ -165,6 +165,7 @@ object SettingsScreen {
             "Background audio in player" to "music screen off",
             "App lock" to "fingerprint biometric pin password security",
             "Site permissions" to "camera microphone location mic",
+            "Suspend background tabs" to "memory ram free sleep inactive tabs unload",
             "Site settings" to "site host website per-site javascript desktop zoom text size permissions reset",
             "HTTPS-only mode" to "secure ssl http upgrade",
             "Ad blocker" to "ads popup pop-up tracker adblock block",
@@ -832,6 +833,13 @@ object SettingsScreen {
                 Row(R.drawable.ic_close, "Ask before Close all", if (TabPrefs.confirmClose(act)) "ON" else "OFF", "OFF = tabs close at once and Undo brings them back") {
                     TabPrefs.set(act, "close_confirm", !TabPrefs.confirmClose(act))
                     fill()
+                },
+                Row(R.drawable.ic_list, "Suspend background tabs", TabManager.suspendLabel(act), "Frees memory, tab reloads when opened") { // STEP E
+                    val mins = intArrayOf(0, 5, 15)
+                    MaterialAlertDialogBuilder(act).setTitle("Suspend background tabs")
+                        .setSingleChoiceItems(arrayOf("Off", "After 5 min", "After 15 min"), mins.indexOf(TabManager.suspendMin(act)).coerceAtLeast(0)) { d, i ->
+                            TabManager.setSuspendMin(act, mins[i]); d.dismiss(); fill()
+                        }.setNegativeButton("Cancel", null).show()
                 },
                 Sub("Motion"),
                 Row(R.drawable.ic_play, "Reduce motion", if (TabPrefs.reduceSwitch(act)) "ON" else "OFF", "Turns off the tab fade, close, count and download animations") {

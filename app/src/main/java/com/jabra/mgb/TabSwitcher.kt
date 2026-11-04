@@ -637,17 +637,30 @@ object TabSwitcher {
             }
             val cards = ArrayList<View>()
             if (mode == 0 && query.isBlank() && !selecting) groupNames().forEach { n -> val v = groupCard(n); v.tag = "g:" + n; cards.add(v); targets.add(v to n) } // groups sit in the tab grid first
-            shown.forEach { t -> val v = card(t); cards.add(v); targets.add(v to t) } // S77: inside a group a tab card = reorder target
+            val olderOn = mode == 0 && query.isBlank() && !selecting // STEP E: "Older" = not opened for 7 days
+            val older = if (olderOn) shown.filter { tm.isOld(it) } else emptyList()
+            val oldCards = ArrayList<View>()
+            shown.forEach { t -> if (t in older) return@forEach; val v = card(t); cards.add(v); targets.add(v to t) } // S77: inside a group a tab card = reorder target
+            older.forEach { t -> val v = card(t); oldCards.add(v); targets.add(v to t) }
             empty.text = when {
                 query.isNotBlank() -> "No tab matches."
                 mode == 1 -> "No private tabs.\nTap + to open one."
                 else -> "No tabs here."
             }
-            empty.visibility = if (cards.isEmpty()) View.VISIBLE else View.GONE
+            empty.visibility = if (cards.isEmpty() && oldCards.isEmpty()) View.VISIBLE else View.GONE
             layoutCards(cards)
+            if (oldCards.isNotEmpty()) { // STEP E
+                grid.addView(TextView(act).apply {
+                    text = "OLDER · " + oldCards.size + " (not opened for 7 days)"
+                    textSize = 12f
+                    letterSpacing = 0.06f
+                    setTextColor(c(R.color.mg_text_dim))
+                }, LinearLayout.LayoutParams(MATCH, WRAP).apply { setMargins(dp(8), dp(16), dp(8), dp(4)) })
+                layoutCards(oldCards)
+            }
             val pg = pendingGlide
             pendingGlide = null
-            if (anim) enter(cards) else if (pg != null) glide(pg) // S16
+            if (anim) enter(cards + oldCards) else if (pg != null) glide(pg) // S16
         }
 
         /** S16: screen position of every tab card now (includes the drag offset), used as the start of the glide after a re-render. */

@@ -1,3 +1,11 @@
+0.0.140 (SETTINGS STEP E MODIFY: tab suspend + Older section + audit script)
+- TabManager.kt: (2) Tab suspend. Setting "Suspend background tabs" Off / 5 / 15 min (prefs mgb_ui tab_suspend_min, default Off). A 60 s sweep frees the WebView of a background tab (saveState kept, new empty WebView put in its place, url in pending, thumbnail stays in TabSwitcher.thumbs); it reloads / restores its history when the tab is opened (switchTo -> resume). Never suspended: the active tab, private, home, extension, still loading, never loaded (pending), a tab in a group, a tab that plays video/audio (JS check; audio inside a frame counts when the phone plays music), and nothing at all while a download runs (DownloadsApi.active()). Pinned tabs do not exist in this app.
+- TabManager.kt: (3) Tab.lastActive (set when a tab is shown or left, saved in the session as "ts", restored). isOld(t) = not active, not private, not opened for 7 days. Tab.web is now a var (replaced on suspend).
+- TabSwitcher.kt: (3) Older section: in the normal Tabs view (no search, no select) tabs not opened for 7 days are listed under an "OLDER" header below the other cards. Close all / select still use the full list.
+- SettingsScreen.kt: row "Suspend background tabs" in Tabs and motion (+ search words, + key in the card's Reset list).
+- tools/audit_settings.py (NEW): (1) audit script, only LISTS rows (duplicate labels, shared prefs keys, single switches that set Manual). NOTHING was removed: waiting for your OK (see handoff list).
+- Other files: build.gradle.kts (version).
+
 0.0.139 (SETTINGS STEP D BUILD: per-site settings page)
 - SiteSettings.kt (NEW): full-screen page "Site settings" (back arrow, host search). Lists every host that has any saved site setting from the 4 existing stores: SitePerms (camera/mic/location), SiteConfig (JS off / Ads allowed / Desktop), TextZoom (percent), DlMode (button mode per site). Hosts are merged (www. and case ignored). Row = host + short summary.
 - Tap a host: switches (checkboxes), text size (slider 50-250%), Download buttons (opens DlMode.siteDialog), each permission (Allow / Block / Reset). "Reset this site" (confirm) clears all four for that host. No new storage; reads prefs mgb_perm / mgb_zoom / mgb_ui dl_site_modes directly for the host list only, every write goes through the existing setters.
