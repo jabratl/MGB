@@ -126,6 +126,7 @@ object ExtApi {
     /** After install / update / toggle / remove (ExtListScreen). */
     fun sync(ctx: Context) {
         if (!inited) init(ctx) else doSync(false)
+        ContentInjector.refresh(ctx) // 0.0.108: open tabs get the changed content scripts
     }
 
     private fun doSync(first: Boolean) {

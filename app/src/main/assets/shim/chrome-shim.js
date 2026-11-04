@@ -11,7 +11,7 @@
   var seq = 0, pending = {}, listeners = {}, lastError;
   var slice = Array.prototype.slice;
 
-  function send(obj) { obj.t = CFG.token; post(JSON.stringify(obj)); }
+  function send(obj) { obj.t = CFG.token; obj.x = CFG.id; post(JSON.stringify(obj)); } // 0.0.108: x = extension id (ChromeBridge routes token / storage / events per extension)
   function call(api, args) {
     return new Promise(function (resolve, reject) {
       var id = ++seq;
@@ -82,6 +82,7 @@
     var m;
     try { m = JSON.parse(ev.data); } catch (e) { return; }
     if (!m) return;
+    if (m.x && m.x !== CFG.id) return; // 0.0.108: answers / events of another extension in the same frame
     if (m.e) {
       var a = m.p || [];
       if (m.e === 'runtime.onMessage' && m.q) { deliverMessage(a, m.q); return; }
@@ -103,8 +104,35 @@
     id: CFG.id,
     getURL: function (p) { return CFG.base + String(p == null ? '' : p).replace(/^\/+/, ''); },
     getManifest: function () { return JSON.parse(JSON.stringify(manifest)); },
-    sendMessage: wrap(function (msg) { return call('runtime.sendMessage', [msg === undefined ? null : msg]); }),
-    onMessage: makeEvent('runtime.onMessage', isExt)
+    sendMessage: wrap(function (a, b) {
+      // chrome.runtime.sendMessage([extensionId,] message [, options]): own id or an id-shaped first string is dropped
+      var msg = a;
+      if (typeof a === 'string' && arguments.length >= 2 && (a === CFG.id || /^[a-p]{32}$/.test(a))) msg = b;
+      return call('runtime.sendMessage', [msg === undefined ? null : msg]);
+    }),
+    onMessage: makeEvent('runtime.onMessage', isExt),
+    // 0.0.108: events / calls many extensions touch at load time; a missing one threw and stopped the whole content script
+    onConnect: makeEvent('runtime.onConnect', false),
+    onConnectExternal: makeEvent('runtime.onConnectExternal', false),
+    onMessageExternal: makeEvent('runtime.onMessageExternal', false),
+    onSuspend: makeEvent('runtime.onSuspend', false),
+    onSuspendCanceled: makeEvent('runtime.onSuspendCanceled', false),
+    onUpdateAvailable: makeEvent('runtime.onUpdateAvailable', false),
+    reload: function () { /* not supported */ },
+    requestUpdateCheck: wrap(function () { return Promise.resolve({ status: 'no_update' }); }),
+    connect: function (a, b) {
+      // long-lived ports are not available yet: behave like "no receiver" (onDisconnect with lastError) instead of throwing
+      var info = (typeof a === 'object' && a) ? a : (b || {});
+      var disc = makeEvent('port.' + (++seq) + '.onDisconnect', false), msgEv = makeEvent('port.' + seq + '.onMessage', false);
+      var port = { name: String(info.name || ''), sender: undefined, onMessage: msgEv, onDisconnect: disc,
+        postMessage: function () { /* dropped */ }, disconnect: function () { /* nothing open */ } };
+      setTimeout(function () {
+        lastError = { message: 'Could not establish connection. Receiving end does not exist.' };
+        fire('port.' + seq + '.onDisconnect', [port]);
+        lastError = undefined;
+      }, 0);
+      return port;
+    }
   };
   Object.defineProperty(runtime, 'lastError', { get: function () { return lastError; }, enumerable: true });
 
@@ -126,7 +154,14 @@
   var msgs = CFG.messages || {};
   var i18n = {
     getMessage: function (key, subs) {
-      var e = msgs[String(key).toLowerCase()];
+      var k = String(key).toLowerCase();
+      if (k === '@@extension_id') return CFG.id;
+      if (k === '@@ui_locale') return ((G.navigator && G.navigator.language) || 'en').replace('-', '_');
+      if (k === '@@bidi_dir') return 'ltr';
+      if (k === '@@bidi_reversed_dir') return 'rtl';
+      if (k === '@@bidi_start_edge') return 'left';
+      if (k === '@@bidi_end_edge') return 'right';
+      var e = msgs[k];
       if (!e) return '';
       var s = String(e.m || '');
       s = s.replace(/\$([A-Za-z0-9_@]+)\$/g, function (x, n) { var c = e.p && e.p[n.toLowerCase()]; return c === undefined ? '' : c; });
@@ -140,6 +175,8 @@
   };
 
   var chrome = { runtime: runtime, storage: storage, i18n: i18n, __mgbLog: log };
+  chrome.extension = { getURL: runtime.getURL, inIncognitoContext: false, getBackgroundPage: function () { return null; }, getViews: function () { return []; },
+    isAllowedIncognitoAccess: wrap(function () { return Promise.resolve(false); }), isAllowedFileSchemeAccess: wrap(function () { return Promise.resolve(false); }) };
 
   // ---------- extension pages only: everything else is forwarded to Kotlin ----------
   if (isExt) {

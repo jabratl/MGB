@@ -3,6 +3,7 @@ package com.jabra.mgb
 import android.content.Context
 import android.util.Log
 import android.webkit.WebView
+import androidx.webkit.ScriptHandler
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import org.json.JSONArray
@@ -151,11 +152,59 @@ object ContentInjector {
         return if (ok && f.isFile && f.length() <= 2_000_000L) f else null
     }
 
+    // 0.0.108: chrome.i18n messages (_locales) of an installed extension, cached per extension + manifest signature
+    private val i18nCache = HashMap<String, Pair<String, JSONObject>>()
+
+    private fun readMessages(dir: File, lang: String, into: JSONObject) {
+        if (lang.isBlank() || lang.contains("..") || lang.contains('/') || lang.contains('\\')) return
+        val f = extFile(dir, "_locales/$lang/messages.json") ?: return
+        val j = try { JSONObject(f.readText(Charsets.UTF_8).removePrefix("\uFEFF")) } catch (_: Exception) { return }
+        for (k in j.keys().asSequence().toList()) {
+            val e = j.optJSONObject(k) ?: continue
+            val o = JSONObject().put("m", e.optString("message", ""))
+            val ph = e.optJSONObject("placeholders")
+            if (ph != null) {
+                val p = JSONObject()
+                for (n in ph.keys().asSequence().toList()) p.put(n.lowercase(), ph.optJSONObject(n)?.optString("content", "") ?: "")
+                o.put("p", p)
+            }
+            into.put(k.lowercase(), o)
+        }
+    }
+
+    /** { key(lowercase): {m: message, p: {placeholder: content}} } : default_locale first, then en, then the phone language on top. */
+    private fun messagesFor(id: String, dir: File, manifest: JSONObject): JSONObject {
+        val mf = File(dir, "manifest.json")
+        val sig = "${mf.lastModified()}:${mf.length()}:${java.util.Locale.getDefault()}"
+        i18nCache[id]?.let { if (it.first == sig) return it.second }
+        val out = JSONObject()
+        try {
+            if (File(dir, "_locales").isDirectory) {
+                val loc = java.util.Locale.getDefault()
+                val langs = LinkedHashSet<String>()
+                val def = manifest.optString("default_locale", "")
+                if (def.isNotEmpty()) langs.add(def)
+                langs.add("en")
+                langs.add(loc.language)
+                langs.add(loc.language + "_" + loc.country)
+                langs.add(loc.language + "-" + loc.country)
+                for (l in langs) readMessages(dir, l, out)
+                if (out.toString().length > 600_000) { Log.w(TAG, "$id: messages too big, i18n off"); out.keys().asSequence().toList().forEach { out.remove(it) } }
+            }
+        } catch (ex: Exception) { Log.e(TAG, "$id messages", ex) }
+        i18nCache[id] = Pair(sig, out)
+        return out
+    }
+
+    /** 0.0.108: css of an extension points to its files as chrome-extension://__MSG_@@extension_id__/x (or the real id) -> served url. */
+    private fun fixExtUrls(id: String, css: String): String =
+        css.replace("chrome-extension://__MSG_@@extension_id__/", EXT_BASE + id + "/").replace("chrome-extension://$id/", EXT_BASE + id + "/")
+
     private fun buildExt(id: String, dir: File, mf: File): List<Entry> {
         val manifest = JSONObject(mf.readText())
         val cs = manifest.optJSONArray("content_scripts") ?: return emptyList()
         val cfgJson = JSONObject().put("token", tokenFor(id)).put("kind", "content").put("base", EXT_BASE + id + "/")
-            .put("id", id).put("manifest", manifest).toString()
+            .put("id", id).put("manifest", manifest).put("messages", messagesFor(id, dir, manifest)).toString()
         val out = ArrayList<Entry>()
         for (i in 0 until cs.length()) {
             try {
@@ -169,7 +218,7 @@ object ContentInjector {
                     src.append("\n/* ").append(js.optString(j)).append(" */\n").append(f.readText()).append("\n;\n")
                 }
                 val cssSrc = StringBuilder()
-                for (j in 0 until css.length()) extFile(dir, css.optString(j))?.let { cssSrc.append(it.readText()).append("\n") }
+                for (j in 0 until css.length()) extFile(dir, css.optString(j))?.let { cssSrc.append(fixExtUrls(id, it.readText())).append("\n") }
                 if (src.isEmpty() && cssSrc.isEmpty()) continue
                 val matches = e.optJSONArray("matches")
                 val origins = originsOf(matches)
@@ -269,8 +318,10 @@ object ContentInjector {
                     if (!ExtRegistry.isValidId(info.id)) continue
                     val mf = File(info.dir, "manifest.json")
                     if (!mf.isFile || mf.length() > 2_000_000L) continue
+                    val man = JSONObject(mf.readText())
                     cfgs.put(info.id, JSONObject().put("token", tokenFor(info.id)).put("kind", "ext")
-                        .put("base", EXT_BASE + info.id + "/").put("id", info.id).put("manifest", JSONObject(mf.readText())))
+                        .put("base", EXT_BASE + info.id + "/").put("id", info.id).put("manifest", man)
+                        .put("messages", messagesFor(info.id, info.dir, man))) // 0.0.108: chrome.i18n
                 } catch (ex: Exception) { Log.e(TAG, "ext page cfg ${info.id} skipped", ex) }
             }
         } catch (ex: Exception) { Log.e(TAG, "registry", ex) }
@@ -291,10 +342,50 @@ object ContentInjector {
             val info = ExtRegistry.get(id) ?: return null
             val mf = File(info.dir, "manifest.json")
             if (!mf.isFile || mf.length() > 2_000_000L) return null
+            val man = JSONObject(mf.readText())
             val cfg = JSONObject().put("token", tokenFor(id)).put("kind", "content").put("base", EXT_BASE + id + "/")
-                .put("id", id).put("manifest", JSONObject(mf.readText())).toString()
+                .put("id", id).put("manifest", man).put("messages", messagesFor(id, info.dir, man)).toString()
             "var chrome=" + shim + "(window," + cfg + ");\n"
         } catch (e: Exception) { Log.e(TAG, "injectPrelude $id", e); null }
+    }
+
+    // 0.0.108: script handles of installed extensions per tab WebView, so install / enable / disable / remove / update
+    // reach tabs that are already open (before, only tabs created afterwards saw a change)
+    private val extHandles = java.util.WeakHashMap<WebView, ArrayList<ScriptHandler>>()
+
+    private fun addScript(web: WebView, script: String, origins: Set<String>, keep: ArrayList<ScriptHandler>?) {
+        val h = try {
+            WebViewCompat.addDocumentStartJavaScript(web, script, origins)
+        } catch (ex: Exception) {
+            // an origin rule the WebView refuses (odd host pattern): the script has its own full url check, so "*" is safe
+            if (origins.size == 1 && origins.first() == "*") throw ex
+            WebViewCompat.addDocumentStartJavaScript(web, script, setOf("*"))
+        }
+        keep?.add(h)
+    }
+
+    private fun addExtScripts(ctx: Context, web: WebView) {
+        val keep = ArrayList<ScriptHandler>()
+        // S2: installed extensions (a failing entry is skipped, others still run)
+        for (e in extEntries(ctx)) {
+            try { addScript(web, e.script, e.origins, keep) } catch (ex: Exception) { Log.e(TAG, "ext entry failed", ex) }
+        }
+        // S6: extension pages opened as tabs (tabs.create) get window.chrome too
+        try { addScript(web, extPageScript(ctx), setOf(EXT_ORIGIN), keep) } catch (ex: Exception) { Log.e(TAG, "ext page script failed", ex) }
+        synchronized(extHandles) { extHandles[web] = keep }
+    }
+
+    /** 0.0.108: call (UI thread) after an extension was added / removed / switched / updated: open tabs get the new scripts on their next page load. */
+    fun refresh(ctx: Context) {
+        if (!inited || !supported()) return
+        val webs = synchronized(extHandles) { extHandles.keys.toList() }
+        for (w in webs) {
+            try {
+                val old = synchronized(extHandles) { extHandles.remove(w) } ?: continue
+                for (h in old) try { h.remove() } catch (_: Exception) { }
+                addExtScripts(ctx, w)
+            } catch (ex: Exception) { Log.e(TAG, "refresh failed", ex) }
+        }
     }
 
     /** Browser tab WebView: call before the first loadUrl. */
@@ -305,12 +396,7 @@ object ContentInjector {
             ChromeBridge.install(web, setOf("*"))
             if (ytScript.isNotEmpty()) try { WebViewCompat.addDocumentStartJavaScript(web, ytScript, YT_ORIGINS) } catch (ex: Exception) { Log.e(TAG, "yt script failed", ex) }
             for (e in entries) WebViewCompat.addDocumentStartJavaScript(web, e.script, e.origins)
-            // S2: installed extensions (a failing entry is skipped, others still run)
-            for (e in extEntries(ctx)) {
-                try { WebViewCompat.addDocumentStartJavaScript(web, e.script, e.origins) } catch (ex: Exception) { Log.e(TAG, "ext entry failed", ex) }
-            }
-            // S6: extension pages opened as tabs (tabs.create) get window.chrome too
-            WebViewCompat.addDocumentStartJavaScript(web, extPageScript(ctx), setOf(EXT_ORIGIN))
+            addExtScripts(ctx, web)
         } catch (e: Exception) {
             Log.e(TAG, "attach failed", e)
         }

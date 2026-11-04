@@ -342,7 +342,7 @@ class TabManager(
                 Sniffer.onRequest(tab, r)
                 return null
             }
-            if (!r.isForMainFrame && !tab.isExt) return null
+            if (!r.isForMainFrame && !tab.isExt) return EngineHost.extPublic(r.url, tab.url, r.requestHeaders?.get("Referer")) // 0.0.108: only web_accessible_resources of installed extensions
             return EngineHost.ext(r.url)
         }
 

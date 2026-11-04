@@ -175,6 +175,63 @@ object EngineHost {
     /** For TabManager: serves https://appassets.androidplatform.net/ext/... (null = not an extension URL). */
     fun ext(u: Uri): WebResourceResponse? = loader?.shouldInterceptRequest(u)
 
+    // 0.0.108: web_accessible_resources. A WEB page (or a frame the page shows) may load a file of an installed extension
+    // only if the manifest lists it (images, css, fonts, scripts, iframes that a content script puts into the page), like Chrome.
+    private class War(val sig: String, val rules: List<Pair<Regex, List<String>?>>)
+    private val warCache = HashMap<String, War>()
+
+    private fun globRx(g: String): Regex =
+        Regex(g.trimStart('/').split("*").joinToString(".*") { Regex.escape(it) })
+
+    private fun warOf(id: String): War? {
+        val info = ExtRegistry.get(id) ?: return null
+        val mf = java.io.File(info.dir, "manifest.json")
+        if (!mf.isFile || mf.length() > 2_000_000L) return null
+        val sig = "${mf.lastModified()}:${mf.length()}"
+        synchronized(warCache) { warCache[id]?.let { if (it.sig == sig) return it } }
+        val rules = ArrayList<Pair<Regex, List<String>?>>()
+        try {
+            val arr = org.json.JSONObject(mf.readText()).optJSONArray("web_accessible_resources")
+            if (arr != null) for (i in 0 until arr.length()) {
+                val e = arr.opt(i)
+                if (e is String) rules.add(Pair(globRx(e), null)) // manifest v2: plain list
+                else if (e is org.json.JSONObject) { // manifest v3: {resources, matches}
+                    val res = e.optJSONArray("resources") ?: continue
+                    val m = e.optJSONArray("matches")
+                    val ms: List<String>? = if (m == null) null else (0 until m.length()).map { m.optString(it) }
+                    for (j in 0 until res.length()) rules.add(Pair(globRx(res.optString(j)), ms))
+                }
+            }
+        } catch (_: Exception) { }
+        val w = War(sig, rules)
+        synchronized(warCache) { warCache[id] = w }
+        return w
+    }
+
+    /** null = not allowed (the caller then loads it like any other page request). pageUrl = url of the tab that asks, referer = Referer header of the request. */
+    fun extPublic(u: Uri, pageUrl: String, referer: String? = null): WebResourceResponse? {
+        val path = u.path ?: return null
+        if (!path.startsWith("/ext/") || path.contains("..")) return null
+        val rest = path.removePrefix("/ext/")
+        val id = rest.substringBefore('/')
+        if (!rest.contains('/') || !ExtRegistry.isValidId(id)) return null
+        val rel = rest.substringAfter('/')
+        if (rel == ExtBackground.PAGE) return null
+        val info = ExtRegistry.get(id)
+        if (info == null || !info.enabled) return null
+        // a request made by a frame of the SAME extension (its iframe inside a web page loading its own script / css) is its own file
+        val own = referer != null && referer.startsWith(ContentInjector.EXT_BASE + id + "/")
+        val war = if (own) null else (warOf(id) ?: return null)
+        val hit = own || war!!.rules.any { (rx, ms) -> rx.matches(rel) && (ms == null || ContentInjector.urlAllowed(ms, pageUrl)) }
+        if (!hit) return null
+        val r = extFile(id, rel)
+        if (r.statusCode != 200) return r
+        val h = HashMap<String, String>(r.responseHeaders ?: emptyMap())
+        h["Access-Control-Allow-Origin"] = "*" // a page script (content script fetch) reads it cross-origin
+        r.responseHeaders = h
+        return r
+    }
+
     // ---------- network proxy (engine only) ----------
 
     private fun cors(req: Map<String, String>, resHeaders: Collection<String>): HashMap<String, String> {
