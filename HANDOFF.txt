@@ -1,3 +1,4 @@
+CURRENT VERSION 0.0.136 (Settings STEP A: Downloads / Grabber sub-pages + Recent row; see CHANGELOG 0.0.136; apply after 0.0.135). NOT tested: compile (onBackPressed override, emptyList<Any>(), titleTv = this in apply), Back order on a phone, Recent chips at 360 px, search while a page is open. NEXT: STEP B (Look and motion) - files SettingsScreen.kt, TabPrefs.kt.
 CURRENT VERSION 0.0.135 (S21f: Settings Tabs card, Reduce motion, quick switches, search keywords; see CHANGELOG 0.0.135; apply after 0.0.134). NOT tested: compile (Row hint param order, round().apply, local fun chip), tiles at 360 px, search by keyword.
 CURRENT VERSION 0.0.134 (S21e: download fly animation; see CHANGELOG 0.0.134; apply after 0.0.133). NOT tested: compile, badge path / look, menu pop.
 CURRENT VERSION 0.0.133 (S21d: close-all Undo, tab grow-in, smooth load line; see CHANGELOG 0.0.133; apply after 0.0.132). NOT tested: compile, Undo of many tabs, fade flicker, load line look.

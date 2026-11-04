@@ -17,6 +17,7 @@ import android.webkit.WebStorage
 import android.transition.AutoTransition
 import android.transition.TransitionManager
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -70,6 +71,15 @@ object SettingsScreen {
         private var sv: ScrollView? = null
         private var openCat: String? = null // S46
         private var query = "" // S48 search text
+        // 0.0.136 (Step A): big categories open as their own page inside this Dialog
+        private var subPage: String? = null
+        private var savedY = 0
+        private var forceY = -1
+        private var titleTv: TextView? = null
+        private var sboxView: View? = null
+        private var searchEdit: EditText? = null
+        private val BIG = mapOf("downloads" to "Downloads", "grabber" to "Grabber and buttons")
+        private val NO_RECENT = setOf("Forget removed links")
         /** S21f: hidden search words per row label (the row is found by these too). */
         private val KW = mapOf(
             "Theme" to "dark light night mode appearance colour",
@@ -149,7 +159,7 @@ object SettingsScreen {
                 setColorFilter(act.getColor(R.color.mg_text))
                 setPadding(dp(10), dp(10), dp(10), dp(10))
                 contentDescription = "Back"
-                setOnClickListener { dismiss() }
+                setOnClickListener { goBack() }
             }, LinearLayout.LayoutParams(dp(44), dp(48)))
             head.addView(TextView(act).apply {
                 text = "Settings"
@@ -158,6 +168,7 @@ object SettingsScreen {
                 typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
                 setTextColor(act.getColor(R.color.mg_text))
                 setPadding(dp(6), 0, 0, 0)
+                titleTv = this
             }, LinearLayout.LayoutParams(0, WRAP, 1f))
             root.addView(head, LinearLayout.LayoutParams(MATCH, dp(56)))
 
@@ -194,6 +205,7 @@ object SettingsScreen {
                     override fun afterTextChanged(s: Editable?) {
                         query = s?.toString() ?: ""
                         clear.visibility = if (query.isEmpty()) View.GONE else View.VISIBLE
+                        if (query.isNotBlank() && subPage != null) { subPage = null; applyPage() }
                         fill()
                         sv?.scrollTo(0, 0)
                     }
@@ -205,6 +217,8 @@ object SettingsScreen {
                     true
                 }
             }
+            searchEdit = edit
+            sboxView = sbox
             clear.setOnClickListener { edit.setText("") }
             sbox.addView(edit, LinearLayout.LayoutParams(0, dp(48), 1f))
             sbox.addView(clear, LinearLayout.LayoutParams(dp(40), dp(40)))
@@ -262,6 +276,7 @@ object SettingsScreen {
                     }
                     setOnClickListener {
                         if (r.value == "ON" || r.value == "OFF") it.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK) // S21f
+                        if (r.value.isNotEmpty() && r.label !in NO_RECENT) noteRecent(r.label) // Step A
                         r.onClick.invoke()
                     }
                 }
@@ -303,6 +318,9 @@ object SettingsScreen {
             // S48: search filter. A title match keeps the whole category, else only rows whose label matches.
             val q = query.trim()
             val searching = q.isNotEmpty()
+            val sub = !searching && subPage == key // Step A: this category is the open page
+            if (!searching && subPage != null && !sub) return
+            val link = !searching && !sub && BIG.containsKey(key) // Step A: big category = one row that opens a page
             var shown = items
             if (searching && !title.contains(q, true)) {
                 val out = ArrayList<Any>()
@@ -320,8 +338,8 @@ object SettingsScreen {
                 if (out.isEmpty()) return
                 shown = out
             }
-            val fold = !searching && shown.count { it is Row } > SUB_FOLD
-            val isOpen = searching || openCat == key
+            val fold = !searching && !sub && shown.count { it is Row } > SUB_FOLD
+            val isOpen = searching || sub || (!link && openCat == key)
             val card = LinearLayout(act).apply {
                 orientation = LinearLayout.VERTICAL
                 background = round(act.getColor(R.color.mg_surface), 24).apply { // 0.0.129: hairline outline
@@ -338,11 +356,11 @@ object SettingsScreen {
                 setPadding(0, 0, 0, dp(8))
                 visibility = if (isOpen) View.VISIBLE else View.GONE
             }
-            content.addView(View(act).apply { setBackgroundColor(act.getColor(R.color.mg_outline)) },
+            if (!sub) content.addView(View(act).apply { setBackgroundColor(act.getColor(R.color.mg_outline)) },
                 LinearLayout.LayoutParams(MATCH, dp(1)).apply { marginStart = dp(16); marginEnd = dp(16) })
             var box: LinearLayout? = null // S48: current folded sub group
             var firstSub = true
-            for (item in shown) {
+            for (item in (if (link) emptyList<Any>() else shown)) {
                 when (item) {
                     is Sub -> {
                         if (fold) {
@@ -380,7 +398,7 @@ object SettingsScreen {
                 if (act.theme.resolveAttribute(android.R.attr.selectableItemBackground, out, true)) {
                     foreground = act.getDrawable(out.resourceId)
                 }
-                setOnClickListener { toggle(key, card) }
+                setOnClickListener { if (link) openPage(key) else toggle(key, card) }
             }
             val badge = FrameLayout(act).apply {
                 background = GradientDrawable().apply {
@@ -410,10 +428,80 @@ object SettingsScreen {
             })
             header.addView(texts, LinearLayout.LayoutParams(0, WRAP, 1f))
             header.addView(chev, LinearLayout.LayoutParams(dp(24), dp(24)))
-            card.addView(header, LinearLayout.LayoutParams(MATCH, WRAP))
-            card.addView(content, LinearLayout.LayoutParams(MATCH, WRAP))
+            if (!sub) card.addView(header, LinearLayout.LayoutParams(MATCH, WRAP))
+            if (!link) card.addView(content, LinearLayout.LayoutParams(MATCH, WRAP))
             col.addView(card, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
-            cats[key] = Pair(content, chev)
+            if (!link) cats[key] = Pair(content, chev)
+        }
+
+        // ---- Step A: sub-pages and Recent ----
+        private fun applyPage() {
+            titleTv?.text = subPage?.let { BIG[it] } ?: "Settings"
+            sboxView?.visibility = if (subPage == null) View.VISIBLE else View.GONE
+        }
+
+        private fun openPage(key: String) {
+            savedY = sv?.scrollY ?: 0
+            subPage = key
+            forceY = 0
+            applyPage()
+            fill()
+        }
+
+        /** Back order: sub-page -> Settings -> close. */
+        private fun goBack() {
+            if (subPage != null) {
+                subPage = null
+                forceY = savedY
+                applyPage()
+                fill()
+            } else dismiss()
+        }
+
+        override fun onBackPressed() { goBack() }
+
+        private fun recents(prefs: android.content.SharedPreferences): List<String> =
+            (prefs.getString("recent_settings", "") ?: "").split("\n").filter { it.isNotBlank() }
+
+        private fun noteRecent(label: String) {
+            try {
+                val prefs = act.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE)
+                val list = ArrayList<String>()
+                list.add(label)
+                for (x in recents(prefs)) if (x != label && list.size < 5) list.add(x)
+                prefs.edit().putString("recent_settings", list.joinToString("\n")).apply()
+            } catch (_: Exception) { }
+        }
+
+        private fun recentRow(prefs: android.content.SharedPreferences): View? {
+            val list = recents(prefs)
+            if (list.isEmpty()) return null
+            val box = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+            box.addView(TextView(act).apply {
+                text = "RECENT"
+                textSize = 11f
+                letterSpacing = 0.08f
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                setTextColor(act.getColor(R.color.mg_primary))
+                setPadding(dp(4), 0, 0, dp(6))
+            })
+            val hs = HorizontalScrollView(act).apply { isHorizontalScrollBarEnabled = false }
+            val chips = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL }
+            for (l in list) chips.addView(TextView(act).apply {
+                text = l
+                textSize = 13f
+                maxLines = 1
+                setTextColor(act.getColor(R.color.mg_text))
+                setPadding(dp(14), dp(8), dp(14), dp(8))
+                background = round(act.getColor(R.color.mg_surface), 20).apply {
+                    setStroke(dp(1), ColorUtils.setAlphaComponent(act.getColor(R.color.mg_outline), 0x99))
+                }
+                isClickable = true
+                setOnClickListener { searchEdit?.setText(l) } // shows that setting through search
+            }, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginEnd = dp(8) })
+            hs.addView(chips)
+            box.addView(hs, LinearLayout.LayoutParams(MATCH, WRAP))
+            return box
         }
 
         /** S46: open one category, close the others (animated). */
@@ -482,7 +570,7 @@ object SettingsScreen {
                         setStroke(dp(1), if (on) act.getColor(R.color.mg_primary) else ColorUtils.setAlphaComponent(act.getColor(R.color.mg_outline), 0x99))
                     }
                     isClickable = true
-                    setOnClickListener { it.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK); tap(); fill() }
+                    setOnClickListener { it.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK); noteRecent(if (label == "Hide bar on scroll") "Hide bar while scrolling" else label); tap(); fill() }
                 }
                 c.addView(ImageView(act).apply {
                     setImageResource(icon)
@@ -510,14 +598,18 @@ object SettingsScreen {
 
         private fun fill() {
             val col = body ?: return
-            val keepY = sv?.scrollY ?: 0
+            val keepY = if (forceY >= 0) forceY else (sv?.scrollY ?: 0)
+            forceY = -1
             col.removeAllViews()
             cats.clear()
             val tabs = BookmarksScreen.tabsRef
             val prefs = act.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE)
             val fa = act as? androidx.fragment.app.FragmentActivity
 
-            if (query.trim().isEmpty()) col.addView(quickRow(prefs), LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(12) }) // S21f
+            if (query.trim().isEmpty() && subPage == null) {
+                recentRow(prefs)?.let { col.addView(it, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(12) }) } // Step A
+                col.addView(quickRow(prefs), LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(12) }) // S21f
+            }
             category("general", R.drawable.ic_settings, "General", "Theme, search, pages, display", listOf(
                 Sub("Appearance"),
                 Row(R.drawable.ic_theme, "Theme", UiMode.label(act)) { dismiss(); UiMode.pick(act) },

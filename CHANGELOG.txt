@@ -1,3 +1,10 @@
+0.0.136 (SETTINGS STEP A MODIFY: sub-pages + Recent)
+- SettingsScreen.kt: "Downloads" and "Grabber and buttons" are now one card each that opens its own page inside the same Dialog (title changes, rows shown flat, no accordion). Small categories stay accordion. Search and quick tiles are hidden while a page is open; typing in search always returns to the main list.
+- Back order: page -> Settings -> close (arrow in the bar and the phone Back both use goBack()). Scroll position of the main list is restored.
+- Search still finds rows inside the big categories (while searching they show as normal open cards).
+- "Recent" chips above the quick tiles: last 5 settings you changed (rows with a value / ON-OFF, plus the 4 quick tiles). Label list in prefs mgb_ui key recent_settings (newline separated). Tap a chip = fills the search box with that label.
+- No new setting. Other files: only build.gradle.kts (version).
+
 0.0.135 (S21f MODIFY: Settings = Tabs card, Reduce motion, quick switches, search words)
 - TabPrefs.kt (NEW): prefs mgb_ui swipe_close (default ON), close_confirm (OFF), reduce_motion (OFF); TabPrefs.reduce(ctx) = our switch OR the phone's animator scale 0.
 - SettingsScreen.kt: new category "Tabs and motion" (Swipe a tab card to close it / Ask before Close all / Reduce motion); 4 quick switch tiles above the categories (Ad blocker, Dark pages, Hide bar on scroll, Reduce motion; hidden while searching); search also matches hidden keywords per row label (map KW, about 35 rows); ON/OFF rows give a haptic tick.
