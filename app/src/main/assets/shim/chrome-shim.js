@@ -230,7 +230,7 @@
     var NS = {
       tabs: [['sendMessage', 'create', 'update', 'getCurrent', 'remove', 'get', 'query', 'reload', 'captureVisibleTab', 'executeScript'], ['onRemoved', 'onUpdated', 'onCreated', 'onActivated']],
       downloads: [['search', 'download', 'show', 'resume', 'removeFile', 'pause', 'cancel', 'erase', 'open'], ['onChanged', 'onCreated']],
-      declarativeNetRequest: [['updateSessionRules', 'updateDynamicRules', 'getSessionRules', 'getDynamicRules', 'getEnabledRulesets', 'updateEnabledRulesets'], []],
+      declarativeNetRequest: [['updateSessionRules', 'updateDynamicRules', 'getSessionRules', 'getDynamicRules', 'getEnabledRulesets', 'updateEnabledRulesets', 'isRegexSupported', 'setExtensionActionOptions'], []], // 0.0.119 (S5)
       scripting: [['executeScript', 'insertCSS', 'registerContentScripts', 'updateContentScripts', 'unregisterContentScripts', 'getRegisteredContentScripts'], []],
       sidePanel: [['open', 'setOptions', 'setPanelBehavior'], []],
       action: [['setBadgeText', 'setBadgeBackgroundColor', 'setBadgeTextColor', 'setIcon', 'setTitle', 'setPopup', 'getBadgeText', 'getBadgeBackgroundColor', 'getBadgeTextColor', 'getTitle', 'getPopup', 'enable', 'disable', 'isEnabled', 'openPopup'], ['onClicked']], // 0.0.112 (S2)
@@ -241,7 +241,7 @@
       permissions: [['contains', 'request', 'getAll'], []],
       offscreen: [['createDocument', 'closeDocument', 'hasDocument'], []],
       commands: [['getAll'], ['onCommand']],
-      webRequest: [[], ['onBeforeRequest', 'onBeforeSendHeaders', 'onHeadersReceived', 'onCompleted', 'onErrorOccurred']],
+      webRequest: [[], ['onBeforeRequest', 'onBeforeSendHeaders', 'onSendHeaders', 'onHeadersReceived', 'onCompleted', 'onErrorOccurred']], // 0.0.119 (S5): onBeforeRequest / onBeforeSendHeaders / onSendHeaders / onErrorOccurred get events
       cookies: [['get', 'getAll', 'set', 'remove', 'getAllCookieStores'], ['onChanged']] // N1: Novel grabber
     };
     Object.keys(NS).forEach(function (ns) {

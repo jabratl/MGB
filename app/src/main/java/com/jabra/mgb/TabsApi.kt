@@ -202,6 +202,7 @@ object TabsApi {
             val n = c.args.optString(0)
             if (n.isNotEmpty()) synchronized(listening) { listening.getOrPut(c.ctx) { HashSet() }.add(n) }
             if (n.isNotEmpty()) ExtApi.onListen(c, n) // S5: remembers what wakes a stopped worker
+            if (n.isNotEmpty()) ExtApi.onListenFilter(c, n) // 0.0.119 (S5): webRequest filters
             null
         }
 

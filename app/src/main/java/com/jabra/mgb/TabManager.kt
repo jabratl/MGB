@@ -346,6 +346,8 @@ class TabManager(
                     if (xid != null && !ExtSafety.proxyAllowed(xid, r.url.toString())) return null
                     return EngineHost.proxyFor(r, tab.id, xid ?: ContentInjector.EXT_ID) // S7: rules of the extension that owns this page
                 }
+                // 0.0.119 (S5): webRequest events + declarativeNetRequest block / redirect of installed extensions (normal tabs only)
+                if (!tab.priv) HeaderModes.pageRequest(r, tab.id, tab.url)?.let { return it }
                 if (AdBlock.shouldBlock(r, tab.url)) return AdBlock.emptyResponse() // S19
                 Sniffer.onRequest(tab, r)
                 return null
@@ -357,6 +359,7 @@ class TabManager(
         override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: android.webkit.WebResourceError?) {
             super.onReceivedError(view, request, error)
             val r = request ?: return
+            if (!tab.isExt && !tab.priv) HeaderModes.pageError(r, tab.id, tab.url, error?.description?.toString() ?: "net::ERR_FAILED") // 0.0.119 (S5): webRequest.onErrorOccurred
             if (r.isForMainFrame) Diag.w("page", "load error " + (error?.errorCode ?: 0) + " " + (error?.description ?: ""), if (tab.priv) "(private tab)" else r.url.toString()) // S83
             val from = tab.httpsFrom ?: return
             if (!r.isForMainFrame || r.url.scheme != "https" || android.net.Uri.parse(from).host != r.url.host) return

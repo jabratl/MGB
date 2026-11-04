@@ -33,7 +33,7 @@ object ExtApi {
             "|tabs\\.(sendMessage|connect|create|update|getCurrent|remove|get|query|reload|executeScript)" +
             "|windows\\.(create|get|getCurrent|update)|action\\.[A-Za-z]+|alarms\\.[A-Za-z]+|notifications\\.[A-Za-z]+" +
             "|contextMenus\\.[A-Za-z]+|scripting\\.(executeScript|insertCSS|registerContentScripts|updateContentScripts|unregisterContentScripts|getRegisteredContentScripts)|cookies\\.[A-Za-z]+|permissions\\.[A-Za-z]+|commands\\.getAll" +
-            "|declarativeNetRequest\\.(updateSessionRules|updateDynamicRules|getSessionRules|getDynamicRules|getEnabledRulesets|updateEnabledRulesets))$"
+            "|declarativeNetRequest\\.(updateSessionRules|updateDynamicRules|getSessionRules|getDynamicRules|getEnabledRulesets|updateEnabledRulesets|isRegexSupported|setExtensionActionOptions))$"
     )
     private val sessionOpen = HashSet<String>() // 0.0.118 (S6): extensions that called storage.session.setAccessLevel({accessLevel:"TRUSTED_AND_UNTRUSTED_CONTEXTS"}) (memory only, like the data)
     private val NEEDS = mapOf(
@@ -167,6 +167,7 @@ object ExtApi {
             cancelAlarms(id)
             menus.remove(id)
             HeaderModes.forget(id) // S7: header rules of the removed extension
+            synchronized(wr) { wr.remove(id) }; prefs()?.edit()?.remove("wrf_$id")?.apply() // 0.0.119 (S5): webRequest filters
             ContentInjector.regForget(a, id) // 0.0.115 (S3): registered content scripts of the removed extension
             mem.remove(id)
             sp.edit().remove("ver_$id").remove("mem_$id").remove("menus_$id").apply()
@@ -224,8 +225,95 @@ object ExtApi {
 
     fun remembers(id: String, ev: String): Boolean = ev in memOf(id)
 
+    // ---------- webRequest (0.0.119, S5): observe only (MV3 has no blocking). Filters of the listeners are remembered like mem_<id> ----------
+
+    private val wr = HashMap<String, HashMap<String, JSONArray>>() // xid -> event -> filters ({urls, types, tabId})
+    private var wrSeq = 0
+
+    private fun wrOf(id: String): HashMap<String, JSONArray> = synchronized(wr) {
+        wr.getOrPut(id) {
+            val m = HashMap<String, JSONArray>()
+            try {
+                val raw = prefs()?.getString("wrf_$id", null)
+                if (raw != null) { val o = JSONObject(raw); for (k in o.keys()) m[k] = o.getJSONArray(k) }
+            } catch (_: Exception) { }
+            m
+        }
+    }
+
+    private fun wrSave(id: String) {
+        val o = JSONObject()
+        for ((k, v) in wrOf(id)) o.put(k, v)
+        prefs()?.edit()?.putString("wrf_$id", o.toString())?.apply()
+    }
+
+    /** event.add of a worker with a webRequest event: args = [name, filter, extraInfoSpec]. */
+    fun onListenFilter(c: ChromeBridge.Call, ev: String) {
+        if (!ev.startsWith("webRequest.") || c.extId == ContentInjector.EXT_ID || !isWorkerCtx(c.ctx, c.extId)) return
+        val info = ExtRegistry.get(c.extId) ?: return
+        if ("webRequest" !in info.permissions) return
+        val f = c.args.optJSONObject(1) ?: JSONObject()
+        synchronized(wr) {
+            val arr = wrOf(c.extId).getOrPut(ev) { JSONArray() }
+            if (arr.length() < 50) { arr.put(f); wrSave(c.extId) }
+        }
+    }
+
+    /** True when some enabled extension has webRequest listeners (cheap check before building event data). */
+    fun webRequestActive(): Boolean {
+        for (info in ExtRegistry.enabled()) {
+            if ("webRequest" !in info.permissions) continue
+            if (synchronized(wr) { wrOf(info.id).isNotEmpty() }) return true
+        }
+        return false
+    }
+
+    private fun wrFilterOk(f: JSONObject, url: String, type: String, tabId: Int): Boolean {
+        val urls = f.optJSONArray("urls")
+        if (urls != null && urls.length() > 0) {
+            val l = ArrayList<String>()
+            for (i in 0 until urls.length()) l.add(urls.optString(i))
+            if (!ContentInjector.urlAllowed(l, url)) return false
+        }
+        val types = f.optJSONArray("types")
+        if (types != null && types.length() > 0) {
+            var ok = false
+            for (i in 0 until types.length()) if (types.optString(i) == type) ok = true
+            if (!ok) return false
+        }
+        if (f.has("tabId") && f.optInt("tabId", -1) != tabId) return false
+        return true
+    }
+
+    /** One request of a web page -> the extensions that listen (permission webRequest + host permission for the url). */
+    fun webRequest(event: String, url: String, tabId: Int, type: String, method: String, initiator: String?, headers: Map<String, String>?, error: String?) {
+        var d: JSONObject? = null
+        for (info in ExtRegistry.enabled()) {
+            if ("webRequest" !in info.permissions) continue
+            val fl = synchronized(wr) { wrOf(info.id)[event] } ?: continue
+            if (!hostAllows(info, url)) continue
+            var ok = false
+            for (i in 0 until fl.length()) { val f = fl.optJSONObject(i); if (f != null && wrFilterOk(f, url, type, tabId)) { ok = true; break } }
+            if (!ok) continue
+            if (d == null) {
+                d = JSONObject().put("requestId", "mgb" + (++wrSeq)).put("url", url).put("method", method).put("frameId", 0)
+                    .put("parentFrameId", -1).put("tabId", tabId).put("type", type).put("timeStamp", System.currentTimeMillis().toDouble())
+                if (initiator != null) d.put("initiator", initiator)
+                if (headers != null && (event == "webRequest.onBeforeSendHeaders" || event == "webRequest.onSendHeaders")) {
+                    val ha = JSONArray()
+                    for ((k, v) in headers) ha.put(JSONObject().put("name", k).put("value", v))
+                    d.put("requestHeaders", ha)
+                }
+                if (error != null) d.put("error", error)
+            }
+            emitExt(info.id, event, JSONArray().put(d), remembers(info.id, event))
+        }
+    }
+
     /** A new run of the worker begins: its listener list is rebuilt. */
     fun bgStarted(id: String) {
+        synchronized(wr) { wr[id] = HashMap() }
+        wrSave(id)
         mem[id] = HashSet()
         persistMem(id)
     }

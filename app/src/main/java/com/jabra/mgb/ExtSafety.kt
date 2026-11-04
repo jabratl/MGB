@@ -18,7 +18,7 @@ object ExtSafety {
 
     /** Api of these permissions is not in ExtApi.EXT_OK (answer "Not supported in MGB"). */
     private val IGNORED_PERMS = setOf(
-        "webRequest", "webRequestBlocking", "webRequestAuthProvider", "downloads", "downloads.open", "offscreen", "sidePanel",
+        "webRequestBlocking", "webRequestAuthProvider", "downloads", "downloads.open", "offscreen", "sidePanel",
         "history", "bookmarks", "proxy", "debugger", "management", "identity", "browsingData", "privacy", "topSites"
     )
 
