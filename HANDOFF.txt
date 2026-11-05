@@ -21,7 +21,7 @@ CURRENT VERSION 0.0.140 (Settings STEP E: tab suspend, Older section, audit scri
 [x] T1  v0.0.141  Tab link tools: Clone Tab, Copy all tab links, Open links from clipboard      DONE (see T1 RESULT below)
 [x] T2  v0.0.142  View page source                                                               DONE (see T2 RESULT below)
 [x] T3  v0.0.143  Save page + minimal saved list                                                  CODE DONE, GO / NO-GO NOT TESTED (see T3 RESULT)
-[ ] T4  v0.0.144  Saved pages screen (search, rename, share, thumbnails, Settings row)           size M      (~55%)
+[x] T4  v0.0.144  Saved pages screen (search, rename, share, Settings row)                     DONE (see T4 RESULT)
 [ ] T5  v0.0.145  Adblock manager part 1: backend (my rules, my hosts, allow list, explain)      size M      (~55%)
 [ ] T6  v0.0.146  Adblock manager part 2: screen (lists, my rules editor, hosts, test URL)       size M      (~65%)
 [ ] T7  v0.0.147  Userscripts part 1: store, metadata parser, injection, minimal paste/enable    size L      (~75%)  TIGHT
@@ -51,6 +51,15 @@ T3 RESULT (0.0.143)
  NOT tested (needs a phone): compile; save + open of a normal page, a page with images, a JS-heavy page (MHT shows the DOM at save time, JS is off); airplane mode open; delete while the tab is open; restart with a saved-page tab open (restored from file); Back / Forward inside a saved tab; a normal tab opened after a saved tab still has JS on and normal file access (flags are per tab); 100 page limit toast.
  KNOWN: "Copy all tab links" (T1) may include the file:// address of a saved-page tab (TabBookmarks.linkOf not touched); a restored saved-page tab whose file was deleted shows an error page; the Saved pages row is a plain dialog (T4 replaces it); no thumbnails, no size-total beyond the dialog title.
  NEXT: if the go / no-go passed on the phone: T4 Saved pages screen (size M). Goal: full-screen "Saved pages" list replacing the T3 dialog (search, rename, share file, Settings row). If it failed: stop, report to the chat.
+
+T4 RESULT (0.0.144)
+ Done: full-screen "Saved pages" (search, header card with count + size + Delete all, per-page sheet: Open in new tab / Rename / Share file / Open original site / Delete). Opened from the main menu row and from Settings > Data and backup.
+ Changed: SavedPages.kt (new: screen) / PageSave.kt (rename, removeAll) / MainActivity.kt (menu row opens the screen) / SettingsScreen.kt (row + hint + KW) / build.gradle.kts (0.0.144) / CHANGELOG.txt / HANDOFF.txt.
+ Checks: bracket balance of the changed Kotlin files, every new call re-read against its real signature (ToolsSheet.Item / Group / show, SettingsScreen Row, PageSave API, FileProvider authority). kotlinc not available, no emulator (360 / 1280 px, dark + light not render-checked).
+ !! T3 go / no-go (mht opens offline on the real WebView) is STILL not confirmed on a phone: test that first; T4 is only useful if it passes.
+ NOT tested (needs a phone): compile; open / rename / share / delete; Delete all; search; delete while a tab still shows that file (tab keeps the page until reload, then shows an error); row layout at 360 px with a 2-line title; share chooser with the .mht type.
+ KNOWN / NEXT ideas (not done): no thumbnails (needs a snapshot at save time); the unused PageSave.dialog can be removed in a cleanup step; T1 "Copy all tab links" may include a saved tab's file:// address.
+ NEXT: T5 Adblock manager part 1: backend (size M). Goal: engine support for user rules, user blocked hosts, a global allow list, a read-only built-in host list and AdBlock.explain; no UI. Pack files: FilterList.kt, AdBlock.kt, CosmeticFilter.kt, Backup.kt, BlockerStats.kt, Util.kt (these are in the pack zip).
 
 Order rules: T1, T2 can go first (easy wins). Tracks are independent: SAVE (T3 -> T4), ADBLOCK (T5 -> T6), USERSCRIPTS (T7 -> T8 -> T9 -> T10).
 Inside a track never skip a step. Sizes are estimates; the "SAFE CUT" line of every step says what to drop if the chat reaches about 85%.

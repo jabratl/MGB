@@ -56,6 +56,15 @@ object PageSave {
 
     fun add(ctx: Context, e: Entry) = write(ctx, list(ctx) + e)
 
+    /** T4: new title for one saved page. */
+    fun rename(ctx: Context, id: String, title: String) =
+        write(ctx, list(ctx).map { if (it.id == id) Entry(it.id, title, it.url, it.time, it.size) else it })
+
+    fun removeAll(ctx: Context) {
+        for (e in list(ctx)) file(ctx, e.id).delete()
+        write(ctx, emptyList())
+    }
+
     fun remove(ctx: Context, id: String) {
         write(ctx, list(ctx).filter { it.id != id })
         file(ctx, id).delete()

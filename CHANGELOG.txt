@@ -1,3 +1,9 @@
+0.0.144 (TOOLS STEP T4 BUILD: Saved pages screen)
+- SavedPages.kt (new): full-screen "Saved pages" (skeleton of SiteSettings): search (title / host), header card "N pages, X MB" + Delete all (confirm), one card per page (title, host, date, size). Tap = open offline in a new tab; long press or the more button = sheet: Open in new tab, Rename, Share file (.mht copied to cache/updates, existing FileProvider), Open original site, Delete (confirm). No thumbnails (safe cut).
+- PageSave.kt: rename(), removeAll(). The T3 list dialog (PageSave.dialog) stays in the file, no longer used.
+- MainActivity.kt: main menu row "Saved pages" now opens the screen. SettingsScreen.kt: Data and backup card row "Saved pages" (N pages) + hint + search keywords.
+- No manifest / xml change.
+
 0.0.143 (TOOLS STEP T3 BUILD: Save page + minimal saved list)
 - PageSave.kt (new): store = filesDir/saved_pages/<id>.mht + index.json (title, url, time, size; max 100). Save dialog (name prefilled with the title) -> WebView.saveWebArchive. Simple list dialog: tap = open, long press = delete (confirm), total size in the title. mark(tab) = offline flags for THAT tab only: allowFileAccess on, JavaScript off, blockNetworkLoads on. isSaved(url) = address inside our saved_pages folder.
 - TabManager.kt: Tab.savedPage flag; openSaved(url, title) opens a new tab with the flags; saved-page tab skips the per-site switches in onPageStarted (they would turn JS back on) and shouldInterceptRequest (ad block / sniff / extension rules); restoreSession re-applies the flags to a saved file address. Not suspended, not in history (those only handle http already).

@@ -131,6 +131,7 @@ object SettingsScreen {
             "Export data" to "Save bookmarks and settings",
             "Import data" to "Restore from a backup file",
             "Recently closed tabs" to "Reopen tabs you closed",
+            "Saved pages" to "Pages kept for offline",
             "Clear browsing history" to "Deletes the visited pages list",
             "Clear cookies and site data" to "Logs you out of sites",
             "Clear cache" to "Frees stored page files",
@@ -175,6 +176,7 @@ object SettingsScreen {
             "Export data" to "backup save file bookmarks",
             "Import data" to "restore backup file",
             "Recently closed tabs" to "reopen history undo",
+            "Saved pages" to "saved pages offline mht save page copy archive",
             "Clear browsing history" to "delete history privacy",
             "Clear cookies and site data" to "logout delete storage",
             "Clear cache" to "delete temporary files storage space",
@@ -969,6 +971,7 @@ object SettingsScreen {
                 Row(R.drawable.ic_download, "Import data") { Backup.importData(act) },
                 Sub("Clear data"),
                 Row(R.drawable.ic_history, "Recently closed tabs") { dismiss(); Backup.closedTabs(act, tabs) },
+                Row(R.drawable.ic_folder, "Saved pages", "${PageSave.count(act)} pages") { dismiss(); SavedPages.open(act, tabs) }, // T4
                 Row(R.drawable.ic_trash, "Clear browsing history") {
                     confirm("Clear all browsing history?", "Clear") { Bookmarks.clearHistory(); Util.toast(act, "History cleared") }
                 },

@@ -177,7 +177,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Item("Bookmark all tabs", R.drawable.ic_bookmark_border) { TabBookmarks.dialog(this, tabs) }, // S40
             MenuSheet.Item("Passwords", R.drawable.ic_lock) { PasswordStore.screen(this) }, // S40
             MenuSheet.Item("Recently closed tabs", R.drawable.ic_history) { Backup.closedTabs(this, tabs) }, // S29
-            MenuSheet.Item("Saved pages", R.drawable.ic_folder, true, PageSave.count(this).let { if (it > 0) it.toString() else "" }) { PageSave.dialog(this, tabs) }, // T3
+            MenuSheet.Item("Saved pages", R.drawable.ic_folder, true, PageSave.count(this).let { if (it > 0) it.toString() else "" }) { SavedPages.open(this, tabs) }, // T3, T4: screen
             MenuSheet.Item("Novel grabber", R.drawable.ic_book, true, "EPUB · DOCX · TXT") { openExt("novel/studio.html") }, // N1
             MenuSheet.Item("Queue", R.drawable.ic_list) { openExt("queue.html") },
             MenuSheet.Item("Report center", R.drawable.ic_info) { DiagScreen.open(this, tabs, -1) } // S85
