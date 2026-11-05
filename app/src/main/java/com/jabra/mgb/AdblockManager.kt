@@ -32,7 +32,6 @@ import androidx.core.graphics.ColorUtils
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.materialswitch.MaterialSwitch
 
 /**
  * T6: one full-screen "Hosts and filters" page (skeleton of SiteSettings, card style of Settings).
@@ -87,11 +86,8 @@ object AdblockManager {
 
         fun chevron() = ImageView(act).apply { setImageResource(R.drawable.ic_chevron); setColorFilter(cDim) }.also { it.layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)) }
 
-        fun switchFor(on: Boolean) = MaterialSwitch(act).apply {
+        fun switchFor(on: Boolean) = ThazirSwitch(act).apply { // A9: Thazir look
             isChecked = on; isClickable = false; isFocusable = false
-            val st = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
-            trackTintList = ColorStateList(st, intArrayOf(cPrimary, act.getColor(R.color.mg_surface_variant)))
-            thumbTintList = ColorStateList(st, intArrayOf(cOnPrimary, cDim))
         }
 
         fun row(icon: Int, title: String, hint: String = "", trail: View? = null, click: (() -> Unit)? = null, long: (() -> Unit)? = null): LinearLayout {

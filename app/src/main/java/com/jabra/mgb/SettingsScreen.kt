@@ -86,7 +86,8 @@ object SettingsScreen {
         private var flashLabel: String? = null // Step B: row that was just toggled
         /** Step C: the ONLY mgb_ui keys each card's "Reset to default" may remove. Nothing else is ever touched. */
         private val RESET = mapOf(
-            "general" to listOf("night", "dark_pages", "engine", "tr_lang", "hide_bar", "pull_refresh", "rotate_browser"),
+            "general" to listOf("night", "dark_pages", "engine", "tr_lang", "hide_bar", "pull_refresh", "rotate_browser",
+                "ap_bar_pos", "ap_home_action", "ap_full_url", "ap_swipe_fs", "ap_swipe_tabs", "ap_wp_dim", "ap_undo_toast", "ap_start_page"), // A9: + Appearance keys
             "tabs" to listOf("swipe_close", "close_confirm", "reduce_motion", "tab_suspend_min"),
             "downloads" to listOf("auto_diag"),
             "grabber" to listOf("web_play", "v77_backup", "v77_prev_mode", "dl_mode", "native_btn", "video_btn"),
@@ -150,7 +151,7 @@ object SettingsScreen {
         /** S21f: hidden search words per row label (the row is found by these too). */
         private val KW = mapOf(
             "Theme" to "dark light night mode appearance colour",
-            "Appearance" to "theme dark light night look colour style",
+            "Appearance" to "theme dark light night look colour style wallpaper bar top bottom toggle dark pages home button swipe fullscreen undo start page menu",
             "Default browser" to "links open http https set app phone settings",
             "Dark pages" to "dark mode night websites black",
             "Search engine" to "google bing duckduckgo default address bar",
@@ -564,6 +565,7 @@ object SettingsScreen {
             confirm("Reset \"$title\" to default? Only the settings of this card change. Bookmarks, passwords and files are not touched.", "Reset") {
                 try {
                     val themeBefore = UiMode.mode(act)
+                    val barBefore = AppearancePrefs.barPos(act) // A9: bar position needs a restart
                     if (key == "grabber" && V77Alt.on(act)) V77Alt.set(act, false) // restores the saved mode first
                     val ed = act.getSharedPreferences("mgb_ui", android.content.Context.MODE_PRIVATE).edit()
                     for (k in keys) ed.remove(k)
@@ -575,7 +577,7 @@ object SettingsScreen {
                         BookmarksScreen.tabsRef?.applyDarkPages()
                     }
                     Util.toast(act, "$title reset to default")
-                    if (key == "general" && themeBefore != 0) { dismiss(); act.recreate() } else fill()
+                    if (key == "general" && (themeBefore != 0 || barBefore != "bottom")) { dismiss(); act.recreate() } else fill()
                 } catch (e: Exception) {
                     Log.e(TAG, "reset failed", e)
                     Util.toast(act, "Could not reset")
@@ -818,14 +820,6 @@ object SettingsScreen {
             category("general", R.drawable.ic_settings, "General", "Theme, search, pages, display", listOf(
                 Sub("Appearance"),
                 Row(R.drawable.ic_theme, "Appearance", UiMode.label(act)) { dismiss(); AppearanceScreen.open(act) }, // APPEARANCE A2
-                Row(R.drawable.ic_theme, "Theme", UiMode.label(act)) { dismiss(); UiMode.pick(act) },
-                Row(R.drawable.ic_theme, "Dark pages", if (UiMode.darkPages(act)) "ON" else "OFF") {
-                    val on = !UiMode.darkPages(act)
-                    UiMode.setDarkPages(act, on)
-                    tabs?.applyDarkPages()
-                    Util.toast(act, if (on) "Dark pages ON (reload the page)" else "Dark pages OFF (reload the page)")
-                    fill()
-                },
                 Sub("Browsing"),
                 Row(R.drawable.ic_search, "Search engine", Util.engineName(act)) {
                     val names = Util.ENGINES.map { it.first }

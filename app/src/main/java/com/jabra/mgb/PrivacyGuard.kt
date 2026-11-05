@@ -20,7 +20,6 @@ import android.widget.TextView
 import androidx.core.graphics.ColorUtils
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.materialswitch.MaterialSwitch
 
 /**
  * S68: PRIVACY GUARD. The shield button in the address bar opens one bottom sheet for the current site:
@@ -102,11 +101,8 @@ object PrivacyGuard {
             setPadding(0, dp(4), 0, dp(4))
         }
         fun divider() = View(act).apply { setBackgroundColor(cLine) }
-        fun switchOf(on: Boolean) = MaterialSwitch(act).apply {
+        fun switchOf(on: Boolean) = ThazirSwitch(act).apply { // A9: Thazir look
             isChecked = on; isClickable = false; isFocusable = false
-            val st = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
-            trackTintList = ColorStateList(st, intArrayOf(cPrimary, cVar))
-            thumbTintList = ColorStateList(st, intArrayOf(cOnPrimary, cDim))
         }
         /** One row: icon badge, title, one line of help, switch. [onTap] gets the NEW state and returns the state really set. */
         fun switchRow(icon: Int, title: String, info: String, on: Boolean, onTap: (Boolean) -> Boolean): LinearLayout {

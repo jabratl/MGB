@@ -1,3 +1,10 @@
+0.0.173 (APPEARANCE STEPS A9 MODIFY + A10 MODIFY in one zip: every toggle in the Thazir look, Settings tidy-up)
+- AdblockManager.kt, PrivacyGuard.kt: switch builders now ThazirSwitch (old MaterialSwitch + tint lines removed). ExtListScreen.kt: unused MaterialSwitch import removed. No MaterialSwitch( constructor left except inside ThazirSwitch.
+- SettingsScreen.kt: old General rows "Theme" and "Dark pages" removed (Appearance row replaces them; the quick-row "Dark pages" chip stays). Reset (General card) now also removes the ap_* keys and restarts the app when the bar was at the top. Search words of "Appearance" extended (wallpaper, bar, swipe, undo, start page...).
+- ThazirSwitch.kt: ThazirSwitch.tint(SwitchCompat) = same thumb / track for plain SwitchCompat (A10).
+- GrabSet.kt, DlEngine.kt, SubName.kt (2 places), DetectedPanel.kt (sw helper): call ThazirSwitch.tint. No behaviour change.
+- app/build.gradle.kts: 0.0.173.
+
 0.0.172 (APPEARANCE STEPS A7 BUILD + A8 BUILD in one zip: home wallpaper + Customize menu row + Tabs and start page)
 - Wallpaper.kt (new): pick -> downscale (long side 1920 / short 1080) -> filesDir/wallpaper.jpg, load (cached), remove, change listeners. try/catch incl. OutOfMemory.
 - res/drawable/ic_image.xml (new): 24dp icon.

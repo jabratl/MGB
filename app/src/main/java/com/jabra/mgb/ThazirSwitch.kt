@@ -8,6 +8,7 @@ import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
+import androidx.appcompat.widget.SwitchCompat
 import com.google.android.material.materialswitch.MaterialSwitch
 
 /**
@@ -29,6 +30,20 @@ class ThazirSwitch(ctx: Context) : MaterialSwitch(ctx) {
         setThumbDrawable(ThumbDrawable(d, on, thumbOn, dim))
         setTrackDrawable(TrackDrawable(d, on, dim))
         setSwitchMinWidth((48 * d).toInt())
+    }
+
+    companion object {
+        /** A10: gives a plain SwitchCompat the same look (violet pill, rounded-square thumb). No behaviour change. */
+        fun tint(sw: SwitchCompat) {
+            val ctx = sw.context
+            val d = ctx.resources.displayMetrics.density
+            val on = ctx.getColor(R.color.mg_toggle_on)
+            sw.thumbTintList = null
+            sw.trackTintList = null
+            sw.thumbDrawable = ThumbDrawable(d, on, ctx.getColor(R.color.mg_toggle_thumb), ctx.getColor(R.color.mg_text_dim))
+            sw.trackDrawable = TrackDrawable(d, on, ctx.getColor(R.color.mg_text_dim))
+            sw.switchMinWidth = (48 * d).toInt()
+        }
     }
 
     private abstract class StateDrawable : Drawable() {

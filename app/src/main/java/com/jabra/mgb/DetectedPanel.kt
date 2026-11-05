@@ -1650,6 +1650,7 @@ object DetectedPanel {
                 val v = SwitchCompat(act).apply {
                     this.text = text
                     isChecked = on
+                    ThazirSwitch.tint(this) // A10
                     textSize = 15f
                     setTextColor(cText)
                     setPadding(dp(8), 0, dp(8), 0)

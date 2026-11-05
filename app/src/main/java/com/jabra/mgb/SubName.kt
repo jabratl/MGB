@@ -149,7 +149,7 @@ object SubName {
 
         fun sw(parent: LinearLayout, title: String, hint: String?, key: String, def: Boolean) {
             val r = rowView(title, null, hint)
-            val s = SwitchCompat(act).apply { isChecked = bool(key, def) }
+            val s = SwitchCompat(act).apply { isChecked = bool(key, def); ThazirSwitch.tint(this) } // A10
             r.addView(s, LinearLayout.LayoutParams(WRAP, WRAP))
             val flip = { put(key, !bool(key, def)); again() }
             r.setOnClickListener { flip() }
@@ -245,7 +245,7 @@ object SubName {
             val plex = str("libraryMode", "off") == "plex"
             run { // the library switch writes 'plex' / 'off' (not a boolean)
                 val r = rowView("Plex / Jellyfin / Emby / Kodi names", null, "Show/Season 01/Show - S01E05. Replaces the template and folder below.")
-                val s = SwitchCompat(act).apply { isChecked = plex }
+                val s = SwitchCompat(act).apply { isChecked = plex; ThazirSwitch.tint(this) } // A10
                 r.addView(s, LinearLayout.LayoutParams(WRAP, WRAP))
                 val flip = { put("libraryMode", if (plex) "off" else "plex"); again() }
                 r.setOnClickListener { flip() }

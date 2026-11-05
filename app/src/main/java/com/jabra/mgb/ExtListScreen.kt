@@ -17,7 +17,6 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.materialswitch.MaterialSwitch
 
 /**
  * S1: Settings > Extensions. Full-screen Dialog (same style as SettingsScreen, no manifest entry).

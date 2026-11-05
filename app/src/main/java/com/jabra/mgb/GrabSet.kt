@@ -103,7 +103,7 @@ object GrabSet {
 
         fun sw(parent: LinearLayout, title: String, hint: String?, key: String, def: Boolean) {
             val r = rowView(title, null, hint)
-            val s = SwitchCompat(act).apply { isChecked = bool(key, def) }
+            val s = SwitchCompat(act).apply { isChecked = bool(key, def); ThazirSwitch.tint(this) } // A10
             r.addView(s, LinearLayout.LayoutParams(WRAP, WRAP))
             val flip = { put(key, !bool(key, def)); fill() }
             r.setOnClickListener { flip() }
