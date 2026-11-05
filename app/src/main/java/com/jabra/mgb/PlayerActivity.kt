@@ -697,7 +697,7 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    private fun toggleRotate() {
+    internal fun toggleRotate() {
         userRot = true
         val land = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         requestedOrientation = if (land) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT else ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
@@ -792,7 +792,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-        if (isInPictureInPictureMode) { pipWas = true; if (this::panel.isInitialized) panel.close(true); controls.visibility = View.GONE; resumeBar.visibility = View.GONE } else showControls(true)
+        if (isInPictureInPictureMode) { pipWas = true; if (this::panel.isInitialized) panel.close(true); controls.visibility = View.GONE; unlockBtn.visibility = View.GONE; resumeBar.visibility = View.GONE } else showControls(true)
     }
 
     // ---------- S38: dark bottom sheets (replace the grey platform dialogs) ----------
@@ -1100,19 +1100,47 @@ class PlayerActivity : AppCompatActivity() {
         } else {
             controls.animate().alpha(0f).setDuration(160).withEndAction { if (!shown) controls.visibility = View.INVISIBLE }.start()
         }
+        syncLockBtn()
     }
 
     private fun poke() { if (shown) showControls(true) }
 
     private fun setLocked(on: Boolean) {
         locked = on
+        styleLockBtn()
         if (on) {
             showControls(false)
+            unlockBtn.animate().cancel()
+            unlockBtn.alpha = 1f
             unlockBtn.visibility = View.VISIBLE
             main.postDelayed({ if (locked) unlockBtn.visibility = View.INVISIBLE }, 2500)
         } else {
-            unlockBtn.visibility = View.GONE
             showControls(true)
+        }
+    }
+
+    /** P6: the round side button is the lock (open icon) and the unlock (closed icon, accent). */
+    private fun styleLockBtn() {
+        if (locked) {
+            unlockBtn.setImageResource(R.drawable.ic_lock)
+            unlockBtn.setColorFilter(getColor(R.color.mg_on_primary))
+            unlockBtn.background = round(getColor(R.color.mg_primary), 22)
+        } else {
+            unlockBtn.setImageResource(R.drawable.ic_pl_lock_open)
+            unlockBtn.setColorFilter(Color.WHITE)
+            unlockBtn.background = round(0x66000000, 22)
+        }
+    }
+
+    /** P6: when unlocked the side button follows the controls (fade 160 ms). Locked state is handled by setLocked / tap. */
+    private fun syncLockBtn() {
+        if (!this::unlockBtn.isInitialized || locked) return
+        unlockBtn.animate().cancel()
+        if (shown) {
+            unlockBtn.visibility = View.VISIBLE
+            unlockBtn.animate().alpha(1f).setDuration(160).start()
+        } else {
+            unlockBtn.animate().alpha(0f).setDuration(160).withEndAction { if (!shown && !locked) unlockBtn.visibility = View.INVISIBLE }.start()
         }
     }
 
@@ -1215,9 +1243,9 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun styledSeek(accent: Int): SeekBar {
-        val track = round(0x40FFFFFF, 2).apply { setSize(-1, dp(4)) }
-        val buf = ClipDrawable(round(0x66FFFFFF, 2).apply { setSize(-1, dp(4)) }, Gravity.START, ClipDrawable.HORIZONTAL)
-        val prog = ClipDrawable(round(accent, 2).apply { setSize(-1, dp(4)) }, Gravity.START, ClipDrawable.HORIZONTAL)
+        val track = round(0x40FFFFFF, 2).apply { setSize(-1, dp(3)) } // P6: thin track
+        val buf = ClipDrawable(round(0x66FFFFFF, 2).apply { setSize(-1, dp(3)) }, Gravity.START, ClipDrawable.HORIZONTAL)
+        val prog = ClipDrawable(round(accent, 2).apply { setSize(-1, dp(3)) }, Gravity.START, ClipDrawable.HORIZONTAL)
         val ld = LayerDrawable(arrayOf<Drawable>(track, buf, prog))
         ld.setId(0, android.R.id.background)
         ld.setId(1, android.R.id.secondaryProgress)
@@ -1228,7 +1256,7 @@ class PlayerActivity : AppCompatActivity() {
             thumb = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(accent)
-                setSize(dp(16), dp(16))
+                setSize(dp(12), dp(12))
                 setStroke(dp(2), Color.WHITE)
             }
             splitTrack = false
@@ -1363,25 +1391,26 @@ class PlayerActivity : AppCompatActivity() {
             background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0xCC000000.toInt(), 0x00000000))
         }
         top.addView(iconBtn(R.drawable.ic_back, 48, 12) { finish() })
-        val titleCol = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(4), 0, dp(8), 0) }
+        val titleCol = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL; setPadding(dp(4), 0, dp(4), 0) } // P6: centred
         titleTv = TextView(this).apply {
             text = title
             setTextColor(Color.WHITE)
             textSize = 16f
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            gravity = Gravity.CENTER
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
         }
         infoTv = TextView(this).apply {
             setTextColor(0xB3FFFFFF.toInt())
             textSize = 11.5f
+            gravity = Gravity.CENTER
             maxLines = 1
             visibility = View.GONE
         }
         titleCol.addView(titleTv)
         titleCol.addView(infoTv)
         top.addView(titleCol, LinearLayout.LayoutParams(0, WRAP, 1f))
-        top.addView(iconBtn(R.drawable.ic_screen, 48, 12) { toggleRotate() })
         top.addView(iconBtn(R.drawable.ic_more, 48, 12) { showMore() })
         controls.addView(top, LinearLayout.LayoutParams(MATCH, WRAP))
 
@@ -1407,9 +1436,9 @@ class PlayerActivity : AppCompatActivity() {
             setPadding(dp(14), dp(26), dp(14), dp(8))
             background = GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(0xD9000000.toInt(), 0x00000000))
         }
-        val seekRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        tCur = TextView(this).apply { setTextColor(Color.WHITE); textSize = 12.5f; text = "00:00"; gravity = Gravity.CENTER; minWidth = dp(46) }
-        tTotal = TextView(this).apply { setTextColor(0xCCFFFFFF.toInt()); textSize = 12.5f; text = "00:00"; gravity = Gravity.CENTER; minWidth = dp(46) }
+        tCur = TextView(this).apply { setTextColor(Color.WHITE); textSize = 12.5f; text = "00:00" }
+        tTotal = TextView(this).apply { setTextColor(0xCCFFFFFF.toInt()); textSize = 12.5f; text = "00:00" }
+        val tSep = TextView(this).apply { setTextColor(0xCCFFFFFF.toInt()); textSize = 12.5f; text = " / " }
         seek = styledSeek(accent).apply {
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, prog: Int, fromUser: Boolean) {
@@ -1424,10 +1453,12 @@ class PlayerActivity : AppCompatActivity() {
                 }
             })
         }
-        seekRow.addView(tCur)
-        seekRow.addView(seek, LinearLayout.LayoutParams(0, dp(32), 1f))
-        seekRow.addView(tTotal)
-        bottom.addView(seekRow, LinearLayout.LayoutParams(MATCH, WRAP))
+        bottom.addView(seek, LinearLayout.LayoutParams(MATCH, dp(32)))
+        val timeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(10), 0, 0, 0) } // P6: "cur / total" under the bar, left
+        timeRow.addView(tCur)
+        timeRow.addView(tSep)
+        timeRow.addView(tTotal)
+        bottom.addView(timeRow, LinearLayout.LayoutParams(MATCH, WRAP))
 
         // toolbar: lock, speed, subtitles, audio, fit, picture in picture
         val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
@@ -1501,15 +1532,15 @@ class PlayerActivity : AppCompatActivity() {
         rootView.addView(spinner, FrameLayout.LayoutParams(dp(60), dp(60), Gravity.CENTER))
 
         unlockBtn = ImageView(this).apply {
-            setImageResource(R.drawable.ic_lock)
-            setColorFilter(getColor(R.color.mg_on_primary))
+            setImageResource(R.drawable.ic_pl_lock_open)
+            setColorFilter(Color.WHITE)
             scaleType = ImageView.ScaleType.FIT_CENTER
-            setPadding(dp(16), dp(16), dp(16), dp(16))
-            background = round(accent, 28)
-            visibility = View.GONE
-            setOnClickListener { setLocked(false) }
+            setPadding(dp(11), dp(11), dp(11), dp(11))
+            background = round(0x66000000, 22)
+            visibility = View.INVISIBLE
+            setOnClickListener { setLocked(!locked); if (!locked) poke() }
         }
-        rootView.addView(unlockBtn, FrameLayout.LayoutParams(dp(56), dp(56), Gravity.START or Gravity.CENTER_VERTICAL).apply { setMargins(dp(24), 0, 0, 0) })
+        rootView.addView(unlockBtn, FrameLayout.LayoutParams(dp(44), dp(44), Gravity.END or Gravity.CENTER_VERTICAL).apply { setMargins(0, 0, dp(16), 0) })
 
         resumeBar = TextView(this).apply {
             setTextColor(Color.WHITE)
@@ -1528,6 +1559,7 @@ class PlayerActivity : AppCompatActivity() {
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { _, insets ->
             val c = insets.getInsets(WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.systemBars())
             controls.setPadding(c.left, c.top, c.right, c.bottom)
+            (unlockBtn.layoutParams as? FrameLayout.LayoutParams)?.let { it.rightMargin = dp(16) + c.right; unlockBtn.layoutParams = it } // P6
             insets
         }
         setContentView(rootView)

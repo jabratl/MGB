@@ -1,3 +1,8 @@
+0.0.157 (PLAYER STEP P6 MODIFY: Controls A)
+- PlayerActivity.kt: top bar = back + centred title (16 sp) with the info line under it + 3-dot (rotate button left the top bar); seek bar thinner (3 dp track, 12 dp thumb) with "cur / total" time UNDER it on the left (tCur / tTotal kept, seekRow removed); round 44 dp side lock button on the right edge, vertically centred: open-lock icon follows the controls, tap = lock; when locked it shows a closed lock (accent) on tap for 2.5 s, tap = unlock (setLocked, styleLockBtn, syncLockBtn); kept clear of the display cutout; hidden in PiP; toggleRotate private -> internal.
+- PlayerPages.kt: root page "More" gets a "Rotate screen" row (rotate stays reachable until P7 adds its icon).
+- res/drawable/ic_pl_lock_open.xml (new). app/build.gradle.kts: 0.0.157.
+
 0.0.156 (PLAYER STEP P5 BUILD: Subtitles page)
 - PlayerSubs.kt (new): Subtitles page (Off + text tracks as radios, Add subtitle file, live sample line, text size slider 50-200%, colour swatches, background None / Shadow / Box, position Low / Middle / High) and applyStyle() for the real SubtitleView. Old sub_size 0 / 1 / 2 migrates once to pl_sub_size 80 / 100 / 135.
 - PlayerPrefs.kt: K_SUB_SIZE, K_SUB_BG, K_SUB_POS, has().

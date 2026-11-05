@@ -9,15 +9,15 @@ ASSUMPTIONS (1 line each)
  - UI is built in code (Views, no Compose, no XML layouts for the player). Keep that style.
 
 ======================================================================
-QUICKSTART FOR THE NEXT CHAT (current state: P5 done, next = P6)
+QUICKSTART FOR THE NEXT CHAT (current state: P6 done, next = P7)
 ======================================================================
-STATE: version 0.0.156. P1-P5 code is done. The first CI builds of P1-P3 FAILED; P3.2 is the FIX zip. P3.2, P4 and P5 have NOT been confirmed to build yet (kotlinc is not available in chat). If the user pastes a new build error, switch to Mode FIX first, smallest fix, then continue with P6.
-ATTACH: HANDOFF.txt (this one, newest) + MGB-context.zip + MGB_P3.2_v0_0_154.zip + MGB_P4_v0_0_155.zip + MGB_P5_v0_0_156.zip. Apply order: context, P3.2, P4, P5 (same paths overwrite). The old MGB_P1 / P2 / P3 zips are NOT needed (P3.2 holds their final state).
-CHECK before building: app/build.gradle.kts appVersionName = "0.0.156".
+STATE: version 0.0.157. P1-P6 code is done. The first CI builds of P1-P3 FAILED; P3.2 is the FIX zip. P3.2, P4, P5 and P6 have NOT been confirmed to build yet (kotlinc is not available in chat). If the user pastes a new build error, switch to Mode FIX first, smallest fix, then continue with P7.
+ATTACH: HANDOFF.txt (this one, newest) + MGB-context.zip + MGB_P3.2_v0_0_154.zip + MGB_P4_v0_0_155.zip + MGB_P5_v0_0_156.zip + MGB_P6_v0_0_157.zip. Apply order: context, P3.2, P4, P5, P6 (same paths overwrite). The old MGB_P1 / P2 / P3 zips are NOT needed (P3.2 holds their final state).
+CHECK before building: app/build.gradle.kts appVersionName = "0.0.157".
 USER: not a coder, writes Banglish (Bengali in Latin letters): reply in Banglish, short, simple. Everything is built on an Android phone, free tools only (GitHub Actions builds the APK). Zip name rule: MGB_Px_v0_0_NNN.zip, new version = previous + 1.
 KICKOFF LINE TO PASTE:
-  MGB (Thazir) player plan step P6. Mode: MODIFY. Previous version: 0.0.156. Attached: HANDOFF.txt + MGB-context.zip + MGB_P3.2_v0_0_154.zip + MGB_P4_v0_0_155.zip + MGB_P5_v0_0_156.zip.
-  Goal: Controls A: centred title + info line, back + 3-dot only in top bar, thin seek bar with cur / total time under it, round side lock button. (+ rules in section 2)
+  MGB (Thazir) player plan step P7. Mode: MODIFY. Previous version: 0.0.157. Attached: HANDOFF.txt + MGB-context.zip + MGB_P3.2_v0_0_154.zip + MGB_P4_v0_0_155.zip + MGB_P5_v0_0_156.zip + MGB_P6_v0_0_157.zip.
+  Goal: Controls B: bottom-right icon row (Fit, Subtitles, Rotate; Audio-only hidden until P10), speed pill, small-height layout; remove the temporary Rotate row and the old Lock cell. (+ rules in section 2)
 LESSONS FROM THE P1-P3 BUILD FAILURES (apply in every step):
  - NEVER put a // comment after code on a line that also holds a closing brace } (it swallows the brace).
  - Inside X(act).apply { ... } a name that is also a function PARAMETER (max, min, text...) means the PARAMETER, not the view property: write this.max = ...
@@ -43,7 +43,7 @@ LESSONS FROM THE P1-P3 BUILD FAILURES (apply in every step):
 [x] P3.2 v0.0.154 FIX: compile errors of P1 / P2 / P3 (combined zip, see RESULT P3.2)   VERSIONS OF P4..P14 BELOW ARE +1 (P4 = 0.0.155 ... P14 = 0.0.165)
 [x] P4  v0.0.155  Sleep Timer page + Audio track page                                  CODE DONE, phone test pending (see RESULT P4)
 [x] P5  v0.0.156  Subtitles page (tracks, add file, size, colour, background, position) CODE DONE, phone test pending (see RESULT P5)
-[ ] P6  v0.0.157  Controls A: top bar, seek row, centre buttons, side lock button      M
+[x] P6  v0.0.157  Controls A: top bar, seek row, centre buttons, side lock button      CODE DONE, phone test pending (see RESULT P6)
 [ ] P7  v0.0.158  Controls B: bottom icon row, rotate states, portrait / landscape / small-height layouts   M
 [ ] P8  v0.0.159  Gestures A: hold-to-speed chip + slide to change, pinch zoom in / out + reset            M
 [ ] P9  v0.0.160  Gestures B: level HUD restyle, volume boost, brightness memory, seek sensitivity          S
@@ -347,3 +347,12 @@ P5 RESULT (0.0.156)  zip: MGB_P5_v0_0_156.zip
  NOT tested (needs a phone): compile; track switch + Off (row mark updates ~250 ms later); add file; size slider changes live subtitle + sample; colour ring; background / position chips on real subtitles; old sub_size migration; cc icon tint.
  KNOWN: default look changed (Shadow, no box; old was outline + faint box); position High = 55% bottom padding (tune on phone); ASS styled subtitles keep their own style (applyEmbeddedStyles true); AudioOpt class is reused for subtitle rows.
  NEXT: P6 Controls A (size M).
+
+P6 RESULT (0.0.157)  zip: MGB_P6_v0_0_157.zip
+ Done: top bar = back + centred title + info line + 3-dot; thin seek bar (3 dp / 12 dp thumb) with "00:12 / 23:39" under it on the left; round 44 dp side lock button (right edge, centred): lock when controls show, unlock when locked (closed icon, accent, shows 2.5 s after a tap).
+ Changed: PlayerActivity.kt (buildUi top + seek blocks, styledSeek, setLocked + styleLockBtn + syncLockBtn, showControls hook, unlockBtn creation + cutout margin, PiP hides it, toggleRotate internal) / PlayerPages.kt (temporary "Rotate screen" row in More) / res/drawable/ic_pl_lock_open.xml (new) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt.
+ KEYS: none.
+ Checks: bracket balance (strings / comments stripped) of PlayerActivity + PlayerPages, no seekRow left, tCur / tTotal / seek / unlockBtn references still valid, ic_pl_lock_open xml parses, R.drawable names exist. kotlinc NOT available: no compile, no 360 / 1280 px render check.
+ NOT tested (needs a phone): compile; title ellipsis at 360 dp; time text under the bar; seek drag shows dragged time; side lock button position in portrait + landscape + over a cutout; lock blocks every gesture and unlock works; button fades with controls and hides in PiP; open-lock path (hand-typed Material path).
+ KNOWN: bottom toolbar still has its old Lock cell (duplicate of the side button) and text labels: P7 removes / restyles; Rotate lives in the panel (More) until P7; lock button is not hidden while the panel is open (panel sits on top).
+ NEXT: P7 Controls B (size M).
