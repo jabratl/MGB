@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
@@ -47,6 +48,16 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         ClosedTabs.init(this) // S29
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        if (AppearancePrefs.barTop(this)) { // A4: bar position Top = move the pill to index 0, margins top 8 / bottom 6
+            val bb = findViewById<View>(R.id.bottom_bar)
+            val bp = bb.parent as? ViewGroup
+            val lp = bb.layoutParams as? ViewGroup.MarginLayoutParams
+            if (bp != null && lp != null) {
+                bp.removeView(bb)
+                lp.setMargins(Util.dp(this, 10), Util.dp(this, 8), Util.dp(this, 10), Util.dp(this, 6))
+                bp.addView(bb, 0, lp)
+            }
+        }
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE) // S22: bottom bar rides above the keyboard
         lastNight = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         Orient.apply(this) // S35: phones keep the browser in portrait (setting: Rotate browser with phone)
@@ -84,7 +95,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         var acc = 0
         tabs.onScroll = { dy ->
             val on = getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).getBoolean("hide_bar", false)
-            if (!on || urlBar.hasFocus()) { if (barView.visibility != View.VISIBLE) barView.visibility = View.VISIBLE; acc = 0 }
+            if (BarGestures.active) { acc = 0 } // A6: page fullscreen keeps the bar hidden
+            else if (!on || urlBar.hasFocus()) { if (barView.visibility != View.VISIBLE) barView.visibility = View.VISIBLE; acc = 0 }
             else {
                 if ((dy > 0) != (acc > 0)) acc = 0
                 acc += dy
@@ -103,6 +115,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         btnEngine.setOnClickListener { EnginePicker.show(this, btnEngine) { refreshShield() } } // S69
         findViewById<ImageView>(R.id.btn_menu).setOnClickListener { showMenu() } // S22
         DlFly.attach(this, findViewById(R.id.btn_menu)) // S21e
+        BarGestures.attach(this, tabs) // A6
 
         urlBar.setOnEditorActionListener { _, actionId, event ->
             val go = actionId == EditorInfo.IME_ACTION_GO ||
@@ -122,6 +135,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             override fun handleOnBackPressed() {
                 val t = tabs.active
                 when {
+                    BarGestures.active -> BarGestures.exit(this@MainActivity) // A6
                     tabs.inFullscreen -> tabs.exitFullscreen() // S14
                     urlBar.hasFocus() -> leaveUrlBar()
                     t != null && tabs.canBack(t) -> tabs.back(t) // 0.0.130: Home counts as a page
@@ -346,6 +360,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     override fun onActiveChanged(tab: TabManager.Tab?) {
         FindBar.close() // S21
+        BarGestures.exit(this) // A6: a tab change leaves page fullscreen
         findViewById<View>(R.id.bottom_bar).visibility = View.VISIBLE // S33
         refreshAll(tab)
         GroupStrip.refresh() // S13

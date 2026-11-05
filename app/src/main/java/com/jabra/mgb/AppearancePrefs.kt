@@ -63,6 +63,10 @@ object AppearancePrefs {
     fun setUndoToast(c: Context, on: Boolean) { sp(c).edit().putBoolean(K_UNDO_TOAST, on).apply() }
 
     /** ON = a fresh home tab at every launch (restored tabs stay). OFF = today's behaviour. */
+    /** A5: snackbars anchor above the bar only when it is at the bottom; in top mode they sit at the screen bottom. */
+    fun snackAnchor(a: android.app.Activity): android.view.View? =
+        if (barTop(a)) null else a.findViewById<android.view.View>(R.id.bottom_bar)
+
     fun startPage(c: Context): Boolean = sp(c).getBoolean(K_START_PAGE, false)
     fun setStartPage(c: Context, on: Boolean) { sp(c).edit().putBoolean(K_START_PAGE, on).apply() }
 }

@@ -1,3 +1,17 @@
+0.0.171 (APPEARANCE STEPS A5 FIX + A6 BUILD in one zip: top-mode snackbars + bar swipe gestures)
+- AppearancePrefs.kt: snackAnchor(act) = the bar in bottom mode, null in top mode.
+- AutoDiag.kt, PasswordStore.kt (2 places): snackbar anchor via snackAnchor, so in top mode they sit at the screen bottom, not under the bar. FloatingDl / DlFly need no change (they live in the page frame, below the top bar and above nothing in bottom mode).
+- BarGestures.kt (new): swipe on the bar (60 dp, vertical) = page fullscreen (bottom bar: down, top bar: up) or tab switcher (other way). Fullscreen hides bar + system bars, shows a 72x44 dp restore handle. Taps are not stolen.
+- MainActivity.kt: BarGestures.attach after the click listeners; onScroll keeps the bar hidden in fullscreen; back press and tab change leave page fullscreen.
+- AppearanceScreen.kt: Behaviour card: toggles "Swipe for fullscreen" (ap_swipe_fs) and "Swipe to view tabs" (ap_swipe_tabs), hint text follows bar position.
+- app/build.gradle.kts: 0.0.171.
+
+0.0.170 (APPEARANCE STEP A4 MODIFY: bar position Top / Bottom)
+- MainActivity.kt: right after setContentView, ap_bar_pos == "top" moves bottom_bar to index 0, margins top 8 / bottom 6. Bottom = unchanged.
+- GroupStrip.kt: attach() puts the group strip on the page side of the bar (below the bar in top mode); slide-in direction follows.
+- AppearanceScreen.kt: address-bar page "Bar position" = 2 mini-phone tiles (Top / Bottom), snackbar "Apply now" = recreate (page reopens). PhoneView got an optional barTop flag.
+- app/build.gradle.kts: 0.0.170.
+
 0.0.169 (APPEARANCE STEP A3 BUILD: Customize address bar page)
 - AppearanceScreen.kt: root row "Address bar > Customize address bar" opens page "bar": live mini bar preview (home icon, address, tabs, menu), Home button chips (Home / Back / New tab / Refresh / Bookmarks / Extensions), toggles Auto-hide bar (same key hide_bar as Settings) and Show full URL. New helpers navRow / openPage / barPage / barPreview. New hook AppearanceScreen.onChange.
 - AppearancePrefs.kt: homeIconAndLabel(action) (icon + name table).

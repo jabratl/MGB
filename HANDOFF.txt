@@ -1,4 +1,4 @@
-QUICKSTART (0.0.169): attach ONLY HANDOFF.txt + MGB-appearance-context.zip (it holds A1 + A2 + A3 applied and every file A3-A10 need to read or patch, top folder MGB-main/) + any step zip made AFTER it. No full MGB-main needed. Check app/build.gradle.kts appVersionName = "0.0.169" first. Each step ends with its changed-files zip AND, if a step touches a file the context zip does not hold, say so in RESULT. The player plan is finished (HANDOFF_PLAYER.txt).
+QUICKSTART (0.0.171): attach ONLY HANDOFF.txt + MGB-appearance-context.zip (it holds A1 + A2 + A3 applied and every file A3-A10 need to read or patch, top folder MGB-main/) + any step zip made AFTER it. No full MGB-main needed. Check app/build.gradle.kts appVersionName = "0.0.169" first. Each step ends with its changed-files zip AND, if a step touches a file the context zip does not hold, say so in RESULT. The player plan is finished (HANDOFF_PLAYER.txt).
 MGB (Thazir) - APPEARANCE PLAN, steps A1-A10     (HANDOFF.txt = the file you paste / attach first in every new chat)
 Base: version 0.0.154 (player plan P1-P3.2 done; P4-P14 still open, see HANDOFF_PLAYER.txt = the old file, renamed, not changed).
 No app code was changed when this plan was written. Planning chat only.
@@ -33,9 +33,9 @@ Settings: SettingsScreen.kt (1043 lines, NEVER read whole) = full-screen Dialog,
 [x] A1  v0.0.167  S   BUILD   ThazirSwitch (unique toggle) + colour tokens, used in Settings + Customise-menu screen   CODE DONE, phone test pending (see RESULT A1)
 [x] A2  v0.0.168  M   BUILD   Appearance screen shell + AppearancePrefs + THEME section + entry row in Settings > General   CODE DONE, phone test pending (see RESULT A2)
 [x] A3  v0.0.169  M   BUILD   Customize address bar page: live preview, home-button action, auto-hide, show full URL   CODE DONE, phone test pending (see RESULT A3)
-[ ] A4  M   MODIFY  Bar position Top / Bottom (layout swap at start, preview tiles, "Apply now" recreate)
-[ ] A5  S   FIX     Top-bar polish: snackbar anchors, floating buttons, group strip, hide-on-scroll direction
-[ ] A6  M   BUILD   Bar gestures: swipe for page fullscreen, swipe to view tabs
+[x] A4  v0.0.170  M   MODIFY  Bar position Top / Bottom   CODE DONE, phone test pending (see RESULT A4)
+[x] A5  v0.0.171  S   FIX     Top-bar polish: snackbar anchors   CODE DONE, phone test pending (see RESULT A5+A6)
+[x] A6  v0.0.171  M   BUILD   Bar gestures: swipe for page fullscreen, swipe to view tabs   CODE DONE, phone test pending (see RESULT A5+A6)
 [ ] A7  M   BUILD   Wallpaper for the home page (pick image, dim slider, remove)
 [ ] A8  M   BUILD   Customize menu row + Tabs and start page page (undo toast, show start page)
 [ ] A9  S   MODIFY  Polish: remaining MaterialSwitch -> ThazirSwitch, Settings search/reset, remove old duplicate rows
@@ -211,3 +211,18 @@ RESULT A3 (0.0.169)  zip: MGB_A3_v0_0_169.zip
  Phone test: Appearance > Customize address bar. Preview matches the bar. Each of 6 chips: tap changes the bar icon at once and the home button really does it (Home / Back / New tab / Refresh / Bookmarks / Extensions); default Home = as before. Show full URL: bar shows https://... after blur; OFF = site name only. Auto-hide toggle and Settings > Hide bar stay in sync. Back from the page -> Appearance root -> Settings. 360 dp, light + dark.
  Not compiled (no kotlinc). Risk spots: MainActivity homeClick() (when branches), AppearanceScreen barPage chips lambda.
  NEXT: A4 bar position Top / Bottom (MainActivity layout swap at start, GroupStrip, 2 preview tiles on the bar page, Apply now = recreate).
+
+RESULT A4 (0.0.170)  zip: MGB_A4_v0_0_170.zip
+ Files: MainActivity.kt (layout swap + ViewGroup import), GroupStrip.kt (attach side + slide direction), AppearanceScreen.kt (Bar position tiles + Apply now, PhoneView barTop), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+ Prefs used: ap_bar_pos.
+ Phone test: Appearance > Customize address bar > Bar position: tap Top -> snackbar "Apply now" -> app restarts with bar at top, web below; group strip under the bar; Bottom = as before; auto-hide still hides the bar; keyboard opens fine.
+ Not compiled (no kotlinc). Risk spots: AppearanceScreen barPage tileChoice lambda (Snackbar in Dialog), MainActivity swap block.
+ NEXT: A5 snackbar anchors (AutoDiag, PasswordStore), floating download button, hide-on-scroll direction in top mode.
+
+RESULT A5+A6 (0.0.171)  zip: MGB_A5_A6_v0_0_171.zip (both steps built in one chat on request)
+ Files: AppearancePrefs.kt (snackAnchor), AutoDiag.kt, PasswordStore.kt, BarGestures.kt (new), MainActivity.kt, AppearanceScreen.kt, build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+ Prefs used: ap_swipe_fs, ap_swipe_tabs, ap_bar_pos. No new prefs.
+ Phone test: top mode: "Suggest a strong password?" / "Nothing found" snackbars show at the screen bottom. Appearance > Customize address bar > turn both swipe toggles ON: bottom bar swipe down = page fullscreen (bar + status/nav bars hidden, small handle at the bottom), tap handle or Back = restore; swipe up = tab switcher. Top bar: directions reversed. Taps on home / url / tabs / menu still work. Both OFF = no change. Opening a new tab leaves fullscreen.
+ Not compiled (no kotlinc). Risk spots: BarGestures touch listener (url_bar EditText), WindowInsetsControllerCompat hide/show with the existing bar colours.
+ Not changed on purpose: FloatingDl / DlFly (checked: not covered by the bar in either mode), hide-on-scroll direction (scroll down hides the bar in both modes).
+ NEXT: A7 home wallpaper (Wallpaper.kt, ic_image.xml, HomeView, picker).

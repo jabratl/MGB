@@ -115,7 +115,7 @@ object AutoDiag {
     private fun show(a: Activity, p: Trigger, prefs: android.content.SharedPreferences) {
         try {
             val sb = Snackbar.make(a.findViewById<View>(android.R.id.content), p.text, 8000)
-            a.findViewById<View>(R.id.bottom_bar)?.let { sb.setAnchorView(it) }
+            AppearancePrefs.snackAnchor(a)?.let { sb.setAnchorView(it) } // A5: none in top mode
             sb.setAction("Diagnose") { DiagScreen.open(a, tabs, -1, p.focusText, p.focusUrl) }
             sb.addCallback(object : BaseTransientBottomBar.BaseCallback<Snackbar>() {
                 override fun onDismissed(transientBottomBar: Snackbar?, event: Int) {

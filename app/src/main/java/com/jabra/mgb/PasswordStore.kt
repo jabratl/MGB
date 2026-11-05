@@ -190,7 +190,7 @@ return 'n'+n;
             lastSuggest = key
             try {
                 val sb = Snackbar.make(act.findViewById<View>(android.R.id.content), "Suggest a strong password?", 10000)
-                act.findViewById<View>(R.id.bottom_bar)?.let { sb.setAnchorView(it) }
+                AppearancePrefs.snackAnchor(act)?.let { sb.setAnchorView(it) } // A5: none in top mode
                 sb.setAction("Use") {
                     val pw = generate(16)
                     val js = "(" + SUGGEST_JS + ")(" + JSONObject.quote(pw) + ")"
@@ -221,7 +221,7 @@ return 'n'+n;
             val who = if (es.size == 1) es[0].user.ifBlank { host } else "${es.size} logins"
             try {
                 val sb = Snackbar.make(act.findViewById<View>(android.R.id.content), "Fill login: $who", 8000)
-                act.findViewById<View>(R.id.bottom_bar)?.let { sb.setAnchorView(it) }
+                AppearancePrefs.snackAnchor(act)?.let { sb.setAnchorView(it) } // A5: none in top mode
                 sb.setAction("Fill") { fillWith(act, t, host, es) }
                 sb.show()
             } catch (e: Exception) {

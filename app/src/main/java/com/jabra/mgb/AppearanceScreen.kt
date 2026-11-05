@@ -23,6 +23,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.graphics.ColorUtils
+import com.google.android.material.snackbar.Snackbar
 
 /**
  * APPEARANCE A2: full-screen Appearance dialog (same look as Settings: 56 dp header + back, scroll column).
@@ -206,6 +207,24 @@ object AppearanceScreen {
             prevCard.addView(barPreview(), LinearLayout.LayoutParams(MATCH, WRAP))
             col.addView(prevCard, LinearLayout.LayoutParams(MATCH, WRAP))
 
+            col.addView(sectionLabel("Bar position")) // A4
+            val posCard = card()
+            val lp = palette((act.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES)
+            val posKeys = AppearancePrefs.BAR_POS
+            tileChoice(posCard, posKeys.map { if (it == "top") "Top" else "Bottom" },
+                posKeys.map { PhoneView(act, lp, null, it == "top") }, posKeys.indexOf(AppearancePrefs.barPos(act))) { i ->
+                if (AppearancePrefs.barPos(act) != posKeys[i]) {
+                    AppearancePrefs.setBarPos(act, posKeys[i])
+                    fill()
+                    try {
+                        Snackbar.make(findViewById<View>(android.R.id.content), "Restart needed to move the bar", Snackbar.LENGTH_INDEFINITE)
+                            .setAction("Apply now") { AppearanceScreen.markReopen(); dismiss(); act.recreate() }
+                            .show()
+                    } catch (_: Exception) { }
+                }
+            }
+            col.addView(posCard, LinearLayout.LayoutParams(MATCH, WRAP))
+
             col.addView(sectionLabel("Home button"))
             val chipCard = card()
             val acts = AppearancePrefs.HOME_ACTIONS
@@ -230,6 +249,11 @@ object AppearanceScreen {
                 AppearanceScreen.onChange?.invoke()
                 updatePreview()
             }
+            val up = AppearancePrefs.barTop(act) // A6: directions follow the bar position
+            toggleRow(behCard, R.drawable.ic_screen, "Swipe for fullscreen", "Swipe the bar " + (if (up) "up" else "down") + " to hide the bar and system bars",
+                { AppearancePrefs.swipeFs(act) }) { on -> AppearancePrefs.setSwipeFs(act, on) }
+            toggleRow(behCard, R.drawable.ic_list, "Swipe to view tabs", "Swipe the bar " + (if (up) "down" else "up") + " to open the tab switcher",
+                { AppearancePrefs.swipeTabs(act) }) { on -> AppearancePrefs.setSwipeTabs(act, on) }
             col.addView(behCard, LinearLayout.LayoutParams(MATCH, WRAP))
         }
 
@@ -444,7 +468,7 @@ object AppearanceScreen {
     }
 
     /** Mini phone drawn in code: speed-dial squares + the bottom pill bar. right != null = left half / right half (System tile). */
-    private class PhoneView(ctx: Context, private val left: Palette, private val right: Palette?) : View(ctx) {
+    private class PhoneView(ctx: Context, private val left: Palette, private val right: Palette?, private val barTop: Boolean = false) : View(ctx) {
         private val d = ctx.resources.displayMetrics.density
         private val p = Paint(Paint.ANTI_ALIAS_FLAG)
 
@@ -469,21 +493,22 @@ object AppearanceScreen {
             c.drawRect(0f, 0f, w, h, p)
             // title line
             p.color = ColorUtils.setAlphaComponent(pal.text, 0x66)
-            c.drawRoundRect(RectF(w / 2f - 22f * d, 14f * d, w / 2f + 22f * d, 18f * d), 2f * d, 2f * d, p)
+            val off = if (barTop) 18f * d else 0f // A4: bar drawn at the top, content moves down
+            c.drawRoundRect(RectF(w / 2f - 22f * d, 14f * d + off, w / 2f + 22f * d, 18f * d + off), 2f * d, 2f * d, p)
             // 2 x 3 speed-dial squares
             val s = 18f * d
             val gap = 8f * d
             val x0 = (w - (3f * s + 2f * gap)) / 2f
             for (r in 0 until 2) for (k in 0 until 3) {
                 val l = x0 + k * (s + gap)
-                val t = 30f * d + r * (s + gap)
+                val t = 30f * d + off + r * (s + gap)
                 p.style = Paint.Style.FILL; p.color = pal.surface
                 c.drawRoundRect(RectF(l, t, l + s, t + s), 5f * d, 5f * d, p)
                 p.style = Paint.Style.STROKE; p.strokeWidth = 1f * d; p.color = pal.outline
                 c.drawRoundRect(RectF(l, t, l + s, t + s), 5f * d, 5f * d, p)
             }
             // bottom pill bar
-            val bar = RectF(10f * d, h - 28f * d, w - 10f * d, h - 12f * d)
+            val bar = if (barTop) RectF(10f * d, 12f * d, w - 10f * d, 28f * d) else RectF(10f * d, h - 28f * d, w - 10f * d, h - 12f * d)
             p.style = Paint.Style.FILL; p.color = pal.surface
             c.drawRoundRect(bar, 8f * d, 8f * d, p)
             p.style = Paint.Style.STROKE; p.strokeWidth = 1f * d; p.color = pal.outline
