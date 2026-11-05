@@ -212,6 +212,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         // S27: general card (app level) and page card (this page)
         val generalTop = listOf(
             MenuSheet.Item("Command Center", R.drawable.ic_search, true, "Actions · tabs · bookmarks") { CommandCenter.show(this, tabs) }, // S7
+            MenuSheet.Item("Media Library", R.drawable.ic_play, true, "Detected · downloads · saved") { MediaLibrary.show(this, tabs) }, // S10
             MenuSheet.Item("New private tab", R.drawable.ic_lock) { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) }, // S26
             MenuSheet.Item("Bookmark all tabs", R.drawable.ic_bookmark_border) { TabBookmarks.dialog(this, tabs) }, // S40
             MenuSheet.Item("Passwords", R.drawable.ic_lock) { PasswordStore.screen(this) }, // S40

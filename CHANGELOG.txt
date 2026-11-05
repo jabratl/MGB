@@ -1,3 +1,14 @@
+0.0.185 (S10 + Settings: Clear for the RECENT chips)
+- SettingsScreen.kt recentRow(): the RECENT header now has a "Clear" button (44dp touch target, content description "Clear recent settings"). It removes only the existing mgb_ui key recent_settings and redraws; the row disappears when the list is empty. Nothing else is touched: no new key, no Reset scope change, no backup change, no setting values changed.
+- Includes everything from 0.0.184 (S10 Media Library), so no earlier zip is needed.
+- app/build.gradle.kts: 0.0.185.
+
+0.0.184 (S10 BUILD: Thazir Media Library)
+- MediaLibrary.kt (new): read-only bottom sheet opened from the 3-dot menu ("Media Library", right under Command Center). Sections: On this page (media the engine detected on the active tab, same get-state answer as the detected panel), Downloads (running + failed jobs from EngineApi.jobs; finished jobs are not repeated because they are already Saved files), Saved files (media files from EngineApi.history, Open / Share / Open in File Manager by the existing download id), Continue watching (unfinished videos from the player's own resume positions), and a link to the full Downloads screen.
+- Nothing is created, copied, started or stored here: detected rows open the existing detected panel, job rows open Downloads, files open through DownloadsApi, resume rows open the built-in player. Streams and protected items are labelled, nothing implies every item is downloadable.
+- MainActivity.kt: one menu row calling MediaLibrary.show. No ids, handlers, preferences, backup shape or extension bridge changed.
+- app/build.gradle.kts: 0.0.184.
+
 0.0.183 (S7 BUILD: Thazir Command Center)
 - CommandCenter.kt (new): searchable bottom sheet opened from the 3-dot menu ("Command Center", first row of the general card). One box for actions (new/private tab, tab switcher, home, reload, find, bookmark/copy/share this page, Privacy Guard, Bookmarks, History, Downloads, Saved pages, Extensions, Passwords, Appearance, Settings, Recently closed), open tabs, bookmarks and history. Prefixes: > actions, @ tabs, * bookmarks, # history. Typed address/search gets an "Open / Search" row. Enter runs the highlighted first row.
 - Safe by design: local registry only, no script/command parsing, nothing deletes or clears data, no stored recents, history hidden while a private tab is in front.

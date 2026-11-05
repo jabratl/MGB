@@ -266,11 +266,23 @@ START S10 ONLY — Thazir Media Library, baseline appVersionName 0.0.183. OWNER 
 [x] S7 — complete (0.0.183; Command Center sheet, menu entry)
 [-] S8 — SKIPPED by owner decision
 [-] S9 — SKIPPED by owner decision
-[ ] S10 — pending
+[x] S10 — complete (0.0.185; Media Library sheet, menu entry; + Clear button on Settings RECENT chips)
 [-] S11 — SKIPPED by owner decision
 [-] S12 — SKIPPED by owner decision
 [-] S13 — SKIPPED by owner decision
 [-] S14 — SKIPPED by owner decision / provider-gated
+
+RESULT (S10 + Settings RECENT Clear, 0.0.185):
+- Extra owner request: SettingsScreen.kt recentRow() got a "Clear" button that removes only mgb_ui key recent_settings, then fill(). No new keys, Reset scopes and backup untouched. Cumulative zip contains S10 (0.0.184) + this.
+- NOT tested: Gradle build (CI), device render, TalkBack.
+- Known S10 gaps (not fixed): detected rows ignore DetectedPanel's removed keys; no subtitle association; Continue watching sorted by name.
+
+RESULT (S10 implementation, 0.0.184):
+- Baseline 0.0.183. Added MediaLibrary.kt (read-only hub); MainActivity.kt got one menu row ("Media Library", after Command Center, calls MediaLibrary.show(this, tabs)); build.gradle.kts + CHANGELOG + HANDOFF updated. ToolsSheet.kt not needed.
+- Source-of-truth audit: downloads jobs = storage.session mgJobs via EngineApi.jobs(); saved files = storage.local mgHist via EngineApi.history() (id + time); detected = engine "get-state" for the tab (rec.items: key/kind/url/label/size/info.protected/hidden), the same call DetectedPanel uses; player history = SharedPreferences "mgb_resume" (uri -> position ms, only unfinished videos, no titles stored). DownloadsApi (DlItem by id) owns open/share/show/delete. No second store was created.
+- Behaviour: finished jobs are not listed (they are Saved files), so no duplicate rows. Delete/rename stay in Downloads. Resume rows only exist for videos left unfinished; there is no full played-history list because the player stores none.
+- Checks: brace/paren balance; all R.drawable refs exist; called APIs verified by grep (EngineApi, DownloadsApi, DownloadsScreen, DetectedPanel.open, MenuSheet.Item/showLink, WebPlay.play, PlayerScreen.open, Util, TabManager.active/isExt). NOT tested: Gradle build (CI), device render 360/1280 dp, dark/light, TalkBack, storage-permission/cancel paths.
+- NOT done / candidates: subtitle association (no native record links a subtitle to a media item), rendering detected items from background tabs, Customise-menu toggle for the row.
 
 RESULT (S7 implementation, 0.0.183):
 - Baseline 0.0.182 (S6 skipped by owner). Added CommandCenter.kt; MainActivity.kt got one menu row ("Command Center", first row of general card, calls CommandCenter.show(this, tabs)); build.gradle.kts + CHANGELOG + HANDOFF updated. ToolsSheet.kt not needed (entry point is the 3-dot menu).

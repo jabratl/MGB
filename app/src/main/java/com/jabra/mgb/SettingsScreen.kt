@@ -673,14 +673,33 @@ object SettingsScreen {
             val list = recents(prefs)
             if (list.isEmpty()) return null
             val box = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
-            box.addView(TextView(act).apply {
+            // S10+: header row = RECENT label + Clear (removes only the recent_settings list, nothing else)
+            val head = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            head.addView(TextView(act).apply {
                 text = "RECENT"
                 textSize = 11f
                 letterSpacing = 0.08f
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
                 setTextColor(act.getColor(R.color.mg_primary))
-                setPadding(dp(4), 0, 0, dp(6))
-            })
+                setPadding(dp(4), 0, 0, 0)
+            }, LinearLayout.LayoutParams(0, WRAP, 1f))
+            head.addView(TextView(act).apply {
+                text = "Clear"
+                textSize = 12f
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                setTextColor(act.getColor(R.color.mg_primary))
+                gravity = Gravity.CENTER
+                minimumHeight = dp(44)
+                setPadding(dp(12), 0, dp(8), 0)
+                isClickable = true
+                contentDescription = "Clear recent settings"
+                setOnClickListener {
+                    it.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                    try { prefs.edit().remove("recent_settings").apply() } catch (_: Exception) { }
+                    fill()
+                }
+            }, LinearLayout.LayoutParams(WRAP, WRAP))
+            box.addView(head, LinearLayout.LayoutParams(MATCH, WRAP))
             val hs = HorizontalScrollView(act).apply { isHorizontalScrollBarEnabled = false }
             val chips = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL }
             for (l in list) chips.addView(TextView(act).apply {
