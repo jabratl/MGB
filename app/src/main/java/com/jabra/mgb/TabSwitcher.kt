@@ -1443,8 +1443,9 @@ object TabSwitcher {
             val hi = isCur && !selecting
             val on = selecting && t.id in picked
             val box = FrameLayout(act).apply {
-                background = round(c(R.color.mg_surface), 18, if (on || hi) 2 else 0, c(R.color.mg_primary)) // S72: current tab has a ring too
+                background = if (on || hi) round(c(R.color.mg_surface), 20, 2, c(R.color.mg_primary)) else round(c(R.color.mg_surface), 20, 1, c(R.color.mg_outline)) // S4: current/picked = violet ring, others = quiet outline
                 clipToOutline = true
+                contentDescription = if (hi) "$title, current tab" else title // S4
                 setOnClickListener {
                     if (selecting) { if (on) picked.remove(t.id) else picked.add(t.id); render() }
                     else { tm.switchTo(t); dismiss() }
@@ -1453,11 +1454,11 @@ object TabSwitcher {
             box.tag = t.id // S16: key for the glide animation
             dragTouch(box, t) // S44: long press = lift the card (drag into a group) or the menu
             box.addView(previewOf(t, cardW, true), FrameLayout.LayoutParams(MATCH, MATCH).apply { topMargin = dp(HEAD_H) })
-            val fg = if (hi) c(R.color.mg_on_primary) else c(R.color.mg_text)
+            val fg = if (hi) c(R.color.mg_primary) else c(R.color.mg_text) // S4: current tab = violet title on the normal header (no heavy fill)
             val head = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setBackgroundColor(if (hi) c(R.color.mg_primary) else c(R.color.mg_surface))
+                setBackgroundColor(c(R.color.mg_surface))
                 setPadding(dp(8), 0, dp(4), 0)
             }
             head.addView(avatar(t, 18, 9f), LinearLayout.LayoutParams(dp(18), dp(18)).apply { marginEnd = dp(6) })
@@ -1485,9 +1486,9 @@ object TabSwitcher {
                     setImageResource(R.drawable.ic_close)
                     setColorFilter(fg)
                     scaleType = ImageView.ScaleType.CENTER
-                    contentDescription = "Close tab"
+                    contentDescription = "Close $title" // S4
                     setOnClickListener { closeAnimated(box, t) }
-                }, LinearLayout.LayoutParams(dp(30), dp(30)))
+                }, LinearLayout.LayoutParams(dp(HEAD_H), dp(HEAD_H))) // S4: 36dp touch target (was 30)
             }
             box.addView(head, FrameLayout.LayoutParams(MATCH, dp(HEAD_H), Gravity.TOP))
             return box
@@ -1529,8 +1530,9 @@ object TabSwitcher {
             val ids = groups[name] ?: emptySet<Int>()
             val inside = tm.allTabs().filter { it.id in ids }
             val box = FrameLayout(act).apply {
-                background = round(c(R.color.mg_surface), 18)
+                background = round(c(R.color.mg_surface), 20, 1, c(R.color.mg_outline)) // S4
                 clipToOutline = true
+                contentDescription = "Group $name, ${inside.size} tabs" // S4
                 setOnClickListener { v -> openGroupView(name, v) }
                 setOnLongClickListener { v -> v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS); groupMenu(v, name, false); true }
             }
@@ -1565,7 +1567,7 @@ object TabSwitcher {
             val row = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                background = round(c(R.color.mg_surface), 18)
+                background = round(c(R.color.mg_surface), 20, 1, c(R.color.mg_outline)) // S4
                 setPadding(dp(10), dp(8), dp(4), dp(8))
                 setOnClickListener { v -> openGroupView(name, v) }
             }

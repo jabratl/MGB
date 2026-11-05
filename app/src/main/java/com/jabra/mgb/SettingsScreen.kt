@@ -263,7 +263,9 @@ object SettingsScreen {
             val sbox = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                background = round(act.getColor(R.color.mg_surface), 28) // 0.0.129: pill
+                background = round(act.getColor(R.color.mg_surface), 28).apply { // 0.0.129: pill; S5: same hairline as the cards
+                    setStroke(dp(1), ColorUtils.setAlphaComponent(act.getColor(R.color.mg_outline), 0x99))
+                }
                 setPadding(dp(14), 0, dp(6), 0)
             }
             sbox.addView(ImageView(act).apply {
@@ -454,7 +456,7 @@ object SettingsScreen {
             val isOpen = searching || sub || (!link && openCat == key)
             val card = LinearLayout(act).apply {
                 orientation = LinearLayout.VERTICAL
-                background = round(act.getColor(R.color.mg_surface), 24).apply { // 0.0.129: hairline outline
+                background = round(act.getColor(R.color.mg_surface), 20).apply { // 0.0.129: hairline outline
                     setStroke(dp(1), ColorUtils.setAlphaComponent(act.getColor(R.color.mg_outline), 0x99))
                 }
             }
@@ -509,7 +511,8 @@ object SettingsScreen {
                 setPadding(dp(16), dp(12), dp(14), dp(12))
                 isClickable = true
                 isFocusable = true
-                contentDescription = title
+                contentDescription = "$title, $subtitle" // S5
+                if (!link) androidx.core.view.ViewCompat.setStateDescription(this, if (isOpen) "Expanded" else "Collapsed") // S5
                 val out = TypedValue()
                 if (act.theme.resolveAttribute(android.R.attr.selectableItemBackground, out, true)) {
                     foreground = act.getDrawable(out.resourceId)
@@ -589,7 +592,7 @@ object SettingsScreen {
         private fun backupCard(): View {
             val card = LinearLayout(act).apply {
                 orientation = LinearLayout.VERTICAL
-                background = round(act.getColor(R.color.mg_surface), 24).apply {
+                background = round(act.getColor(R.color.mg_surface), 20).apply {
                     setStroke(dp(1), ColorUtils.setAlphaComponent(act.getColor(R.color.mg_outline), 0x99))
                 }
             }

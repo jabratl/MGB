@@ -302,7 +302,10 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     }
 
     private fun refreshUrlField() {
-        if (urlBar.hasFocus()) { setUrlLock(null); return }
+        if (urlBar.hasFocus()) { // S3 FIX: while typing, drop the dim host/path spans so typed text stays one color
+            urlBar.text?.let { e -> e.getSpans(0, e.length, android.text.style.ForegroundColorSpan::class.java).forEach { e.removeSpan(it) } }
+            setUrlLock(null); return
+        }
         val u = if (tabs.active?.home == true) "" else (tabs.active?.url ?: "") // S13
         val full = AppearancePrefs.fullUrl(this)
         val s = when {
@@ -328,11 +331,12 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     /** S3: small connection cue at the start of the address field: lock = https, open lock (red) = plain http, none = home / other. */
     private fun setUrlLock(secure: Boolean?) {
-        val d = when (secure) {
-            true -> getDrawable(R.drawable.ic_lock)
-            false -> getDrawable(R.drawable.ic_pl_lock_open)
+        val res: Int? = when (secure) { // S3 FIX: explicit types (no platform-type inference)
+            true -> R.drawable.ic_lock
+            false -> R.drawable.ic_pl_lock_open
             null -> null
-        }?.mutate()
+        }
+        val d: android.graphics.drawable.Drawable? = res?.let { androidx.core.content.ContextCompat.getDrawable(this, it)?.mutate() }
         if (d != null) {
             val sz = Util.dp(this, 14)
             d.setBounds(0, 0, sz, sz)

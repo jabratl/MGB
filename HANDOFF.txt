@@ -252,14 +252,15 @@ Design note: request only user-selected/current-page context, show exactly what 
 Checks: disabled/no-provider state; page context opt-in; cancel; long text limit; private tab disabled by default; network failure; no secret in APK/logs; clear conversation.
 
 7. EXACT KICKOFF LINE FOR NEXT CHAT
-START S4 ONLY — Tab switcher visual refresh, baseline appVersionName 0.0.178. S1-S3 are complete; this HANDOFF is authoritative. Inspect only S4 files/targeted references, preserve tab IDs, snapshot cache, group JSON shape, close/undo semantics, private-tab distinction and max-tab limit. Patch only S4 files plus required version/CHANGELOG/HANDOFF updates, keep the app working, stop by 85% session (hard stop 90%), build/check, and return a changed-files-only ZIP. Do not begin S5.
+START S6 ONLY — Smart Reader Mode, baseline appVersionName 0.0.181. S1-S5 are complete; this HANDOFF is authoritative. Inspect only S6 files/targeted references (PageInfo.kt READER_JS exists: check it before writing ReaderMode.kt; reuse, do not duplicate). Reader must be a reversible overlay, fail gracefully on login/extension pages. Patch only S6 files plus required version/CHANGELOG/HANDOFF updates, keep the app working, stop by 85% session (hard stop 90%), build/check, and return a changed-files-only ZIP. Do not begin S7.
 
 8. PROGRESS / RESULT LOG
 [x] S1 — complete (0.0.175; native light/dark design tokens aligned)
 [x] S2 — complete (0.0.176; home hierarchy and responsive shortcuts polish)
 [x] S3 — complete (0.0.178; address bar pill, inset URL field, lock cue)
-[ ] S4 — pending
-[ ] S5 — pending
+[x] S4 — complete (0.0.179; tab cards outline/ring, header, a11y labels)
+[x] S5 — complete (0.0.180; settings card/search consistency, a11y state)
+[x] FIX — 0.0.181 (S3 hardening + S3/S4/S5 merged into one zip)
 [ ] S6 — pending
 [ ] S7 — pending
 [ ] S8 — pending
@@ -269,6 +270,21 @@ START S4 ONLY — Tab switcher visual refresh, baseline appVersionName 0.0.178. 
 [ ] S12 — pending
 [ ] S13 — pending
 [ ] S14 — pending / provider-gated
+
+RESULT (FIX + MERGE, 0.0.181):
+- Root cause: CI error text for S3 not provided; static audit of S3 diff found no missing symbol/resource (Util.dp, ic_lock, ic_pl_lock_open, mg_* tokens exist; no duplicate XML attrs/ids). Hardened setUrlLock (explicit types, ContextCompat) and removed leftover dim spans on focus.
+- Merged S3+S4+S5 files into one zip. Checks: XML well-formed; no duplicate ids; Kotlin brace/paren balance. NOT tested: Gradle build (CI), device render 360/1280 dp, dark/light, TalkBack.
+- If CI still fails on S3, paste the first 'e:' / 'error:' line.
+
+RESULT (S5 implementation, 0.0.180):
+- Edited only SettingsScreen.kt (3 small spots) + version/CHANGELOG/HANDOFF. Card/Backup radius 24->20dp, search pill hairline, header content description + expanded/collapsed state. Deliberately conservative: IA (categories, summaries, search, reset, Recent) already existed; no keys/rows/destinations touched.
+- Checks: brace/paren balance, single-match patch audit, scope audit. NOT tested: Gradle build (CI), device render light/dark, TalkBack, search/reset regression.
+- Not done: AppearanceScreen.kt visual alignment (radii), reordering categories. Candidates for later.
+
+RESULT (S4 implementation, 0.0.179):
+- Edited only TabSwitcher.kt (card, groupCard, groupRow) + version/CHANGELOG/HANDOFF. Visual only: outline/ring, calmer current-tab header, 36dp close target, content descriptions. No data, group JSON, gesture or undo changes.
+- Checks: brace/paren balance, single-match patch audit, changed-files scope. NOT tested: Gradle build (CI), device render (portrait/landscape, dark/light), TalkBack, swipe-close/undo regression.
+- Not done (kept in scope): host line under title, tab-count/selection summary, GroupStrip tweaks. Candidate for later.
 
 RESULT (S3 implementation, 0.0.178):
 - Baseline 0.0.177 (S2 zip merged over MGB-context 0.0.174). Added bg_url_field.xml (new, needed so the layout can use a focus-state background); edited activity_main.xml, MainActivity.kt, build.gradle.kts, CHANGELOG, HANDOFF.

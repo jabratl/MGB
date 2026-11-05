@@ -1,3 +1,20 @@
+0.0.181 (FIX + MERGE: S3 address bar hardening, one zip with S3 + S4 + S5)
+- MainActivity.kt: setUrlLock() uses explicit types + ContextCompat.getDrawable (no platform-type inference); refreshUrlField() strips the dim ForegroundColorSpans when the field gets focus, so typed text is never half-dimmed.
+- Includes S3 (0.0.178: activity_main.xml, bg_url_field.xml, MainActivity.kt), S4 (0.0.179: TabSwitcher.kt) and S5 (0.0.180: SettingsScreen.kt) so no earlier zip is needed.
+- No new preferences, ids, handlers or file names. Original CI error text for S3 was not available; fix is root-cause-by-audit only.
+- app/build.gradle.kts: 0.0.181.
+
+0.0.180 (S5 MODIFY: Settings visual consistency + accessibility polish)
+- SettingsScreen.kt: category cards and the Backup card use a 20dp corner (was 24, matches home/tab cards); the search pill gets the same hairline outline as the cards; category headers read "<title>, <summary>" with Expanded / Collapsed state for screen readers.
+- Unchanged: every setting key, row, search keyword, reset scope, restart-required flow, feature destination, Recent chips, quick row, sub-pages. AppearanceScreen.kt not touched (no handoff change needed).
+- app/build.gradle.kts: 0.0.180.
+
+0.0.179 (S4 MODIFY: Tab switcher visual refresh)
+- TabSwitcher.kt card(): corner 20dp; non-current cards get a 1dp outline (clear separation in light mode), current / picked card keeps the 2dp violet ring; current tab header is no longer a solid violet fill (violet title text instead, calmer, same contrast); close button touch target 30 -> 36dp; cards + close buttons get readable content descriptions ("<title>, current tab", "Close <title>").
+- TabSwitcher.kt groupCard()/groupRow(): same 20dp corner + outline; group card description.
+- Unchanged: tab ids, snapshot cache, group JSON, drag/long-press, swipe-close/undo, private mode, Older section, search, select mode, top/bottom bars. GroupStrip.kt and sheet_tabs.xml not touched.
+- app/build.gradle.kts: 0.0.179.
+
 0.0.178 (S3 MODIFY: Address bar premium navigation pill)
 - res/layout/activity_main.xml: bottom_bar gets a soft 3dp elevation; url_bar now uses the new inset field background, 12dp text padding, end ellipsize. All view ids, sizes (44dp touch rows) and the top/bottom/compact logic are unchanged.
 - res/drawable/bg_url_field.xml (new): quiet inset capsule (36dp visual inside the 44dp touch area); focused = surface + violet ring. Theme tokens only, light + dark.
