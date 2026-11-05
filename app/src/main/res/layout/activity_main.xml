@@ -92,7 +92,7 @@
             android:layout_marginStart="2dp"
             android:layout_marginEnd="4dp"
             android:background="@drawable/bg_url_field"
-            android:compoundDrawablePadding="6dp"
+            android:drawablePadding="6dp"
             android:ellipsize="end"
             android:hint="Search or type URL"
             android:importantForAutofill="no"

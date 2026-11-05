@@ -252,7 +252,7 @@ Design note: request only user-selected/current-page context, show exactly what 
 Checks: disabled/no-provider state; page context opt-in; cancel; long text limit; private tab disabled by default; network failure; no secret in APK/logs; clear conversation.
 
 7. EXACT KICKOFF LINE FOR NEXT CHAT
-START S6 ONLY — Smart Reader Mode, baseline appVersionName 0.0.181. S1-S5 are complete; this HANDOFF is authoritative. Inspect only S6 files/targeted references (PageInfo.kt READER_JS exists: check it before writing ReaderMode.kt; reuse, do not duplicate). Reader must be a reversible overlay, fail gracefully on login/extension pages. Patch only S6 files plus required version/CHANGELOG/HANDOFF updates, keep the app working, stop by 85% session (hard stop 90%), build/check, and return a changed-files-only ZIP. Do not begin S7.
+START S6 ONLY — Smart Reader Mode, baseline appVersionName 0.0.182. S1-S5 are complete; this HANDOFF is authoritative. Inspect only S6 files/targeted references (PageInfo.kt READER_JS exists: check it before writing ReaderMode.kt; reuse, do not duplicate). Reader must be a reversible overlay, fail gracefully on login/extension pages. Patch only S6 files plus required version/CHANGELOG/HANDOFF updates, keep the app working, stop by 85% session (hard stop 90%), build/check, and return a changed-files-only ZIP. Do not begin S7.
 
 8. PROGRESS / RESULT LOG
 [x] S1 — complete (0.0.175; native light/dark design tokens aligned)
@@ -261,6 +261,7 @@ START S6 ONLY — Smart Reader Mode, baseline appVersionName 0.0.181. S1-S5 are 
 [x] S4 — complete (0.0.179; tab cards outline/ring, header, a11y labels)
 [x] S5 — complete (0.0.180; settings card/search consistency, a11y state)
 [x] FIX — 0.0.181 (S3 hardening + S3/S4/S5 merged into one zip)
+[x] FIX — 0.0.182 (S3 CI error: android:compoundDrawablePadding -> android:drawablePadding)
 [ ] S6 — pending
 [ ] S7 — pending
 [ ] S8 — pending
@@ -270,6 +271,10 @@ START S6 ONLY — Smart Reader Mode, baseline appVersionName 0.0.181. S1-S5 are 
 [ ] S12 — pending
 [ ] S13 — pending
 [ ] S14 — pending / provider-gated
+
+RESULT (FIX, 0.0.182):
+- Root cause (from CI log): AAPT 'attribute android:compoundDrawablePadding not found' at activity_main.xml url_bar. Correct XML attribute is android:drawablePadding. One-word fix.
+- Checks: XML well-formed; grep shows no other compoundDrawablePadding in res/. NOT tested: Gradle build (CI), device render, dark/light, TalkBack.
 
 RESULT (FIX + MERGE, 0.0.181):
 - Root cause: CI error text for S3 not provided; static audit of S3 diff found no missing symbol/resource (Util.dp, ic_lock, ic_pl_lock_open, mg_* tokens exist; no duplicate XML attrs/ids). Hardened setUrlLock (explicit types, ContextCompat) and removed leftover dim spans on focus.

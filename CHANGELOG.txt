@@ -1,3 +1,7 @@
+0.0.182 (FIX: S3 CI build error, AAPT attribute not found)
+- res/layout/activity_main.xml: url_bar used android:compoundDrawablePadding, which is not an XML attribute (the Java method is setCompoundDrawablePadding, the XML attribute is android:drawablePadding). Renamed. Same 6dp value, nothing else changed.
+- app/build.gradle.kts: 0.0.182.
+
 0.0.181 (FIX + MERGE: S3 address bar hardening, one zip with S3 + S4 + S5)
 - MainActivity.kt: setUrlLock() uses explicit types + ContextCompat.getDrawable (no platform-type inference); refreshUrlField() strips the dim ForegroundColorSpans when the field gets focus, so typed text is never half-dimmed.
 - Includes S3 (0.0.178: activity_main.xml, bg_url_field.xml, MainActivity.kt), S4 (0.0.179: TabSwitcher.kt) and S5 (0.0.180: SettingsScreen.kt) so no earlier zip is needed.
