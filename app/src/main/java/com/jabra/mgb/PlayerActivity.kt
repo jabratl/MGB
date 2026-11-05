@@ -833,10 +833,10 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     /** P10: headphone button / panel row. */
-    internal fun toggleAudioOnly() { setAudioOnly(!audioOnly) }
+    internal fun toggleAudioOnly() { applyAudioOnly(!audioOnly) }
 
     /** P10: audio only = the video track is switched off (saves data and battery), black screen with a card. Off = the video track comes back at the same position (the quality cap stays in the track parameters). */
-    internal fun setAudioOnly(on: Boolean) {
+    internal fun applyAudioOnly(on: Boolean) {
         val p = player ?: return
         if (on == audioOnly) return
         if (on && audioOpts().isEmpty()) { Util.toast(this, "No audio track"); return }
@@ -1503,7 +1503,7 @@ class PlayerActivity : AppCompatActivity() {
             true
         }
         rootView.addView(touch, FrameLayout.LayoutParams(MATCH, MATCH))
-        aoCard = PlayerAudioOnly(this) { setAudioOnly(false) } // P10: above the touch layer, below the controls
+        aoCard = PlayerAudioOnly(this) { applyAudioOnly(false) } // P10: above the touch layer, below the controls
         rootView.addView(aoCard.root, FrameLayout.LayoutParams(MATCH, MATCH))
 
         // ----- controls: top bar, centre buttons, bottom block -----

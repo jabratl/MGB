@@ -1,3 +1,6 @@
+0.0.165 FIX (build error "Platform declaration clash setAudioOnly$app_release(Z)V")
+- PlayerActivity.kt: fun setAudioOnly renamed to applyAudioOnly (clashed with the setter of `internal var audioOnly`). This zip was built on the old unfixed P9-P12, so the fix is repeated here. Same fix is in MGB_P9_P12_v0_0_163.zip.
+
 0.0.165 (PLAYER STEP P14 FIX: final polish, code level)
 - PlayerActivity.kt: dead code removed (cell, iconSlot, subScale, showAudioDialog, showSleepDialog); bottom icon row uses 40 dp buttons when the screen is narrower than 380 dp so time + speed pill + 4 icons fit one row; double-tap mark respects Reduce motion (no fade); Reset zoom chip raised (136 dp) so it clears the bottom controls.
 - HANDOFF.txt: PHONE TEST LIST (section 9). app/build.gradle.kts: 0.0.165.

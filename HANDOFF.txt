@@ -1,3 +1,4 @@
+NOTE: setAudioOnly -> applyAudioOnly compile fix is included in MGB_P9_P12_v0_0_163.zip AND in MGB_P13_P14_v0_0_165.zip (newest PlayerActivity.kt wins).
 MGB (Thazir) - PLAYER PLAN, steps P1-P14     (HANDOFF.txt = the file you paste / attach first in every new chat)
 Base: version 0.0.150 (TOOLS plan T1-T10 is finished; its old text is replaced by this file, history stays in CHANGELOG.txt).
 No app code was changed when this plan was written. Planning chat only.
