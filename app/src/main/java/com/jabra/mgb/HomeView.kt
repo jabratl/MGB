@@ -67,7 +67,7 @@ class HomeView(
         setBackgroundColor(context.getColor(R.color.mg_bg))
         isClickable = true // swallow touches: the blank WebView below must not get them
         content.orientation = LinearLayout.VERTICAL
-        content.setPadding(dp(16), dp(24), dp(16), dp(24))
+        content.setPadding(dp(18), dp(30), dp(18), dp(28))
         wpImg.scaleType = ImageView.ScaleType.CENTER_CROP
         wpImg.visibility = View.GONE; wpScrim.visibility = View.GONE
         addView(wpImg, LayoutParams(MATCH, MATCH)) // A7: first children = behind the scroll content
@@ -79,14 +79,22 @@ class HomeView(
 
         pencil.setImageResource(R.drawable.ic_edit)
         pencil.setPadding(dp(10), dp(10), dp(10), dp(10))
-        pencil.setColorFilter(context.getColor(R.color.mg_text_dim))
-        pencil.contentDescription = "Edit"
+        pencil.setColorFilter(context.getColor(R.color.mg_primary))
+        pencil.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(15).toFloat()
+            setColor(context.getColor(R.color.mg_surface))
+            setStroke(dp(1), context.getColor(R.color.mg_outline))
+        }
+        pencil.contentDescription = "Edit home shortcuts"
+        pencil.isClickable = true
+        pencil.isFocusable = true
         pencil.setOnClickListener {
             editing = !editing
             pencil.setImageResource(if (editing) R.drawable.ic_check else R.drawable.ic_edit)
             rebuild()
         }
-        addView(pencil, LayoutParams(dp(44), dp(44), Gravity.TOP or Gravity.END).apply { topMargin = dp(8); marginEnd = dp(8) })
+        addView(pencil, LayoutParams(dp(44), dp(44), Gravity.TOP or Gravity.END).apply { topMargin = dp(12); marginEnd = dp(12) })
     }
 
     /** A7: show / hide the wallpaper (file exists = on) and apply the dim value. No wallpaper = home looks as before. */
@@ -118,7 +126,7 @@ class HomeView(
 
     override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) {
         super.onSizeChanged(w, h, ow, oh)
-        val c = (w / dp(84)).coerceIn(4, 8)
+        val c = ((w - dp(36)) / dp(88)).coerceIn(3, 5)
         if (c != cols) rebuild()
     }
 
@@ -126,22 +134,22 @@ class HomeView(
         // S34: before the first layout width is 0: use the screen size so the home is never empty
         val dm = resources.displayMetrics
         val w = if (width > 0) width else dm.widthPixels
-        val h = if (height > 0) height else dm.heightPixels
-        cols = (w / dp(84)).coerceIn(4, 8)
+        cols = ((w - dp(36)) / dp(88)).coerceIn(3, 5)
         content.removeAllViews()
 
         val f0 = folder
         if (f0 != null && !Bookmarks.folders().contains(f0)) folder = null
         val cur = folder
         if (cur == null) {
+            // Signature start-page header: compact, left aligned, and clear of the edit control.
             content.addView(TextView(context).apply {
-                text = if (priv) "PRIVATE TAB" else greeting().uppercase()
+                text = if (priv) "PRIVATE BROWSING" else greeting().uppercase()
                 setTextColor(context.getColor(R.color.mg_primary))
                 textSize = 11f
-                letterSpacing = 0.22f
-                gravity = Gravity.CENTER
+                letterSpacing = 0.18f
+                gravity = Gravity.START
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-                setPadding(0, (h * 0.09f).toInt(), 0, dp(6))
+                setPadding(dp(2), dp(2), dp(52), dp(8))
             }, LinearLayout.LayoutParams(MATCH, WRAP))
             content.addView(TextView(context).apply {
                 val sb = SpannableStringBuilder("Thazir.")
@@ -149,13 +157,20 @@ class HomeView(
                 text = sb
                 setTextColor(context.getColor(R.color.mg_text))
                 textSize = 34f
-                letterSpacing = 0.28f
-                gravity = Gravity.CENTER
+                letterSpacing = 0.01f
+                gravity = Gravity.START
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-                setPadding(0, 0, 0, dp(26))
+                setPadding(0, 0, dp(52), dp(2))
             }, LinearLayout.LayoutParams(MATCH, WRAP))
-            content.addView(searchPill(), LinearLayout.LayoutParams(MATCH, dp(48)).apply {
-                marginStart = dp(8); marginEnd = dp(8); bottomMargin = dp(32)
+            content.addView(TextView(context).apply {
+                text = if (priv) "Your private session starts here." else "A calmer place to start browsing."
+                setTextColor(context.getColor(R.color.mg_text_dim))
+                textSize = 13f
+                gravity = Gravity.START
+                setPadding(dp(2), 0, dp(52), dp(18))
+            }, LinearLayout.LayoutParams(MATCH, WRAP))
+            content.addView(searchPill(), LinearLayout.LayoutParams(MATCH, dp(52)).apply {
+                bottomMargin = dp(26)
             })
         } else {
             val head = LinearLayout(context).apply {
@@ -181,6 +196,11 @@ class HomeView(
             content.addView(head, LinearLayout.LayoutParams(MATCH, WRAP))
         }
 
+        if (cur == null) {
+            content.addView(sectionHeading("YOUR SHORTCUTS", "${Bookmarks.home().size} pinned"),
+                LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(8) })
+        }
+
         val cells = ArrayList<View>()
         if (cur == null) { // S28: only what the user pinned (not every bookmark)
             for (h in Bookmarks.home()) {
@@ -189,6 +209,14 @@ class HomeView(
             }
         } else {
             for (b in Bookmarks.bookmarks()) if (b.folder == cur) cells.add(tile(b.title, b.url))
+        }
+        if (cur == null && Bookmarks.home().isEmpty() && !editing) {
+            content.addView(TextView(context).apply {
+                text = "Pin your favorite sites here for one-tap access."
+                setTextColor(context.getColor(R.color.mg_text_dim))
+                textSize = 12f
+                setPadding(dp(4), dp(2), dp(4), dp(8))
+            }, LinearLayout.LayoutParams(MATCH, WRAP))
         }
         if (!editing) cells.add(addTile())
         var i = 0
@@ -205,8 +233,8 @@ class HomeView(
             i += cols
         }
         if (cur == null && !editing && !priv) { // S34: smart extras (not in edit mode / private tab)
-            recentRow()?.let { content.addView(it, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(20) }) }
-            blockedLine()?.let { content.addView(it, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(28) }) }
+            recentRow()?.let { content.addView(it, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(26) }) }
+            blockedLine()?.let { content.addView(it, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(22) }) }
         }
         if (animateNext) { animateNext = false; fadeIn() }
     }
@@ -243,6 +271,25 @@ class HomeView(
         return Color.HSVToColor(floatArrayOf(hue.toFloat(), 0.55f, 0.92f))
     }
 
+    /** Compact section label used to give the start page a clearer visual hierarchy. */
+    private fun sectionHeading(title: String, detail: String): View = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(2), dp(2), dp(2), dp(2))
+        addView(TextView(context).apply {
+            text = title
+            setTextColor(context.getColor(R.color.mg_text))
+            textSize = 11f
+            letterSpacing = 0.12f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        }, LinearLayout.LayoutParams(0, WRAP, 1f))
+        addView(TextView(context).apply {
+            text = detail
+            setTextColor(context.getColor(R.color.mg_text_dim))
+            textSize = 11f
+        })
+    }
+
     /** S34: recent sites that are not pinned: one tap to jump back. */
     private fun recentRow(): View? {
         val skip = HashSet<String>()
@@ -259,7 +306,7 @@ class HomeView(
         if (items.isEmpty()) return null
         val col = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         col.addView(TextView(context).apply {
-            text = "JUMP BACK IN"
+            text = "RECENTLY VISITED"
             setTextColor(context.getColor(R.color.mg_text_dim))
             textSize = 11f
             letterSpacing = 0.16f
@@ -282,7 +329,7 @@ class HomeView(
         return LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(8), 0, dp(16), 0)
+            setPadding(dp(10), 0, dp(16), 0)
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(22).toFloat()
@@ -348,8 +395,8 @@ class HomeView(
     private fun searchPill(): View = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(16), 0, dp(16), 0)
-        background = squircle(context.getColor(R.color.mg_surface), context.getColor(R.color.mg_outline), false).apply { cornerRadius = dp(24).toFloat() }
+        setPadding(dp(16), 0, dp(18), 0)
+        background = squircle(context.getColor(R.color.mg_surface), context.getColor(R.color.mg_outline), false).apply { cornerRadius = dp(18).toFloat() }
         isClickable = true
         isFocusable = true
         setOnClickListener { onSearch?.invoke() }
@@ -359,7 +406,7 @@ class HomeView(
         }, LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(12) })
         addView(TextView(context).apply {
             text = "Search or type address"
-            textSize = 15f
+            textSize = 14f
             setTextColor(context.getColor(R.color.mg_text_dim))
         })
     }
@@ -419,7 +466,7 @@ class HomeView(
     private fun cell(icon: View, label: String): LinearLayout = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER_HORIZONTAL
-        setPadding(dp(4), dp(8), dp(4), dp(8))
+        setPadding(dp(3), dp(7), dp(3), dp(7))
         isClickable = true
         isFocusable = true
         setOnTouchListener { v, e -> // S28: soft press

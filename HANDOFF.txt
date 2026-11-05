@@ -252,11 +252,11 @@ Design note: request only user-selected/current-page context, show exactly what 
 Checks: disabled/no-provider state; page context opt-in; cancel; long text limit; private tab disabled by default; network failure; no secret in APK/logs; clear conversation.
 
 7. EXACT KICKOFF LINE FOR NEXT CHAT
-START S2 ONLY — Home screen hierarchy and customization polish, baseline appVersionName 0.0.175. S1 is complete; this HANDOFF is authoritative. Inspect only S2 files/targeted references, preserve all existing bookmark/folder editing, wallpaper/dim, recent-row, search, and add-tile behaviours. Patch only S2 files plus required version/CHANGELOG/HANDOFF updates, keep the app working, stop by 85% session (hard stop 90%), build/check, and return a changed-files-only ZIP. Do not begin S3.
+START S3 ONLY — Address bar premium navigation pill, baseline appVersionName 0.0.177. S1 and S2 are complete; this HANDOFF is authoritative. Inspect only S3 files/targeted references, preserve btn_home, btn_engine, btn_shield, url_bar, btn_tabs, btn_menu IDs and all existing navigation, keyboard, loading, privacy, bar-position, compact-bar, and gesture behaviours. Patch only S3 files plus required version/CHANGELOG/HANDOFF updates, keep the app working, stop by 85% session (hard stop 90%), build/check, and return a changed-files-only ZIP. Do not begin S4.
 
 8. PROGRESS / RESULT LOG
-[x] S1 — complete (0.0.175 tokens + 0.0.176 contrast fix; native light/dark design tokens aligned)
-[ ] S2 — pending
+[x] S1 — complete (0.0.175; native light/dark design tokens aligned)
+[x] S2 — complete (0.0.176; home hierarchy and responsive shortcuts polish)
 [ ] S3 — pending
 [ ] S4 — pending
 [ ] S5 — pending
@@ -270,6 +270,14 @@ START S2 ONLY — Home screen hierarchy and customization polish, baseline appVe
 [ ] S13 — pending
 [ ] S14 — pending / provider-gated
 
+RESULT (S2 implementation):
+- Baseline 0.0.175 updated to 0.0.176.
+- Modified only HomeView.kt for the start-page redesign; app/build.gradle.kts, CHANGELOG.txt, and this HANDOFF were updated as required.
+- Home header is compact and left-aligned with greeting, Thazir wordmark, supporting line, and a clearer search pill. Added a distinct shortcuts section, responsive 3–5-column grid, improved edit affordance, recently-visited label, and empty-pinned-shortcuts guidance.
+- Preserved bookmark/folder editing and selection, add-tile/address flows, wallpaper and dim scrim, history-derived recent row, search callback, private-tab behaviour, and ad-block status line. No new data keys, network widgets, or drawable assets.
+- Static checks completed: Kotlin delimiter/structure sanity; modified-file scope audit; version/changelog consistency; patch ZIP path/content audit. Runtime/visual device checks and Gradle build remain unverified because this environment has no Gradle installation or wrapper and cannot fetch Gradle 8.7.
+- S3 was not started.
+
 RESULT (S1 implementation):
 - Baseline 0.0.174 updated to 0.0.175.
 - Updated only values/colors.xml and values-night/colors.xml for the design-token palette; Theme.MGB mappings, all mg_* resource names, system-bar icon mode, and UI behaviour were preserved.
@@ -281,8 +289,9 @@ RESULT (S1 implementation):
 - Build could not be executed in this environment: the archive contains no Gradle wrapper, no system Gradle is installed, and network access is unavailable to install Gradle 8.7. CI build remains required.
 - No S2 work was started.
 
-RESULT (S1 FIX 0.0.176):
-- Browser compatibility audit of 0.0.175 tokens against 0.0.174 source: all 11 mg_* names + thazir_icon_bg present in both sets; Theme.MGB mappings unchanged; no leftover hardcoded rose/violet token hex except ic_launcher_fg.xml dot (#F2708A, intentional icon accent), PageInfo.kt reader colours (#0A0C10/#FFFFFF, reader page only).
-- Contrast (WCAG): text/dim/primary/error all >= 4.5:1 light and dark. Found 3 dark-mode bugs and fixed them: switch thumb (2.1:1), DlFly badge icon, FloatingDl button icon (hard white on light violet).
-- Open note for S2/S3: PageInfo.kt READER_JS still uses old dark bg #0A0C10; align when that file is next touched.
-- Build not run here (no Gradle wrapper / no network); CI build still required.
+RESULT (S1 FIX + S2 merge, 0.0.177):
+- S2 zip arrived with the same version number (0.0.176) as the S1 contrast-fix zip; merged both into one cumulative 0.0.177 zip (S1 tokens + contrast fixes + S2 HomeView).
+- Dark-mode bugs fixed: switch thumb (2.1:1), DlFly badge icon, FloatingDl button icon (hard white on light violet).
+- S2 HomeView.kt reviewed: compiles logically (no leftover uses of removed variable h, imports present), spannable wordmark index OK, edit pencil clear of header. Note: 360dp phones now show 3 shortcut columns (was 4) by design.
+- Open note: PageInfo.kt READER_JS still uses old dark bg #0A0C10 (align when next touched).
+- Build not run here; CI build still required. Next step S3 baseline = 0.0.177.

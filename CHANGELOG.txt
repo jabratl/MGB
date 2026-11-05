@@ -1,8 +1,14 @@
-0.0.176 (S1 FIX: dark-mode contrast after the violet palette)
-- values-night/colors.xml: mg_toggle_thumb white -> #211B3A (white thumb on the light violet track was only 2.1:1; now 7.8:1). ThazirSwitch + Appearance tile check dot pick it up automatically.
-- DlFly.kt, FloatingDl.kt: download icon on the accent circle was hard white; now mg_on_primary (white on light violet was unreadable in dark mode). FloatingDl comment: rose -> violet.
+0.0.177 (S1 FIX + S2 combined: dark-mode contrast fixes, one zip)
+- values-night/colors.xml: mg_toggle_thumb white -> #211B3A (white thumb on the light violet track was 2.1:1; now 7.8:1). ThazirSwitch + Appearance tile check dot pick it up automatically.
+- DlFly.kt, FloatingDl.kt: download icon on the accent circle was hard white (unreadable on light violet in dark mode); now mg_on_primary. FloatingDl comment rose -> violet.
 - ThazirSwitch.kt: comment only.
-- Includes everything from 0.0.175 (values/colors.xml violet palette), so 0.0.175 zip is NOT needed separately.
+- Includes S1 (values/colors.xml violet palette, 0.0.175) and S2 (HomeView.kt, 0.0.176), so no earlier zip is needed.
+- app/build.gradle.kts: 0.0.177.
+
+0.0.176 (S2 MODIFY: Home screen hierarchy and customization polish)
+- HomeView.kt: rebuilt the start-page header into a compact left-aligned greeting/wordmark/subtitle, with a clearer search entry point and a distinct shortcuts section.
+- HomeView.kt: made shortcut columns responsive for narrow phones and larger screens; refined shortcut/edit affordances and recent-visit presentation; added a helpful empty-favorites hint without changing bookmark data.
+- Preserved existing bookmark/folder editing, add-tile and add-address flows, wallpaper image/dim scrim, recent-history source, search callback, private-tab handling, and ad-block status line. No new preferences, data keys, network widgets, or drawable assets.
 - app/build.gradle.kts: 0.0.176.
 
 0.0.175 (S1 MODIFY: Thazir hybrid design token alignment)
