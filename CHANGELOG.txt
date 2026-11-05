@@ -1,3 +1,10 @@
+0.0.156 (PLAYER STEP P5 BUILD: Subtitles page)
+- PlayerSubs.kt (new): Subtitles page (Off + text tracks as radios, Add subtitle file, live sample line, text size slider 50-200%, colour swatches, background None / Shadow / Box, position Low / Middle / High) and applyStyle() for the real SubtitleView. Old sub_size 0 / 1 / 2 migrates once to pl_sub_size 80 / 100 / 135.
+- PlayerPrefs.kt: K_SUB_SIZE, K_SUB_BG, K_SUB_POS, has().
+- PlayerActivity.kt: styleSubtitles -> PlayerSubs.applyStyle, subScale thin wrapper, subOff / subOpts / pickSub / setSubOff / addSubFile / restyleSubs, showSubtitleDialog opens the page (old sheet rows + subColors arrays removed), subSummary shows the selected track name.
+- PlayerPages.kt: root Subtitles row pushes the page.
+- app/build.gradle.kts: 0.0.156.
+
 0.0.155 (PLAYER STEP P4 BUILD: Sleep timer page + Audio track page)
 - PlayerPages.kt: new sleepPage (Off, 15 / 30 / 45 / 60 / 90 min, End of this video, "Pauses in N min" line, Add 15 min, custom slider 5-180 min), audioPage (radio rows: language, channels, codec), AudioOpt, channelName, codecName, sleepValue (root row value "12 min" / "End of video" / "Off"); root rows Sleep timer + Audio track now push these pages (Audio row shows the selected track when there are 2+).
 - PlayerActivity.kt: setSleep internal + sentinel -1 = end of video (STATE_ENDED pauses, no next episode, no folder loop; cleared when another video loads), addSleep, sleepLeftMin, sleepPick; audioOpts / pickAudio; showSleepDialog + showAudioDialog open the panel pages (old sheet versions removed, toolbar Audio button opens the page).

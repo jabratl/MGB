@@ -628,19 +628,53 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun styleSubtitles() {
         val sv = playerView.subtitleView ?: return
-        sv.setApplyEmbeddedStyles(true)
-        sv.setStyle(CaptionStyleCompat(subColor(), 0x55000000, Color.TRANSPARENT, CaptionStyleCompat.EDGE_TYPE_OUTLINE, Color.BLACK, null))
-        sv.setFractionalTextSize(0.0533f * subScale())
-        sv.setBottomPaddingFraction(0.1f)
+        PlayerSubs.applyStyle(this, sv) // P5: colour, size, background, position (prefs sub_color, pl_sub_*)
     }
 
-    // S42: subtitle colour (prefs mgb_ui sub_color 0..4)
-    private val subColorNames = arrayOf("White", "Yellow", "Cyan", "Green", "Orange")
-    private val subColors = intArrayOf(Color.WHITE, 0xFFFFEB3B.toInt(), 0xFF4DD0E1.toInt(), 0xFF76FF03.toInt(), 0xFFFFA726.toInt())
-    private fun subColorIdx(): Int = getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).getInt("sub_color", 0).coerceIn(0, subColors.size - 1)
-    private fun subColor(): Int = subColors[subColorIdx()]
+    internal fun restyleSubs() { styleSubtitles() }
 
-    private fun subScale(): Float = when (getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).getInt("sub_size", 1)) { 0 -> 0.8f; 2 -> 1.35f; else -> 1f }
+    private fun subScale(): Float = PlayerSubs.sizePct(this) / 100f // P5: kept as a thin wrapper
+
+    /** P5: subtitle tracks as page rows, Off state, pick, add file (used by PlayerSubs). */
+    internal fun subOff(): Boolean {
+        val p = player ?: return true
+        return p.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT) || textGroups(p.currentTracks).none { it.isSelected }
+    }
+
+    internal fun subOpts(): List<PlayerPages.AudioOpt> {
+        val p = player ?: return emptyList()
+        val off = subOff()
+        val out = ArrayList<PlayerPages.AudioOpt>()
+        var n = 0
+        for (g in textGroups(p.currentTracks)) for (i in 0 until g.length) {
+            if (!g.isTrackSupported(i)) continue
+            n++
+            val gg = g
+            val ii = i
+            out.add(PlayerPages.AudioOpt(trackName(g.getTrackFormat(i), n), null, g.isTrackSelected(i) && !off) { pickSub(gg, ii) })
+        }
+        return out
+    }
+
+    private fun pickSub(g: Tracks.Group, i: Int) {
+        val p = player ?: return
+        p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+            .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+            .setOverrideForType(TrackSelectionOverride(g.mediaTrackGroup, i))
+            .build()
+        updateCcLabel()
+        main.postDelayed({ if (panel.isOpen) panel.refresh() }, 250) // the player reports the new selection a moment later
+    }
+
+    internal fun setSubOff() {
+        val p = player ?: return
+        p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
+        updateCcLabel()
+        main.postDelayed({ if (panel.isOpen) panel.refresh() }, 250)
+    }
+
+    internal fun addSubFile() { openSub.launch(arrayOf("*/*")) }
 
     private fun updateCcLabel() {
         val p = player ?: return
@@ -850,45 +884,10 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     internal fun showSubtitleDialog() {
-        val p = player ?: return
-        val groups = textGroups(p.currentTracks)
-        val off = p.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT) || groups.none { it.isSelected }
-        val rows = ArrayList<SheetRow>()
-        rows.add(SheetRow("Off", null, off) {
-            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build()
-            updateCcLabel()
-        })
-        var n = 0
-        for (g in groups) for (i in 0 until g.length) {
-            if (!g.isTrackSupported(i)) continue
-            n++
-            val label = trackName(g.getTrackFormat(i), n)
-            val sel = g.isTrackSelected(i) && !off
-            val gg = g
-            val ii = i
-            rows.add(SheetRow(label, null, sel) {
-                p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
-                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                    .clearOverridesOfType(C.TRACK_TYPE_TEXT)
-                    .setOverrideForType(TrackSelectionOverride(gg.mediaTrackGroup, ii))
-                    .build()
-                updateCcLabel()
-            })
-        }
-        rows.add(SheetRow("Add subtitle file...", ".srt  .vtt  .ass  .ssa  .ttml", false) { openSub.launch(arrayOf("*/*")) })
-        val sizeNames = arrayOf("Small", "Medium", "Large")
-        val cur = getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).getInt("sub_size", 1).coerceIn(0, 2)
-        rows.add(SheetRow("Text size", sizeNames[cur] + "  (tap to change)", false) {
-            getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).edit().putInt("sub_size", (cur + 1) % 3).apply()
-            styleSubtitles()
-            showSubtitleDialog()
-        })
-        rows.add(SheetRow("Text colour", subColorNames[subColorIdx()] + "  (tap to change)", false) { // S42
-            getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).edit().putInt("sub_color", (subColorIdx() + 1) % subColors.size).apply()
-            styleSubtitles()
-            showSubtitleDialog()
-        })
-        sheet("Subtitles", if (n == 0) "No subtitle in this video. Add a file, or put it next to the video with the same name." else null, rows)
+        if (player == null) return
+        main.removeCallbacks(hider)
+        showControls(false)
+        panel.open(PlayerSubs.page(this))
     }
 
     /** P4: audio tracks as page rows (language, channels, codec). Old sheet() version removed. */
@@ -942,9 +941,8 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     internal fun subSummary(): String {
-        val p = player ?: return "Off"
-        val off = p.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT) || textGroups(p.currentTracks).none { it.isSelected }
-        return if (off) "Off" else "On"
+        if (subOff()) return "Off"
+        return subOpts().firstOrNull { it.selected }?.label ?: "On"
     }
 
     // P3: repeat (pl_repeat: 0 off / 1 this video / 2 folder)

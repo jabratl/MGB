@@ -14,9 +14,13 @@ object PlayerPrefs {
     const val K_HOLD_SLIDE = "pl_hold_slide"  // P8 bool
     const val K_REPEAT = "pl_repeat"          // P3 int 0 off / 1 one / 2 folder
     const val K_QUALITY_CAP = "pl_quality_cap" // P3 int max height, 0 = auto
+    const val K_SUB_SIZE = "pl_sub_size"      // P5 int percent 50..200
+    const val K_SUB_BG = "pl_sub_bg"          // P5 int 0 none / 1 shadow / 2 box
+    const val K_SUB_POS = "pl_sub_pos"        // P5 int 0 low / 1 middle / 2 high
 
     private fun sp(c: Context) = c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
 
+    fun has(c: Context, key: String): Boolean = try { sp(c).contains(key) } catch (_: Exception) { false }
     fun getInt(c: Context, key: String, def: Int): Int = try { sp(c).getInt(key, def) } catch (_: Exception) { def }
     fun getFloat(c: Context, key: String, def: Float): Float = try { sp(c).getFloat(key, def) } catch (_: Exception) { def }
     fun getBool(c: Context, key: String, def: Boolean): Boolean = try { sp(c).getBoolean(key, def) } catch (_: Exception) { def }

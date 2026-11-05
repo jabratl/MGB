@@ -11,7 +11,7 @@ object PlayerPages {
         fun go(f: () -> Unit) { a.panel.close(); f() }
         val p = a.player
         val ao = a.audioOpts()
-        row(R.drawable.ic_pl_cc, "Subtitles", a.subSummary(), true) { go { a.showSubtitleDialog() } }
+        row(R.drawable.ic_pl_cc, "Subtitles", a.subSummary(), true) { a.panel.push(PlayerSubs.page(a)) }
         row(R.drawable.ic_list, "Audio track", if (ao.size > 1) (ao.firstOrNull { it.selected }?.label ?: "") else "", true) {
             if (ao.isEmpty()) Util.toast(a, "No audio track") else a.panel.push(audioPage(a))
         }
