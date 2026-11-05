@@ -1,6 +1,6 @@
 THAZIR / MGB — BROWSER REDESIGN & FEATURE ROADMAP
 Planning baseline: uploaded Thazir-main.zip (project identity MGB)
-Audit date: 2026-11-05 | Source app version: 0.0.174
+Audit date: 2026-11-05 | Source app version: 0.0.174 | Current: 0.0.183
 STATUS: PLANNING ONLY. No source code was modified for this handoff.
 
 ASSUMPTIONS
@@ -252,7 +252,7 @@ Design note: request only user-selected/current-page context, show exactly what 
 Checks: disabled/no-provider state; page context opt-in; cancel; long text limit; private tab disabled by default; network failure; no secret in APK/logs; clear conversation.
 
 7. EXACT KICKOFF LINE FOR NEXT CHAT
-START S6 ONLY — Smart Reader Mode, baseline appVersionName 0.0.182. S1-S5 are complete; this HANDOFF is authoritative. Inspect only S6 files/targeted references (PageInfo.kt READER_JS exists: check it before writing ReaderMode.kt; reuse, do not duplicate). Reader must be a reversible overlay, fail gracefully on login/extension pages. Patch only S6 files plus required version/CHANGELOG/HANDOFF updates, keep the app working, stop by 85% session (hard stop 90%), build/check, and return a changed-files-only ZIP. Do not begin S7.
+START S10 ONLY — Thazir Media Library, baseline appVersionName 0.0.183. OWNER DECISION: only S7 and S10 are wanted; S6, S8, S9, S11-S14 are SKIPPED (do not start them). S1-S5 and S7 are complete; this HANDOFF is authoritative. S10 hard rule: do NOT break any existing download/player/detected-media feature. Do the mandatory media source-of-truth audit first (DlEngine / DownloadsScreen / DownloadService / Sniffer / PlayerQueue), reuse existing records and IDs, add MediaLibrary.kt as a read-only hub plus one entry point (3-dot menu row in MainActivity, like Command Center; ToolsSheet only if needed). No schema, preference-key, backup or bridge changes. Patch only, stop by 85% session (hard stop 90%), build/check, return a changed-files-only ZIP.
 
 8. PROGRESS / RESULT LOG
 [x] S1 — complete (0.0.175; native light/dark design tokens aligned)
@@ -262,15 +262,21 @@ START S6 ONLY — Smart Reader Mode, baseline appVersionName 0.0.182. S1-S5 are 
 [x] S5 — complete (0.0.180; settings card/search consistency, a11y state)
 [x] FIX — 0.0.181 (S3 hardening + S3/S4/S5 merged into one zip)
 [x] FIX — 0.0.182 (S3 CI error: android:compoundDrawablePadding -> android:drawablePadding)
-[ ] S6 — pending
-[ ] S7 — pending
-[ ] S8 — pending
-[ ] S9 — pending
+[-] S6 — SKIPPED by owner decision
+[x] S7 — complete (0.0.183; Command Center sheet, menu entry)
+[-] S8 — SKIPPED by owner decision
+[-] S9 — SKIPPED by owner decision
 [ ] S10 — pending
-[ ] S11 — pending
-[ ] S12 — pending
-[ ] S13 — pending
-[ ] S14 — pending / provider-gated
+[-] S11 — SKIPPED by owner decision
+[-] S12 — SKIPPED by owner decision
+[-] S13 — SKIPPED by owner decision
+[-] S14 — SKIPPED by owner decision / provider-gated
+
+RESULT (S7 implementation, 0.0.183):
+- Baseline 0.0.182 (S6 skipped by owner). Added CommandCenter.kt; MainActivity.kt got one menu row ("Command Center", first row of general card, calls CommandCenter.show(this, tabs)); build.gradle.kts + CHANGELOG + HANDOFF updated. ToolsSheet.kt not needed (entry point is the 3-dot menu).
+- Sheet: search field + sections Actions / Open tabs / Bookmarks / History / Go to-Web. Prefixes > @ * #. Enter runs highlighted first row. Local registry only, no destructive commands, no stored recents, history hidden on a private tab, private IME flag on private tab. No new prefs/keys/ids; backup untouched.
+- Checks: brace/paren balance; all R.drawable refs exist; called APIs verified by grep (TabManager, Bookmarks, BookmarksScreen, DownloadsScreen, SavedPages, ExtTray, PrivacyGuard, PasswordStore, HttpsOnly, FindBar, Backup, Settings/AppearanceScreen). NOT tested: Gradle build (CI), device render 360/1280 dp, dark/light, TalkBack, keyboard-open behaviour.
+- NEXT/notes: "Command Center" is not listed in MenuCustom.GENERAL, so it cannot be hidden from Customise menu (always shown); add an Entry there later if wanted. No hardware shortcut (Ctrl+K) yet.
 
 RESULT (FIX, 0.0.182):
 - Root cause (from CI log): AAPT 'attribute android:compoundDrawablePadding not found' at activity_main.xml url_bar. Correct XML attribute is android:drawablePadding. One-word fix.

@@ -1,3 +1,9 @@
+0.0.183 (S7 BUILD: Thazir Command Center)
+- CommandCenter.kt (new): searchable bottom sheet opened from the 3-dot menu ("Command Center", first row of the general card). One box for actions (new/private tab, tab switcher, home, reload, find, bookmark/copy/share this page, Privacy Guard, Bookmarks, History, Downloads, Saved pages, Extensions, Passwords, Appearance, Settings, Recently closed), open tabs, bookmarks and history. Prefixes: > actions, @ tabs, * bookmarks, # history. Typed address/search gets an "Open / Search" row. Enter runs the highlighted first row.
+- Safe by design: local registry only, no script/command parsing, nothing deletes or clears data, no stored recents, history hidden while a private tab is in front.
+- MainActivity.kt: one menu row calling CommandCenter.show. No ids, handlers, preferences or backup shape changed.
+- app/build.gradle.kts: 0.0.183.
+
 0.0.182 (FIX: S3 CI build error, AAPT attribute not found)
 - res/layout/activity_main.xml: url_bar used android:compoundDrawablePadding, which is not an XML attribute (the Java method is setCompoundDrawablePadding, the XML attribute is android:drawablePadding). Renamed. Same 6dp value, nothing else changed.
 - app/build.gradle.kts: 0.0.182.
