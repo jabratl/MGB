@@ -63,6 +63,12 @@ object PlayerGestures {
         return if (v == 5 || v == 10 || v == 15 || v == 20) v else 10
     }
 
+    /** P13: swipe, hold and pinch on / off. Single tap and double tap always work. */
+    fun enabled(c: Context): Boolean = PlayerPrefs.getBool(c, PlayerPrefs.K_GESTURES, true)
+
+    /** P13: picture size when the player opens: 0 fit / 1 fill / 2 stretch. */
+    fun fitDefault(c: Context): Int = PlayerPrefs.getInt(c, PlayerPrefs.K_FIT_DEFAULT, 0).coerceIn(0, 2)
+
     /** Extra volume above the system maximum, in percent (0 = off). */
     fun boostCap(c: Context): Int = PlayerPrefs.getInt(c, PlayerPrefs.K_VOL_BOOST, 0).coerceIn(0, 100)
 

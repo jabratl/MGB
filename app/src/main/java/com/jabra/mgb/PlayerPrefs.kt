@@ -21,6 +21,8 @@ object PlayerPrefs {
     const val K_BRIGHT = "pl_bright"          // P9 float last brightness, -1 = system
     const val K_SEEK_SENS = "pl_seek_sens"    // P9 int 0 slow / 1 normal / 2 fast
     const val K_DTAP_SEC = "pl_dtap_sec"      // P9 int 5 / 10 / 15 / 20
+    const val K_GESTURES = "pl_gestures"      // P13 bool, default true
+    const val K_FIT_DEFAULT = "pl_fit_default" // P13 int 0 fit / 1 fill / 2 stretch
 
     private fun sp(c: Context) = c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
 
@@ -30,6 +32,7 @@ object PlayerPrefs {
     fun getBool(c: Context, key: String, def: Boolean): Boolean = try { sp(c).getBoolean(key, def) } catch (_: Exception) { def }
     fun getStr(c: Context, key: String, def: String): String = try { sp(c).getString(key, def) ?: def } catch (_: Exception) { def }
 
+    fun remove(c: Context, key: String) { sp(c).edit().remove(key).apply() }
     fun putInt(c: Context, key: String, v: Int) { sp(c).edit().putInt(key, v).apply() }
     fun putFloat(c: Context, key: String, v: Float) { sp(c).edit().putFloat(key, v).apply() }
     fun putBool(c: Context, key: String, v: Boolean) { sp(c).edit().putBoolean(key, v).apply() }

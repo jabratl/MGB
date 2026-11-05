@@ -9,15 +9,15 @@ ASSUMPTIONS (1 line each)
  - UI is built in code (Views, no Compose, no XML layouts for the player). Keep that style.
 
 ======================================================================
-QUICKSTART FOR THE NEXT CHAT (current state: P12 done, next = P13)
+QUICKSTART FOR THE NEXT CHAT (current state: P14 done, plan finished, next = phone test + FIX)
 ======================================================================
-STATE: version 0.0.163 (P9-P12 merged into MGB_P9_P12_v0_0_163.zip; CI error 'Platform declaration clash setAudioOnly' FIXED by renaming fun setAudioOnly -> applyAudioOnly). P1-P12 code is done. The first CI builds of P1-P3 FAILED; P3.2 is the FIX zip. P3.2 and P4-P12 have NOT been confirmed to build yet (kotlinc is not available in chat). If the user pastes a new build error, switch to Mode FIX first, smallest fix, then continue with P13.
-ATTACH: HANDOFF.txt (this one, newest) + MGB-context.zip + MGB_P3.2_v0_0_154.zip + MGB_P4_v0_0_155.zip + MGB_P5_v0_0_156.zip + MGB_P6_v0_0_157.zip + MGB_P7_v0_0_158.zip + MGB_P8_v0_0_159.zip + MGB_P9_P12_v0_0_163.zip (merged P9-P12, includes the setAudioOnly -> applyAudioOnly compile fix). Apply order: context, P3.2, P4, P5, P6, P7, P8, P9-P12 (same paths overwrite). The old MGB_P1 / P2 / P3 zips are NOT needed.
-CHECK before building: app/build.gradle.kts appVersionName = "0.0.163".
+STATE: version 0.0.165. P1-P14 code is done (plan finished). P3.2 and P4-P14 have NOT been confirmed to build yet (kotlinc is not available in chat). Next = build, paste any compile error (Mode FIX, smallest fix), then run the PHONE TEST LIST (section 9) and paste what fails.
+ATTACH: HANDOFF.txt (this one, newest) + MGB-context.zip + MGB_P3.2_v0_0_154.zip + MGB_P4_v0_0_155.zip + MGB_P5_v0_0_156.zip + MGB_P6_v0_0_157.zip + MGB_P7_v0_0_158.zip + MGB_P8_v0_0_159.zip + MGB_P9_P10_P11_v0_0_162.zip + MGB_P12_v0_0_163.zip + MGB_P13_P14_v0_0_165.zip. Apply order: context, P3.2, P4, P5, P6, P7, P8, P9-P11, P12, P13-P14 (same paths overwrite). The old MGB_P1 / P2 / P3 zips are NOT needed.
+CHECK before building: app/build.gradle.kts appVersionName = "0.0.165".
 USER: not a coder, writes Banglish (Bengali in Latin letters): reply in Banglish, short, simple. Everything is built on an Android phone, free tools only (GitHub Actions builds the APK). Zip name rule: MGB_Px_v0_0_NNN.zip, new version = previous + 1.
 KICKOFF LINE TO PASTE:
-  MGB (Thazir) player plan step P13. Mode: MODIFY. Previous version: 0.0.163. Attached: HANDOFF.txt + MGB-context.zip + MGB_P3.2_v0_0_154.zip + MGB_P4_v0_0_155.zip + MGB_P5_v0_0_156.zip + MGB_P6_v0_0_157.zip + MGB_P7_v0_0_158.zip + MGB_P8_v0_0_159.zip + MGB_P9_P12_v0_0_163.zip (merged P9-P12, includes the setAudioOnly -> applyAudioOnly compile fix).
-  Goal: Settings "Player" card (hold speed, double-tap seconds, gestures on / off, seek sensitivity, volume boost, default fit, keep speed, quality default, background audio, reset) + KW + RESET keys. (+ rules in section 2)
+  MGB (Thazir) player plan: FIX. Mode: FIX. Previous version: 0.0.165. Attached: HANDOFF.txt + MGB-context.zip + all step zips (P3.2, P4 ... P8, P9-P11, P12, P13-P14).
+  Goal: [paste the build error or the failed line of the PHONE TEST LIST]. Smallest fix, root cause first.
 LESSONS FROM THE P1-P3 BUILD FAILURES (apply in every step):
  - NEVER put a // comment after code on a line that also holds a closing brace } (it swallows the brace).
  - Inside X(act).apply { ... } a name that is also a function PARAMETER (max, min, text...) means the PARAMETER, not the view property: write this.max = ...
@@ -50,8 +50,8 @@ LESSONS FROM THE P1-P3 BUILD FAILURES (apply in every step):
 [x] P10 v0.0.161  Audio-only mode (headphone button) + notification link               CODE DONE, phone test pending (see RESULT P10)
 [x] P11 v0.0.162  Episode queue panel (folder list, jump, now-playing mark)            CODE DONE, phone test pending (see RESULT P11)
 [x] P12 v0.0.163  A-B loop (+ marks on seek bar)                                       CODE DONE, phone test pending (see RESULT P12)
-[ ] P13 v0.0.164  Settings > "Player" card (defaults, gestures, reset) + KW + RESET keys  M
-[ ] P14 v0.0.165  Final polish + QA pass (all steps together, no new features)         S
+[x] P13 v0.0.164  Settings > "Player" card (defaults, gestures, reset) + KW + RESET keys  CODE DONE, phone test pending (see RESULT P13)
+[x] P14 v0.0.165  Final polish + QA pass (all steps together, no new features)         CODE DONE, phone test pending (see RESULT P14)
 
 Size = share of ONE chat session: S ~25%, M ~40-50%. Never plan above 85%. If a step looks bigger while working: build the part that compiles, zip, write what is left into NEXT, stop at 85% (hard stop 90%).
 
@@ -410,3 +410,37 @@ P12 RESULT (0.0.163)  zip: MGB_P12_v0_0_163.zip
  NOT tested (needs a phone): compile; ticks at the right x on the bar (portrait + landscape); dragging the seek bar still works through the marks view; wrap is tight; Clear removes ticks; loop cleared on next / previous / Playlist jump; the page covers the video, so A / B are taken at the moment the page opens.
  KNOWN: setting A / B needs the panel open (no quick buttons on the controls); a manual seek past B wraps to A at once; loop is not kept after the player closes.
  NEXT: P13 Settings "Player" card (size M). Add pl_vol_boost, pl_bright reset, pl_seek_sens, pl_dtap_sec, pl_hold_speed, pl_hold_slide, pl_speed_*, pl_repeat, pl_quality_cap, pl_sub_* to RESET.
+
+P13 RESULT (0.0.164)  zip: MGB_P13_P14_v0_0_165.zip (P13 + P14 built in one chat, one zip)
+ Done: Settings card "Player": Player gestures (on / off), Hold speed, Slide while holding, Double tap seconds, Seek swipe speed, Volume boost, Saved brightness (tap = follow phone), Default fit, Keep speed, Default quality, Background audio in player (moved from the Grabber card). Reset to default of the card removes every pl_* key.
+ Changed: SettingsScreen.kt (category "player", RESET, KW, pickPl, bg row moved) / PlayerPrefs.kt (K_GESTURES, K_FIT_DEFAULT, remove) / PlayerGestures.kt (enabled, fitDefault) / PlayerActivity.kt (gesture guards, setFit, fit default at start).
+ KEYS: pl_gestures (bool, default true), pl_fit_default (int 0 / 1 / 2). RESET["player"] holds all pl_* keys, sub_size, sub_color, bg_audio.
+ Checks: bracket balance of SettingsScreen + all Player*.kt (strings / comments stripped), Row(icon, label, value, hint, onClick) order, pickPl lambda types, RESET + KW keys match row labels. kotlinc NOT available.
+ NOT tested (needs a phone): compile; card shows in Settings and in search (KW); each dialog saves and the row value updates; reset; gestures off = swipe / hold / pinch dead but tap + double tap work; default fit applies; Background audio row still works from the new card.
+ KNOWN: hint lines are up to 30 characters (check wrapping at 360 dp); "Keep speed" and "Default quality" share their keys with the player panel pages (same value both ways, intended).
+
+P14 RESULT (0.0.165)
+ Done: read all RESULT blocks; removed dead code (cell, iconSlot, subScale, showAudioDialog, showSleepDialog); icon row fits 360 dp (40 dp buttons under 380 dp width); double-tap mark respects Reduce motion; Reset zoom chip no longer sits on the bottom controls; PHONE TEST LIST written (section 9). Handlers: every postDelayed uses `main` and onDestroy calls removeCallbacksAndMessages(null); pipReceiver unregistered; LoudnessEnhancer released in onDestroy; panel closed on PiP / onStop.
+ Changed: PlayerActivity.kt (dead code, applyCompact icon width, tapFlash, zoom chip margin) / HANDOFF.txt / CHANGELOG.txt / build.gradle.kts.
+ Checks: bracket balance, unused private members scan (none left), R.drawable names exist. kotlinc NOT available.
+ NOT tested: everything in section 9.
+ KNOWN (left on purpose): rotate has no way back to auto; panel text of Sleep does not tick by itself; AudioOpt class reused for subtitle rows; old sheet() is still used for Video info and the "Cannot play" dialog; pl_vol_boost level itself is not saved.
+ NEXT: build, fix compile errors, phone test.
+
+======================================================================
+9. PHONE TEST LIST (one line per feature, tick on the phone)
+======================================================================
+ [ ] P1  3-dot opens side panel (landscape) / bottom sheet (portrait); back arrow, back key, tap outside close it; video keeps playing
+ [ ] P2  Playback speed page: slider, - / +, presets, save custom (long press removes), keep speed for next video
+ [ ] P3  Quality page (HLS list, single file = Auto + note); Repeat off / one / folder
+ [ ] P4  Sleep timer (minutes, end of video, +15, custom); Audio track page switches track
+ [ ] P5  Subtitles page: track / Off, add file, size, colour, background, position
+ [ ] P6  Top bar centred title, thin seek bar with time under it, round side lock button locks / unlocks
+ [ ] P7  Bottom row: time, speed pill, Fit / Subtitles / Audio-only / Rotate icons fit at 360 dp; compact variant in landscape
+ [ ] P8  Hold = 2x chip, slide changes speed, release restores; pinch zoom 0.5-4x, Reset zoom chip
+ [ ] P9  HUD with icon + bar for brightness / volume; brightness remembered; boost past 100% (set Volume boost in Settings first); seek speed; double tap seconds
+ [ ] P10 Audio only: black card, Show video, notification line, PiP blocked
+ [ ] P11 Playlist page: list, current mark + scroll, jump; long press on next opens it
+ [ ] P12 A-B loop: Set A / Set B, ticks on seek bar, wraps B to A, Clear, cleared on next video
+ [ ] P13 Settings > Player card: every row, search finds them, Reset to default, gestures off keeps taps
+ [ ] P14 Reduce motion on: no fades in the player; rotate / PiP / lock / screen off do not crash

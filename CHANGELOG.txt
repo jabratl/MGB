@@ -1,7 +1,12 @@
-0.0.163 FIX (P9-P12 in one zip: build error "Platform declaration clash setAudioOnly$app_release(Z)V")
-- PlayerActivity.kt: `internal var audioOnly` generates the setter setAudioOnly(Boolean) which clashed with `fun setAudioOnly(on: Boolean)`. The function is renamed applyAudioOnly (3 call sites: toggleAudioOnly, PlayerAudioOnly onShowVideo lambda, definition). The var audioOnly is unchanged (PlayerPages.kt reads a.audioOnly).
-- PlayerAudioOnly.kt: comment updated. Scanned all Player*.kt files for other var / fun getX-setX JVM clashes: none.
-- This zip = P9 + P10 + P11 + P12 merged (replaces MGB_P9_P10_P11_v0_0_162.zip and MGB_P12_v0_0_163.zip, delete those two from the repo root).
+0.0.165 (PLAYER STEP P14 FIX: final polish, code level)
+- PlayerActivity.kt: dead code removed (cell, iconSlot, subScale, showAudioDialog, showSleepDialog); bottom icon row uses 40 dp buttons when the screen is narrower than 380 dp so time + speed pill + 4 icons fit one row; double-tap mark respects Reduce motion (no fade); Reset zoom chip raised (136 dp) so it clears the bottom controls.
+- HANDOFF.txt: PHONE TEST LIST (section 9). app/build.gradle.kts: 0.0.165.
+
+0.0.164 (PLAYER STEP P13 MODIFY: Settings Player card)
+- SettingsScreen.kt: new card "Player" (Gestures: Player gestures, Hold speed, Slide while holding, Double tap seconds, Seek swipe speed, Volume boost, Saved brightness; Defaults: Default fit, Keep speed, Default quality, Background audio in player moved here from the Grabber card). RESET["player"] = every pl_* key + old sub_size / sub_color + bg_audio (bg_audio removed from RESET["grabber"]). KW search words for every new row. pickPl() single-choice helper.
+- PlayerPrefs.kt: K_GESTURES, K_FIT_DEFAULT, remove(). PlayerGestures.kt: enabled(), fitDefault().
+- PlayerActivity.kt: pl_gestures off = no swipe / hold / pinch (taps and double tap stay); setFit() applies pl_fit_default at start (cycleFit uses it).
+- app/build.gradle.kts: 0.0.164.
 
 0.0.163 (PLAYER STEP P12 BUILD: A-B loop)
 - PlayerLoop.kt (new): loop state (a / b ms) + Marks view (two 2 dp accent ticks over the seek bar, not clickable).

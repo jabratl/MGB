@@ -90,7 +90,9 @@ object SettingsScreen {
             "general" to listOf("night", "dark_pages", "engine", "tr_lang", "hide_bar", "pull_refresh", "rotate_browser"),
             "tabs" to listOf("swipe_close", "close_confirm", "reduce_motion", "tab_suspend_min"),
             "downloads" to listOf("auto_diag"),
-            "grabber" to listOf("web_play", "bg_audio", "v77_backup", "v77_prev_mode", "dl_mode", "native_btn", "video_btn"),
+            "grabber" to listOf("web_play", "v77_backup", "v77_prev_mode", "dl_mode", "native_btn", "video_btn"),
+            "player" to listOf("pl_gestures", "pl_hold_speed", "pl_hold_slide", "pl_dtap_sec", "pl_seek_sens", "pl_vol_boost", "pl_bright", "pl_fit_default",
+                "pl_speed_keep", "pl_speed_last", "pl_speeds", "pl_quality_cap", "pl_repeat", "pl_sub_size", "pl_sub_bg", "pl_sub_pos", "sub_size", "sub_color", "bg_audio"),
             "privacy" to listOf("https_only", "hide_ad_space", "hide_cookie"),
             "data" to listOf("auto_backup")
         )
@@ -164,6 +166,16 @@ object SettingsScreen {
             "Subtitles and file names" to "srt vtt naming template language",
             "Play video links in built-in player" to "external player exoplayer",
             "Background audio in player" to "music screen off",
+            "Player gestures" to "swipe hold pinch zoom brightness volume seek video player",
+            "Hold speed" to "long press fast forward 2x video player",
+            "Slide while holding" to "hold speed change slide video player",
+            "Double tap seconds" to "skip forward back 5 10 15 20 video player",
+            "Seek swipe speed" to "slow fast sensitivity horizontal swipe video player",
+            "Volume boost" to "louder over 100 amplify loudness video player",
+            "Saved brightness" to "screen light system video player",
+            "Default fit" to "fill stretch crop aspect picture size video player",
+            "Keep speed" to "remember playback speed next video player",
+            "Default quality" to "resolution height 1080 720 480 video player",
             "App lock" to "fingerprint biometric pin password security",
             "Site permissions" to "camera microphone location mic",
             "Suspend background tabs" to "memory ram free sleep inactive tabs unload",
@@ -541,6 +553,13 @@ object SettingsScreen {
             if (!link) cats[key] = Pair(content, chev)
         }
 
+        /** P13: single choice dialog for the Player card. set(index) saves, then the card is rebuilt. */
+        private fun pickPl(title: String, labels: Array<String>, cur: Int, set: (Int) -> Unit) {
+            MaterialAlertDialogBuilder(act).setTitle(title)
+                .setSingleChoiceItems(labels, cur) { d, i -> set(i); d.dismiss(); fill() }
+                .setNegativeButton("Cancel", null).show()
+        }
+
         // ---- Step C: utility rows ----
         private fun resetCard(key: String, title: String) {
             val keys = RESET[key] ?: return
@@ -899,10 +918,6 @@ object SettingsScreen {
                     Util.toast(act, "Reload the page")
                     fill()
                 },
-                Row(R.drawable.ic_play, "Background audio in player", if (PlayerService.on(act)) "ON" else "OFF") { // S45
-                    PlayerService.setOn(act, !PlayerService.on(act))
-                    fill()
-                },
                 Sub("Download buttons"), // MGB S51
                 Row(R.drawable.ic_download, "Button mode", DlMode.label(act)) { DlMode.dialog(act) { fill() } }, // S54
                 Row(R.drawable.ic_download, "Grabber button on pages", if (v77On("showPill", true)) "ON" else "OFF") {
@@ -930,6 +945,54 @@ object SettingsScreen {
                     Util.toast(act, "Changes in a few seconds")
                     fill()
                 }
+            ))
+            category("player", R.drawable.ic_pl_speed, "Player", "Gestures, speed, defaults", listOf( // P13
+                Sub("Gestures"),
+                Row(R.drawable.ic_pl_fwd10, "Player gestures", if (PlayerPrefs.getBool(act, PlayerPrefs.K_GESTURES, true)) "ON" else "OFF", "Swipe, hold, pinch (taps stay)") {
+                    PlayerPrefs.putBool(act, PlayerPrefs.K_GESTURES, !PlayerPrefs.getBool(act, PlayerPrefs.K_GESTURES, true))
+                    fill()
+                },
+                Row(R.drawable.ic_pl_speed, "Hold speed", PlayerSpeed.fmt(PlayerPrefs.getFloat(act, PlayerPrefs.K_HOLD_SPEED, 2f)), "Long press = fast play") {
+                    val v = floatArrayOf(1.5f, 2f, 2.5f, 3f, 4f, 5f)
+                    val now = PlayerPrefs.getFloat(act, PlayerPrefs.K_HOLD_SPEED, 2f)
+                    pickPl("Hold speed", Array(v.size) { PlayerSpeed.fmt(v[it]) }, v.indexOfFirst { Math.abs(it - now) < 0.01f }) { PlayerPrefs.putFloat(act, PlayerPrefs.K_HOLD_SPEED, v[it]) }
+                },
+                Row(R.drawable.ic_pl_speed, "Slide while holding", if (PlayerPrefs.getBool(act, PlayerPrefs.K_HOLD_SLIDE, true)) "ON" else "OFF", "Slide up or down to change") {
+                    PlayerPrefs.putBool(act, PlayerPrefs.K_HOLD_SLIDE, !PlayerPrefs.getBool(act, PlayerPrefs.K_HOLD_SLIDE, true))
+                    fill()
+                },
+                Row(R.drawable.ic_pl_fwd10, "Double tap seconds", PlayerGestures.dtapSec(act).toString() + " s", "Skip on left or right tap") {
+                    val v = intArrayOf(5, 10, 15, 20)
+                    pickPl("Double tap seconds", Array(v.size) { v[it].toString() + " s" }, v.indexOf(PlayerGestures.dtapSec(act))) { PlayerPrefs.putInt(act, PlayerPrefs.K_DTAP_SEC, v[it]) }
+                },
+                Row(R.drawable.ic_pl_fwd10, "Seek swipe speed", arrayOf("Slow", "Normal", "Fast")[PlayerPrefs.getInt(act, PlayerPrefs.K_SEEK_SENS, 1).coerceIn(0, 2)], "Swipe left or right to seek") {
+                    pickPl("Seek swipe speed", arrayOf("Slow", "Normal", "Fast"), PlayerPrefs.getInt(act, PlayerPrefs.K_SEEK_SENS, 1).coerceIn(0, 2)) { PlayerPrefs.putInt(act, PlayerPrefs.K_SEEK_SENS, it) }
+                },
+                Row(R.drawable.ic_pl_volume, "Volume boost", PlayerGestures.boostCap(act).let { if (it > 0) "$it%" else "Off" }, "Extra volume, can distort") {
+                    val v = intArrayOf(0, 25, 50, 75, 100)
+                    pickPl("Volume boost", Array(v.size) { if (v[it] == 0) "Off" else v[it].toString() + "%" }, v.indexOf(PlayerGestures.boostCap(act))) { PlayerPrefs.putInt(act, PlayerPrefs.K_VOL_BOOST, v[it]) }
+                },
+                Row(R.drawable.ic_pl_bright, "Saved brightness", PlayerGestures.savedBrightness(act).let { if (it >= 0f) (it * 100).toInt().toString() + "%" else "System" }, "Tap to follow the phone again") {
+                    PlayerPrefs.remove(act, PlayerPrefs.K_BRIGHT)
+                    Util.toast(act, "Brightness follows the phone")
+                    fill()
+                },
+                Sub("Defaults"),
+                Row(R.drawable.ic_pl_fit, "Default fit", arrayOf("Fit", "Fill", "Stretch")[PlayerGestures.fitDefault(act)], "Picture size when it opens") {
+                    pickPl("Default fit", arrayOf("Fit", "Fill", "Stretch"), PlayerGestures.fitDefault(act)) { PlayerPrefs.putInt(act, PlayerPrefs.K_FIT_DEFAULT, it) }
+                },
+                Row(R.drawable.ic_pl_speed, "Keep speed", if (PlayerPrefs.getBool(act, PlayerPrefs.K_SPEED_KEEP, false)) "ON" else "OFF", "Same speed for the next video") {
+                    PlayerPrefs.putBool(act, PlayerPrefs.K_SPEED_KEEP, !PlayerPrefs.getBool(act, PlayerPrefs.K_SPEED_KEEP, false))
+                    fill()
+                },
+                Row(R.drawable.ic_pl_quality, "Default quality", PlayerPrefs.getInt(act, PlayerPrefs.K_QUALITY_CAP, 0).let { if (it > 0) it.toString() + "p" else "Auto" }, "Highest video height") {
+                    val v = intArrayOf(0, 1080, 720, 480, 360)
+                    pickPl("Default quality", Array(v.size) { if (v[it] == 0) "Auto" else v[it].toString() + "p" }, v.indexOf(PlayerPrefs.getInt(act, PlayerPrefs.K_QUALITY_CAP, 0))) { PlayerPrefs.putInt(act, PlayerPrefs.K_QUALITY_CAP, v[it]) }
+                },
+                Row(R.drawable.ic_play, "Background audio in player", if (PlayerService.on(act)) "ON" else "OFF") { // S45
+                    PlayerService.setOn(act, !PlayerService.on(act))
+                    fill()
+                },
             ))
             category("privacy", R.drawable.ic_shield, "Privacy and security", "Lock, permissions, ads, HTTPS", listOf(
                 Sub("Security"),

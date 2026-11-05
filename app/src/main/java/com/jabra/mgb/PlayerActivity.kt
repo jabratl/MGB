@@ -664,8 +664,6 @@ class PlayerActivity : AppCompatActivity() {
 
     internal fun restyleSubs() { styleSubtitles() }
 
-    private fun subScale(): Float = PlayerSubs.sizePct(this) / 100f // P5: kept as a thin wrapper
-
     /** P5: subtitle tracks as page rows, Off state, pick, add file (used by PlayerSubs). */
     internal fun subOff(): Boolean {
         val p = player ?: return true
@@ -770,8 +768,11 @@ class PlayerActivity : AppCompatActivity() {
         speedVal.setTextColor(if (abs(s - 1f) < 0.01f) Color.WHITE else getColor(R.color.mg_primary))
     }
 
-    private fun cycleFit() {
-        fitMode = (fitMode + 1) % 3
+    private fun cycleFit() { setFit((fitMode + 1) % 3, true) }
+
+    /** P13: also used once at start for pl_fit_default (say = false: no message). */
+    private fun setFit(mode: Int, say: Boolean) {
+        fitMode = mode
         playerView.resizeMode = when (fitMode) {
             1 -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
             2 -> AspectRatioFrameLayout.RESIZE_MODE_FILL
@@ -779,7 +780,7 @@ class PlayerActivity : AppCompatActivity() {
         }
         fitIcon.setImageResource(when (fitMode) { 1 -> R.drawable.ic_pl_fit_fill; 2 -> R.drawable.ic_pl_fit_stretch; else -> R.drawable.ic_pl_fit })
         resetZoom()
-        flash(when (fitMode) { 1 -> "FILL (CROP)"; 2 -> "STRETCH"; else -> "FIT TO SCREEN" })
+        if (say) flash(when (fitMode) { 1 -> "FILL (CROP)"; 2 -> "STRETCH"; else -> "FIT TO SCREEN" })
     }
 
     // P12: A-B loop (100 ms check while a loop is active, so the wrap is tight)
@@ -832,10 +833,10 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     /** P10: headphone button / panel row. */
-    internal fun toggleAudioOnly() { applyAudioOnly(!audioOnly) }
+    internal fun toggleAudioOnly() { setAudioOnly(!audioOnly) }
 
     /** P10: audio only = the video track is switched off (saves data and battery), black screen with a card. Off = the video track comes back at the same position (the quality cap stays in the track parameters). */
-    internal fun applyAudioOnly(on: Boolean) {
+    internal fun setAudioOnly(on: Boolean) {
         val p = player ?: return
         if (on == audioOnly) return
         if (on && audioOpts().isEmpty()) { Util.toast(this, "No audio track"); return }
@@ -1041,13 +1042,6 @@ class PlayerActivity : AppCompatActivity() {
         main.postDelayed({ if (panel.isOpen) panel.refresh() }, 250) // the player reports the new selection a moment later
     }
 
-    internal fun showAudioDialog() {
-        if (audioOpts().isEmpty()) { Util.toast(this, "No audio track"); return }
-        main.removeCallbacks(hider)
-        showControls(false)
-        panel.open(PlayerPages.audioPage(this))
-    }
-
     /** P2: speed page of the side panel (toolbar Speed button). Root page row pushes the same page. */
     internal fun showSpeedDialog() {
         main.removeCallbacks(hider)
@@ -1137,12 +1131,6 @@ class PlayerActivity : AppCompatActivity() {
         PlayerService.setOn(this, !bg)
         if (bg) PlayerService.stop(this) else if (player?.isPlaying == true) bgNote(true)
         flash(if (bg) "Background audio off" else "Background audio on")
-    }
-
-    internal fun showSleepDialog() {
-        main.removeCallbacks(hider)
-        showControls(false)
-        panel.open(PlayerPages.sleepPage(this))
     }
 
     private val sleepTask = Runnable {
@@ -1295,6 +1283,7 @@ class PlayerActivity : AppCompatActivity() {
         v.animate().cancel()
         v.alpha = 1f
         v.visibility = View.VISIBLE
+        if (TabPrefs.reduce(this)) { main.postDelayed({ v.visibility = View.GONE }, 650); return } // P14: reduce motion = no fade
         v.animate().alpha(0f).setStartDelay(350).setDuration(300).withEndAction { v.visibility = View.GONE }.start()
     }
 
@@ -1316,6 +1305,13 @@ class PlayerActivity : AppCompatActivity() {
         topBox?.setPadding(dp(6), dp(6), dp(6), if (c) dp(10) else dp(22))
         bottomBox?.setPadding(dp(14), if (c) dp(10) else dp(26), dp(14), if (c) dp(2) else dp(8))
         updateInfoLine()
+        if (this::aoIcon.isInitialized) { // P14: 4 icons + speed pill + time must fit one row at 360 dp
+            val iw = dp(if (resources.configuration.screenWidthDp < 380) 40 else 44)
+            for (v in listOf(fitIcon, ccIcon, aoIcon, rotIcon)) {
+                val lp = v.layoutParams
+                if (lp != null && lp.width != iw) { lp.width = iw; v.layoutParams = lp }
+            }
+        }
     }
 
     // ---------- UI ----------
@@ -1349,32 +1345,6 @@ class PlayerActivity : AppCompatActivity() {
         f.setOnClickListener { on(); poke() }
         f.layoutParams = LinearLayout.LayoutParams(dp(54), dp(54))
         return f
-    }
-
-    /** Bottom toolbar item: 28 dp slot (icon or text) with a small label below. */
-    private fun cell(label: String, slot: View, on: () -> Unit): LinearLayout {
-        val c = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(0, dp(4), 0, dp(2))
-            setOnClickListener { on(); poke() }
-        }
-        c.addView(slot, LinearLayout.LayoutParams(dp(28), dp(28)))
-        c.addView(TextView(this).apply {
-            text = label
-            textSize = 10.5f
-            gravity = Gravity.CENTER
-            maxLines = 1
-            setTextColor(0xCCFFFFFF.toInt())
-        })
-        return c
-    }
-
-    private fun iconSlot(res: Int) = ImageView(this).apply {
-        setImageResource(res)
-        setColorFilter(Color.WHITE)
-        scaleType = ImageView.ScaleType.FIT_CENTER
-        setPadding(dp(2), dp(2), dp(2), dp(2))
     }
 
     private fun styledSeek(accent: Int): SeekBar {
@@ -1439,7 +1409,7 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             override fun onLongPress(e: MotionEvent) {
-                if (locked || swipe != 0) return
+                if (locked || swipe != 0 || !PlayerGestures.enabled(this@PlayerActivity)) return
                 val p = player ?: return
                 if (!p.isPlaying) return
                 boost = true
@@ -1454,7 +1424,7 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             override fun onScroll(e1: MotionEvent?, e2: MotionEvent, dx: Float, dy: Float): Boolean {
-                if (locked || e1 == null || boost) return false
+                if (locked || e1 == null || boost || !PlayerGestures.enabled(this@PlayerActivity)) return false
                 val w = touch.width.toFloat()
                 val h = touch.height.toFloat()
                 if (swipe == 0) {
@@ -1492,7 +1462,7 @@ class PlayerActivity : AppCompatActivity() {
         })
         val sgd = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
             override fun onScale(d: ScaleGestureDetector): Boolean {
-                if (locked) return true
+                if (locked || !PlayerGestures.enabled(this@PlayerActivity)) return true
                 zoom = (zoom * d.scaleFactor).coerceIn(PlayerGestures.ZOOM_MIN, PlayerGestures.ZOOM_MAX) // P8: zoom out allowed, scales around the centre
                 playerView.scaleX = zoom
                 playerView.scaleY = zoom
@@ -1533,7 +1503,7 @@ class PlayerActivity : AppCompatActivity() {
             true
         }
         rootView.addView(touch, FrameLayout.LayoutParams(MATCH, MATCH))
-        aoCard = PlayerAudioOnly(this) { applyAudioOnly(false) } // P10: above the touch layer, below the controls
+        aoCard = PlayerAudioOnly(this) { setAudioOnly(false) } // P10: above the touch layer, below the controls
         rootView.addView(aoCard.root, FrameLayout.LayoutParams(MATCH, MATCH))
 
         // ----- controls: top bar, centre buttons, bottom block -----
@@ -1689,7 +1659,7 @@ class PlayerActivity : AppCompatActivity() {
         holdChip = PlayerGestures.pill(this, 14f, true) // P8: same place as the level bar, never both at once
         rootView.addView(holdChip, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dp(60) })
         zoomChip = PlayerGestures.pill(this, 13f, false).apply { setOnClickListener { resetZoom(); poke() } }
-        rootView.addView(zoomChip, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = dp(120) })
+        rootView.addView(zoomChip, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = dp(136) })
 
         fun tapMark(label: String) = TextView(this).apply {
             text = label
@@ -1734,6 +1704,7 @@ class PlayerActivity : AppCompatActivity() {
         panel = PlayerPanel(this, rootView).also { it.onClosed = { showControls(true) } } // P1: added last = on top of everything
         updateNav()
         updateInfoLine()
+        setFit(PlayerGestures.fitDefault(this), false) // P13
 
         // keep the controls out of a display cutout / camera hole
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { _, insets ->
