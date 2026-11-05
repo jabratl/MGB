@@ -22,7 +22,7 @@ ASSUMPTIONS (1 line each)
 1. PROGRESS  (the assistant ticks the step and adds a RESULT block at the end of every step)
 ======================================================================
 [x] P1  v0.0.151  Side panel framework + player settings root (3-dot menu)            CODE DONE, phone test pending (see RESULT P1)
-[ ] P2  v0.0.152  Playback Speed page (slider, preset grid, saved custom speeds)       M
+[x] P2  v0.0.152  Playback Speed page (slider, preset grid, saved custom speeds)       CODE DONE, phone test pending (see RESULT P2)
 [ ] P3  v0.0.153  Quality page + Repeat page                                           M
 [ ] P4  v0.0.154  Sleep Timer page + Audio track page                                  M
 [ ] P5  v0.0.155  Subtitles page (tracks, add file, size, colour, background, position) M
@@ -286,3 +286,12 @@ P1 RESULT (0.0.151)
  NOT tested (needs a phone): compile; panel in portrait + landscape; back arrow / system back / tap outside; panel over a display cutout; toggles Repeat + Background audio refresh in place; Speed / Subtitles / Audio / Sleep rows open the old dialogs and controls come back; PiP and screen-off with the panel open; reduce-motion (instant); ic_pl_speed / ic_pl_repeat paths (hand-typed Material paths: if one looks wrong, fix the path only).
  KNOWN: Quality row is absent until P3; panel dims the video slightly (0x26) and flash() text may sit behind the panel box.
  NEXT: P2 Playback speed page (size M). Needs PlayerPanel chips(...) + slider(...) builders (add only those two).
+
+P2 RESULT (0.0.152)
+ Done: speed page in the side panel (toolbar Speed button opens it directly, root row pushes it): custom slider 0.05-6x with - / +, preset chips, saved custom chips (long press removes), "Save X as preset" row, "Keep speed for next video". NOTE: max is 6x (user prompt), not 5x as in the first plan text.
+ Changed: PlayerSpeed.kt (new) / PlayerPanel.kt (chips, slider, Chip, Builder.wide) / PlayerPages.kt (row pushes page) / PlayerActivity.kt (setSpeed internal + clamp + keep, showSpeedDialog -> page, startPlayer applies kept speed, speedText, flash internal) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt.
+ KEYS: pl_speeds (csv "1.15,2.75"), pl_speed_keep (bool, default false), pl_speed_last (float). (P13 must add all three to RESET.)
+ Checks: bracket balance of the 4 Kotlin files, Chip constructor order (onClick LAST so a trailing lambda is the click), all new calls re-read against signatures. kotlinc / phone NOT available: no compile, no render check at 360 / 1280 px, dark / light.
+ NOT tested (needs a phone): compile; slider drag changes speed live; - / + steps; chips selected state; save / long-press remove of a custom chip; keep speed across two videos; hold-to-2x still returns to the chosen speed; 3 columns at 360 dp portrait, 4 columns landscape; page back arrow returns to root (from root row) or closes (from toolbar); 0.05x playback on a real stream.
+ KNOWN: hold-to-speed still fixed 2x (P8); toolbar label keeps the old text cell until P7; slider step 0.05 but saved / chip values can be 0.01 precise.
+ NEXT: P3 Quality page + Repeat page (size M).

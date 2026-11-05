@@ -14,7 +14,7 @@ object PlayerPages {
         val rep = p?.repeatMode == Player.REPEAT_MODE_ONE
         row(R.drawable.ic_pl_cc, "Subtitles", a.subSummary(), true) { go { a.showSubtitleDialog() } }
         row(R.drawable.ic_list, "Audio track", "", true) { go { a.showAudioDialog() } }
-        row(R.drawable.ic_pl_speed, "Playback speed", a.speedText(p?.playbackParameters?.speed ?: 1f), true) { go { a.showSpeedDialog() } }
+        row(R.drawable.ic_pl_speed, "Playback speed", a.speedText(p?.playbackParameters?.speed ?: 1f), true) { a.panel.push(PlayerSpeed.page(a)) }
         toggle(R.drawable.ic_pl_repeat, "Repeat this video", rep) { a.toggleRepeat() }
         row(R.drawable.ic_clock, "Sleep timer", if (left > 0) "$left min" else "Off", true) { go { a.showSleepDialog() } }
         section("More")

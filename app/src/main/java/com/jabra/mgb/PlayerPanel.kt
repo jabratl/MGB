@@ -14,7 +14,10 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.SeekBar
 import android.widget.TextView
+import android.content.res.ColorStateList
+import androidx.core.graphics.ColorUtils
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 
@@ -26,6 +29,9 @@ import androidx.core.view.WindowInsetsCompat
  */
 class PlayerPanel(internal val act: PlayerActivity, private val host: FrameLayout) {
     class Page(val title: String, val build: Builder.() -> Unit)
+
+    /** Grid chip (P2). accentText = accent coloured text (saved custom values). onLong = optional long press action. onClick is LAST so a trailing lambda is the click. */
+    class Chip(val label: String, val selected: Boolean = false, val accentText: Boolean = false, val onLong: (() -> Unit)? = null, val onClick: () -> Unit)
 
     /** Short callbacks only: a page is rebuilt from scratch on refresh(), so keep state in the activity / prefs. */
     class Builder(private val p: PlayerPanel, private val list: LinearLayout) {
@@ -148,6 +154,110 @@ class PlayerPanel(internal val act: PlayerActivity, private val host: FrameLayou
         }
 
         fun custom(v: View) = add(v)
+
+        /** True when the panel sits on the right (landscape): pages may use more columns. */
+        val wide: Boolean get() = p.side
+
+        private fun round(color: Int, r: Int) = GradientDrawable().apply { setColor(color); cornerRadius = dp(r).toFloat() }
+
+        /** Chip grid, equal columns, 40 dp high pills. Selected = accent 26% fill + accent text. */
+        fun chips(items: List<Chip>, cols: Int) {
+            val wrap = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(8)) }
+            var i = 0
+            while (i < items.size) {
+                val r = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL }
+                for (c in 0 until cols) {
+                    val lp = LinearLayout.LayoutParams(0, dp(40), 1f).apply { setMargins(dp(4), dp(4), dp(4), dp(4)) }
+                    if (i + c < items.size) {
+                        val ch = items[i + c]
+                        r.addView(TextView(act).apply {
+                            text = ch.label
+                            textSize = 14f
+                            gravity = Gravity.CENTER
+                            maxLines = 1
+                            setTextColor(if (ch.selected || ch.accentText) accent else Color.WHITE)
+                            background = round(if (ch.selected) ColorUtils.setAlphaComponent(accent, 0x42) else 0x22FFFFFF, 20)
+                            setOnClickListener { _ -> ch.onClick() }
+                            val lg = ch.onLong
+                            if (lg != null) setOnLongClickListener { v ->
+                                v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                lg()
+                                true
+                            }
+                        }, lp)
+                    } else r.addView(View(act), lp)
+                }
+                wrap.addView(r, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                i += cols
+            }
+            add(wrap)
+        }
+
+        /**
+         * Slider card: label + value, "-" / "+" step buttons, bar, min / max text. onChange = live while dragging (and on - / +),
+         * onDone = finger lifted or button tapped (the page is rebuilt after it so chips show the new state).
+         */
+        fun slider(label: String, min: Float, max: Float, step: Float, value: Float, fmt: (Float) -> String, onChange: (Float) -> Unit, onDone: (Float) -> Unit) {
+            val n = Math.round((max - min) / step)
+            var cur = value.coerceIn(min, max)
+            fun at(pr: Int) = min + pr * step
+            val card = LinearLayout(act).apply {
+                orientation = LinearLayout.VERTICAL
+                background = round(0x14FFFFFF, 16)
+                setPadding(dp(16), dp(12), dp(16), dp(10))
+            }
+            val head = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            head.addView(TextView(act).apply { text = label; textSize = 14f; setTextColor(Color.WHITE) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            val valueTv = TextView(act).apply {
+                text = fmt(cur); textSize = 14f; setTextColor(Color.WHITE)
+                typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+            }
+            head.addView(valueTv)
+            card.addView(head)
+            val bar = SeekBar(act).apply {
+                max = n
+                progress = Math.round((cur - min) / step)
+                progressTintList = ColorStateList.valueOf(accent)
+                thumbTintList = ColorStateList.valueOf(Color.WHITE)
+                progressBackgroundTintList = ColorStateList.valueOf(0x33FFFFFF)
+            }
+            fun stepBtn(sym: String, d: Int) = TextView(act).apply {
+                text = sym
+                textSize = 20f
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+                background = round(0x14FFFFFF, 18)
+                setOnClickListener {
+                    val np = (bar.progress + d).coerceIn(0, n)
+                    bar.progress = np
+                    cur = at(np)
+                    valueTv.text = fmt(cur)
+                    onChange(cur)
+                    onDone(cur)
+                    p.refresh()
+                }
+            }
+            bar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: SeekBar?, prog: Int, fromUser: Boolean) {
+                    if (!fromUser) return
+                    cur = at(prog)
+                    valueTv.text = fmt(cur)
+                    onChange(cur)
+                }
+                override fun onStartTrackingTouch(sb: SeekBar?) { }
+                override fun onStopTrackingTouch(sb: SeekBar?) { onDone(cur); p.refresh() }
+            })
+            val line = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            line.addView(stepBtn("\u2212", -1), LinearLayout.LayoutParams(dp(36), dp(36)))
+            line.addView(bar, LinearLayout.LayoutParams(0, dp(36), 1f).apply { setMargins(dp(6), 0, dp(6), 0) })
+            line.addView(stepBtn("+", 1), LinearLayout.LayoutParams(dp(36), dp(36)))
+            card.addView(line, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
+            val ends = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL }
+            ends.addView(TextView(act).apply { text = fmt(min); textSize = 10.5f; setTextColor(0x80FFFFFF.toInt()) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            ends.addView(TextView(act).apply { text = fmt(max); textSize = 10.5f; setTextColor(0x80FFFFFF.toInt()) })
+            card.addView(ends, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = dp(42); rightMargin = dp(42) })
+            list.addView(card, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(dp(16), dp(6), dp(16), dp(6)) })
+        }
     }
 
     private class MaxScroll(ctx: android.content.Context) : ScrollView(ctx) {

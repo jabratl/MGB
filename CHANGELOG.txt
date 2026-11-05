@@ -1,3 +1,9 @@
+0.0.152 (PLAYER STEP P2 BUILD: Playback speed page)
+- PlayerSpeed.kt (new): speed page of the side panel: custom slider 0.05x - 6x (step 0.05) with - / + buttons, preset chips 0.5 0.75 1 1.25 1.5 1.75 2 3 4 5 6, saved custom chips (max 8, long press removes), row "Save 1.15x as preset", option "Keep speed for next video". clamp() / fmt() helpers (1x, 1.5x, 1.15x).
+- PlayerPanel.kt: new builders chips(items, cols) + slider(...) and class Chip; Builder.wide (true when the panel is on the right).
+- PlayerActivity.kt: setSpeed is internal, clamps 0.05-6x and uses PlaybackParameters(s, 1f), saves pl_speed_last when "keep" is on; showSpeedDialog opens the speed page (old list dialog removed); startPlayer applies the kept speed; speedText -> PlayerSpeed.fmt; flash is internal.
+- PlayerPages.kt: root "Playback speed" row pushes the speed page. app/build.gradle.kts: 0.0.152.
+
 0.0.151 (PLAYER STEP P1 BUILD: side panel framework + player settings root)
 - PlayerPanel.kt (new): translucent settings panel over the video: slides from the right in landscape (>= 480 dp wide), bottom sheet in portrait. Page stack (open / push / pop / close / refresh), back arrow + system back + tap outside, builders: section, row, radio, toggle, note, custom. Instant when "reduce motion" is on.
 - PlayerPages.kt (new): root page of the 3-dot button: Subtitles, Audio track, Playback speed, Repeat, Sleep timer, Background audio, Picture in picture, Video info, Open in another app. Subtitles / Audio / Speed / Sleep still open the old dialogs (rebuilt in P2-P5).

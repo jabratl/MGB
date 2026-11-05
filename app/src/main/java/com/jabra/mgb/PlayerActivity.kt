@@ -339,6 +339,7 @@ class PlayerActivity : AppCompatActivity() {
             }
         })
         setItem(resumePos())
+        if (PlayerSpeed.keep(this)) setSpeed(PlayerSpeed.last(this)) // P2: keep speed for next video
         p.playWhenReady = true
         p.prepare()
         main.post(ticker)
@@ -679,10 +680,12 @@ class PlayerActivity : AppCompatActivity() {
         flash((if (ms > 0) "+" else "-") + abs(ms / 1000) + " s   " + fmt(t))
     }
 
-    internal fun speedText(s: Float) = if (s == s.toInt().toFloat()) "${s.toInt()}x" else "${s}x"
+    internal fun speedText(s: Float) = PlayerSpeed.fmt(s)
 
-    private fun setSpeed(s: Float) {
-        player?.playbackParameters = PlaybackParameters(s)
+    internal fun setSpeed(s0: Float) {
+        val s = PlayerSpeed.clamp(s0) // P2: 0.05x - 6x, 2 decimals
+        player?.playbackParameters = PlaybackParameters(s, 1f)
+        if (PlayerSpeed.keep(this)) PlayerPrefs.putFloat(this, PlayerPrefs.K_SPEED_LAST, s)
         speedVal.text = speedText(s)
         speedVal.setTextColor(if (abs(s - 1f) < 0.01f) Color.WHITE else getColor(R.color.mg_primary))
     }
@@ -898,13 +901,11 @@ class PlayerActivity : AppCompatActivity() {
         sheet("Audio track", if (rows.size == 1) "This video has only one audio track." else null, rows)
     }
 
+    /** P2: speed page of the side panel (toolbar Speed button). Root page row pushes the same page. */
     internal fun showSpeedDialog() {
-        val vals = floatArrayOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f, 3f, 4f, 6f)
-        val cur = player?.playbackParameters?.speed ?: 1f
-        val rows = vals.map { v ->
-            SheetRow(speedText(v) + (if (v == 1f) "   Normal" else ""), null, abs(v - cur) < 0.01f) { setSpeed(v) }
-        }
-        sheet("Playback speed", null, rows)
+        main.removeCallbacks(hider)
+        showControls(false)
+        panel.open(PlayerSpeed.page(this))
     }
 
     /** P1: the 3-dot button opens the side panel (PlayerPages.root). The old bottom sheets stay for the pages not rebuilt yet. */
@@ -1016,7 +1017,7 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    private fun flash(msg: String) {
+    internal fun flash(msg: String) {
         flash.text = msg
         flash.visibility = View.VISIBLE
         main.removeCallbacks(flashOff)
