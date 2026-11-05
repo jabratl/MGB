@@ -1012,7 +1012,7 @@ object SettingsScreen {
             ))
             category("extensions", R.drawable.ic_folder, "Extensions", "Add, turn on or off, remove", listOf( // S1
                 Row(R.drawable.ic_folder, "Extensions", ExtListScreen.summary(act), "Add .zip or .crx files") { dismiss(); ExtListScreen.open(act) },
-                Row(R.drawable.ic_code, "Userscripts", "${Userscripts.count(act)} scripts", "Your own scripts on pages") { Userscripts.screen(act) { fill() } }, // T7
+                Row(R.drawable.ic_code, "Userscripts", "${Userscripts.count(act)} scripts", "Your own scripts on pages") { UserscriptsScreen.open(act) { fill() } }, // T7
                 Row(R.drawable.ic_code, "Run userscripts", if (Userscripts.masterOn(act)) "ON" else "OFF") { // T7
                     Userscripts.setMaster(act, !Userscripts.masterOn(act)); Userscripts.refreshAll(act)
                     Util.toast(act, "Reload the page")

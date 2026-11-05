@@ -78,12 +78,14 @@ object Userscripts {
         p(c).edit().putString("s:$id", o.toString()).apply()
     }
 
+    fun idOf(m: Meta): String = Integer.toHexString((m.first("name") + "|" + m.first("namespace")).hashCode())
+
     /** Returns an error text, or null when saved. Same @name + @namespace = update of that script. */
     fun add(c: Context, code: String, url: String = ""): String? {
         if (code.length > MAX_ONE) return "Too big (max 300 KB)"
         val meta = parse(code) ?: return "No ==UserScript== header found"
         if (meta.all("match").isEmpty() && meta.all("include").isEmpty()) return "No @match or @include: it would never run"
-        val id = Integer.toHexString((meta.first("name") + "|" + meta.first("namespace")).hashCode())
+        val id = idOf(meta)
         val cur = all(c)
         val old = cur.firstOrNull { it.id == id }
         if (old == null && cur.size >= MAX_N) return "At most $MAX_N scripts"
@@ -120,14 +122,34 @@ object Userscripts {
 
     private fun matchRe(x: String): JSONArray? = ContentInjector.patRegex(x.trim())?.let { JSONArray().put(it).put("") }
 
-    /** The document-start JS of one script, or null when it has no usable pattern. */
-    private fun build(s: Script): String? {
-        val m = s.meta
+    private fun lists(m: Meta): Pair<JSONArray, JSONArray> {
         val inc = JSONArray(); val exc = JSONArray()
         for (x in m.all("match")) matchRe(x)?.let { inc.put(it) }
         for (x in m.all("include")) globRe(x)?.let { inc.put(it) }
         for (x in m.all("exclude")) globRe(x)?.let { exc.put(it) }
         for (x in m.all("exclude-match")) matchRe(x)?.let { exc.put(it) }
+        return Pair(inc, exc)
+    }
+
+    /** T8: same patterns as the injected script, tested in Kotlin (for the page row). */
+    fun matchesUrl(s: Script, url: String): Boolean {
+        val (inc, exc) = lists(s.meta)
+        fun hit(a: JSONArray): Boolean {
+            for (i in 0 until a.length()) {
+                val r = a.getJSONArray(i)
+                try { if (Regex(r.getString(0), if (r.getString(1) == "i") setOf(RegexOption.IGNORE_CASE) else emptySet()).containsMatchIn(url)) return true } catch (_: Exception) { }
+            }
+            return false
+        }
+        return inc.length() > 0 && hit(inc) && !hit(exc)
+    }
+
+    fun matchingNow(c: Context, url: String): List<Script> = if (!url.startsWith("http")) emptyList() else all(c).filter { matchesUrl(it, url) }
+
+    /** The document-start JS of one script, or null when it has no usable pattern. */
+    private fun build(s: Script): String? {
+        val m = s.meta
+        val (inc, exc) = lists(m)
         if (inc.length() == 0) return null
         val sb = StringBuilder()
         sb.append("(function(){try{var u=location.href;function m(l){for(var i=0;i<l.length;i++){try{if(new RegExp(l[i][0],l[i][1]).test(u))return true}catch(e){}}return false}")
@@ -173,7 +195,7 @@ object Userscripts {
     }
 
     // ---------- temporary UI (T8 replaces it with a screen) ----------
-    private fun clip(act: Activity): String = try {
+    fun clip(act: Activity): String = try {
         (act.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(act)?.toString() ?: ""
     } catch (_: Exception) { "" }
 
@@ -214,5 +236,88 @@ object Userscripts {
                 Util.toast(act, err ?: "Saved. Reload the page")
                 screen(act, done)
             }.setNegativeButton("Cancel") { _, _ -> screen(act, done) }.show()
+    }
+
+    // ---------- T8: download, install prompt, update check, page sheet ----------
+    const val TEMPLATE = "// ==UserScript==\n// @name         New script\n// @namespace    mgb\n// @version      0.1\n// @description  What it does\n// @match        https://example.com/*\n// @run-at       document-idle\n// @grant        none\n// ==/UserScript==\n\n(function () {\n  'use strict';\n  // your code here\n})();\n"
+
+    fun isUserJs(url: String): Boolean = try {
+        val u = android.net.Uri.parse(url); u.scheme == "https" && (u.path ?: "").lowercase().endsWith(".user.js")
+    } catch (_: Exception) { false }
+
+    /** https only, 300 KB. [done] (text, error) runs on a background thread. */
+    fun fetch(url: String, done: (String?, String?) -> Unit) {
+        Thread {
+            try {
+                if (!url.startsWith("https://")) { done(null, "Use an https address"); return@Thread }
+                val c = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                c.connectTimeout = 15000; c.readTimeout = 15000; c.instanceFollowRedirects = true
+                if (c.responseCode != 200) { done(null, "Server said " + c.responseCode); return@Thread }
+                val bo = java.io.ByteArrayOutputStream(); val buf = ByteArray(8192)
+                c.inputStream.use { ins ->
+                    while (true) {
+                        val n = ins.read(buf)
+                        if (n < 0) break
+                        bo.write(buf, 0, n)
+                        if (bo.size() > MAX_ONE) { done(null, "Too big (max 300 KB)"); return@Thread }
+                    }
+                }
+                done(bo.toString("UTF-8"), null)
+            } catch (e: Exception) { done(null, "Could not download") }
+        }.start()
+    }
+
+    fun promptInstall(act: Activity, code: String, url: String, changed: () -> Unit = {}) {
+        val meta = parse(code)
+        if (meta == null) { Util.toast(act, "No ==UserScript== header found"); return }
+        val old = all(act).firstOrNull { it.id == idOf(meta) }
+        val pats = meta.all("match") + meta.all("include")
+        val msg = StringBuilder(meta.first("name").ifEmpty { "Unnamed script" })
+        if (meta.first("version").isNotEmpty()) msg.append(" ").append(meta.first("version"))
+        if (old != null) msg.append("\nInstalled: ").append(old.meta.first("version").ifEmpty { "no version" })
+        msg.append("\n\nRuns on:\n").append(if (pats.isEmpty()) "(no pattern: it would never run)" else pats.take(6).joinToString("\n"))
+        if (pats.size > 6) msg.append("\n...")
+        msg.append("\n\nOnly install scripts you trust. A script can read and change every page it matches.")
+        MaterialAlertDialogBuilder(act).setTitle(if (old != null) "Update userscript?" else "Install userscript?").setMessage(msg.toString())
+            .setPositiveButton(if (old != null) "Update" else "Install") { _, _ ->
+                val e = add(act, code, url)
+                Util.toast(act, e ?: "Saved. Reload the page")
+                if (e == null) changed()
+            }.setNegativeButton("Cancel", null).show()
+    }
+
+    /** A tab opened a https .user.js link: download it, then ask. */
+    fun offerInstall(act: Activity, url: String) {
+        Util.toast(act, "Userscript found...")
+        fetch(url) { text, err -> act.runOnUiThread { if (text == null) Util.toast(act, err ?: "Failed") else promptInstall(act, text, url) } }
+    }
+
+    fun checkUpdate(act: Activity, s: Script, changed: () -> Unit) {
+        val u = listOf(s.meta.first("downloadurl"), s.url, s.meta.first("updateurl")).firstOrNull { it.isNotEmpty() && !it.endsWith(".meta.js") }
+        if (u == null) { Util.toast(act, "No update address in this script"); return }
+        Util.toast(act, "Checking...")
+        fetch(u) { text, err ->
+            act.runOnUiThread {
+                if (text == null) Util.toast(act, err ?: "Failed")
+                else if (parse(text) == null) Util.toast(act, "Not a userscript")
+                else if (text == s.code) Util.toast(act, "Up to date")
+                else promptInstall(act, text, u, changed)
+            }
+        }
+    }
+
+    /** Page menu row: the scripts that match this page with a switch each. */
+    fun pageSheet(act: Activity, url: String) {
+        val ms = matchingNow(act, url)
+        val items = if (ms.isEmpty()) listOf(ToolsSheet.Item(R.drawable.ic_info, "No script matches this page", "") { })
+        else ms.map { s -> ToolsSheet.Item(R.drawable.ic_code, s.name, if (s.on) "ON" else "OFF") {
+            setOn(act, s.id, !s.on); refreshAll(act); Util.toast(act, if (s.on) "Turned off. Reload the page" else "Turned on. Reload the page")
+        } }
+        ToolsSheet.show(act, "Userscripts", Util.host(url), listOf(
+            ToolsSheet.Group("On this page", items),
+            ToolsSheet.Group("Manage", listOf(
+                ToolsSheet.Item(R.drawable.ic_list, "Manage userscripts", "${count(act)} scripts") { UserscriptsScreen.open(act) }
+            ))
+        ))
     }
 }

@@ -46,7 +46,7 @@ object AdblockManager {
     private const val K_ALLOW = 1
     private const val K_BUILTIN = 2
 
-    private class Ui(val act: Activity) {
+    internal class Ui(val act: Activity) { // T8: also used by UserscriptsScreen
         val cText = act.getColor(R.color.mg_text)
         val cDim = act.getColor(R.color.mg_text_dim)
         val cPrimary = act.getColor(R.color.mg_primary)

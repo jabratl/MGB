@@ -483,6 +483,10 @@ class TabManager(
             }
             // S39: a link / redirect to a video file or stream opens the built-in player (not Chromium's media page)
             if (!tab.isExt && request.isForMainFrame && playLink(tab, u.toString())) return true
+            // T8: a https .user.js link asks to install the userscript instead of showing its text
+            if (!tab.isExt && !tab.priv && request.isForMainFrame && Userscripts.isUserJs(u.toString()) && ctx is android.app.Activity) {
+                Userscripts.offerInstall(ctx, u.toString()); return true
+            }
             when (u.scheme?.lowercase()) {
                 null, "http", "https", "about", "data", "blob", "file", "javascript" -> return false
             }

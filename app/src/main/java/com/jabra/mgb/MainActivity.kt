@@ -199,6 +199,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Item("Page info", R.drawable.ic_info, canMark) { PageInfo.show(this, tabs) }, // S29
             MenuSheet.Item("View page source", R.drawable.ic_code, canMark) { tabs.active?.let { PageSource.open(this, it) } }, // T2
             MenuSheet.Item("Save page", R.drawable.ic_save, canMark && cur?.priv != true) { tabs.active?.let { PageSave.save(this, it) } }, // T3
+            MenuSheet.Item("Userscripts", R.drawable.ic_code, canMark, cur?.let { c -> Userscripts.matchingNow(this, c.url).count { it.on }.let { n -> if (n > 0) "$n active" else "" } } ?: "") { Userscripts.pageSheet(this, tabs.active?.url ?: "") }, // T8
             MenuSheet.Item("Fill password", R.drawable.ic_lock, canMark && cur?.priv != true) { PasswordStore.fill(this, tabs) }, // S30
             MenuSheet.Item("Email alias", R.drawable.ic_share, true) { EmailAlias.create(this, cur?.url?.takeIf { canMark }?.let { Util.host(it) } ?: "") }, // S30
             MenuSheet.Item("Privacy Guard", R.drawable.ic_shield, true, if (AdBlock.enabled) "ON · ${AdBlock.blocked}" else "OFF") { // S19 + S71: opens the Privacy Guard sheet on web pages
