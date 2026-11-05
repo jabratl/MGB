@@ -98,6 +98,7 @@ object Sniffer {
     private fun inspect(tab: TabManager.Tab, r: WebResourceRequest) {
         val url = r.url.toString()
         if (!url.startsWith("http://") && !url.startsWith("https://")) return
+        if (!TabsApi.isEngineReady()) TabsApi.noteMissed(tab.id) // 0.0.166: engine not up yet, this request is lost
         if (r.isForMainFrame) {
             states.remove(tab.id)
             if (states.size > 100) states.clear()

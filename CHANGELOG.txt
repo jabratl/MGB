@@ -1,3 +1,8 @@
+0.0.166 (FIX: native grabber / download button missing after browser restart, sometimes)
+- Root cause: the engine (hidden background WebView) needs about 1-3 s to start, but the first page loads at once. Requests sniffed in that gap (Sniffer.emit) and the page content-script messages are dropped, so get-state has no videos for that page and the button never shows. Only a reload (or a lucky timing) fixed it.
+- TabsApi.kt: isEngineReady() / noteMissed(tabId) / reloadIfMissed(): when the engine becomes ready (400 ms after runtime.onStartup) the tab on screen is reloaded ONCE if it sent requests before that. Log line: "engine: page loaded before the engine was ready, reloading it once".
+- Sniffer.kt: inspect() notes the tab when the engine is not ready. app/build.gradle.kts: 0.0.166.
+
 0.0.165 FIX (build error "Platform declaration clash setAudioOnly$app_release(Z)V")
 - PlayerActivity.kt: fun setAudioOnly renamed to applyAudioOnly (clashed with the setter of `internal var audioOnly`). This zip was built on the old unfixed P9-P12, so the fix is repeated here. Same fix is in MGB_P9_P12_v0_0_163.zip.
 

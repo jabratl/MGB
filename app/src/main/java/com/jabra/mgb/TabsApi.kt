@@ -30,7 +30,8 @@ object TabsApi {
     private var tm: TabManager? = null
     private var app: Context? = null
     private var inited = false
-    private var engineReady = false
+    @Volatile private var engineReady = false
+    private val missedTabs = HashSet<Int>() // 0.0.166: tabs that loaded before the engine was ready (guarded by itself)
     private val listening = WeakHashMap<ChromeBridge.Ctx, HashSet<String>>()
     private val frameIds = WeakHashMap<ChromeBridge.Ctx, Int>()
     private var nextFrame = 1
@@ -611,6 +612,20 @@ object TabsApi {
 
     // ---------- engine start (called by EngineHost when the page has loaded) ----------
 
+    fun isEngineReady(): Boolean = engineReady
+
+    /** 0.0.166: Sniffer calls this for every request that reached the engine too early (it was dropped). */
+    fun noteMissed(tabId: Int) { synchronized(missedTabs) { missedTabs.add(tabId) } }
+
+    /** 0.0.166: the page on screen loaded before the engine was ready -> its videos were never seen. Reload it once. */
+    private fun reloadIfMissed() {
+        val t = tm?.active ?: return
+        val hit = synchronized(missedTabs) { val h = t.id in missedTabs; missedTabs.clear(); h }
+        if (!hit || !t.url.startsWith("http")) return
+        EngineHost.addLog("engine: page loaded before the engine was ready, reloading it once")
+        try { t.web.reload() } catch (_: Exception) { }
+    }
+
     fun engineStarted() {
         main.postDelayed({ deliverStart(0) }, 300)
     }
@@ -640,6 +655,7 @@ object TabsApi {
         engineReady = true
         for (a in alarms.values) arm(a)
         EngineHost.addLog("engine: background.js started (ext $ver)")
+        main.postDelayed({ reloadIfMissed() }, 400) // 0.0.166
     }
 
     fun status(): String {
