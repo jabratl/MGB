@@ -15,7 +15,7 @@ import android.widget.TextView
 /**
  * PLAYER PLAN P10: the black "audio only" screen. A full-size black layer with a centred card (title, time, one note, a
  * "Show video" button). The layer itself is not clickable, so taps outside the button reach the touch layer below
- * (show / hide controls, double tap, swipes). The video track is switched off in PlayerActivity.setAudioOnly.
+ * (show / hide controls, double tap, swipes). The video track is switched off in PlayerActivity.applyAudioOnly.
  */
 class PlayerAudioOnly(private val a: PlayerActivity, onShowVideo: () -> Unit) {
     val root = FrameLayout(a)

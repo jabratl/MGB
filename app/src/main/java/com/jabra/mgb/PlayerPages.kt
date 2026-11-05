@@ -18,6 +18,7 @@ object PlayerPages {
         row(R.drawable.ic_pl_quality, "Quality", if (a.qualityCap() > 0) a.qualityCap().toString() + "p" else "Auto", true) { a.panel.push(qualityPage(a)) }
         row(R.drawable.ic_pl_speed, "Playback speed", a.speedText(p?.playbackParameters?.speed ?: 1f), true) { a.panel.push(PlayerSpeed.page(a)) }
         row(R.drawable.ic_pl_repeat, "Repeat", a.repeatLabel(), true) { a.panel.push(repeatPage(a)) }
+        row(R.drawable.ic_pl_repeat, "A-B loop", a.loopSummary(), true) { a.panel.push(loopPage(a)) }
         row(R.drawable.ic_clock, "Sleep timer", sleepValue(a), true) { a.panel.push(sleepPage(a)) }
         if (a.hasSiblings()) row(R.drawable.ic_pl_playlist, "Playlist", (a.queueIndex() + 1).toString() + " of " + a.queueSize(), true) { a.panel.push(PlayerQueue.page(a)) }
         section("More")
@@ -44,6 +45,15 @@ object PlayerPages {
                 }
             }
         }
+    }
+
+    /** P12: Set A / Set B at the current position, Clear. The marks show on the seek bar. */
+    fun loopPage(a: PlayerActivity): PlayerPanel.Page = PlayerPanel.Page("A-B loop") {
+        val l = a.loop
+        note("Playback goes back from B to A. Open this page at the moment you want, then tap Set A or Set B.")
+        row(R.drawable.ic_add, "Set A here", if (l.a >= 0L) a.loopSummaryA() else "Not set") { a.setLoopA(); a.panel.refresh() }
+        row(R.drawable.ic_add, "Set B here", if (l.b >= 0L) a.loopSummaryB() else "Not set") { a.setLoopB(); a.panel.refresh() }
+        if (l.a >= 0L || l.b >= 0L) row(R.drawable.ic_close, "Clear loop") { a.clearLoop(); a.panel.refresh() }
     }
 
     /** P3: Off / this video / all videos of the folder (loops back to the first file after the last). */

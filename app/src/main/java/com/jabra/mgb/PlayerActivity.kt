@@ -150,6 +150,8 @@ class PlayerActivity : AppCompatActivity() {
     private val boostVol = PlayerGestures.Boost()
     private var brightDirty = false
     internal var audioOnly = false // P10
+    internal val loop = PlayerLoop() // P12
+    private lateinit var loopMarks: PlayerLoop.Marks
     private lateinit var aoCard: PlayerAudioOnly
     private lateinit var aoIcon: ImageView
     private lateinit var tapL: TextView
@@ -511,6 +513,7 @@ class PlayerActivity : AppCompatActivity() {
         if (sibIdx < 0 || idx < 0 || idx >= sibs.size) { flash(if (delta > 0) "No next file" else "No previous file"); return }
         val p = player ?: return
         saveResume()
+        clearLoop()
         sibIdx = idx
         uri = sibs[idx].first
         title = sibs[idx].second.substringBeforeLast('.')
@@ -557,6 +560,7 @@ class PlayerActivity : AppCompatActivity() {
                     tCur.text = fmt(pos)
                 }
                 tTotal.text = fmt(dur)
+                loopMarks.update(loop.a, loop.b, dur)
                 if (audioOnly) aoCard.update(title, fmt(pos) + " / " + fmt(dur), PlayerService.on(this@PlayerActivity))
             }
             main.postDelayed(this, 500)
@@ -778,11 +782,60 @@ class PlayerActivity : AppCompatActivity() {
         flash(when (fitMode) { 1 -> "FILL (CROP)"; 2 -> "STRETCH"; else -> "FIT TO SCREEN" })
     }
 
+    // P12: A-B loop (100 ms check while a loop is active, so the wrap is tight)
+    private val loopRun = object : Runnable {
+        override fun run() {
+            val p = player
+            if (p != null && loop.active) {
+                if (p.isPlaying && p.currentPosition >= loop.b) p.seekTo(loop.a)
+                main.postDelayed(this, 100)
+            }
+        }
+    }
+
+    internal fun loopSummary(): String = when {
+        loop.active -> "A-B"
+        loop.a >= 0L -> "A " + fmt(loop.a)
+        loop.b >= 0L -> "B " + fmt(loop.b)
+        else -> "Off"
+    }
+
+    internal fun loopSummaryA(): String = fmt(loop.a)
+
+    internal fun loopSummaryB(): String = fmt(loop.b)
+
+    internal fun setLoopA() {
+        val p = player ?: return
+        val t = p.currentPosition
+        if (loop.b >= 0L && t >= loop.b - 1000L) { Util.toast(this, "A must be before B"); return }
+        loop.a = t
+        main.removeCallbacks(loopRun)
+        if (loop.active) main.post(loopRun)
+        flash("A  " + fmt(t))
+    }
+
+    internal fun setLoopB() {
+        val p = player ?: return
+        val t = p.currentPosition
+        if (loop.a < 0L) { Util.toast(this, "Set A first"); return }
+        if (t <= loop.a + 1000L) { Util.toast(this, "B must be after A"); return }
+        loop.b = t
+        main.removeCallbacks(loopRun)
+        main.post(loopRun)
+        flash("B  " + fmt(t))
+    }
+
+    internal fun clearLoop() {
+        loop.clear()
+        main.removeCallbacks(loopRun)
+        if (this::loopMarks.isInitialized) loopMarks.update(-1L, -1L, 0L)
+    }
+
     /** P10: headphone button / panel row. */
-    internal fun toggleAudioOnly() { setAudioOnly(!audioOnly) }
+    internal fun toggleAudioOnly() { applyAudioOnly(!audioOnly) }
 
     /** P10: audio only = the video track is switched off (saves data and battery), black screen with a card. Off = the video track comes back at the same position (the quality cap stays in the track parameters). */
-    internal fun setAudioOnly(on: Boolean) {
+    internal fun applyAudioOnly(on: Boolean) {
         val p = player ?: return
         if (on == audioOnly) return
         if (on && audioOpts().isEmpty()) { Util.toast(this, "No audio track"); return }
@@ -1480,7 +1533,7 @@ class PlayerActivity : AppCompatActivity() {
             true
         }
         rootView.addView(touch, FrameLayout.LayoutParams(MATCH, MATCH))
-        aoCard = PlayerAudioOnly(this) { setAudioOnly(false) } // P10: above the touch layer, below the controls
+        aoCard = PlayerAudioOnly(this) { applyAudioOnly(false) } // P10: above the touch layer, below the controls
         rootView.addView(aoCard.root, FrameLayout.LayoutParams(MATCH, MATCH))
 
         // ----- controls: top bar, centre buttons, bottom block -----
@@ -1556,7 +1609,11 @@ class PlayerActivity : AppCompatActivity() {
                 }
             })
         }
-        bottom.addView(seek, LinearLayout.LayoutParams(MATCH, dp(32)))
+        val seekBox = FrameLayout(this) // P12: the loop marks sit over the seek bar
+        seekBox.addView(seek, FrameLayout.LayoutParams(MATCH, MATCH))
+        loopMarks = PlayerLoop.Marks(this)
+        seekBox.addView(loopMarks, FrameLayout.LayoutParams(MATCH, MATCH))
+        bottom.addView(seekBox, LinearLayout.LayoutParams(MATCH, dp(32)))
         // P7: bottom row = "cur / total" on the left, speed pill + icon buttons on the right (no text labels)
         val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), 0, 0, 0) }
         val timeBox = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }

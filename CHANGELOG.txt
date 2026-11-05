@@ -1,3 +1,13 @@
+0.0.163 FIX (P9-P12 in one zip: build error "Platform declaration clash setAudioOnly$app_release(Z)V")
+- PlayerActivity.kt: `internal var audioOnly` generates the setter setAudioOnly(Boolean) which clashed with `fun setAudioOnly(on: Boolean)`. The function is renamed applyAudioOnly (3 call sites: toggleAudioOnly, PlayerAudioOnly onShowVideo lambda, definition). The var audioOnly is unchanged (PlayerPages.kt reads a.audioOnly).
+- PlayerAudioOnly.kt: comment updated. Scanned all Player*.kt files for other var / fun getX-setX JVM clashes: none.
+- This zip = P9 + P10 + P11 + P12 merged (replaces MGB_P9_P10_P11_v0_0_162.zip and MGB_P12_v0_0_163.zip, delete those two from the repo root).
+
+0.0.163 (PLAYER STEP P12 BUILD: A-B loop)
+- PlayerLoop.kt (new): loop state (a / b ms) + Marks view (two 2 dp accent ticks over the seek bar, not clickable).
+- PlayerActivity.kt: seek bar wrapped in a FrameLayout with the marks; setLoopA / setLoopB / clearLoop / loopSummary; loopRun checks every 100 ms while a loop is active (position >= B -> seekTo(A)); B must be after A (toast); loop cleared on previous / next / jump.
+- PlayerPages.kt: root row "A-B loop" (value Off / A 01:12 / A-B) + loopPage (Set A here, Set B here, Clear loop). app/build.gradle.kts: 0.0.163.
+
 0.0.162 (PLAYER STEP P11 BUILD: Playlist page)
 - PlayerQueue.kt (new): panel page "Playlist" = the other files of the same folder, same natural order as previous / next, current file accent + check, "n of N" note, tap = jump (panel closes, resume position of the old file is saved by openSibling).
 - PlayerPanel.kt: Builder.mark() + scrollMark: the page scrolls to the marked row when it opens.
