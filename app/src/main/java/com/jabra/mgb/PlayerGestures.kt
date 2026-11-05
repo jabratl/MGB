@@ -1,8 +1,11 @@
 package com.jabra.mgb
 
+import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.media.AudioManager
+import android.media.audiofx.LoudnessEnhancer
 import android.view.Gravity
 import android.widget.TextView
 import kotlin.math.roundToInt
@@ -43,5 +46,87 @@ object PlayerGestures {
         setPadding(Util.dp(a, 14), Util.dp(a, 6), Util.dp(a, 14), Util.dp(a, 6))
         background = GradientDrawable().apply { setColor(0xB3000000.toInt()); cornerRadius = Util.dp(a, 16).toFloat() }
         visibility = android.view.View.GONE
+    }
+
+    // ---------- P9: level HUD helpers, volume boost, brightness memory, seek sensitivity, double tap seconds ----------
+
+    /** Horizontal swipe seek: milliseconds of video for one full screen width (0 slow / 1 normal / 2 fast). */
+    fun seekWindowMs(c: Context): Float = when (PlayerPrefs.getInt(c, PlayerPrefs.K_SEEK_SENS, 1)) {
+        0 -> 45_000f
+        2 -> 180_000f
+        else -> 90_000f
+    }
+
+    /** Double tap seconds: 5 / 10 / 15 / 20, default 10. */
+    fun dtapSec(c: Context): Int {
+        val v = PlayerPrefs.getInt(c, PlayerPrefs.K_DTAP_SEC, 10)
+        return if (v == 5 || v == 10 || v == 15 || v == 20) v else 10
+    }
+
+    /** Extra volume above the system maximum, in percent (0 = off). */
+    fun boostCap(c: Context): Int = PlayerPrefs.getInt(c, PlayerPrefs.K_VOL_BOOST, 0).coerceIn(0, 100)
+
+    /** Last brightness set by the swipe (0.02 .. 1), or -1 when none was saved. */
+    fun savedBrightness(c: Context): Float {
+        val v = PlayerPrefs.getFloat(c, PlayerPrefs.K_BRIGHT, -1f)
+        return if (v < 0f) -1f else v.coerceIn(0.02f, 1f)
+    }
+
+    fun saveBrightness(c: Context, v: Float) { PlayerPrefs.putFloat(c, PlayerPrefs.K_BRIGHT, v) }
+
+    /**
+     * Volume above 100 percent. The system volume goes up to its maximum first, then more swipe adds extra gain through a
+     * LoudnessEnhancer (600 mB = 6 dB = about 2x at 100 percent extra, so the cap is safe). The effect is created only
+     * while the extra is above 0, and every call is wrapped: a device without the effect just stays at 100 percent.
+     */
+    class Boost {
+        var pct = 0
+        var sid = 0
+        private var enh: LoudnessEnhancer? = null
+        private var enhSid = 0
+
+        /** Swipe steps (positive = louder). Returns the level to show: 0..100 system, 101..200 boosted. */
+        fun change(c: Context, audio: AudioManager, steps: Int): Int {
+            val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+            val v = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+            val cap = boostCap(c)
+            val unit = (100 / max).coerceAtLeast(1)
+            if (pct > cap) { pct = cap; apply() }
+            if (steps > 0 && v >= max && cap > 0) {
+                pct = (pct + steps * unit).coerceAtMost(cap)
+                apply()
+            } else if (steps < 0 && pct > 0) {
+                pct = (pct + steps * unit).coerceAtLeast(0)
+                apply()
+            } else if (steps != 0) {
+                audio.setStreamVolume(AudioManager.STREAM_MUSIC, (v + steps).coerceIn(0, max), 0)
+            }
+            val now = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+            return if (pct > 0 && now >= max) 100 + pct else now * 100 / max
+        }
+
+        /** Create / update / release the effect for the current extra and audio session. */
+        fun apply() {
+            try {
+                if (pct <= 0 || sid == 0) { release(); return }
+                if (enh != null && enhSid != sid) release()
+                var e = enh
+                if (e == null) {
+                    e = LoudnessEnhancer(sid)
+                    enh = e
+                    enhSid = sid
+                }
+                e.setTargetGain(pct * 6)
+                e.setEnabled(true)
+            } catch (_: Exception) {
+                release()
+            }
+        }
+
+        fun release() {
+            try { enh?.release() } catch (_: Exception) { }
+            enh = null
+            enhSid = 0
+        }
     }
 }

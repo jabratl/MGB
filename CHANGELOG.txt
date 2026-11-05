@@ -1,3 +1,21 @@
+0.0.162 (PLAYER STEP P11 BUILD: Playlist page)
+- PlayerQueue.kt (new): panel page "Playlist" = the other files of the same folder, same natural order as previous / next, current file accent + check, "n of N" note, tap = jump (panel closes, resume position of the old file is saved by openSibling).
+- PlayerPanel.kt: Builder.mark() + scrollMark: the page scrolls to the marked row when it opens.
+- PlayerPages.kt: root row "Playlist" (value "3 of 12"), hidden when the folder has fewer than 2 files (web streams too).
+- PlayerActivity.kt: queueSize / queueIndex / queueName / openAt(index) / showQueue (internal); long press on the next button opens the Playlist page.
+- res/drawable/ic_pl_playlist.xml (new). app/build.gradle.kts: 0.0.162.
+
+0.0.161 (PLAYER STEP P10 BUILD: Audio only mode)
+- PlayerAudioOnly.kt (new): black full-size layer + centred card (headphone icon, title, "cur / total", one note line, "Show video" button). Layer is not clickable, so taps still reach the touch layer.
+- PlayerActivity.kt: setAudioOnly / toggleAudioOnly (setTrackTypeDisabled VIDEO), headphone button in the bottom icon row (accent when on), card sits above the touch layer and under the controls, ticker updates the card, PiP is blocked in audio only, bgNote passes the audio-only flag.
+- PlayerService.kt: update(..., audioOnly) + notification text "Audio only" (extra line only). Notification tap still opens the player.
+- PlayerPages.kt: root row "Audio only" (toggle). res/drawable/ic_pl_headphones.xml (new). app/build.gradle.kts: 0.0.161.
+
+0.0.160 (PLAYER STEP P9 MODIFY: Gestures B)
+- PlayerGestures.kt: seekWindowMs (pl_seek_sens 0 / 1 / 2 = 45 / 90 / 180 s per screen width), dtapSec (pl_dtap_sec 5 / 10 / 15 / 20), boostCap (pl_vol_boost), savedBrightness / saveBrightness (pl_bright), class Boost (LoudnessEnhancer, 6 dB at 100 percent extra, try / catch, released at 0 and in onDestroy).
+- PlayerActivity.kt: level HUD restyled (icon + 150 dp bar + percent, bar turns orange above 100); volume swipe goes past the system maximum only when pl_vol_boost > 0; brightness is saved when the finger lifts and restored in onCreate; swipe seek and double tap use the new prefs; double tap mark shows the seconds; Player.Listener.onAudioSessionIdChanged feeds the boost.
+- PlayerPrefs.kt: K_VOL_BOOST, K_BRIGHT, K_SEEK_SENS, K_DTAP_SEC. res/drawable/ic_pl_bright.xml, ic_pl_volume.xml (new). app/build.gradle.kts: 0.0.160.
+
 0.0.159 (PLAYER STEP P8 MODIFY: Gestures A)
 - PlayerGestures.kt (new): holdSpeed / holdSlide (prefs pl_hold_speed default 2.0, pl_hold_slide default true), nextHold (0.1 steps, 0.25..5.0), chipText, zoomText, pill() overlay chip factory.
 - PlayerActivity.kt: long press = fast play at the hold speed with a top-centre chip "2.0x  >>" (replaces the 2x flash, never shown with the level bar); while holding, sliding up / down changes it by 0.1x (handled in the touch listener, because the GestureDetector sends no scroll events after a long press); release restores the exact previous speed and flashes "Playback speed X". Pinch zoom range 0.5x..4x (zoom out allowed), "Reset zoom NNN%" chip at the bottom while zoom is not 100% (tap = resetZoom, cycleFit already resets).

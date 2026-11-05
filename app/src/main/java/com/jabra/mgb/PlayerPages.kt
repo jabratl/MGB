@@ -19,7 +19,9 @@ object PlayerPages {
         row(R.drawable.ic_pl_speed, "Playback speed", a.speedText(p?.playbackParameters?.speed ?: 1f), true) { a.panel.push(PlayerSpeed.page(a)) }
         row(R.drawable.ic_pl_repeat, "Repeat", a.repeatLabel(), true) { a.panel.push(repeatPage(a)) }
         row(R.drawable.ic_clock, "Sleep timer", sleepValue(a), true) { a.panel.push(sleepPage(a)) }
+        if (a.hasSiblings()) row(R.drawable.ic_pl_playlist, "Playlist", (a.queueIndex() + 1).toString() + " of " + a.queueSize(), true) { a.panel.push(PlayerQueue.page(a)) }
         section("More")
+        toggle(R.drawable.ic_pl_headphones, "Audio only", a.audioOnly) { a.toggleAudioOnly() }
         toggle(R.drawable.ic_pl_audio, "Background audio", PlayerService.on(a)) { a.toggleBgAudio() }
         row(R.drawable.ic_pl_pip, "Picture in picture") { go { a.enterPip() } }
         row(R.drawable.ic_info, "Video info") { go { a.showInfo() } }

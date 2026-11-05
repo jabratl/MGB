@@ -17,6 +17,10 @@ object PlayerPrefs {
     const val K_SUB_SIZE = "pl_sub_size"      // P5 int percent 50..200
     const val K_SUB_BG = "pl_sub_bg"          // P5 int 0 none / 1 shadow / 2 box
     const val K_SUB_POS = "pl_sub_pos"        // P5 int 0 low / 1 middle / 2 high
+    const val K_VOL_BOOST = "pl_vol_boost"    // P9 int 0..100 extra percent over system max, 0 = off
+    const val K_BRIGHT = "pl_bright"          // P9 float last brightness, -1 = system
+    const val K_SEEK_SENS = "pl_seek_sens"    // P9 int 0 slow / 1 normal / 2 fast
+    const val K_DTAP_SEC = "pl_dtap_sec"      // P9 int 5 / 10 / 15 / 20
 
     private fun sp(c: Context) = c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
 

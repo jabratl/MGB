@@ -146,6 +146,12 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var hud: LinearLayout
     private lateinit var hudText: TextView
     private lateinit var hudBar: ProgressBar
+    private lateinit var hudIcon: ImageView
+    private val boostVol = PlayerGestures.Boost()
+    private var brightDirty = false
+    internal var audioOnly = false // P10
+    private lateinit var aoCard: PlayerAudioOnly
+    private lateinit var aoIcon: ImageView
     private lateinit var tapL: TextView
     private lateinit var tapR: TextView
     private lateinit var spinner: ProgressBar
@@ -208,6 +214,12 @@ class PlayerActivity : AppCompatActivity() {
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        val savedBr = PlayerGestures.savedBrightness(this)
+        if (savedBr >= 0f) {
+            val blp = window.attributes
+            blp.screenBrightness = savedBr
+            window.attributes = blp
+        }
         if (Build.VERSION.SDK_INT >= 28) {
             window.attributes = window.attributes.also {
                 it.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
@@ -269,7 +281,7 @@ class PlayerActivity : AppCompatActivity() {
         if (!PlayerService.on(this)) return
         if (!playing && !bgStarted) return // never started: nothing to update
         bgStarted = true
-        PlayerService.update(this, title, playing)
+        PlayerService.update(this, title, playing, audioOnly)
     }
 
     fun bgToggle() { runOnUiThread { togglePlay() } }
@@ -281,6 +293,7 @@ class PlayerActivity : AppCompatActivity() {
         PlayerService.stop(this)
         try { unregisterReceiver(pipReceiver) } catch (_: Exception) { } // S42
         main.removeCallbacksAndMessages(null)
+        boostVol.release()
         saveResume()
         try { playerView.player = null } catch (_: Exception) { }
         player?.release()
@@ -311,6 +324,8 @@ class PlayerActivity : AppCompatActivity() {
         playerView.player = p
         p.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) { refreshPlayIcon(); updatePipActions(); bgNote(isPlaying) }
+
+            override fun onAudioSessionIdChanged(audioSessionId: Int) { boostVol.sid = audioSessionId; boostVol.apply() }
 
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_ENDED) {
@@ -542,6 +557,7 @@ class PlayerActivity : AppCompatActivity() {
                     tCur.text = fmt(pos)
                 }
                 tTotal.text = fmt(dur)
+                if (audioOnly) aoCard.update(title, fmt(pos) + " / " + fmt(dur), PlayerService.on(this@PlayerActivity))
             }
             main.postDelayed(this, 500)
         }
@@ -762,7 +778,47 @@ class PlayerActivity : AppCompatActivity() {
         flash(when (fitMode) { 1 -> "FILL (CROP)"; 2 -> "STRETCH"; else -> "FIT TO SCREEN" })
     }
 
+    /** P10: headphone button / panel row. */
+    internal fun toggleAudioOnly() { setAudioOnly(!audioOnly) }
+
+    /** P10: audio only = the video track is switched off (saves data and battery), black screen with a card. Off = the video track comes back at the same position (the quality cap stays in the track parameters). */
+    internal fun setAudioOnly(on: Boolean) {
+        val p = player ?: return
+        if (on == audioOnly) return
+        if (on && audioOpts().isEmpty()) { Util.toast(this, "No audio track"); return }
+        audioOnly = on
+        try {
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, on).build()
+        } catch (_: Exception) { }
+        aoCard.show(on)
+        aoIcon.setColorFilter(if (on) getColor(R.color.mg_primary) else Color.WHITE)
+        if (on) resetZoom()
+        bgNote(p.isPlaying)
+        flash(if (on) "Audio only" else "Video on")
+    }
+
+    // P11: playlist = the other media files of the same folder
+    internal fun queueSize(): Int = sibs.size
+
+    internal fun queueIndex(): Int = sibIdx
+
+    internal fun queueName(i: Int): String = sibs.getOrNull(i)?.second?.substringBeforeLast('.') ?: ""
+
+    /** Jump to file number index of the folder list (saves the resume position of the old file, like next / previous). */
+    internal fun openAt(index: Int) {
+        if (sibIdx < 0 || index < 0 || index >= sibs.size || index == sibIdx) return
+        openSibling(index - sibIdx)
+    }
+
+    internal fun showQueue() {
+        if (sibs.size < 2) { flash("No other videos in this folder"); return }
+        main.removeCallbacks(hider)
+        showControls(false)
+        panel.open(PlayerQueue.page(this))
+    }
+
     internal fun enterPip() {
+        if (audioOnly) { Util.toast(this, "Not available in audio only mode"); return }
         if (Build.VERSION.SDK_INT < 26) { Util.toast(this, "Needs Android 8 or newer"); return }
         try {
             val vs = player?.videoSize
@@ -1166,10 +1222,12 @@ class PlayerActivity : AppCompatActivity() {
 
     private val flashOff = Runnable { flash.visibility = View.GONE }
 
-    /** Brightness / volume: a small level bar at the top instead of plain text. */
-    private fun showHud(label: String, pct: Int) {
-        hudText.text = label
+    /** Brightness (kind 0) / volume (kind 1): chip with an icon, a level bar and the percent. Above 100 the bar turns orange. */
+    private fun showHud(kind: Int, pct: Int) {
+        hudIcon.setImageResource(if (kind == 0) R.drawable.ic_pl_bright else R.drawable.ic_pl_volume)
+        hudText.text = pct.toString() + "%"
         hudBar.progress = pct.coerceIn(0, 100)
+        hudBar.progressTintList = ColorStateList.valueOf(if (pct > 100) 0xFFFFB74D.toInt() else getColor(R.color.mg_primary))
         hud.visibility = View.VISIBLE
         main.removeCallbacks(hudOff)
         main.postDelayed(hudOff, 900)
@@ -1178,8 +1236,9 @@ class PlayerActivity : AppCompatActivity() {
     private val hudOff = Runnable { hud.visibility = View.GONE }
 
     /** Double tap feedback: a round "10 s" mark on the side that was tapped. */
-    private fun tapFlash(left: Boolean) {
+    private fun tapFlash(left: Boolean, sec: Int) {
         val v = if (left) tapL else tapR
+        v.text = (if (left) "«" else "»") + "\n" + sec + " s"
         v.animate().cancel()
         v.alpha = 1f
         v.visibility = View.VISIBLE
@@ -1317,9 +1376,10 @@ class PlayerActivity : AppCompatActivity() {
             override fun onDoubleTap(e: MotionEvent): Boolean {
                 if (locked) return true
                 val w = touch.width.toFloat()
+                val sec = PlayerGestures.dtapSec(this@PlayerActivity)
                 when {
-                    e.x < w / 3f -> { seekBy(-10_000); tapFlash(true) }
-                    e.x > w * 2f / 3f -> { seekBy(10_000); tapFlash(false) }
+                    e.x < w / 3f -> { seekBy(-sec * 1000L); tapFlash(true, sec) }
+                    e.x > w * 2f / 3f -> { seekBy(sec * 1000L); tapFlash(false, sec) }
                     else -> togglePlay()
                 }
                 return true
@@ -1355,7 +1415,7 @@ class PlayerActivity : AppCompatActivity() {
                     val dur = p.duration
                     if (dur <= 0) return true
                     dxAcc -= dx
-                    seekTarget = (p.currentPosition + dxAcc / w * 90_000f).toLong().coerceIn(0L, dur)
+                    seekTarget = (p.currentPosition + dxAcc / w * PlayerGestures.seekWindowMs(this@PlayerActivity)).toLong().coerceIn(0L, dur)
                     val diff = seekTarget - p.currentPosition
                     flash(fmt(seekTarget) + "\n[" + (if (diff < 0) "-" else "+") + fmt(abs(diff)) + "]")
                 } else if (swipeLeft) {
@@ -1365,18 +1425,14 @@ class PlayerActivity : AppCompatActivity() {
                     br = (br + dy / h * 1.3f).coerceIn(0.02f, 1f)
                     lp.screenBrightness = br
                     window.attributes = lp
-                    showHud("Brightness  " + (br * 100).toInt() + "%", (br * 100).toInt())
+                    brightDirty = true
+                    showHud(0, (br * 100).toInt())
                 } else {
-                    val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                    volAcc += dy / h * max * 1.4f
+                    volAcc += dy / h * audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC) * 1.4f
                     val step = volAcc.toInt()
-                    if (step != 0) {
-                        volAcc -= step
-                        val v = (audio.getStreamVolume(AudioManager.STREAM_MUSIC) + step).coerceIn(0, max)
-                        audio.setStreamVolume(AudioManager.STREAM_MUSIC, v, 0)
-                    }
-                    val pc = audio.getStreamVolume(AudioManager.STREAM_MUSIC) * 100 / max
-                    showHud("Volume  $pc%", pc)
+                    if (step != 0) volAcc -= step
+                    player?.let { boostVol.sid = it.audioSessionId }
+                    showHud(1, boostVol.change(this@PlayerActivity, audio, step))
                 }
                 return true
             }
@@ -1417,12 +1473,15 @@ class PlayerActivity : AppCompatActivity() {
                     flash("Playback speed " + speedText(speedBeforeBoost))
                 }
                 if (swipe == 2 && seekTarget >= 0) { player?.seekTo(seekTarget) }
+                if (brightDirty) { brightDirty = false; PlayerGestures.saveBrightness(this, window.attributes.screenBrightness) }
                 seekTarget = -1
                 swipe = 0
             }
             true
         }
         rootView.addView(touch, FrameLayout.LayoutParams(MATCH, MATCH))
+        aoCard = PlayerAudioOnly(this) { setAudioOnly(false) } // P10: above the touch layer, below the controls
+        rootView.addView(aoCard.root, FrameLayout.LayoutParams(MATCH, MATCH))
 
         // ----- controls: top bar, centre buttons, bottom block -----
         controls = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -1462,6 +1521,7 @@ class PlayerActivity : AppCompatActivity() {
         val midRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
         prevBtn = iconBtn(R.drawable.ic_skip_prev, 46, 11) { openSibling(-1) }
         nextBtn = iconBtn(R.drawable.ic_skip_next, 46, 11) { openSibling(1) }
+        nextBtn.setOnLongClickListener { showQueue(); true }
         playBtn = iconBtn(R.drawable.ic_pause, 72, 20) { togglePlay() }
         playBtn.setColorFilter(getColor(R.color.mg_on_primary))
         playBtn.background = round(accent, 36)
@@ -1520,7 +1580,9 @@ class PlayerActivity : AppCompatActivity() {
         ccIcon = iconBtn(R.drawable.ic_pl_cc, 44, 10) { showSubtitleDialog() }
         rotIcon = iconBtn(R.drawable.ic_pl_rotate, 44, 10) { toggleRotate() }
         bar.addView(fitIcon)
+        aoIcon = iconBtn(R.drawable.ic_pl_headphones, 44, 10) { toggleAudioOnly() }
         bar.addView(ccIcon)
+        bar.addView(aoIcon)
         bar.addView(rotIcon)
         bottom.addView(bar, LinearLayout.LayoutParams(MATCH, WRAP))
         topBox = top
@@ -1541,20 +1603,31 @@ class PlayerActivity : AppCompatActivity() {
         rootView.addView(flash, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
 
         hud = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(18), dp(10), dp(18), dp(12))
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(14), dp(8), dp(16), dp(8))
             background = round(0xB3000000.toInt(), 16)
             visibility = View.GONE
         }
-        hudText = TextView(this).apply { setTextColor(Color.WHITE); textSize = 14f; gravity = Gravity.CENTER }
+        hudIcon = ImageView(this).apply {
+            setColorFilter(Color.WHITE)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }
+        hudText = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 13f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            minWidth = dp(44)
+        }
         hudBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
             progressTintList = ColorStateList.valueOf(accent)
             progressBackgroundTintList = ColorStateList.valueOf(0x40FFFFFF)
         }
-        hud.addView(hudText)
-        hud.addView(hudBar, LinearLayout.LayoutParams(dp(170), dp(6)).apply { topMargin = dp(8) })
+        hud.addView(hudIcon, LinearLayout.LayoutParams(dp(18), dp(18)))
+        hud.addView(hudBar, LinearLayout.LayoutParams(dp(150), dp(6)).apply { setMargins(dp(10), 0, dp(10), 0) })
+        hud.addView(hudText, LinearLayout.LayoutParams(WRAP, WRAP))
         rootView.addView(hud, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dp(60) })
         holdChip = PlayerGestures.pill(this, 14f, true) // P8: same place as the level bar, never both at once
         rootView.addView(holdChip, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dp(60) })

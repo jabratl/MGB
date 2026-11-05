@@ -155,6 +155,9 @@ class PlayerPanel(internal val act: PlayerActivity, private val host: FrameLayou
 
         fun custom(v: View) = add(v)
 
+        /** P11: the next row added is the one the page scrolls to when it opens. */
+        fun mark() { p.scrollMark = list.childCount }
+
         /** True when the panel sits on the right (landscape): pages may use more columns. */
         val wide: Boolean get() = p.side
 
@@ -271,6 +274,7 @@ class PlayerPanel(internal val act: PlayerActivity, private val host: FrameLayou
     var onClosed: (() -> Unit)? = null
 
     private val stack = ArrayList<Page>()
+    internal var scrollMark = -1
     private var opened = false
     private var side = false
     private fun dp(n: Int) = Util.dp(act, n)
@@ -382,9 +386,14 @@ class PlayerPanel(internal val act: PlayerActivity, private val host: FrameLayou
     private fun render(resetScroll: Boolean) {
         val page = stack.lastOrNull() ?: return
         titleTv.text = page.title
+        scrollMark = -1
         list.removeAllViews()
         page.build(Builder(this, list))
-        if (resetScroll) scroll.scrollTo(0, 0)
+        if (resetScroll) {
+            val m = scrollMark
+            if (m >= 0) scroll.post { scroll.scrollTo(0, ((list.getChildAt(m)?.top ?: 0) - dp(104)).coerceAtLeast(0)) }
+            else scroll.scrollTo(0, 0)
+        }
     }
 
     /** Side (right) in landscape wide screens, bottom sheet otherwise. Insets keep it out of cutouts. */

@@ -39,9 +39,10 @@ class PlayerService : Service() {
         }
         val title = intent?.getStringExtra("t")?.ifBlank { null } ?: "Playing"
         val playing = intent?.getBooleanExtra("p", true) ?: true
+        val ao = intent?.getBooleanExtra("ao", false) ?: false
         try {
             val type = if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0
-            ServiceCompat.startForeground(this, NOTE_ID, note(title, playing), type)
+            ServiceCompat.startForeground(this, NOTE_ID, note(title, playing, ao), type)
         } catch (e: Exception) {
             stopSelf()
         }
@@ -51,7 +52,7 @@ class PlayerService : Service() {
     private fun act(action: String, code: Int): PendingIntent =
         PendingIntent.getService(this, code, Intent(this, PlayerService::class.java).setAction(action), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
-    private fun note(title: String, playing: Boolean): android.app.Notification {
+    private fun note(title: String, playing: Boolean, audioOnly: Boolean): android.app.Notification {
         if (Build.VERSION.SDK_INT >= 26) {
             val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             if (nm.getNotificationChannel(CH) == null) nm.createNotificationChannel(NotificationChannel(CH, "Player", NotificationManager.IMPORTANCE_LOW))
@@ -64,7 +65,7 @@ class PlayerService : Service() {
         val b = NotificationCompat.Builder(this, CH)
             .setSmallIcon(if (playing) android.R.drawable.ic_media_play else android.R.drawable.ic_media_pause)
             .setContentTitle(title)
-            .setContentText(if (playing) "Playing" else "Paused")
+            .setContentText(if (audioOnly) (if (playing) "Audio only" else "Audio only - paused") else if (playing) "Playing" else "Paused")
             .setOngoing(playing)
             .setOnlyAlertOnce(true)
             .setContentIntent(open)
@@ -85,9 +86,9 @@ class PlayerService : Service() {
         fun setOn(ctx: Context, v: Boolean) = ctx.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).edit().putBoolean("bg_audio", v).apply()
 
         /** Start or refresh the notification (call while the app is visible). */
-        fun update(ctx: Context, title: String, playing: Boolean) {
+        fun update(ctx: Context, title: String, playing: Boolean, audioOnly: Boolean = false) {
             try {
-                ContextCompat.startForegroundService(ctx, Intent(ctx, PlayerService::class.java).putExtra("t", title).putExtra("p", playing))
+                ContextCompat.startForegroundService(ctx, Intent(ctx, PlayerService::class.java).putExtra("t", title).putExtra("p", playing).putExtra("ao", audioOnly))
             } catch (e: Exception) { /* background start refused: audio still plays while the process lives */ }
         }
 
