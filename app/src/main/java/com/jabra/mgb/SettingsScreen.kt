@@ -971,7 +971,7 @@ object SettingsScreen {
                 Row(R.drawable.ic_download, "Import data") { Backup.importData(act) },
                 Sub("Clear data"),
                 Row(R.drawable.ic_history, "Recently closed tabs") { dismiss(); Backup.closedTabs(act, tabs) },
-                Row(R.drawable.ic_folder, "Saved pages", "${PageSave.count(act)} pages") { dismiss(); SavedPages.open(act, tabs) }, // T4
+                Row(R.drawable.ic_folder, "Saved pages", "${PageSave.count(act)} pages") { dismiss(); tabs?.let { SavedPages.open(act, it) } }, // T4
                 Row(R.drawable.ic_trash, "Clear browsing history") {
                     confirm("Clear all browsing history?", "Clear") { Bookmarks.clearHistory(); Util.toast(act, "History cleared") }
                 },

@@ -22,7 +22,7 @@ CURRENT VERSION 0.0.140 (Settings STEP E: tab suspend, Older section, audit scri
 [x] T2  v0.0.142  View page source                                                               DONE (see T2 RESULT below)
 [x] T3  v0.0.143  Save page + minimal saved list                                                  CODE DONE, GO / NO-GO NOT TESTED (see T3 RESULT)
 [x] T4  v0.0.144  Saved pages screen (search, rename, share, Settings row)                     DONE (see T4 RESULT)
-[ ] T5  v0.0.145  Adblock manager part 1: backend (my rules, my hosts, allow list, explain)      size M      (~55%)
+[x] T5  v0.0.145  Adblock manager part 1: backend                                                DONE (see T5 RESULT)
 [ ] T6  v0.0.146  Adblock manager part 2: screen (lists, my rules editor, hosts, test URL)       size M      (~65%)
 [ ] T7  v0.0.147  Userscripts part 1: store, metadata parser, injection, minimal paste/enable    size L      (~75%)  TIGHT
 [ ] T8  v0.0.148  Userscripts part 2: manager screen, install from URL / .user.js, page row      size M+     (~70%)
@@ -56,10 +56,19 @@ T4 RESULT (0.0.144)
  Done: full-screen "Saved pages" (search, header card with count + size + Delete all, per-page sheet: Open in new tab / Rename / Share file / Open original site / Delete). Opened from the main menu row and from Settings > Data and backup.
  Changed: SavedPages.kt (new: screen) / PageSave.kt (rename, removeAll) / MainActivity.kt (menu row opens the screen) / SettingsScreen.kt (row + hint + KW) / build.gradle.kts (0.0.144) / CHANGELOG.txt / HANDOFF.txt.
  Checks: bracket balance of the changed Kotlin files, every new call re-read against its real signature (ToolsSheet.Item / Group / show, SettingsScreen Row, PageSave API, FileProvider authority). kotlinc not available, no emulator (360 / 1280 px, dark + light not render-checked).
+ FIX after CI build: SettingsScreen.kt row used a nullable TabManager (tabsRef): now tabs?.let { ... }. Lesson: kotlinc is not available here, so check the real type of every outer variable (grep its declaration) before passing it.
  !! T3 go / no-go (mht opens offline on the real WebView) is STILL not confirmed on a phone: test that first; T4 is only useful if it passes.
  NOT tested (needs a phone): compile; open / rename / share / delete; Delete all; search; delete while a tab still shows that file (tab keeps the page until reload, then shows an error); row layout at 360 px with a 2-line title; share chooser with the .mht type.
  KNOWN / NEXT ideas (not done): no thumbnails (needs a snapshot at save time); the unused PageSave.dialog can be removed in a cleanup step; T1 "Copy all tab links" may include a saved tab's file:// address.
  NEXT: T5 Adblock manager part 1: backend (size M). Goal: engine support for user rules, user blocked hosts, a global allow list, a read-only built-in host list and AdBlock.explain; no UI. Pack files: FilterList.kt, AdBlock.kt, CosmeticFilter.kt, Backup.kt, BlockerStats.kt, Util.kt (these are in the pack zip).
+
+T5 RESULT (0.0.145)
+ Done: backend for user rules, user blocked hosts, global allow list, built-in host list accessor and explain(). No UI.
+ Changed: FilterList.kt (userRules, setUserRules, load adds them) / AdBlock.kt (user hosts, allow list, accessors, explain, allow check in shouldBlock + blocksPage) / CosmeticFilter.kt (allow list skips cosmetic hiding) / build.gradle.kts (0.0.145) / CHANGELOG.txt / HANDOFF.txt.
+ Checks: bracket balance of the 3 Kotlin files, every new call re-read against its real signature (Builder.count / cosDomN / cosGen, FilterList.verdict + T_OTHER, SiteConfig.hostOf). kotlinc not available. Backup.kt NOT changed: mgb_adblock is already in SETTINGS and the new keys are plain strings (Backup skips string SETS, so sets were avoided on purpose).
+ NOT tested (needs a phone): compile; add rules then check a blocked request changes; user host blocks a subdomain; allow host beats a filter rule and the built-in host list; cosmetic hiding off on an allow-listed site; setUserRules while a list update is loading; 1500-line rules reload time; restore from a backup (AdBlock.init re-reads the hosts, but FilterList does NOT reload user_rules until the app restarts: known, T6 can call setUserRules(userRules()) after an import).
+ KNOWN: explain() uses request type OTHER and ignores the "same site as the page" exception of the host list (safe cut: 5 fixed reasons, no rule text).
+ NEXT: T6 Adblock manager part 2: screen (size M). Goal: one full-screen "Hosts and filters" page: filter lists, my rules editor, my hosts, allowed hosts, built-in hosts (searchable), test a URL. Pack files: NEW AdblockManager.kt, BlockerStats.kt, SettingsScreen.kt, SiteSettings.kt (skeleton), Backup.kt, Util.kt.
 
 Order rules: T1, T2 can go first (easy wins). Tracks are independent: SAVE (T3 -> T4), ADBLOCK (T5 -> T6), USERSCRIPTS (T7 -> T8 -> T9 -> T10).
 Inside a track never skip a step. Sizes are estimates; the "SAFE CUT" line of every step says what to drop if the chat reaches about 85%.

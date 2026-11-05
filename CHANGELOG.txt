@@ -1,7 +1,14 @@
+0.0.145 (TOOLS STEP T5 BUILD: Adblock manager part 1, backend only)
+- FilterList.kt: userRules() / setUserRules(ctx, text, done) = "my rules" (prefs mgb_adblock key user_rules, max 1500 lines / 100 KB), parsed by the same Builder as a list and added in load(); setUserRules waits for a running load, then reloads once and reports "N ok, M skipped (unsupported)".
+- AdBlock.kt: user hosts + allow list (prefs mgb_adblock keys user_hosts / allow_hosts, newline separated strings so Backup copies them; max 2000 each). listed() also checks the user hosts. A host (or page host, subdomains too) on the allow list is never blocked: shouldBlock and blocksPage. New API: builtinHosts(), userHosts(), allowHosts(), addUserHost / removeUserHost / addAllow / removeAllow (add returns false for an invalid host), isAllowed(host), explain(url, pageHost) = Allowed (your allow list) / Blocked (built-in host list) / Blocked (your host) / Blocked (filter rule) / Allowed.
+- CosmeticFilter.kt: no ad-space hiding or cosmetic CSS on an allow-listed site.
+- No UI, no new setting (T6 builds the screen).
+
 0.0.144 (TOOLS STEP T4 BUILD: Saved pages screen)
 - SavedPages.kt (new): full-screen "Saved pages" (skeleton of SiteSettings): search (title / host), header card "N pages, X MB" + Delete all (confirm), one card per page (title, host, date, size). Tap = open offline in a new tab; long press or the more button = sheet: Open in new tab, Rename, Share file (.mht copied to cache/updates, existing FileProvider), Open original site, Delete (confirm). No thumbnails (safe cut).
 - PageSave.kt: rename(), removeAll(). The T3 list dialog (PageSave.dialog) stays in the file, no longer used.
 - MainActivity.kt: main menu row "Saved pages" now opens the screen. SettingsScreen.kt: Data and backup card row "Saved pages" (N pages) + hint + search keywords.
+- FIX (build error SettingsScreen.kt:974, "inferred type is TabManager? but TabManager was expected"): the Settings row passes BookmarksScreen.tabsRef (nullable) -> tabs?.let { SavedPages.open(act, it) }. Version number not bumped (same fix is part of 0.0.144 / 0.0.145).
 - No manifest / xml change.
 
 0.0.143 (TOOLS STEP T3 BUILD: Save page + minimal saved list)
