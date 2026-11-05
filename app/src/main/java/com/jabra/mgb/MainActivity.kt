@@ -138,6 +138,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         CrashLog.showLast(this) // FIX
         AppLock.onCreate(this) // S45: lock screen at cold start (if ON)
         window.decorView.post { PlayerScreen.reopenPending(this) } // S35: player comes back if the Activity was recreated
+        window.decorView.post { AppearanceScreen.reopenPending(this) } // APPEARANCE A2: Appearance screen comes back after a theme change
         window.decorView.postDelayed({ Backup.auto(this) }, 10000) // S42: daily auto backup (if ON)
     }
 

@@ -52,6 +52,15 @@ object UiMode {
             .show()
     }
 
+    /** APPEARANCE A2: the Appearance theme tiles. Saves + applies; returns true when the mode really changed (caller recreates). */
+    fun setMode(ctx: Context, which: Int): Boolean {
+        val w = which.coerceIn(0, 2)
+        if (w == mode(ctx)) return false
+        sp(ctx).edit().putInt("night", w).apply()
+        apply(ctx)
+        return true
+    }
+
     fun darkPages(ctx: Context): Boolean = sp(ctx).getBoolean("dark_pages", false)
 
     fun setDarkPages(ctx: Context, on: Boolean) {

@@ -1,4 +1,4 @@
-NOTE (0.0.167): A1 was built on the CURRENT repo (MGB-main.zip 0.0.165 + MGB_FIX_v0_0_166.zip). For A2+ attach HANDOFF.txt + the repo zip (MGB-main.zip with 0.0.167 files applied) + MGB_A1_v0_0_167.zip. The player plan is finished (P1-P14); its file is HANDOFF_PLAYER.txt (shipped in the A1 zip).
+QUICKSTART (0.0.168): attach ONLY HANDOFF.txt + MGB-appearance-context.zip (it holds A1 + A2 applied and every file A3-A10 need to read or patch, top folder MGB-main/) + any step zip made AFTER it. No full MGB-main needed. Check app/build.gradle.kts appVersionName = "0.0.168" first. Each step ends with its changed-files zip AND, if a step touches a file the context zip does not hold, say so in RESULT. The player plan is finished (HANDOFF_PLAYER.txt).
 MGB (Thazir) - APPEARANCE PLAN, steps A1-A10     (HANDOFF.txt = the file you paste / attach first in every new chat)
 Base: version 0.0.154 (player plan P1-P3.2 done; P4-P14 still open, see HANDOFF_PLAYER.txt = the old file, renamed, not changed).
 No app code was changed when this plan was written. Planning chat only.
@@ -31,7 +31,7 @@ Settings: SettingsScreen.kt (1043 lines, NEVER read whole) = full-screen Dialog,
 2. PROGRESS  (the assistant ticks the step and adds a RESULT block at the end of every step)
 ======================================================================
 [x] A1  v0.0.167  S   BUILD   ThazirSwitch (unique toggle) + colour tokens, used in Settings + Customise-menu screen   CODE DONE, phone test pending (see RESULT A1)
-[ ] A2  M   BUILD   Appearance screen shell + AppearancePrefs + THEME section + entry row in Settings > General
+[x] A2  v0.0.168  M   BUILD   Appearance screen shell + AppearancePrefs + THEME section + entry row in Settings > General   CODE DONE, phone test pending (see RESULT A2)
 [ ] A3  M   BUILD   Customize address bar page: live preview, home-button action, auto-hide, show full URL
 [ ] A4  M   MODIFY  Bar position Top / Bottom (layout swap at start, preview tiles, "Apply now" recreate)
 [ ] A5  S   FIX     Top-bar polish: snackbar anchors, floating buttons, group strip, hide-on-scroll direction
@@ -197,3 +197,10 @@ RESULT A1 (0.0.167)  zip: MGB_A1_v0_0_167.zip
  Phone test: Settings rows + Customise menu toggles: tap row toggles, ON = violet pill + white square thumb with check, OFF = outline pill + grey square thumb; check width is 48 dp (no wide track), light + dark; locked menu rows stay dimmed.
  Not compiled (no kotlinc). Risk spots if CI fails: MaterialSwitch calls setTrackDecorationDrawable(null) / setThumbIconDrawable(null) (Material 1.12.0); if one is missing, delete that line.
  NEXT: A2 Appearance screen shell + AppearancePrefs + THEME section.
+
+RESULT A2 (0.0.168)  zip: MGB_A2_v0_0_168.zip
+ Files: AppearancePrefs.kt (new), AppearanceScreen.kt (new), UiMode.kt (setMode), SettingsScreen.kt (General row + HINTS + KW), MainActivity.kt (1 line: reopenPending; not in the plan list, needed so the screen reopens after the theme recreate), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+ New prefs: all ap_* keys exist in AppearancePrefs (no UI uses them yet except none). Existing: night, dark_pages.
+ Phone test: Settings > General > Appearance opens. Tiles System / Light / Dark: tap changes theme, app recreates, Appearance screen comes back in the new mode, ring on the chosen tile. Dark pages row toggles (ThazirSwitch). Back goes to Settings. Old Theme / Dark pages rows still work. Check 360 dp wide: 3 tiles fit.
+ Not compiled (no kotlinc). Risk spots: AppearanceScreen.kt (private nested classes Palette / PhoneView / FlowLayout, createConfigurationContext palette). If a compile error names one, fix only that line.
+ NEXT: A3 Customize address bar page (live preview, home-button action, auto-hide, show full URL).

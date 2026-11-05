@@ -1,0 +1,403 @@
+package com.jabra.mgb
+
+import android.app.Activity
+import android.app.Dialog
+import android.content.Context
+import android.content.res.Configuration
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RectF
+import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
+import android.os.Bundle
+import android.util.Log
+import android.util.TypedValue
+import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
+import androidx.core.graphics.ColorUtils
+
+/**
+ * APPEARANCE A2: full-screen Appearance dialog (same look as Settings: 56 dp header + back, scroll column).
+ * Root page = THEME section (3 mini-phone tiles + Dark pages switch). Page stack: "root" only for now;
+ * A3-A8 add pages by extending fill() and the helpers below (sectionLabel / card / toggleRow / tileChoice / chipChoice).
+ * Entry: Settings > General > Appearance. Back = Settings again. A theme tile recreates the Activity and this screen reopens.
+ */
+object AppearanceScreen {
+    private const val TAG = "MGB.appearance"
+    private var current: Screen? = null
+    @Volatile private var reopen = false
+
+    fun open(host: Activity) {
+        if (host.isFinishing || host.isDestroyed) return
+        closeAll()
+        try {
+            val s = Screen(host)
+            current = s
+            s.show()
+        } catch (e: Exception) {
+            Log.e(TAG, "open failed", e)
+            current = null
+        }
+    }
+
+    fun closeAll() {
+        val s = current ?: return
+        current = null
+        try { s.dismiss() } catch (_: Exception) { }
+    }
+
+    /** Set right before act.recreate(): the new Activity opens this screen again (called from MainActivity.onCreate). */
+    fun markReopen() { reopen = true }
+
+    fun reopenPending(act: Activity) {
+        if (!reopen) return
+        reopen = false
+        open(act)
+    }
+
+    /** Colours of one mode, read through a configuration context so a Light tile is light even when the app is dark. */
+    private class Palette(val bg: Int, val surface: Int, val outline: Int, val text: Int, val primary: Int)
+
+    private class Chip(val label: String, val icon: Int?)
+
+    private class Screen(private val act: Activity) :
+        Dialog(act, com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar) {
+
+        private val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
+        private val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
+        private var body: LinearLayout? = null
+        private var titleTv: TextView? = null
+        private var page = "root"
+
+        private fun dp(v: Int) = Util.dp(act, v)
+
+        override fun onCreate(savedInstanceState: Bundle?) {
+            super.onCreate(savedInstanceState)
+            build()
+            window?.let {
+                it.setLayout(MATCH, MATCH)
+                it.setBackgroundDrawable(ColorDrawable(act.getColor(R.color.mg_bg)))
+            }
+        }
+
+        private fun round(color: Int, r: Int, strokeDp: Float = 0f, stroke: Int = 0) = GradientDrawable().apply {
+            setColor(color)
+            cornerRadius = dp(r).toFloat()
+            if (strokeDp > 0f) setStroke((strokeDp * act.resources.displayMetrics.density).toInt(), stroke)
+        }
+
+        private fun build() {
+            val root = LinearLayout(act).apply {
+                orientation = LinearLayout.VERTICAL
+                setBackgroundColor(act.getColor(R.color.mg_bg))
+            }
+            val head = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(4), 0, dp(4), 0)
+            }
+            head.addView(ImageView(act).apply {
+                setImageResource(R.drawable.ic_back)
+                setColorFilter(act.getColor(R.color.mg_text))
+                setPadding(dp(10), dp(10), dp(10), dp(10))
+                contentDescription = "Back"
+                setOnClickListener { goBack() }
+            }, LinearLayout.LayoutParams(dp(44), dp(48)))
+            head.addView(TextView(act).apply {
+                text = "Appearance"
+                textSize = 22f
+                gravity = Gravity.CENTER_VERTICAL or Gravity.START
+                typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+                setTextColor(act.getColor(R.color.mg_text))
+                setPadding(dp(6), 0, 0, 0)
+                titleTv = this
+            }, LinearLayout.LayoutParams(0, WRAP, 1f))
+            root.addView(head, LinearLayout.LayoutParams(MATCH, dp(56)))
+
+            val col = LinearLayout(act).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(16), 0, dp(16), dp(32))
+            }
+            body = col
+            root.addView(ScrollView(act).apply { isFillViewport = false; addView(col, MATCH, WRAP) },
+                LinearLayout.LayoutParams(MATCH, 0, 1f))
+            setContentView(root)
+            fill()
+        }
+
+        /** Back order: sub-page -> root -> Settings. */
+        private fun goBack() {
+            if (page != "root") {
+                page = "root"
+                titleTv?.text = "Appearance"
+                fill()
+            } else {
+                dismiss()
+                SettingsScreen.open(act)
+            }
+        }
+
+        override fun onBackPressed() { goBack() }
+
+        // ---------------- pages ----------------
+
+        private fun fill() {
+            val col = body ?: return
+            col.removeAllViews()
+            when (page) {
+                else -> rootPage(col)
+            }
+        }
+
+        private fun rootPage(col: LinearLayout) {
+            col.addView(sectionLabel("Theme"))
+            val themeCard = card()
+            val lightP = palette(false)
+            val darkP = palette(true)
+            tileChoice(themeCard, listOf("System", "Light", "Dark"),
+                listOf(PhoneView(act, lightP, darkP), PhoneView(act, lightP, null), PhoneView(act, darkP, null)),
+                UiMode.mode(act)) { i ->
+                if (UiMode.setMode(act, i)) {
+                    AppearanceScreen.markReopen()
+                    dismiss()
+                    act.recreate()
+                }
+            }
+            toggleRow(themeCard, R.drawable.ic_theme, "Dark pages", "Darken websites that have no dark style (reload the page)",
+                { UiMode.darkPages(act) }) { on ->
+                UiMode.setDarkPages(act, on)
+                BookmarksScreen.tabsRef?.applyDarkPages()
+                Util.toast(act, if (on) "Dark pages ON (reload the page)" else "Dark pages OFF (reload the page)")
+            }
+            col.addView(themeCard, LinearLayout.LayoutParams(MATCH, WRAP))
+        }
+
+        // ---------------- helpers (A3-A8 reuse these) ----------------
+
+        private fun sectionLabel(t: String) = TextView(act).apply {
+            text = t.uppercase()
+            textSize = 11f
+            letterSpacing = 0.08f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setTextColor(act.getColor(R.color.mg_primary))
+            setPadding(dp(8), dp(16), 0, dp(6))
+        }
+
+        private fun card(): LinearLayout = LinearLayout(act).apply {
+            orientation = LinearLayout.VERTICAL
+            background = round(act.getColor(R.color.mg_surface), 24, 1f, ColorUtils.setAlphaComponent(act.getColor(R.color.mg_outline), 0x99))
+            setPadding(dp(4), dp(10), dp(4), dp(6))
+        }
+
+        private fun rippleBg(v: View) {
+            val tv = TypedValue()
+            if (act.theme.resolveAttribute(android.R.attr.selectableItemBackground, tv, true)) v.setBackgroundResource(tv.resourceId)
+        }
+
+        /** One switch row: icon + label + small hint + ThazirSwitch. Row click toggles; get / set talk to the prefs. */
+        private fun toggleRow(parent: LinearLayout, icon: Int, label: String, hint: String?, get: () -> Boolean, set: (Boolean) -> Unit) {
+            val sw = ThazirSwitch(act).apply { isChecked = get(); isClickable = false; isFocusable = false }
+            val row = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(52)
+                setPadding(dp(18), dp(6), dp(16), dp(6))
+                isClickable = true
+                rippleBg(this)
+            }
+            row.addView(ImageView(act).apply {
+                setImageResource(icon)
+                setColorFilter(act.getColor(R.color.mg_text_dim))
+            }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(16) })
+            val txt = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+            txt.addView(TextView(act).apply { text = label; textSize = 15f; setTextColor(act.getColor(R.color.mg_text)) })
+            if (!hint.isNullOrBlank()) txt.addView(TextView(act).apply {
+                text = hint; textSize = 12f; setTextColor(act.getColor(R.color.mg_text_dim)); setPadding(0, dp(2), 0, 0)
+            })
+            row.addView(txt, LinearLayout.LayoutParams(0, WRAP, 1f))
+            row.addView(sw, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(8) })
+            row.setOnClickListener {
+                set(!get())
+                sw.isChecked = get()
+            }
+            parent.addView(row, LinearLayout.LayoutParams(MATCH, WRAP))
+        }
+
+        /** Single choice as preview tiles (100 x 120 dp, radius 16): selected = 2 dp mg_toggle_on ring + check dot, else 1 dp outline. */
+        private fun tileChoice(parent: LinearLayout, labels: List<String>, previews: List<View>, selected: Int, onPick: (Int) -> Unit) {
+            val rowV = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                setPadding(0, dp(4), 0, dp(8))
+            }
+            for (i in labels.indices) {
+                val on = i == selected
+                val colV = LinearLayout(act).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.CENTER_HORIZONTAL
+                    isClickable = true
+                    setOnClickListener { onPick(i) }
+                }
+                val frame = FrameLayout(act).apply {
+                    background = round(0, 16, if (on) 2f else 1f,
+                        if (on) act.getColor(R.color.mg_toggle_on) else act.getColor(R.color.mg_outline))
+                }
+                frame.addView(previews[i], FrameLayout.LayoutParams(dp(100), dp(120)))
+                if (on) {
+                    val dot = FrameLayout(act).apply { background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(act.getColor(R.color.mg_toggle_on)) } }
+                    dot.addView(ImageView(act).apply {
+                        setImageResource(R.drawable.ic_check)
+                        setColorFilter(act.getColor(R.color.mg_toggle_thumb))
+                        setPadding(dp(3), dp(3), dp(3), dp(3))
+                    }, FrameLayout.LayoutParams(dp(20), dp(20)))
+                    frame.addView(dot, FrameLayout.LayoutParams(dp(20), dp(20), Gravity.TOP or Gravity.END).apply { topMargin = dp(6); marginEnd = dp(6) })
+                }
+                colV.addView(frame, LinearLayout.LayoutParams(dp(100), dp(120)))
+                colV.addView(TextView(act).apply {
+                    text = labels[i]
+                    textSize = 13f
+                    gravity = Gravity.CENTER
+                    setTextColor(act.getColor(if (on) R.color.mg_text else R.color.mg_text_dim))
+                    if (on) typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                    setPadding(0, dp(8), 0, 0)
+                }, LinearLayout.LayoutParams(dp(100), WRAP))
+                rowV.addView(colV, LinearLayout.LayoutParams(0, WRAP, 1f))
+            }
+            parent.addView(rowV, LinearLayout.LayoutParams(MATCH, WRAP))
+        }
+
+        /** Single choice as a wrap of chips (icon + label, radius 20 dp, 44 dp high). Not used before A3. */
+        private fun chipChoice(parent: LinearLayout, chips: List<Chip>, selected: Int, onPick: (Int) -> Unit) {
+            val flow = FlowLayout(act, dp(8)).apply { setPadding(dp(12), dp(4), dp(12), dp(8)) }
+            for (i in chips.indices) {
+                val on = i == selected
+                val c = LinearLayout(act).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    minimumHeight = dp(44)
+                    setPadding(dp(14), 0, dp(16), 0)
+                    isClickable = true
+                    background = round(0, 20, if (on) 2f else 1f,
+                        if (on) act.getColor(R.color.mg_toggle_on) else act.getColor(R.color.mg_outline))
+                    setOnClickListener { onPick(i) }
+                }
+                chips[i].icon?.let { ic ->
+                    c.addView(ImageView(act).apply {
+                        setImageResource(ic)
+                        setColorFilter(act.getColor(if (on) R.color.mg_toggle_on else R.color.mg_text_dim))
+                    }, LinearLayout.LayoutParams(dp(18), dp(18)).apply { marginEnd = dp(8) })
+                }
+                c.addView(TextView(act).apply {
+                    text = chips[i].label
+                    textSize = 14f
+                    setTextColor(act.getColor(if (on) R.color.mg_text else R.color.mg_text_dim))
+                })
+                flow.addView(c, ViewGroup.LayoutParams(WRAP, WRAP))
+            }
+            parent.addView(flow, LinearLayout.LayoutParams(MATCH, WRAP))
+        }
+
+        private fun palette(night: Boolean): Palette {
+            val cfg = Configuration(act.resources.configuration)
+            cfg.uiMode = (cfg.uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or
+                (if (night) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO)
+            val x: Context = act.createConfigurationContext(cfg)
+            return Palette(x.getColor(R.color.mg_bg), x.getColor(R.color.mg_surface), x.getColor(R.color.mg_outline),
+                x.getColor(R.color.mg_text), x.getColor(R.color.mg_primary))
+        }
+    }
+
+    /** Mini phone drawn in code: speed-dial squares + the bottom pill bar. right != null = left half / right half (System tile). */
+    private class PhoneView(ctx: Context, private val left: Palette, private val right: Palette?) : View(ctx) {
+        private val d = ctx.resources.displayMetrics.density
+        private val p = Paint(Paint.ANTI_ALIAS_FLAG)
+
+        override fun onDraw(c: Canvas) {
+            val w = width.toFloat()
+            val h = height.toFloat()
+            c.save()
+            val clip = Path()
+            clip.addRoundRect(RectF(0f, 0f, w, h), 14f * d, 14f * d, Path.Direction.CW)
+            c.clipPath(clip)
+            if (right == null) {
+                drawPal(c, left, w, h)
+            } else {
+                c.save(); c.clipRect(0f, 0f, w / 2f, h); drawPal(c, left, w, h); c.restore()
+                c.save(); c.clipRect(w / 2f, 0f, w, h); drawPal(c, right, w, h); c.restore()
+            }
+            c.restore()
+        }
+
+        private fun drawPal(c: Canvas, pal: Palette, w: Float, h: Float) {
+            p.style = Paint.Style.FILL; p.color = pal.bg
+            c.drawRect(0f, 0f, w, h, p)
+            // title line
+            p.color = ColorUtils.setAlphaComponent(pal.text, 0x66)
+            c.drawRoundRect(RectF(w / 2f - 22f * d, 14f * d, w / 2f + 22f * d, 18f * d), 2f * d, 2f * d, p)
+            // 2 x 3 speed-dial squares
+            val s = 18f * d
+            val gap = 8f * d
+            val x0 = (w - (3f * s + 2f * gap)) / 2f
+            for (r in 0 until 2) for (k in 0 until 3) {
+                val l = x0 + k * (s + gap)
+                val t = 30f * d + r * (s + gap)
+                p.style = Paint.Style.FILL; p.color = pal.surface
+                c.drawRoundRect(RectF(l, t, l + s, t + s), 5f * d, 5f * d, p)
+                p.style = Paint.Style.STROKE; p.strokeWidth = 1f * d; p.color = pal.outline
+                c.drawRoundRect(RectF(l, t, l + s, t + s), 5f * d, 5f * d, p)
+            }
+            // bottom pill bar
+            val bar = RectF(10f * d, h - 28f * d, w - 10f * d, h - 12f * d)
+            p.style = Paint.Style.FILL; p.color = pal.surface
+            c.drawRoundRect(bar, 8f * d, 8f * d, p)
+            p.style = Paint.Style.STROKE; p.strokeWidth = 1f * d; p.color = pal.outline
+            c.drawRoundRect(bar, 8f * d, 8f * d, p)
+            p.style = Paint.Style.FILL; p.color = pal.primary
+            c.drawCircle(bar.left + 10f * d, bar.centerY(), 2.5f * d, p)
+            p.color = ColorUtils.setAlphaComponent(pal.text, 0x66)
+            c.drawRoundRect(RectF(bar.left + 20f * d, bar.centerY() - 1.5f * d, bar.left + 44f * d, bar.centerY() + 1.5f * d), 1.5f * d, 1.5f * d, p)
+        }
+    }
+
+    /** Minimal wrapping row layout for the chips. */
+    private class FlowLayout(ctx: Context, private val gap: Int) : ViewGroup(ctx) {
+        override fun onMeasure(wSpec: Int, hSpec: Int) {
+            val maxW = MeasureSpec.getSize(wSpec) - paddingLeft - paddingRight
+            var x = 0
+            var y = 0
+            var rowH = 0
+            for (i in 0 until childCount) {
+                val v = getChildAt(i)
+                if (v.visibility == View.GONE) continue
+                v.measure(MeasureSpec.makeMeasureSpec(maxW, MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED))
+                if (x > 0 && x + v.measuredWidth > maxW) { x = 0; y += rowH + gap; rowH = 0 }
+                x += v.measuredWidth + gap
+                rowH = maxOf(rowH, v.measuredHeight)
+            }
+            setMeasuredDimension(MeasureSpec.getSize(wSpec), y + rowH + paddingTop + paddingBottom)
+        }
+
+        override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+            val maxW = r - l - paddingLeft - paddingRight
+            var x = 0
+            var y = 0
+            var rowH = 0
+            for (i in 0 until childCount) {
+                val v = getChildAt(i)
+                if (v.visibility == View.GONE) continue
+                if (x > 0 && x + v.measuredWidth > maxW) { x = 0; y += rowH + gap; rowH = 0 }
+                v.layout(paddingLeft + x, paddingTop + y, paddingLeft + x + v.measuredWidth, paddingTop + y + v.measuredHeight)
+                x += v.measuredWidth + gap
+                rowH = maxOf(rowH, v.measuredHeight)
+            }
+        }
+    }
+}

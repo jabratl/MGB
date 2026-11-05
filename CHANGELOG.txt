@@ -1,3 +1,10 @@
+0.0.168 (APPEARANCE STEP A2 BUILD: Appearance screen shell + AppearancePrefs + THEME section)
+- AppearancePrefs.kt (new): all ap_* prefs (bar pos, home action, full url, swipe fs / tabs, wallpaper dim + file, undo toast, start page) with defaults = today's behaviour.
+- AppearanceScreen.kt (new): full-screen dialog (56 dp header + back). Root page = THEME: 3 mini-phone tiles (System / Light / Dark, violet ring + check dot) + Dark pages ThazirSwitch row. Helpers for A3-A8: sectionLabel / card / toggleRow / tileChoice / chipChoice (+ FlowLayout). Back = Settings. Theme tile = save + recreate, the screen reopens (markReopen / reopenPending).
+- UiMode.kt: setMode(ctx, which) (save + apply, true if changed). SettingsScreen.kt: General > Appearance row (first, value = theme name) + HINTS + KW; old Theme / Dark pages rows kept.
+- MainActivity.kt: one line after PlayerScreen.reopenPending: AppearanceScreen.reopenPending(this).
+- app/build.gradle.kts: 0.0.168.
+
 0.0.167 (APPEARANCE STEP A1 BUILD: ThazirSwitch + toggle colour tokens)
 - ThazirSwitch.kt (new): MaterialSwitch subclass, drop-in. Track 48x28 dp pill (ON solid violet, OFF 1.5 dp outline), thumb = rounded square 20 dp / radius 7 dp (ON white + check, OFF grey). Drawn in code, tint lists cleared.
 - res/values/colors.xml + res/values-night/colors.xml: mg_toggle_on (#5B4BD6 | #9A8CFF), mg_toggle_thumb (#FFFFFF).

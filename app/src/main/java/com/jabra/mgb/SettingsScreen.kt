@@ -101,6 +101,7 @@ object SettingsScreen {
         /** Step B: one short hint line for rows that have none (text only, kept under about 34 characters). */
         private val HINTS = mapOf(
             "Theme" to "Light, dark or follow phone",
+            "Appearance" to "Theme and dark pages",
             "Dark pages" to "Darken websites (reload page)",
             "Search engine" to "Used in the address bar",
             "Translate to" to "Language for page translation",
@@ -149,6 +150,7 @@ object SettingsScreen {
         /** S21f: hidden search words per row label (the row is found by these too). */
         private val KW = mapOf(
             "Theme" to "dark light night mode appearance colour",
+            "Appearance" to "theme dark light night look colour style",
             "Default browser" to "links open http https set app phone settings",
             "Dark pages" to "dark mode night websites black",
             "Search engine" to "google bing duckduckgo default address bar",
@@ -815,6 +817,7 @@ object SettingsScreen {
             }
             category("general", R.drawable.ic_settings, "General", "Theme, search, pages, display", listOf(
                 Sub("Appearance"),
+                Row(R.drawable.ic_theme, "Appearance", UiMode.label(act)) { dismiss(); AppearanceScreen.open(act) }, // APPEARANCE A2
                 Row(R.drawable.ic_theme, "Theme", UiMode.label(act)) { dismiss(); UiMode.pick(act) },
                 Row(R.drawable.ic_theme, "Dark pages", if (UiMode.darkPages(act)) "ON" else "OFF") {
                     val on = !UiMode.darkPages(act)
