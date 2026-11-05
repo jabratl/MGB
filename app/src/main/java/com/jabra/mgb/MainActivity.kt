@@ -177,6 +177,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Item("Bookmark all tabs", R.drawable.ic_bookmark_border) { TabBookmarks.dialog(this, tabs) }, // S40
             MenuSheet.Item("Passwords", R.drawable.ic_lock) { PasswordStore.screen(this) }, // S40
             MenuSheet.Item("Recently closed tabs", R.drawable.ic_history) { Backup.closedTabs(this, tabs) }, // S29
+            MenuSheet.Item("Saved pages", R.drawable.ic_folder, true, PageSave.count(this).let { if (it > 0) it.toString() else "" }) { PageSave.dialog(this, tabs) }, // T3
             MenuSheet.Item("Novel grabber", R.drawable.ic_book, true, "EPUB · DOCX · TXT") { openExt("novel/studio.html") }, // N1
             MenuSheet.Item("Queue", R.drawable.ic_list) { openExt("queue.html") },
             MenuSheet.Item("Report center", R.drawable.ic_info) { DiagScreen.open(this, tabs, -1) } // S85
@@ -197,6 +198,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Item("Detected files", R.drawable.ic_download, canMark) { floating.openSheet() }, // S50
             MenuSheet.Item("Page info", R.drawable.ic_info, canMark) { PageInfo.show(this, tabs) }, // S29
             MenuSheet.Item("View page source", R.drawable.ic_code, canMark) { tabs.active?.let { PageSource.open(this, it) } }, // T2
+            MenuSheet.Item("Save page", R.drawable.ic_save, canMark && cur?.priv != true) { tabs.active?.let { PageSave.save(this, it) } }, // T3
             MenuSheet.Item("Fill password", R.drawable.ic_lock, canMark && cur?.priv != true) { PasswordStore.fill(this, tabs) }, // S30
             MenuSheet.Item("Email alias", R.drawable.ic_share, true) { EmailAlias.create(this, cur?.url?.takeIf { canMark }?.let { Util.host(it) } ?: "") }, // S30
             MenuSheet.Item("Privacy Guard", R.drawable.ic_shield, true, if (AdBlock.enabled) "ON · ${AdBlock.blocked}" else "OFF") { // S19 + S71: opens the Privacy Guard sheet on web pages

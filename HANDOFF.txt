@@ -20,7 +20,7 @@ CURRENT VERSION 0.0.140 (Settings STEP E: tab suspend, Older section, audit scri
 
 [x] T1  v0.0.141  Tab link tools: Clone Tab, Copy all tab links, Open links from clipboard      DONE (see T1 RESULT below)
 [x] T2  v0.0.142  View page source                                                               DONE (see T2 RESULT below)
-[ ] T3  v0.0.143  Save page + minimal saved list (proves the offline open path)                  size M+     (~70%)  TIGHT
+[x] T3  v0.0.143  Save page + minimal saved list                                                  CODE DONE, GO / NO-GO NOT TESTED (see T3 RESULT)
 [ ] T4  v0.0.144  Saved pages screen (search, rename, share, thumbnails, Settings row)           size M      (~55%)
 [ ] T5  v0.0.145  Adblock manager part 1: backend (my rules, my hosts, allow list, explain)      size M      (~55%)
 [ ] T6  v0.0.146  Adblock manager part 2: screen (lists, my rules editor, hosts, test URL)       size M      (~65%)
@@ -41,7 +41,16 @@ T2 RESULT (0.0.142)
  Changed: PageSource.kt (new: whole viewer) / MainActivity.kt (page row) / MenuCustom.kt (entry) / build.gradle.kts (0.0.142) / CHANGELOG.txt / HANDOFF.txt.
  Checks: bracket balance of the 3 Kotlin files, render JS parses (node), every new API call re-read against its real signature (Util.host / dp / toast, Tab fields, MenuSheet.Item, FileProvider authority = packageName + ".fileprovider"). kotlinc not available. No xml ids / no new resources, so no duplicate-id risk.
  NOT tested (needs a phone): compile; Rendered on a JS-heavy page; Original of a redirecting page (http -> https) and of a login-only page; non-text url (pdf) toast; page over 2 MB (note shown); private tab (no Original pill); suspended tab (Rendered says "not loaded", Original works); search on 5000+ matches; wrap off scroll sideways; Share as .html opens in a chooser; layout at 360 px dark + light (not render-checked: no emulator here). KNOWN: a search match that is split by the 400-character row cut is not found; "Share as .html" shares the tab currently shown (Rendered or Original).
- NEXT: T3 Save page + minimal saved list (size M+, TIGHT). FIRST thing: go / no-go test of loadUrl("file://.../x.mht") on the real engine path; if it does not render, STOP and tell the user.
+ NEXT: was T3 (now coded, see T3 RESULT).
+
+T3 RESULT (0.0.143)
+ Done: page menu "Save page" (name dialog) + main menu "Saved pages" (list dialog: tap open, long press delete). Saved pages open offline in a normal tab with JS off + network blocked.
+ Changed: PageSave.kt (new: store, save, flags, list dialog) / TabManager.kt (savedPage flag, openSaved, 3 guards, restore) / MainActivity.kt (2 rows) / MenuCustom.kt (2 entries) / res/drawable/ic_save.xml (new) / build.gradle.kts (0.0.143) / CHANGELOG.txt / HANDOFF.txt.
+ Checks: bracket balance of the 4 Kotlin files (TabManager has a 1-paren script artifact that was already there in 0.0.141, diff shows only the intended lines), icon xml parses, every new call re-read against its real signature. kotlinc and a real WebView are NOT available here.
+ !! GO / NO-GO NOT DONE (no phone): FIRST phone test = save a page, open it from Saved pages. If the tab stays blank / shows an error, T3 must NOT go on to T4: tell the chat, the fallback is a single HTML snapshot (bigger step). Code assumes loadUrl("file://.../x.mht") renders with allowFileAccess = true.
+ NOT tested (needs a phone): compile; save + open of a normal page, a page with images, a JS-heavy page (MHT shows the DOM at save time, JS is off); airplane mode open; delete while the tab is open; restart with a saved-page tab open (restored from file); Back / Forward inside a saved tab; a normal tab opened after a saved tab still has JS on and normal file access (flags are per tab); 100 page limit toast.
+ KNOWN: "Copy all tab links" (T1) may include the file:// address of a saved-page tab (TabBookmarks.linkOf not touched); a restored saved-page tab whose file was deleted shows an error page; the Saved pages row is a plain dialog (T4 replaces it); no thumbnails, no size-total beyond the dialog title.
+ NEXT: if the go / no-go passed on the phone: T4 Saved pages screen (size M). Goal: full-screen "Saved pages" list replacing the T3 dialog (search, rename, share file, Settings row). If it failed: stop, report to the chat.
 
 Order rules: T1, T2 can go first (easy wins). Tracks are independent: SAVE (T3 -> T4), ADBLOCK (T5 -> T6), USERSCRIPTS (T7 -> T8 -> T9 -> T10).
 Inside a track never skip a step. Sizes are estimates; the "SAFE CUT" line of every step says what to drop if the chat reaches about 85%.

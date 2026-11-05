@@ -85,6 +85,8 @@ class TabManager(
         var extWide: Boolean = false
         /** S26: private tab: own WebView profile (cookies / storage), no history, not saved in the session. */
         var priv: Boolean = false
+        /** T3: shows a saved page (.mht from our saved_pages folder): offline flags (PageSave.mark), no ad / https / per-site hooks. */
+        var savedPage: Boolean = false
         val loading: Boolean get() = progress < 100
         /** Extension page (downloader.html, player.html ...) served by EngineHost. */
         val isExt: Boolean get() = url.startsWith(ContentInjector.EXT_ORIGIN)
@@ -253,6 +255,17 @@ class TabManager(
      * T1: copy of [src] placed right after it: same page, same Back / Forward list, same desktop mode, same group.
      * A suspended tab copies its saved state; a tab that never loaded (pending) copies only the address.
      */
+    /** T3: open a saved page (file:// address inside saved_pages) in a new tab with the offline flags. */
+    fun openSaved(url: String, title: String): Tab? {
+        val t = newTab(null, 0, false) ?: return null
+        PageSave.mark(t)
+        t.url = url
+        t.title = title
+        switchTo(t)
+        t.web.loadUrl(url)
+        return t
+    }
+
     fun cloneTab(src: Tab, select: Boolean = true): Tab? {
         if (src.isExt) return null
         if (src.home) return newTab(HOME_PAGE, 0, select, src.priv)
@@ -389,6 +402,7 @@ class TabManager(
             t.url = u
             ts.optLong(i, 0L).let { if (it > 0L) t.lastActive = it } // STEP E
             if (u == HOME_PAGE) t.home = true else t.pending = u // S13
+            if (PageSave.isSaved(ctx, u)) PageSave.mark(t) // T3: a saved page reloads from its file with the offline flags
             if (i == act) target = t
         }
         sp.getString("groups", null)?.let { g -> TabSwitcher.importGroups(g) { i -> ids.getOrNull(i) } } // S41
@@ -478,6 +492,7 @@ class TabManager(
         // S6: extension pages (https://appassets.androidplatform.net/ext/...) are served from assets
         override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
             val r = request ?: return null
+            if (tab.savedPage) return null // T3
             if (!r.url.toString().startsWith(ContentInjector.EXT_ORIGIN)) {
                 // S8: extension page -> network goes through the engine proxy (CORS + header rules); web page -> sniff
                 if (tab.isExt) {
@@ -540,7 +555,7 @@ class TabManager(
                 val z = TextZoom.get(ctx, Util.host(url ?: ""))
                 if (view.settings.textZoom != z) view.settings.textZoom = z
             }
-            if (!tab.isExt && view != null) { // S29: per-site switches
+            if (!tab.isExt && !tab.savedPage && view != null) { // S29: per-site switches (T3: not for a saved page, JS stays off)
                 val jsOff = SiteConfig.has(url, SiteConfig.JS_OFF)
                 if (view.settings.javaScriptEnabled == jsOff) view.settings.javaScriptEnabled = !jsOff
                 if (SiteConfig.has(url, SiteConfig.DESKTOP) && !tab.desktop) container.post { setDesktop(tab, true) }

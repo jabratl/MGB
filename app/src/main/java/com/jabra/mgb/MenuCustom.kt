@@ -48,7 +48,7 @@ object MenuCustom {
     )
     val GENERAL = listOf(
         Entry("New private tab", R.drawable.ic_lock), Entry("Bookmark all tabs", R.drawable.ic_bookmark_border),
-        Entry("Passwords", R.drawable.ic_lock), Entry("Recently closed tabs", R.drawable.ic_history),
+        Entry("Passwords", R.drawable.ic_lock), Entry("Recently closed tabs", R.drawable.ic_history), Entry("Saved pages", R.drawable.ic_folder), // T3
         Entry("Novel grabber", R.drawable.ic_book), Entry("Queue", R.drawable.ic_list),
         Entry("Report center", R.drawable.ic_info), Entry("Settings", R.drawable.ic_settings, true),
         Entry(CUSTOMISE, R.drawable.ic_edit, true)
@@ -58,7 +58,7 @@ object MenuCustom {
         Entry("Clone tab", R.drawable.ic_copy), // T1
         Entry("Translate page", R.drawable.ic_search), Entry("Reader view", R.drawable.ic_list),
         Entry("Text size", R.drawable.ic_edit), Entry("Detected files", R.drawable.ic_download),
-        Entry("Page info", R.drawable.ic_info), Entry("View page source", R.drawable.ic_code), // T2
+        Entry("Page info", R.drawable.ic_info), Entry("View page source", R.drawable.ic_code), Entry("Save page", R.drawable.ic_save), // T2, T3
         Entry("Fill password", R.drawable.ic_lock),
         Entry("Email alias", R.drawable.ic_share), Entry("Privacy Guard", R.drawable.ic_shield)
     )

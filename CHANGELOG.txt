@@ -1,3 +1,10 @@
+0.0.143 (TOOLS STEP T3 BUILD: Save page + minimal saved list)
+- PageSave.kt (new): store = filesDir/saved_pages/<id>.mht + index.json (title, url, time, size; max 100). Save dialog (name prefilled with the title) -> WebView.saveWebArchive. Simple list dialog: tap = open, long press = delete (confirm), total size in the title. mark(tab) = offline flags for THAT tab only: allowFileAccess on, JavaScript off, blockNetworkLoads on. isSaved(url) = address inside our saved_pages folder.
+- TabManager.kt: Tab.savedPage flag; openSaved(url, title) opens a new tab with the flags; saved-page tab skips the per-site switches in onPageStarted (they would turn JS back on) and shouldInterceptRequest (ad block / sniff / extension rules); restoreSession re-applies the flags to a saved file address. Not suspended, not in history (those only handle http already).
+- MainActivity.kt: page menu row "Save page" (not for private / home / extension / saved tabs); main menu row "Saved pages" (shows the count). MenuCustom.kt: both entries so they can be hidden.
+- res/drawable/ic_save.xml (new).
+- No new setting, no manifest change. Saved pages are NOT part of Backup (too large, on purpose).
+
 0.0.142 (TOOLS STEP T2 BUILD: View page source)
 - PageSource.kt (new): full-screen viewer. Rendered = the page as it is now (document.documentElement.outerHTML); Original = what the server sent (background thread, own user agent + site cookies, redirects followed by hand, text types only). Both cut at 2 MB ("Cut at 2 MB" note). Private tab = Rendered only (no Original pill, no cookies from the normal jar). Line list = RecyclerView (monospace, line numbers, lines over 400 characters are cut into continuation rows). Search with count and previous / next (matches highlighted in the row). Overflow menu: Copy all, Share as .html (cache/updates + existing FileProvider), Wrap lines on / off.
 - MainActivity.kt: page menu row "View page source" (code icon, enabled when the page can be bookmarked = web page tab). MenuCustom.kt: Entry("View page source") so it can be hidden.
