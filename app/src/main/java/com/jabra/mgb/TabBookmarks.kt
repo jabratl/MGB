@@ -1,5 +1,8 @@
 package com.jabra.mgb
 
+import android.app.Activity
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.text.InputType
 import android.widget.EditText
@@ -74,5 +77,78 @@ object TabBookmarks {
         }
         if (n == 0 && f.isNotEmpty() && !existed) Bookmarks.removeFolder(f)
         return n
+    }
+
+    // ---------- T1: copy links / open links from the clipboard ----------
+
+    /** Web address of a tab for copying: null for private, home and extension tabs and for non-web pages. */
+    fun linkOf(t: TabManager.Tab): String? {
+        if (t.priv || t.isExt || t.home) return null
+        val u = t.pending ?: t.url
+        return if (u.startsWith("http://") || u.startsWith("https://")) u else null
+    }
+
+    /** One address per line, no duplicates. Private tabs are never copied. */
+    fun copyLinks(ctx: Context, tabs: List<TabManager.Tab>) {
+        val seen = LinkedHashSet<String>()
+        for (t in tabs) linkOf(t)?.let { seen.add(it) }
+        if (seen.isEmpty()) { Util.toast(ctx, "No web tabs to copy"); return }
+        try {
+            (ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+                .setPrimaryClip(ClipData.newPlainText("MGB links", seen.joinToString("\n")))
+            Util.toast(ctx, if (seen.size == 1) "1 link copied" else "${seen.size} links copied")
+        } catch (e: Exception) { Util.toast(ctx, "Could not copy") }
+    }
+
+    private val URL_RX = Regex("(?i)\\b(?:https?://|www\\.)[^\\s<>\"'\\u0000-\\u001f]+")
+
+    /**
+     * Reads the clipboard (only now, when the row is tapped) and offers the links it finds.
+     * Tabs open in the background and load when first selected. [priv] = the private view: tabs stay private.
+     * [intoGroup] = the group panel that is open (new tabs join it). [canGroup] = offer "New group".
+     */
+    fun fromClipboard(act: Activity, tm: TabManager, priv: Boolean, intoGroup: String?, canGroup: Boolean, done: () -> Unit) {
+        val text = try {
+            val cm = act.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val c = cm.primaryClip
+            if (c != null && c.itemCount > 0) c.getItemAt(0).coerceToText(act).toString() else ""
+        } catch (e: Exception) { "" }
+        val found = LinkedHashSet<String>()
+        for (m in URL_RX.findAll(text)) {
+            var u = m.value.trimEnd('.', ',', ';', ':', '!', '?', '\'', '"', ')', ']', '}', '>')
+            if (u.startsWith("www.", true)) u = "https://$u"
+            if (u.length in 12..2000 && Util.host(u).isNotEmpty()) found.add(u)
+            if (found.size >= 100) break
+        }
+        if (found.isEmpty()) { Util.toast(act, "No links on the clipboard"); return }
+        val room = TabManager.MAX_TABS - tm.count
+        if (room <= 0) { Util.toast(act, "Too many tabs"); return }
+        val open = tm.allTabs().filter { !it.isExt && !it.home && it.priv == priv }.map { it.pending ?: it.url }.toSet()
+        val list = found.toList()
+        val on = BooleanArray(list.size) { list[it] !in open }
+        val names = Array(list.size) { i ->
+            val u = list[i]
+            val shown = u.removePrefix("https://").removePrefix("http://").removePrefix("www.")
+            (if (shown.length > 70) shown.take(69) + "\u2026" else shown) + (if (!on[i]) "  (already open)" else "")
+        }
+        fun go(group: Boolean) {
+            val pick = list.filterIndexed { i, _ -> on[i] }
+            if (pick.isEmpty()) { Util.toast(act, "Nothing selected"); return }
+            val made = ArrayList<TabManager.Tab>()
+            for (u in pick) { val t = tm.newTab(u, 0, false, priv, true) ?: break; made.add(t) }
+            if (made.isEmpty()) return
+            if (intoGroup != null) TabSwitcher.groupTabs(intoGroup, made.map { it.id })
+            else if (group) TabSwitcher.groupTabs("Links " + SimpleDateFormat("dd MMM HH:mm", Locale.getDefault()).format(Date()), made.map { it.id })
+            val left = pick.size - made.size
+            Util.toast(act, (if (made.size == 1) "Opened 1 tab" else "Opened ${made.size} tabs") + (if (left > 0) ", $left left out (tab limit)" else ""))
+            done()
+        }
+        val b = MaterialAlertDialogBuilder(act)
+            .setTitle(if (list.size == 1) "1 link found" else "${list.size} links found")
+            .setMultiChoiceItems(names, on) { _, i, v -> on[i] = v }
+            .setPositiveButton("Open") { _, _ -> go(false) }
+            .setNegativeButton("Cancel", null)
+        if (canGroup) b.setNeutralButton("New group") { _, _ -> go(true) }
+        b.show()
     }
 }

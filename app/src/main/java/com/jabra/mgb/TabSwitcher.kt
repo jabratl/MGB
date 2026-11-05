@@ -166,6 +166,14 @@ object TabSwitcher {
     }
     fun joinGroupOf(newId: Int, refId: Int) { groups.entries.firstOrNull { refId in it.value }?.value?.add(newId) }
 
+    /** T1: put tabs into group [name] (created when missing); they leave any other group. */
+    fun groupTabs(name: String, ids: Collection<Int>) {
+        val set = ids.toSet()
+        for (g in groups.values) g.removeAll(set)
+        groups.getOrPut(name) { LinkedHashSet() }.addAll(set)
+        onChanged?.invoke()
+    }
+
     /** S15: opens group [name] directly as a panel over the page (grows out of [anchor], e.g. the strip arrow), like Brave. */
     fun showGroup(act: Activity, tm: TabManager, name: String, anchor: View?) {
         if (act.isFinishing || act.isDestroyed || !groups.containsKey(name)) return
@@ -786,6 +794,15 @@ object TabSwitcher {
             if (onList) items.add(MI("Select tabs", R.drawable.ic_check) { startSelect(null) })
             if (mode != 1 && onList) items.add(MI("Bookmark all tabs", R.drawable.ic_bookmark_border) { TabBookmarks.dialog(act, tm) }) // S40
             if (mode != 1 && onList) items.add(MI("Share all tabs", R.drawable.ic_share) { TabBookmarks.shareAll(act, tm) }) // S41
+            if (mode != 1 && onList) { // T1: copy the links / open links from the clipboard
+                val grp = if (mode == 2) openGroup else null
+                items.add(MI(if (grp != null) "Copy group links" else "Copy all tab links", R.drawable.ic_copy) {
+                    TabBookmarks.copyLinks(act, if (grp != null) (groups[grp] ?: emptySet<Int>()).mapNotNull { tm.byId(it) } else tm.allTabs())
+                })
+            }
+            if (onList) items.add(MI("Open links from clipboard", R.drawable.ic_paste) { // T1
+                TabBookmarks.fromClipboard(act, tm, mode == 1, if (mode == 2) openGroup else null, mode != 1 && openGroup == null) { render() }
+            })
             if (onList) items.add(MI(if (mode == 1) "Close all private tabs" else "Close all tabs", R.drawable.ic_trash) { closeAll() })
             items.add(MI("Delete browsing data", R.drawable.ic_trash) { deleteData() }) // S76
             items.add(MI("Settings", R.drawable.ic_settings) { dismiss(); SettingsScreen.open(act) }) // S76
@@ -825,6 +842,14 @@ object TabSwitcher {
             if (mode == 2) items.add(MI("Ungroup tabs", R.drawable.ic_folder) { ungroup() })
             if (mode != 1) items.add(MI("Add Favorite", R.drawable.ic_bookmark_border) { addFav(sel) })
             if (mode != 1) items.add(MI("Share tabs", R.drawable.ic_share) { shareTabs(sel) })
+            if (mode != 1) items.add(MI("Copy links", R.drawable.ic_copy) { TabBookmarks.copyLinks(act, sel) }) // T1
+            items.add(MI(if (sel.size == 1) "Clone tab" else "Clone tabs", R.drawable.ic_copy) { // T1
+                var n = 0
+                for (x in sel) { if (x.isExt) continue; if (tm.cloneTab(x, false) == null) break; n++ }
+                endSelect(false)
+                render()
+                if (n > 0) Util.toast(act, if (n == 1) "Tab cloned" else "$n tabs cloned")
+            })
             popup(anchor, items)
         }
 
@@ -832,6 +857,9 @@ object TabSwitcher {
             val items = ArrayList<MI>()
             items.add(MI("Select tab", R.drawable.ic_check) { startSelect(t.id) })
             if (!t.priv) items.add(MI("Add tab to group", R.drawable.ic_folder) { askGroup(setOf(t.id)) })
+            if (!t.isExt) items.add(MI("Clone tab", R.drawable.ic_copy) { // T1
+                if (tm.cloneTab(t, false) != null) { Util.toast(act, "Tab cloned"); render() }
+            })
             if (urlOf(t) != null) items.add(MI("Add Favorite", R.drawable.ic_bookmark_border) { addFav(listOf(t)) })
             if (urlOf(t) != null) items.add(MI("Share", R.drawable.ic_share) { shareTabs(listOf(t)) })
             items.add(MI("Close tab", R.drawable.ic_close) { closeAnimated(anchor, t) })
@@ -841,6 +869,9 @@ object TabSwitcher {
         private fun groupMenu(anchor: View, name: String, inView: Boolean) {
             val items = ArrayList<MI>()
             if (inView) items.add(MI("Select tabs", R.drawable.ic_check) { startSelect(null) })
+            items.add(MI("Copy group links", R.drawable.ic_copy) { // T1
+                TabBookmarks.copyLinks(act, (groups[name] ?: emptySet<Int>()).mapNotNull { tm.byId(it) })
+            })
             items.add(MI("Edit group name", R.drawable.ic_edit) { renameGroup(name) })
             items.add(MI("Edit group colour", R.drawable.ic_theme) { recolor(name) })
             items.add(MI("Close group", R.drawable.ic_close) { closeGroup(name) })

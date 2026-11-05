@@ -190,6 +190,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Item(if (cur?.desktop == true) "Mobile site" else "Desktop site", R.drawable.ic_desktop, cur != null && !cur.home && !cur.isExt, "", "Desktop site") {
                 tabs.active?.let { tabs.setDesktop(it, !it.desktop) }
             },
+            MenuSheet.Item("Clone tab", R.drawable.ic_copy, cur != null && !cur.isExt) { cur?.let { c -> if (tabs.cloneTab(c, true) != null) Util.toast(this, "Tab cloned") } }, // T1
             MenuSheet.Item("Translate page", R.drawable.ic_search, canMark, if (Translate.hasLang(this)) Translate.lang(this) else "") { Translate.page(this, tabs) }, // S41
             MenuSheet.Item("Reader view", R.drawable.ic_list, canMark) { tabs.active?.let { PageInfo.reader(this, it) } }, // S41
             MenuSheet.Item("Text size", R.drawable.ic_edit, canMark, cur?.let { c -> TextZoom.get(this, Util.host(c.url)).takeIf { it != 100 }?.let { "$it%" } } ?: "") { TextZoom.dialog(this, tabs) }, // S41

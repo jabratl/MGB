@@ -213,7 +213,8 @@ class TabManager(
 
     // ---------- tabs ----------
 
-    fun newTab(url: String?, openerId: Int = 0, select: Boolean = true, priv: Boolean = false): Tab? {
+    /** T1: lazy = the page loads only when the tab is first selected (url waits in pending, like a restored tab). */
+    fun newTab(url: String?, openerId: Int = 0, select: Boolean = true, priv: Boolean = false, lazy: Boolean = false): Tab? {
         if (tabs.size >= MAX_TABS) {
             Util.toast(ctx, "Too many tabs")
             return null
@@ -240,9 +241,44 @@ class TabManager(
         if (url == HOME_PAGE) tab.home = true // S13: speed dial, nothing to load
         TabsApi.onCreated(tab) // S6
         if (select) switchTo(tab)
-        if (url != null && !tab.home) web.loadUrl(url)
+        if (lazy && url != null && !tab.home && url.startsWith("http")) { // T1
+            tab.pending = url
+            tab.title = Util.host(url)
+        } else if (url != null && !tab.home) web.loadUrl(url)
         listener.onTabsChanged()
         return tab
+    }
+
+    /**
+     * T1: copy of [src] placed right after it: same page, same Back / Forward list, same desktop mode, same group.
+     * A suspended tab copies its saved state; a tab that never loaded (pending) copies only the address.
+     */
+    fun cloneTab(src: Tab, select: Boolean = true): Tab? {
+        if (src.isExt) return null
+        if (src.home) return newTab(HOME_PAGE, 0, select, src.priv)
+        val u = src.pending ?: (if (src.suspended) null else src.web.url) ?: src.url
+        if (!u.startsWith("http")) return null
+        val b: android.os.Bundle? = when {
+            src.suspended -> src.savedState?.let { android.os.Bundle(it) }
+            src.pending != null -> null
+            else -> android.os.Bundle().also { try { src.web.saveState(it) } catch (_: Throwable) { } }
+        }
+        val t = newTab(null, 0, false, src.priv) ?: return null
+        t.url = u
+        t.title = src.title
+        if (src.desktop) { // same as setDesktop, without the reload
+            t.desktop = true
+            t.web.settings.userAgentString = BrowserExtras.desktopUa(ctx)
+            t.web.settings.useWideViewPort = true
+            t.web.settings.loadWithOverviewMode = true
+        }
+        val ok = b != null && !b.isEmpty && try { t.web.restoreState(b) != null } catch (_: Throwable) { false }
+        if (!ok) t.pending = u // no history to copy: the page loads when the clone is opened
+        moveTo(t, tabs.indexOf(src) + 1)
+        if (!src.priv) TabSwitcher.joinGroupOf(t.id, src.id)
+        if (select) switchTo(t)
+        listener.onTabsChanged()
+        return t
     }
 
     fun switchTo(tab: Tab) {
