@@ -173,6 +173,13 @@ object BlockerStats {
             setOnClickListener { manage() }
         }
         fl.addView(mng, LinearLayout.LayoutParams(MATCH, dp(44)))
+        // T6: full-screen manager (my rules, my hosts, allow list, built-in hosts, test a URL)
+        val hf = TextView(act).apply {
+            text = "Hosts and filters"; gravity = Gravity.CENTER; typeface = Typeface.DEFAULT_BOLD
+            setTextColor(cPrimary); setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f); isClickable = true
+            setOnClickListener { d.dismiss(); AdblockManager.open(act) }
+        }
+        fl.addView(hf, LinearLayout.LayoutParams(MATCH, dp(44)))
         col.addView(fl, LinearLayout.LayoutParams(MATCH, WRAP))
 
         d.setContentView(NestedScrollView(act).apply { addView(col) })

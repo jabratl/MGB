@@ -1,3 +1,10 @@
+0.0.146 (TOOLS STEP T6 BUILD: Adblock manager part 2, the screen)
+- AdblockManager.kt (new): full-screen "Hosts and filters" (skeleton of SiteSettings, Settings card style, dark + light from mg_ colours). Cards: Filter lists (switch per list, applied once after 0.9 s, Update now, Add list by address, long press a custom list = remove) / My rules (full-screen monospace editor: Validate, Apply, Copy, Paste, discard check) / My blocked hosts (list with delete, Add host, Add from clipboard, hosts-file lines ok) / Allowed hosts (list with delete, Allow a host, link to Sites with ads allowed) / Built-in hosts (read only, searchable, long press = Allow this host) / Test a URL (AdBlock.explain, page host = open tab).
+- FilterList.kt: checkRules(text) = dry run of setUserRules (same parser and limits, saves nothing) for Validate.
+- BlockerStats.kt: one text button "Hosts and filters" under Manage lists (opens the new screen).
+- SettingsScreen.kt: row "Hosts and filters" (N rules) after Ad blocker + search keywords. Shipped as SettingsScreen_T6.patch (see HANDOFF), not as a file.
+- No new setting, no storage, no manifest / xml / icon change.
+
 0.0.145 (TOOLS STEP T5 BUILD: Adblock manager part 1, backend only)
 - FilterList.kt: userRules() / setUserRules(ctx, text, done) = "my rules" (prefs mgb_adblock key user_rules, max 1500 lines / 100 KB), parsed by the same Builder as a list and added in load(); setUserRules waits for a running load, then reloads once and reports "N ok, M skipped (unsupported)".
 - AdBlock.kt: user hosts + allow list (prefs mgb_adblock keys user_hosts / allow_hosts, newline separated strings so Backup copies them; max 2000 each). listed() also checks the user hosts. A host (or page host, subdomains too) on the allow list is never blocked: shouldBlock and blocksPage. New API: builtinHosts(), userHosts(), allowHosts(), addUserHost / removeUserHost / addAllow / removeAllow (add returns false for an invalid host), isAllowed(host), explain(url, pageHost) = Allowed (your allow list) / Blocked (built-in host list) / Blocked (your host) / Blocked (filter rule) / Allowed.

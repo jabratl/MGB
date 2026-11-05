@@ -23,7 +23,7 @@ CURRENT VERSION 0.0.140 (Settings STEP E: tab suspend, Older section, audit scri
 [x] T3  v0.0.143  Save page + minimal saved list                                                  CODE DONE, GO / NO-GO NOT TESTED (see T3 RESULT)
 [x] T4  v0.0.144  Saved pages screen (search, rename, share, Settings row)                     DONE (see T4 RESULT)
 [x] T5  v0.0.145  Adblock manager part 1: backend                                                DONE (see T5 RESULT)
-[ ] T6  v0.0.146  Adblock manager part 2: screen (lists, my rules editor, hosts, test URL)       size M      (~65%)
+[x] T6  v0.0.146  Adblock manager part 2: screen                                            DONE (see T6 RESULT)
 [ ] T7  v0.0.147  Userscripts part 1: store, metadata parser, injection, minimal paste/enable    size L      (~75%)  TIGHT
 [ ] T8  v0.0.148  Userscripts part 2: manager screen, install from URL / .user.js, page row      size M+     (~70%)
 [ ] T9  v0.0.149  Userscripts part 3: GM_ API without network + menu commands                    size M+     (~70%)  TIGHT
@@ -68,6 +68,15 @@ T5 RESULT (0.0.145)
  NOT tested (needs a phone): compile; add rules then check a blocked request changes; user host blocks a subdomain; allow host beats a filter rule and the built-in host list; cosmetic hiding off on an allow-listed site; setUserRules while a list update is loading; 1500-line rules reload time; restore from a backup (AdBlock.init re-reads the hosts, but FilterList does NOT reload user_rules until the app restarts: known, T6 can call setUserRules(userRules()) after an import).
  KNOWN: explain() uses request type OTHER and ignores the "same site as the page" exception of the host list (safe cut: 5 fixed reasons, no rule text).
  NEXT: T6 Adblock manager part 2: screen (size M). Goal: one full-screen "Hosts and filters" page: filter lists, my rules editor, my hosts, allowed hosts, built-in hosts (searchable), test a URL. Pack files: NEW AdblockManager.kt, BlockerStats.kt, SettingsScreen.kt, SiteSettings.kt (skeleton), Backup.kt, Util.kt.
+
+T6 RESULT (0.0.146)
+ Done: full-screen "Hosts and filters": filter list switches + update + add list, My rules editor (Validate / Apply / Copy / Paste), blocked hosts, allowed hosts, built-in hosts (long press = allow), Test a URL.
+ Changed: AdblockManager.kt (new: whole screen) / FilterList.kt (checkRules) / BlockerStats.kt (button) / SettingsScreen_T6.patch (Settings row + KW) / build.gradle.kts (0.0.146) / CHANGELOG.txt / HANDOFF.txt.
+ !! APPLY THE PATCH: SettingsScreen.kt is NOT in the zip (the pack copy is 0.0.140 and lacks the T4 "Saved pages" row; a full file would undo T4). From the repo root: patch -p1 < SettingsScreen_T6.patch (or add by hand: Row(R.drawable.ic_list, "Hosts and filters", "${FilterList.ruleCount} rules") { AdblockManager.open(act, tabs?.active?.url?.let { SiteConfig.hostOf(it) }) { fill() } } after the "Ad blocker" Row, and the KW entry "Hosts and filters" to "adblock block host rules filter list allow whitelist easylist custom test url"). Without it the screen is only reachable from Blocker stats.
+ Checks: bracket balance of the 3 Kotlin files, every new call re-read against its real signature (FilterList.lists / setEnabledAll / addCustom / removeCustom / update / userRules / setUserRules, AdBlock user / allow / builtin / explain, CosmeticFilter.allowList, TabPrefs.tint, Util.dp / toast). No xml, no js, no ids. kotlinc not available, no emulator (360 / 1280 px, dark + light NOT render-checked).
+ NOT tested (needs a phone): compile; list switches (900 ms apply, rules reload); Update now; add / remove custom list; rules editor with 1500 lines and the keyboard at 360 px; Validate vs Apply text; Back with unsaved edits; add host from a URL / hosts-file text; clipboard paste of 300 hosts; allowed host beats a filter rule on a page; built-in list scroll with thousands of rows; long press allow; Test a URL with and without an open tab.
+ KNOWN: PrivacyGuard.kt was not in the pack, so the planned row in the Privacy Guard sheet is NOT done (entry points: Settings > Privacy and security, Blocker stats). Restoring a backup does not reload user_rules until restart (T5 note, not changed). The page host for Test a URL is read when the screen opens. Icons reused (ic_list / ic_check), no paste icon.
+ NEXT: add the "Hosts and filters" row to the Privacy Guard sheet (needs PrivacyGuard.kt), reload user rules after a backup import (Backup.kt), then T7 Userscripts part 1 (size L, TIGHT). T7 pack files: NEW Userscripts.kt, ContentInjector.kt, TabManager.kt, SettingsScreen.kt, Backup.kt, Util.kt (attach the CURRENT repo SettingsScreen.kt and TabManager.kt: the pack copies are 0.0.140).
 
 Order rules: T1, T2 can go first (easy wins). Tracks are independent: SAVE (T3 -> T4), ADBLOCK (T5 -> T6), USERSCRIPTS (T7 -> T8 -> T9 -> T10).
 Inside a track never skip a step. Sizes are estimates; the "SAFE CUT" line of every step says what to drop if the chat reaches about 85%.
