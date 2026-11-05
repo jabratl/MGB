@@ -12,5 +12,8 @@
     <color name="mg_error">#FF7B72</color>
     <color name="mg_success">#4CD08A</color>
 
+    <color name="mg_toggle_on">#9A8CFF</color>
+    <color name="mg_toggle_thumb">#FFFFFF</color>
+
     <bool name="mg_light_bars">false</bool>
 </resources>

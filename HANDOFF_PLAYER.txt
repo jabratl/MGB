@@ -1,0 +1,455 @@
+NOTE: player plan finished (P1-P14) at 0.0.166. This file = the player plan, kept for history. The active plan is HANDOFF.txt (APPEARANCE plan).
+NOTE: setAudioOnly -> applyAudioOnly compile fix is included in MGB_P9_P12_v0_0_163.zip AND in MGB_P13_P14_v0_0_165.zip (newest PlayerActivity.kt wins).
+MGB (Thazir) - PLAYER PLAN, steps P1-P14     (HANDOFF.txt = the file you paste / attach first in every new chat)
+Base: version 0.0.150 (TOOLS plan T1-T10 is finished; its old text is replaced by this file, history stays in CHANGELOG.txt).
+No app code was changed when this plan was written. Planning chat only.
+
+ASSUMPTIONS (1 line each)
+ - "Thazir browser er inbuilt player" = the NATIVE player: PlayerActivity (Media3 ExoPlayer). The old V77 extension page assets/ext/player.html is NOT touched.
+ - The reference video (Quetta Player, 800x480 screen recording) is a FEATURE + LAYOUT reference only. We rebuild every feature in the MGB look (rose accent, own icons, own wording). No Quetta name / logo / text copied.
+ - All new player prefs go into the existing prefs file "mgb_ui" with the prefix "pl_" (so Backup.kt already saves them, no Backup change needed). Resume positions stay in "mgb_resume".
+ - UI is built in code (Views, no Compose, no XML layouts for the player). Keep that style.
+
+======================================================================
+QUICKSTART FOR THE NEXT CHAT (current state: P14 done, plan finished, next = phone test + FIX)
+======================================================================
+STATE: version 0.0.166 (FIX 0.0.166 after P14: grabber missing after restart = engine-not-ready race, see CHANGELOG). Before that: version 0.0.165. P1-P14 code is done (plan finished). P3.2 and P4-P14 have NOT been confirmed to build yet (kotlinc is not available in chat). Next = build, paste any compile error (Mode FIX, smallest fix), then run the PHONE TEST LIST (section 9) and paste what fails.
+ATTACH: HANDOFF.txt (this one, newest) + MGB-context.zip + MGB_P3.2_v0_0_154.zip + MGB_P4_v0_0_155.zip + MGB_P5_v0_0_156.zip + MGB_P6_v0_0_157.zip + MGB_P7_v0_0_158.zip + MGB_P8_v0_0_159.zip + MGB_P9_P10_P11_v0_0_162.zip + MGB_P12_v0_0_163.zip + MGB_P13_P14_v0_0_165.zip. Apply order: context, P3.2, P4, P5, P6, P7, P8, P9-P11, P12, P13-P14 (same paths overwrite). The old MGB_P1 / P2 / P3 zips are NOT needed.
+CHECK before building: app/build.gradle.kts appVersionName = "0.0.165".
+USER: not a coder, writes Banglish (Bengali in Latin letters): reply in Banglish, short, simple. Everything is built on an Android phone, free tools only (GitHub Actions builds the APK). Zip name rule: MGB_Px_v0_0_NNN.zip, new version = previous + 1.
+KICKOFF LINE TO PASTE:
+  MGB (Thazir) player plan: FIX. Mode: FIX. Previous version: 0.0.165. Attached: HANDOFF.txt + MGB-context.zip + all step zips (P3.2, P4 ... P8, P9-P11, P12, P13-P14).
+  Goal: [paste the build error or the failed line of the PHONE TEST LIST]. Smallest fix, root cause first.
+LESSONS FROM THE P1-P3 BUILD FAILURES (apply in every step):
+ - NEVER put a // comment after code on a line that also holds a closing brace } (it swallows the brace).
+ - Inside X(act).apply { ... } a name that is also a function PARAMETER (max, min, text...) means the PARAMETER, not the view property: write this.max = ...
+ - Every R.drawable.* / R.color.* you use must exist: grep res/ before using it, add the xml if it is new.
+ - Run the bracket-balance check with strings and comments stripped.
+
+======================================================================
+0. WHAT TO DO IN A NEW CHAT (read this first)
+======================================================================
+1. Attach: HANDOFF.txt + MGB-context.zip + every step zip made AFTER the context zip (P1, P2 ... oldest to newest, same paths overwrite). The newest step zip carries the newest HANDOFF.txt: use that one.
+2. Section 1 (PROGRESS): the first step that is not [x] is the step to build. ONE step per chat.
+3. Paste the kickoff line (section 2). Replace [Px] and [Vxx].
+4. The assistant unzips the context zip, applies the older step zips in order, checks app/build.gradle.kts appVersionName = "Previous version", then builds ONLY that step.
+5. Every step ends with: changed-files zip (top folder MGB-main/), CHANGELOG.txt entry (newest on top), HANDOFF.txt progress line + RESULT block, version +1, final reply under 10 lines.
+6. Step zip name: MGB_Px_v0_0_NNN.zip (NNN = new version number). The CI (.github/workflows/build.yml) picks every *_vN.zip in the repo root in version order, so the name matters.
+
+======================================================================
+1. PROGRESS  (the assistant ticks the step and adds a RESULT block at the end of every step)
+======================================================================
+[x] P1  v0.0.151  Side panel framework + player settings root (3-dot menu)            CODE DONE, phone test pending (see RESULT P1)
+[x] P2  v0.0.152  Playback Speed page (slider, preset grid, saved custom speeds)       CODE DONE, phone test pending (see RESULT P2)
+[x] P3  v0.0.153  Quality page + Repeat page                                           CODE DONE, phone test pending (see RESULT P3)
+[x] P3.2 v0.0.154 FIX: compile errors of P1 / P2 / P3 (combined zip, see RESULT P3.2)   VERSIONS OF P4..P14 BELOW ARE +1 (P4 = 0.0.155 ... P14 = 0.0.165)
+[x] P4  v0.0.155  Sleep Timer page + Audio track page                                  CODE DONE, phone test pending (see RESULT P4)
+[x] P5  v0.0.156  Subtitles page (tracks, add file, size, colour, background, position) CODE DONE, phone test pending (see RESULT P5)
+[x] P6  v0.0.157  Controls A: top bar, seek row, centre buttons, side lock button      CODE DONE, phone test pending (see RESULT P6)
+[x] P7  v0.0.158  Controls B: bottom icon row, rotate states, portrait / landscape / small-height layouts   CODE DONE, phone test pending (see RESULT P7)
+[x] P8  v0.0.159  Gestures A: hold-to-speed chip + slide to change, pinch zoom in / out + reset            CODE DONE, phone test pending (see RESULT P8)
+[x] P9  v0.0.160  Gestures B: level HUD restyle, volume boost, brightness memory, seek sensitivity          CODE DONE, phone test pending (see RESULT P9)
+[x] P10 v0.0.161  Audio-only mode (headphone button) + notification link               CODE DONE, phone test pending (see RESULT P10)
+[x] P11 v0.0.162  Episode queue panel (folder list, jump, now-playing mark)            CODE DONE, phone test pending (see RESULT P11)
+[x] P12 v0.0.163  A-B loop (+ marks on seek bar)                                       CODE DONE, phone test pending (see RESULT P12)
+[x] P13 v0.0.164  Settings > "Player" card (defaults, gestures, reset) + KW + RESET keys  CODE DONE, phone test pending (see RESULT P13)
+[x] P14 v0.0.165  Final polish + QA pass (all steps together, no new features)         CODE DONE, phone test pending (see RESULT P14)
+
+Size = share of ONE chat session: S ~25%, M ~40-50%. Never plan above 85%. If a step looks bigger while working: build the part that compiles, zip, write what is left into NEXT, stop at 85% (hard stop 90%).
+
+======================================================================
+2. KICKOFF LINE (paste in the new chat, one step per chat)
+======================================================================
+MGB (Thazir) player plan step [Px]. Mode: [BUILD|MODIFY|FIX]. Previous version: [Vxx]. Attached: HANDOFF.txt + MGB-context.zip + step zips [list].
+Goal: [paste the Goal line of the step]. Rules: patch only, no full rewrite; keep ids / handlers / file names; grep first, view only the range (PlayerActivity.kt is 1400+ lines: NEVER read it whole);
+plan max 5 lines, then build; one step only (extra ideas go to NEXT); no questions unless truly blocked, state assumptions in 1 line;
+check = bracket balance + duplicate ids / names + (if .js touched) node --check + resource names exist; re-read every new Kotlin call against the real signature (grep it); kotlinc may not exist;
+session ~85% used = stop building, finish what compiles, zip + handoff at once, say exactly what is left (hard stop 90%).
+Output: zip of ONLY changed / new files (top folder MGB-main/), version +1, CHANGELOG entry, HANDOFF progress + RESULT, reply under 10 lines (done / files / checks / NOT tested on phone / next).
+
+Example for step 1:
+  MGB (Thazir) player plan step P1. Mode: BUILD. Previous version: 0.0.150. Attached: HANDOFF.txt + MGB-context.zip. Goal: right-side translucent panel framework + player settings root page opened from the 3-dot button. (+ rules above)
+
+======================================================================
+3. STANDING RULES
+======================================================================
+ - PATCH ONLY. No full rewrite of any file. Keep existing ids, function names, handlers, file names, prefs keys.
+ - ONE step per chat. Extra ideas go to NEXT in the RESULT block, never into code.
+ - CHANGED FILES ONLY in the zip (top folder MGB-main/). Never ship unchanged files.
+ - SESSION GUARD: ~85% = stop building and deliver; 90% = hard stop. Deliver compiling code + zip + handoff first, explanations after.
+ - Every step must leave the app WORKING and the player openable. Old dialogs (PlayerActivity.sheet) stay until the step that replaces them says "remove".
+ - Do not touch files outside the step list. Visibility change of an existing PlayerActivity member (private -> internal) is allowed, only the ones the step needs, listed in the RESULT.
+ - kotlinc / a phone may not be available: re-read each new call against its real signature; list everything not tested on a phone.
+ - FIX mode = root cause first, smallest fix.
+ - Player is ALWAYS dark (black window). Do not add a light player theme.
+ - No emoji in UI text. Straight short English. Util.toast(ctx, msg) for short feedback.
+ - Respect TabPrefs.reduce(ctx): when true use no slide / flash animation (instant show / hide).
+
+======================================================================
+4. PROJECT SUMMARY + FILE MAP (player related only)
+======================================================================
+App: Thazir (repo name MGB), Kotlin, Android, minSdk 24, targetSdk 34, compileSdk 34. Media3 1.3.1 (exoplayer, ui, hls, dash). Package com.jabra.mgb. CI builds the APK (GitHub Actions).
+Packages / dirs: app/src/main/java/com/jabra/mgb/*.kt (flat), res/values (colors, themes, styles_player), res/values-night/colors.xml, res/drawable (vector icons), app/src/extra/AndroidManifest.xml (PlayerActivity + PlayerService declared HERE).
+
+PlayerActivity.kt (1429 lines, 65 KB) - the player. ExoPlayer in a PlayerView (useController=false), all UI in code.
+  Intent: PlayerActivity.start(ctx, uri, title) = local / content file; startStream(ctx, url, title, referer, ua) = web stream. Extras: title, ref, ua. Companion: live (the open activity, used by PlayerService).
+  Fields (grep these): player (ExoPlayer?), rootView, playerView, controls (LinearLayout: top / mid / bottom), seek (SeekBar 0..1000), tCur, tTotal, playBtn, speedVal, fitLabel, ccIcon, infoTv, titleTv, hud, hudText, hudBar, tapL, tapR, spinner, flash, unlockBtn, prevBtn, nextBtn, resumeBar,
+          subs (ArrayList<SubtitleConfiguration>), sibs (ArrayList<Pair<Uri,String>> = other media of the same folder), sibIdx, zoom (1f..4f), fitMode (0 fit / 1 fill / 2 stretch), shown, locked, dragging, userRot, boost, speedBeforeBoost, ended, swipe (0 none / 1 vertical / 2 horizontal), sleepAt (ms, 0 = off).
+  Functions (grep "fun X"): onCreate, installBackHandler, startPlayer (Player.Listener inside), buildPlayer, setItem(startMs), resumePos, saveResume, ticker (500 ms), findSidecars, findSiblings, openSibling(delta), updateNav,
+          addSubtitleFile, textGroups, trackName, autoPickSubtitle, styleSubtitles, subColors / subColorNames / subScale, updateCcLabel,
+          toggleRotate, togglePlay, refreshPlayIcon, seekBy(ms), setSpeed(s) + speedText, cycleFit, resetZoom, enterPip + pipParams + updatePipActions, setSleep(min) + showSleepDialog,
+          sheet(title, note, rows: List<SheetRow>) = the old bottom dialog (SheetRow(label, sub, checked, onClick)), showSubtitleDialog, showAudioDialog, showSpeedDialog, showMore (the 3-dot menu), showInfo, openExternal,
+          showControls(on) + hider (3.5 s auto hide) + poke, setLocked(on), flash(msg) (centre text, 0.9 s), showHud(label, pct) (top level bar), tapFlash(left), updateInfoLine,
+          iconBtn(res,size,pad,on), skipBtn, cell(label, slot, on), iconSlot(res), styledSeek(accent), buildUi() (touch layer: GestureDetector + ScaleGestureDetector, then controls top / mid / bottom, then overlays).
+  Gestures now: single tap show / hide controls; double tap left / right third = -10 / +10 s, middle = play / pause; long press = 2x until release; swipe vertical left = brightness, right = volume; swipe horizontal = seek (90 s per screen width); pinch = zoom 1..4x.
+  Prefs: "mgb_resume" (key = uri string -> Long ms), "mgb_ui": sub_size (0..2), sub_color (index).
+PlayerService.kt (98 lines) - foreground service for background audio. PlayerService.on(ctx) / setOn(ctx, bool) / stop(ctx); notification buttons call PlayerActivity.live.bgToggle() / bgClose().
+PlayerScreen.kt (31 lines) - open(act, uri, title) / openUrl(...) entry points. WebPlay.kt (82) - isMediaUrl, linksEnabled, play(ctx, url, title, referer, ua) -> startStream. Callers: MainActivity, DetectedPanel, FloatingDl, TabsApi, TabManager, DownloadsApi, ExtScreen (none need change).
+SettingsScreen.kt (60 KB) - Settings dialog. Row(icon, label, value, hint, onClick), category(key, icon, title, subtitle, items), Sub("..."), RESET map (card key -> mgb_ui keys), KW map (search keywords), rows hint < ~32 chars. Player rows now live in category "grabber" (Sub "Player and buttons"). Step P13 only.
+Util.kt: Util.dp(ctx, n), Util.toast(ctx, msg), Util.host(url). TabPrefs.kt: TabPrefs.reduce(ctx), TabPrefs.tint(key, night).
+Resources: colors mg_* (light in values, dark in values-night). Drawables for the player: ic_pl_audio, ic_pl_back10, ic_pl_fwd10, ic_pl_cc, ic_pl_fit, ic_pl_pip, ic_screen, ic_lock, ic_more, ic_back, ic_play, ic_pause, ic_skip_prev, ic_skip_next, ic_chevron, ic_check, ic_close, ic_add, ic_list, ic_trash, ic_clock, ic_info, ic_settings (24 dp vectors, fillColor #FFFFFFFF in ic_pl_*, tinted in code with setColorFilter).
+Manifest (app/src/extra/AndroidManifest.xml): PlayerActivity theme Theme.MGB.Player, configChanges orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|uiMode|density, supportsPictureInPicture, launchMode singleTop.
+
+NEW FILES the plan adds (all in app/src/main/java/com/jabra/mgb/, not in the context zip because they do not exist yet):
+  PlayerPrefs.kt   P1   central getters / setters for every pl_* key (one place, defaults here)
+  PlayerPanel.kt   P1   the side panel framework + page builder (rows, radios, switches, chips, slider)
+  PlayerPages.kt   P1,P3,P4   page builders: root, quality, repeat, sleep, audio (one function per page, takes the activity)
+  PlayerSpeed.kt   P2   speed page + helpers (clamp, step, saved custom list)
+  PlayerSubs.kt    P5   subtitles page + CaptionStyle helper
+  PlayerGestures.kt P8,P9   hold-speed, zoom, HUD helpers (moved OUT of buildUi step by step)
+  PlayerAudioOnly.kt P10
+  PlayerQueue.kt   P11 (+ P12 loop helper PlayerLoop inside, or PlayerLoop.kt)
+RULE: new logic goes into new files; PlayerActivity.kt only gets short hook calls. It already is a god class.
+
+Key data shapes
+  Panel page: Page(title: String, build: PageBuilder.() -> Unit). PageBuilder: section(label), row(icon, label, value, chevron, onClick), radio(label, sub, checked, onClick), toggle(label, on, onToggle), chips(items: List<Chip>, cols), slider(min, max, step, value, onChange, fmt), custom(view).
+  Panel API (P1): panel.open(page) / push(page) / pop() / close() / isOpen / refresh(). Back button, back arrow and tap outside = pop / close. Video keeps playing; controls stay hidden while open (hider paused).
+  Reserved prefs keys in mgb_ui (add to RESET list in P13, keep names):
+    pl_speeds  csv of saved custom speeds ("1.15,2.75", max 8)      pl_speed_keep  bool (keep speed for next video)   pl_speed_last  float
+    pl_hold_speed float (default 2.0)   pl_hold_slide bool (default true)   pl_repeat int 0 off / 1 one / 2 all (folder)   pl_quality_cap int max height, 0 = auto
+    pl_sub_size int percent 50..200 (default 100; old sub_size 0/1/2 migrates: 0->80, 1->100, 2->135)   pl_sub_bg int 0 none / 1 shadow / 2 box   pl_sub_pos int 0 low / 1 mid / 2 high   (sub_color stays)
+    pl_vol_boost int 0..100 (extra % over system max, default 0 = off)   pl_bright float (-1 = system)   pl_seek_sens int 0 slow / 1 normal / 2 fast   pl_dtap_sec int (5 / 10 / 15 / 20, default 10)   pl_gestures bool (default true)   pl_fit_default int 0..2
+  Each step writes the keys it really used into its RESULT block ("KEYS:").
+
+======================================================================
+5. DESIGN RULES (audit result: every new player screen must match these)
+======================================================================
+A. App tokens (res/values + values-night, Material3 DayNight "Theme.MGB"):
+   mg_bg #FFFFFF / #0A0C10, mg_surface #F5F5F7 / #14171C, mg_surface_variant #ECEDF0 / #1F232A, mg_primary #D93A5C / #F2708A (rose accent), mg_on_primary #FFFFFF / #3A0A15,
+   mg_text #14171C / #ECEFF4, mg_text_dim #5F6673 / #98A0AE, mg_outline #DCDFE5 / #2A2F38, mg_error, mg_success. In the app (settings, sheets) use ONLY these tokens, no hard-coded colours. Soft tint per area: TabPrefs.tint(key, night).
+   Fonts: system (Roboto). Titles "sans-serif-medium". No custom font files. Sizes: title 16-20 sp, row 15-15.5 sp, hint / value 12-13 sp, section label 11 sp bold UPPERCASE letterSpacing 0.08.
+   Spacing: 4 dp grid. Row min height 52-56 dp, horizontal padding 22 dp (player sheets) / 16 dp (app cards), card radius 20-24 dp, 1 dp outline. Icon button 48 dp, badge circle 38 dp.
+   Buttons: filled pill 44 dp high radius 22 dp mg_primary + mg_on_primary 14 sp bold; text button mg_primary bold 14 sp.
+   Breakpoints: none in XML. Code rule: phone = smallestScreenWidthDp < 600 (see Orient.isPhone). Sheets: width min(screen, 460 dp). Test widths: 360 dp portrait, 640 x 360 dp landscape, 600+ dp tablet.
+   Dark / light: app follows system DayNight. Player window is forced black (Theme.MGB.Player) -> the player uses fixed dark values below, but the ACCENT is always R.color.mg_primary (rose changes with theme).
+B. Player look (existing, keep): sheet / panel fill 0xFF1B1C20, top radius 22 dp, grab handle 36x4 dp 0x40FFFFFF, title white 17 sp medium, row 15.5 sp (selected = accent + check), sub 12.5 sp 0x99FFFFFF, dim layer 0.55,
+   overlay chips 0xB3000000 radius 16 dp, gradients top 0xCC000000 -> 0 and bottom 0xD9000000 -> 0, play button 72 dp round accent, seek: styledSeek(accent), time 12.5 sp white / 0xCCFFFFFF, controls fade 160 ms, auto hide 3.5 s, flash text 20 sp.
+C. TARGET look (from the reference video, rebuilt in MGB style):
+   Panel   : opens from the RIGHT in landscape (width = min(46% of screen, 380 dp), full height, left corners radius 22 dp, fill 0xE61B1C20 = 90% so the video shows through), bottom sheet (max height 62%) in portrait / small width < 480 dp. Slide 200 ms (instant if reduce).
+             Header 56 dp: back arrow 24 dp left, centred title 17 sp medium, no divider. Rows 52 dp: left icon 22 dp 0xD9FFFFFF, label 15.5 sp white, right value 13 sp 0x99FFFFFF + chevron (ic_chevron 18 dp) when it opens a page.
+             Pages are pushed / popped (stack). Tap on the dimmed video side closes the panel.
+   Chips   : grid, 4 columns landscape / 3 portrait, height 40 dp, radius 20 dp, fill 0x22FFFFFF, text 14 sp white; selected = fill accent @ 26% + accent text; saved custom chip = accent text with a small "x" on long press.
+   Slider  : card (radius 16 dp, fill 0x14FFFFFF), label left, value right 14 sp; track 4 dp (accent progress, 0x33FFFFFF rest), thumb 18 dp white; "-" and "+" 32 dp round buttons at both ends; min / max text 10.5 sp 0x80FFFFFF under the ends.
+   Controls: top bar = back (left), title CENTRED 16 sp (info line 11.5 sp under it), 3-dot (right); lock = round 44 dp button on the right edge, vertically centred; seek = thin (3 dp) track + 12 dp thumb, time "00:12 / 23:39" 12.5 sp UNDER the bar on the left; bottom-right = 4 icon buttons 40 dp (fit, subtitles, audio-only, rotate) with no text labels; centre = prev, -10, play (72 dp), +10, next as now.
+   Hold-speed chip: pill at top centre "2.0x" + "fast forward" glyph, 0xB3000000, radius 16 dp, visible while holding; sliding up / down changes the speed in 0.1 steps (0.25..5.0).
+   Toast    : speed change text "Playback speed 1.15x" in the existing flash(), 0.9 s.
+D. Interaction rules: min touch target 44 dp; every toggle row gives haptic CLOCK_TICK; panel and controls never overlap display cutouts (use the existing insets listener on rootView); panel must work at 360 x 640 and 640 x 360 dp; text never wraps the value: label gets weight 1, value max 1 line.
+E. Wording: short, straight English, same words as the old rows ("Playback speed", "Sleep timer", "Subtitles", "Audio track", "Repeat", "Quality"), no emoji.
+
+======================================================================
+6. VERSION + CHANGELOG CONVENTION
+======================================================================
+ - app/build.gradle.kts line 6: val appVersionName = "0.0.NNN". Each step: +1 (P1 = 0.0.151 ... P3 = 0.0.153, P3.2 FIX = 0.0.154, P4 = 0.0.155 ... P14 = 0.0.165). versionCode comes from CI (GITHUB_RUN_NUMBER), do not touch.
+ - CHANGELOG.txt (repo root, 135 KB, newest ON TOP): add one entry on top:
+     0.0.151 (PLAYER STEP P1 BUILD: side panel framework + settings root)
+     - PlayerPanel.kt: ...one line per file...
+   Prepend with a small script (python / sed), never rewrite the whole file from memory.
+ - HANDOFF.txt: tick the step in section 1 and add a RESULT block under section 8 (Done / Changed files (1 line each) / KEYS / Checks done / NOT tested on phone / KNOWN / NEXT). Keep each block under 12 lines. No history dumps.
+
+======================================================================
+7. THE STEPS
+======================================================================
+Anchors = function names (grep "fun name"), line numbers move. "Read-only" = open only to copy a pattern / check a signature.
+
+P1  SIDE PANEL FRAMEWORK + SETTINGS ROOT                                   MODE BUILD   SIZE M (~45%)
+  Goal   : a right-side translucent panel with page stack, and the 3-dot button opens it with the root page (Subtitles, Quality, Playback speed, Repeat, Sleep timer + Audio track, Background audio, Picture in picture, Video info, Open in another app).
+  Add    : PlayerPrefs.kt (empty-safe getters for the reserved keys), PlayerPanel.kt (Panel + Page + PageBuilder: section, row, radio, toggle; chips / slider come in P2), PlayerPages.kt (root page).
+  Modify : PlayerActivity.kt (showMore -> panel root; installBackHandler -> pop panel first; one `panel` field added to rootView in buildUi after the overlays; controls hider paused while panel.isOpen; panel closed in onPictureInPictureModeChanged / onStop), CHANGELOG.txt, HANDOFF.txt, app/build.gradle.kts.
+  Read-only: PlayerActivity.sheet (copy window / colour / ripple pattern), showMore, installBackHandler, buildUi insets listener, Util.kt, TabPrefs.reduce.
+  Depends: none.
+  Design : section C "Panel" + "Header" + "Rows". The Quality row is NOT shown until P3 (no dead rows). Speed / Repeat / Sleep / Subtitles / Audio rows call the OLD sheet dialogs for now (showSpeedDialog, showSleepDialog, showSubtitleDialog, showAudioDialog), repeat toggles one / off as today. Old sheet() stays.
+  Checks : bracket balance of 5 files, every new call re-read against signature, panel opens in portrait + landscape (code path), back arrow / back button / outside tap close, panel closes on PiP, no leaked handler on onDestroy, player keeps playing while open.
+
+P2  PLAYBACK SPEED PAGE                                                     MODE BUILD   SIZE M (~40%)
+  Goal   : the speed page: custom slider 0.05-5.0 with -/+ (step 0.05), preset grid 0.5 0.75 1.0 1.25 1.5 1.75 2.0 3.0 5.0, saved custom chips (add current, long press = delete, max 8), live label on the toolbar Speed cell, option "keep speed for next video".
+  Add    : PlayerSpeed.kt. Extend PlayerPanel.kt with chips(...) and slider(...) builders (only these two).
+  Modify : PlayerPages.kt (root Speed row opens PlayerSpeed page, value text "1.15x"), PlayerPrefs.kt (pl_speeds, pl_speed_keep, pl_speed_last), PlayerActivity.kt (setSpeed uses clamp + PlaybackParameters(s, 1f) + persists pl_speed_last when keep is on; speedText keeps 2 decimals only when needed; showSpeedDialog -> opens the page; startPlayer applies kept speed), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: setSpeed, speedText, showSpeedDialog, buildUi toolbar Speed cell, PlayerPanel.kt (from P1).
+  Depends: P1.
+  Design : section C "Chips" + "Slider". Selected chip = current speed (float compare 0.005). Custom chip accent text. Flash "Playback speed 1.15x".
+  Checks : float formatting 1.0x / 1.15x / 5.0x, clamp 0.05..5.0, dedupe saved list, boost (hold) restore still returns to the chosen speed, ExoPlayer accepts 0.05x (pitch stays 1f).
+
+P3  QUALITY PAGE + REPEAT PAGE                                              MODE BUILD   SIZE M (~40%)
+  Goal   : Quality = Auto + one row per available video height (e.g. 1080p, 720p, 480p; bitrate as sub-line) using TrackSelectionParameters (setMaxVideoSize / override) for HLS / DASH; single-track files show "Auto" only with a note. Repeat page = Off / Repeat one / Repeat folder (all siblings).
+  Add    : (functions inside PlayerPages.kt).
+  Modify : PlayerPages.kt (qualityPage, repeatPage; root rows show value "Auto" / "720p", "Off" / "One" / "Folder"), PlayerPrefs.kt (pl_quality_cap, pl_repeat), PlayerActivity.kt (apply repeat in startPlayer + Player.Listener STATE_ENDED: mode 2 = after the last sibling go to the first; mode 1 = player.repeatMode ONE; apply pl_quality_cap in buildPlayer / onTracksChanged; update updateInfoLine to show chosen height), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: onTracksChanged, STATE_ENDED branch in startPlayer, openSibling, findSiblings, buildPlayer, textGroups (pattern for track groups).
+  Depends: P1.
+  Design : radio rows with check, note line under title 12.5 sp when only one quality exists. Value text on the root row.
+  Checks : HLS master with 3 heights (read the code path), progressive mp4 (single track), repeat folder at the last file, repeat one does not fire the "next episode" auto-start, cap survives next video.
+
+P4  SLEEP TIMER PAGE + AUDIO TRACK PAGE                                     MODE BUILD   SIZE M (~35%)
+  Goal   : Sleep page: Off, 15 / 30 / 45 / 60 / 90 min, "End of this video", custom minutes (slider 5-180 via the P2 slider builder), live "Pauses in 12 min" line, +15 min quick add. Audio page: the audio tracks as radio rows (language, channels, codec) + "Audio delay" NOT included (NEXT).
+  Add    : none (PlayerPages.kt).
+  Modify : PlayerPages.kt (sleepPage, audioPage), PlayerActivity.kt (setSleep handles END_OF_VIDEO sentinel -1; ticker or STATE_ENDED checks it; showSleepDialog / showAudioDialog -> open pages), PlayerPrefs.kt, CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: setSleep, showSleepDialog, showAudioDialog, ticker, trackName.
+  Depends: P1, P2 (slider builder).
+  Design : same radio rows; remaining time shown as sub-line of the selected row and as value on the root row ("12 min", "End of video", "Off").
+  Checks : sleep fires once, cancelled by Off, end-of-video pauses instead of opening the next episode, audio list empty -> toast as before.
+
+P5  SUBTITLES PAGE                                                          MODE BUILD   SIZE M (~45%)
+  Goal   : Subtitles page: Off + each text track (radio), "Add subtitle file...", text size slider 50-200%, colour swatches (the existing subColors), background (None / Shadow / Box), position (Low / Middle / High). Root row value = current track or "Off".
+  Add    : PlayerSubs.kt (page + applyStyle()).
+  Modify : PlayerActivity.kt (styleSubtitles -> PlayerSubs.applyStyle; subScale / subColorIdx kept as thin wrappers; showSubtitleDialog -> opens page; migrate old sub_size 0/1/2 once), PlayerPages.kt (root row), PlayerPrefs.kt (pl_sub_size, pl_sub_bg, pl_sub_pos), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: styleSubtitles, subColors, subColorNames, subScale, addSubtitleFile, autoPickSubtitle, updateCcLabel, showSubtitleDialog.
+  Depends: P1, P2 (slider + chips builders).
+  Design : colour swatches are 32 dp circles in a chips row, selected = 2 dp white ring. Live preview line "Sample subtitle text" inside the page.
+  Checks : subtitleView style API names (CaptionStyleCompat, setFractionalTextSize, setBottomPaddingFraction) re-checked against media3 1.3.1 signatures, old pref migration runs once, ccIcon tint still follows on / off.
+
+P6  CONTROLS A: TOP BAR, SEEK ROW, CENTRE, SIDE LOCK                         MODE MODIFY  SIZE M (~45%)
+  Goal   : restyle the controls to section C "Controls": centred title + info line, back + 3-dot only in the top bar, thin seek bar with "cur / total" time under it on the left, round lock button on the right edge (vertically centred). Old bottom toolbar stays untouched in this step.
+  Add    : none (maybe res/drawable/ic_pl_lock_open.xml, ic_pl_lock_closed.xml if ic_lock is not enough).
+  Modify : PlayerActivity.kt (buildUi top block + seekRow block, styledSeek track thickness, ticker time text "cur / total", setLocked + unlockBtn use the side button for both lock and unlock, rotate button leaves the top bar (comes back in P7)), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: buildUi (top / mid / bottom blocks), styledSeek, setLocked, ticker, controls insets listener.
+  Depends: none (works without panel) but run after P1-P5 to avoid merge noise in buildUi.
+  Design : section C "Controls". Keep the play button 72 dp round accent. Auto-hide, fade 160 ms, cutout insets unchanged.
+  Checks : bar never overlaps cutout, title ellipsizes at 360 dp, lock still blocks every gesture, tCur / tTotal references still valid (other code uses them), seek drag shows the dragged time.
+
+P7  CONTROLS B: BOTTOM ICON ROW + LAYOUT VARIANTS                            MODE MODIFY  SIZE M (~45%)
+  Goal   : bottom-right icon row (no text labels): Fit, Subtitles, Audio-only (button shows now, works in P10; until then toast "Soon" is NOT allowed: hide the button until P10), Rotate; Speed shows as a small "1.15x" pill left of the icons; Lock, PiP and Audio track move into the panel / lock side button. Icon states: fit icon changes per mode, rotate icon shows locked / auto, CC icon dim when off.
+  Add    : drawables needed (ic_pl_fit_fill.xml, ic_pl_fit_stretch.xml, ic_pl_rotate.xml) only if missing.
+  Modify : PlayerActivity.kt (buildUi bottom toolbar, cell() / iconSlot() reuse or replace, cycleFit label -> icon swap, toggleRotate + icon, small-height variant: when height < 360 dp hide the info line and shrink gaps), app/src/extra/AndroidManifest.xml only if needed (not expected), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: cell, iconSlot, cycleFit, toggleRotate, onConfigurationChanged, res/drawable ic_pl_*.xml.
+  Depends: P6.
+  Design : section C "Controls" bottom-right; 40 dp touch targets with 44 dp hit area (padding), spacing 4 dp.
+  Checks : portrait 360 dp: icons fit one row; landscape 640 x 360: nothing overlaps the seek bar; PiP and Audio are still reachable (3-dot panel); no reference to removed views (fitLabel, speedVal) left dangling.
+
+P8  GESTURES A: HOLD-TO-SPEED CHIP, SLIDE TO CHANGE, ZOOM                      MODE MODIFY  SIZE M (~45%)
+  Goal   : long press = fast play at pl_hold_speed (default 2.0x) with a top-centre chip "2.0x >>"; while holding, vertical slide changes the speed 0.25..5.0 in 0.1 steps (chip updates), release returns to the previous speed. Pinch zoom 0.5x..4x (zoom OUT below 100% allowed), double-tap with two fingers or a "100%" chip resets zoom; zoom value chip while pinching.
+  Add    : PlayerGestures.kt (holdStart / holdMove / holdEnd, zoom helpers, chip view factory).
+  Modify : PlayerActivity.kt (buildUi touch layer: onLongPress, onScroll guard `boost`, ACTION_UP restore, ScaleGestureDetector range, resetZoom, cycleFit calls resetZoom), PlayerPrefs.kt (pl_hold_speed, pl_hold_slide), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: buildUi touch layer, resetZoom, cycleFit, boost / speedBeforeBoost usage, showHud.
+  Depends: P2 (speed clamp / format helpers).
+  Design : chip = overlay chip rule (0xB3000000, radius 16 dp), 14 sp bold, top margin 60 dp (same place as the HUD, never both at once).
+  Checks : hold + slide never triggers brightness / volume / seek, release always restores the exact previous speed (also if the speed page changed it meanwhile), zoom < 1 re-centres, pinch does not fire double tap.
+
+P9  GESTURES B: LEVEL HUD, VOLUME BOOST, BRIGHTNESS MEMORY, SEEK SENSITIVITY   MODE MODIFY  SIZE S (~30%)
+  Goal   : brightness / volume HUD with an icon + vertical-feel bar (restyle of showHud), volume boost above 100% via LoudnessEnhancer (0-100% extra, off by default, safe cap), remember brightness for the session / pref, horizontal seek sensitivity setting, double-tap seconds setting.
+  Add    : (inside PlayerGestures.kt).
+  Modify : PlayerActivity.kt (showHud restyle, onScroll volume branch, seek swipe factor 90_000f -> by pl_seek_sens, seekBy default step from pl_dtap_sec, buildPlayer: audioSessionId for LoudnessEnhancer, release in onDestroy), PlayerPrefs.kt, CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: showHud, onScroll volume / brightness branch, seekBy, buildPlayer.
+  Depends: P8 (file exists).
+  Design : HUD = overlay chip rule + 18 dp icon (ic_screen / ic_play are NOT right: add ic_pl_bright.xml, ic_pl_volume.xml, 24 dp vectors, Material paths) + 170 dp bar as now.
+  Checks : LoudnessEnhancer created only when boost > 0 and released, no crash on devices without the effect (try / catch), volume 0..max steps unchanged.
+
+P10 AUDIO-ONLY MODE                                                         MODE BUILD   SIZE M (~40%)
+  Goal   : the headphone button switches to audio-only: video track disabled (saves data / battery), black screen with a centred card (title, elapsed time, small "Audio only - tap to show video"), playback continues, controls still work; ties into PlayerService (notification shows "Audio only"). Leaving restores the video track at the current position.
+  Add    : PlayerAudioOnly.kt.
+  Modify : PlayerActivity.kt (toggle + state + icon, setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, ...), bgNote text), PlayerService.kt (extra text line only), PlayerPages.kt (root row "Audio only" toggle), P7 icon row (button becomes visible), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: bgNote, PlayerService notification builder, enterPip, onStop (do not pause in audio-only), buildPlayer.
+  Depends: P7.
+  Design : card = surface 0xFF1B1C20, radius 22 dp, title 16 sp, time 13 sp dim; accent icon. Screen stays black.
+  Checks : PiP while audio-only is blocked or shows the card, onStop keeps playing only when background audio is ON (unchanged rule), video track comes back with the same quality cap.
+
+P11 EPISODE QUEUE PANEL                                                      MODE BUILD   SIZE M (~45%)
+  Goal   : panel page "Playlist" (from the root page and from a long press on the next button): the sibs list with now-playing mark, tap to jump, scrolls to the current item, shows "n of N".
+  Add    : PlayerQueue.kt.
+  Modify : PlayerPages.kt (root row, hidden when sibs.size < 2), PlayerActivity.kt (expose sibs / sibIdx / openSibling(index) as internal; add openAt(index) next to openSibling(delta); long press on nextBtn), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: findSiblings, openSibling, natural, updateNav, updateInfoLine.
+  Depends: P1.
+  Design : radio-style rows, label = file name without extension, sub = nothing; current row accent + check; list max height as other pages.
+  Checks : natural order same as next / prev buttons, jump saves the resume position of the old file, web streams (no sibs) hide the row.
+
+P12 A-B LOOP                                                                MODE BUILD   SIZE S (~25%)
+  Goal   : A-B loop: root row "A-B loop" with Set A / Set B / Clear; two marks on the seek bar; playback wraps from B to A.
+  Add    : PlayerLoop.kt (or inside PlayerQueue.kt).
+  Modify : PlayerActivity.kt (ticker checks position >= B -> seekTo(A); marks drawn by a tiny overlay view over the seek bar), PlayerPages.kt (row), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: ticker, styledSeek, buildUi seekRow.
+  Depends: P6 (seek row layout).
+  Design : marks = 2 dp accent ticks 10 dp high; page rows with the time as value ("A 01:12").
+  Checks : B < A rejected with toast, loop cleared on next video, ticker granularity 500 ms is acceptable (note) or use a 100 ms handler only while a loop is active.
+
+P13 SETTINGS "PLAYER" CARD                                                  MODE MODIFY  SIZE M (~40%)
+  Goal   : a Settings card "Player" (category in SettingsScreen) with: hold speed, double-tap seconds, gestures on / off, seek sensitivity, default fit, keep speed, quality default, + the existing "Background audio in player" row moved here (or linked), plus "Reset to default" using RESET["player"].
+  Add    : none.
+  Modify : SettingsScreen.kt (category("player", ...), RESET entry with every pl_* key, KW entries, rows hints < ~32 chars), PlayerPrefs.kt (all getters used by the page), PlayerActivity.kt (read pl_gestures, pl_fit_default at start), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: SettingsScreen category() / Row / Sub / RESET / KW, the "grabber" card player rows, Backup.kt SETTINGS (mgb_ui already included).
+  Depends: P8, P9 (keys exist).
+  Design : app tokens (section A), copy the nearest card; choices with a ToolsSheet / MaterialAlertDialogBuilder single choice like "Button mode" (DlMode.dialog).
+  Checks : search finds the new rows (KW), reset removes only pl_* keys, gestures off = no swipe / hold but tap + double tap still work.
+
+P14 FINAL POLISH + QA                                                        MODE FIX     SIZE S (~25%)
+  Goal   : read all RESULT blocks, fix the KNOWN items, re-check the whole player on code level: 360 x 640, 640 x 360, tablet, cutout, PiP, lock, reduce motion, back stack, memory leaks (handlers, receivers, LoudnessEnhancer), strings, dead code (old sheet() rows no longer used).
+  Modify : whatever the KNOWN list names (PlayerActivity.kt, PlayerPages.kt, PlayerPanel.kt ...), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Depends: P1-P13.
+  Checks : bracket balance of every player file, no unused private function warnings left that were created by the plan, final "PHONE TEST LIST" written into HANDOFF.txt (one line per feature).
+
+======================================================================
+8. RESULT BLOCKS (the assistant appends here, newest at the bottom)
+======================================================================
+P1 RESULT (0.0.151)
+ Done: 3-dot button opens a translucent side panel (right in landscape >= 480 dp, bottom sheet in portrait) with page stack; root page: Subtitles, Audio track, Playback speed, Repeat, Sleep timer | More: Background audio, Picture in picture, Video info, Open in another app.
+ Changed: PlayerPanel.kt (new: Panel + Page + Builder section / row / radio / toggle / note / custom) / PlayerPages.kt (new: root) / PlayerPrefs.kt (new: pl_* getters, keys P2 / P3 / P8 only) / PlayerActivity.kt (showMore, back handler, hider, onStop, PiP, buildUi adds panel last, subSummary / toggleRepeat / toggleBgAudio, private -> internal: player, sleepAt, showSubtitleDialog, showAudioDialog, showSpeedDialog, showSleepDialog, enterPip, showInfo, openExternal, speedText) / res/drawable ic_pl_speed.xml + ic_pl_repeat.xml (new) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt.
+ KEYS: none new in use yet (PlayerPrefs only declares K_SPEEDS, K_SPEED_KEEP, K_SPEED_LAST, K_HOLD_SPEED, K_HOLD_SLIDE, K_REPEAT, K_QUALITY_CAP).
+ Checks: bracket balance of the 4 Kotlin files, 2 new icon xml parse, every new call re-read against its real signature (TabPrefs.reduce(Context), Util.dp, ViewCompat.getRootWindowInsets, PlayerService.on / setOn / stop, textGroups). kotlinc and a phone NOT available: no compile, no render check at 360 / 1280 px, dark / light.
+ NOT tested (needs a phone): compile; panel in portrait + landscape; back arrow / system back / tap outside; panel over a display cutout; toggles Repeat + Background audio refresh in place; Speed / Subtitles / Audio / Sleep rows open the old dialogs and controls come back; PiP and screen-off with the panel open; reduce-motion (instant); ic_pl_speed / ic_pl_repeat paths (hand-typed Material paths: if one looks wrong, fix the path only).
+ KNOWN: Quality row is absent until P3; panel dims the video slightly (0x26) and flash() text may sit behind the panel box.
+ NEXT: P2 Playback speed page (size M). Needs PlayerPanel chips(...) + slider(...) builders (add only those two).
+
+P2 RESULT (0.0.152)
+ Done: speed page in the side panel (toolbar Speed button opens it directly, root row pushes it): custom slider 0.05-6x with - / +, preset chips, saved custom chips (long press removes), "Save X as preset" row, "Keep speed for next video". NOTE: max is 6x (user prompt), not 5x as in the first plan text.
+ Changed: PlayerSpeed.kt (new) / PlayerPanel.kt (chips, slider, Chip, Builder.wide) / PlayerPages.kt (row pushes page) / PlayerActivity.kt (setSpeed internal + clamp + keep, showSpeedDialog -> page, startPlayer applies kept speed, speedText, flash internal) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt.
+ KEYS: pl_speeds (csv "1.15,2.75"), pl_speed_keep (bool, default false), pl_speed_last (float). (P13 must add all three to RESET.)
+ Checks: bracket balance of the 4 Kotlin files, Chip constructor order (onClick LAST so a trailing lambda is the click), all new calls re-read against signatures. kotlinc / phone NOT available: no compile, no render check at 360 / 1280 px, dark / light.
+ NOT tested (needs a phone): compile; slider drag changes speed live; - / + steps; chips selected state; save / long-press remove of a custom chip; keep speed across two videos; hold-to-2x still returns to the chosen speed; 3 columns at 360 dp portrait, 4 columns landscape; page back arrow returns to root (from root row) or closes (from toolbar); 0.05x playback on a real stream.
+ KNOWN: hold-to-speed still fixed 2x (P8); toolbar label keeps the old text cell until P7; slider step 0.05 but saved / chip values can be 0.01 precise.
+ NEXT: P3 Quality page + Repeat page (size M).
+
+P3 RESULT (0.0.153)
+ Done: root page has Quality (Auto / 1080p ...) and Repeat (Off / One / Folder) rows that open pages. Quality lists the video heights of the current stream; a single-quality file shows Auto + a note. Repeat folder loops back to the first file after the last.
+ !! FIX included: the P1 root() had "// comment }" on the go() line, which commented out the closing brace (compile error in P1 + P2 zips). PlayerPages.kt in this zip is the corrected file: always take this one.
+ Changed: PlayerPages.kt (go() fix, qualityPage, repeatPage, rows) / PlayerActivity.kt (repeat + quality helpers, STATE_ENDED folder loop, startPlayer applies saved values, toggleRepeat removed) / res/drawable/ic_pl_quality.xml (new) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt.
+ KEYS: pl_repeat (int 0 / 1 / 2, default 0), pl_quality_cap (int height, 0 = auto). (P13 must add both to RESET.)
+ Checks: bracket balance, new icon xml parse + path command check, new media3 calls re-read (TrackSelectionParameters.Builder.setMaxVideoSize / clearOverridesOfType / setOverrideForType, Tracks.Group.isTrackSupported / getTrackFormat / mediaTrackGroup), no leftover toggleRepeat call. kotlinc / phone NOT available: no compile, no 360 / 1280 px render check.
+ NOT tested (needs a phone): compile; HLS master with several heights (list, pick, Auto back); progressive mp4 (only Auto + note); cap survives the next video; repeat one does not start the next episode; repeat folder at the last file; "Repeat" value on root page; ic_pl_quality path (hand-typed).
+ KNOWN: heights are by video HEIGHT (a portrait 1080x1920 video shows 1920p); info line still shows the real playing size (not the chosen one); a saved cap that the new video does not offer leaves no row checked; repeat is now saved between videos / sessions.
+ NEXT: P4 Sleep timer page + Audio track page (size M).
+
+P3.2 RESULT (0.0.154)  zip: MGB_P3.2_v0_0_154.zip
+ Done: FIX only. The CI build of P1 / P2 / P3 failed with: PlayerPages.kt:26 Missing '}' (P1 + P2), PlayerPanel.kt:218 Val cannot be reassigned + Int/Float mismatch (P2 + P3). This zip = final state of ALL files P1-P3 changed, take it instead of P1 / P2 / P3 (or on top of them: same paths overwrite).
+ Changed: PlayerPanel.kt (slider: this.max = n) / PlayerPages.kt (final, go() comment fixed) / res/drawable/ic_open.xml (NEW, was referenced but missing) / PlayerActivity.kt, PlayerSpeed.kt, PlayerPrefs.kt, ic_pl_*.xml (unchanged since P1-P3, re-shipped) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt.
+ KEYS: none new.
+ Checks: bracket balance (strings / comments stripped) of all Player*.kt, every R.drawable / R.color used by PlayerPanel / PlayerPages / PlayerSpeed exists, icon xml parse, PlayerActivity diff vs context re-read (imports Tracks / TrackSelectionOverride / abs present). kotlinc NOT available: no compile, so the NEXT build log may still show a new error: paste it.
+ NEXT: P4 Sleep timer page + Audio track page, version 0.0.155.
+
+P4 RESULT (0.0.155)  zip: MGB_P4_v0_0_155.zip
+ Done: Sleep timer page (Off, 15 / 30 / 45 / 60 / 90 min, End of this video, "Pauses in N min" line, Add 15 min, custom slider 5-180) and Audio track page (radio rows: language, channels, codec). Root rows push the pages; Sleep value "12 min" / "End of video" / "Off"; Audio value = selected track when 2+ tracks.
+ Changed: PlayerPages.kt (sleepPage, audioPage, AudioOpt, channelName, codecName, sleepValue, SLEEP_END, root rows) / PlayerActivity.kt (setSleep internal + -1 sentinel, addSleep, sleepLeftMin, sleepPick, audioOpts, pickAudio, showSleepDialog + showAudioDialog open pages, STATE_ENDED + setItem handle -1) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt.
+ KEYS: none new (sleep state is not saved).
+ Checks: bracket balance (strings / comments stripped) of 5 Player*.kt, no duplicate funs, every R.drawable used exists (ic_add, ic_clock, ic_list), new calls re-read against signatures (Builder.slider / radio / row / note / section, Tracks.Group.mediaTrackGroup, TrackSelectionOverride). kotlinc NOT available: no compile, no 360 / 1280 px render check.
+ NOT tested (needs a phone): compile; sleep fires once and pauses; Off cancels; End of video pauses and does not open the next episode; Add 15 min; custom slider sets the timer on release; audio track switch (row mark updates ~250 ms later); toolbar Audio button opens the page; no audio -> toast.
+ KNOWN: page text does not tick by itself (refreshes on tap / reopen); repeat one + "End of video" never fires (ExoPlayer never ends), page shows a note; Audio delay not included; old sheet() still used by Subtitles / Info.
+ NEXT: P5 Subtitles page (size M).
+
+P5 RESULT (0.0.156)  zip: MGB_P5_v0_0_156.zip
+ Done: Subtitles page in the side panel (root row + toolbar Subtitles button): Off + text tracks (radio), Add subtitle file, live sample line, size slider 50-200%, 5 colour swatches, background None / Shadow / Box, position Low / Middle / High. Root row value = selected track name or Off.
+ Changed: PlayerSubs.kt (new) / PlayerPrefs.kt (3 keys + has) / PlayerActivity.kt (styleSubtitles -> applyStyle, subScale wrapper, subOff / subOpts / pickSub / setSubOff / addSubFile / restyleSubs, showSubtitleDialog -> page, subSummary; old sub rows + subColors arrays removed) / PlayerPages.kt (root row) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt.
+ KEYS: pl_sub_size (int 50..200, default 100; old sub_size 0/1/2 -> 80/100/135 once), pl_sub_bg (int 0/1/2, default 1), pl_sub_pos (int 0/1/2, default 0). sub_color unchanged. (P13 must add the 3 pl_ keys to RESET.)
+ Checks: bracket balance (strings / comments stripped) of 6 Player*.kt, no duplicate funs, R.drawable.ic_add exists, Chip / row / slider / custom calls re-read against PlayerPanel signatures, CaptionStyleCompat EDGE_TYPE_NONE / DROP_SHADOW + SubtitleView setStyle / setFractionalTextSize / setBottomPaddingFraction names as used in media3 1.3.1. kotlinc NOT available: no compile, no 360 / 1280 px render check.
+ NOT tested (needs a phone): compile; track switch + Off (row mark updates ~250 ms later); add file; size slider changes live subtitle + sample; colour ring; background / position chips on real subtitles; old sub_size migration; cc icon tint.
+ KNOWN: default look changed (Shadow, no box; old was outline + faint box); position High = 55% bottom padding (tune on phone); ASS styled subtitles keep their own style (applyEmbeddedStyles true); AudioOpt class is reused for subtitle rows.
+ NEXT: P6 Controls A (size M).
+
+P6 RESULT (0.0.157)  zip: MGB_P6_v0_0_157.zip
+ Done: top bar = back + centred title + info line + 3-dot; thin seek bar (3 dp / 12 dp thumb) with "00:12 / 23:39" under it on the left; round 44 dp side lock button (right edge, centred): lock when controls show, unlock when locked (closed icon, accent, shows 2.5 s after a tap).
+ Changed: PlayerActivity.kt (buildUi top + seek blocks, styledSeek, setLocked + styleLockBtn + syncLockBtn, showControls hook, unlockBtn creation + cutout margin, PiP hides it, toggleRotate internal) / PlayerPages.kt (temporary "Rotate screen" row in More) / res/drawable/ic_pl_lock_open.xml (new) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt.
+ KEYS: none.
+ Checks: bracket balance (strings / comments stripped) of PlayerActivity + PlayerPages, no seekRow left, tCur / tTotal / seek / unlockBtn references still valid, ic_pl_lock_open xml parses, R.drawable names exist. kotlinc NOT available: no compile, no 360 / 1280 px render check.
+ NOT tested (needs a phone): compile; title ellipsis at 360 dp; time text under the bar; seek drag shows dragged time; side lock button position in portrait + landscape + over a cutout; lock blocks every gesture and unlock works; button fades with controls and hides in PiP; open-lock path (hand-typed Material path).
+ KNOWN: bottom toolbar still has its old Lock cell (duplicate of the side button) and text labels: P7 removes / restyles; Rotate lives in the panel (More) until P7; lock button is not hidden while the panel is open (panel sits on top).
+ NEXT: P7 Controls B (size M).
+
+P7 RESULT (0.0.158)  zip: MGB_P7_v0_0_158.zip
+ Done: bottom row = "cur / total" left + speed pill + Fit / Subtitles / Rotate icon buttons right (no labels). Old Lock / Audio / PiP cells gone (Audio track + PiP are in the 3-dot panel, lock = side button). Fit icon per mode, rotate icon accent after a manual rotate, small-height variant (< 400 dp: no info line, tighter padding). Audio-only button hidden until P10. Temporary Rotate row of P6 removed.
+ Changed: PlayerActivity.kt (buildUi bottom row, cycleFit, toggleRotate, updateInfoLine + isCompact / applyCompact, onConfigurationChanged, fields: fitLabel removed, fitIcon / rotIcon / rotManual / topBox / bottomBox added) / PlayerPages.kt (Rotate row removed) / res/drawable ic_pl_fit_fill.xml, ic_pl_fit_stretch.xml, ic_pl_rotate.xml (new) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt.
+ KEYS: none.
+ Checks: bracket balance of PlayerActivity + PlayerPages (strings / comments stripped), no fitLabel / timeRow left, 3 new icon xml parse, every new R.drawable exists, speedVal / ccIcon / tCur / tTotal references valid (setSpeed + updateCcLabel unchanged). kotlinc NOT available: no compile, no 360 / 1280 px render check.
+ NOT tested (needs a phone): compile; one row fits at 360 dp portrait (time + pill + 3 x 44 dp); landscape 640 x 360 nothing overlaps the seek bar; speed pill opens the page and turns accent when not 1x; fit icon swaps; rotate icon accent; compact variant on rotate; the 3 icon paths (hand-typed Material paths).
+ KNOWN: rotate has no way back to "auto" (as before, only portrait <-> landscape); old cell() / iconSlot() are now unused (P14 removes); compact threshold 400 dp (plan said 360, a landscape phone is 360-412 dp high).
+ NEXT: P8 Gestures A (size M).
+
+P8 RESULT (0.0.159)  zip: MGB_P8_v0_0_159.zip
+ Done: long press = fast play at pl_hold_speed (default 2.0x) with a top-centre chip "2.0x  >>"; sliding up / down while holding changes it in 0.1x steps (0.25..5.0); release restores the exact previous speed. Pinch zoom 0.5x..4x, "Reset zoom NNN%" chip while zoom is not 100%.
+ Changed: PlayerGestures.kt (new) / PlayerActivity.kt (fields holdCur / holdLastY / holdAcc / holdChip / zoomChip, onLongPress, touch listener hold-slide + release, onScale range + chip, resetZoom hides chip, chips added after the level bar in buildUi) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt.
+ KEYS: pl_hold_speed (float, default 2.0), pl_hold_slide (bool, default true): both only READ now, no Settings UI until P13 (P13 adds them + RESET).
+ Checks: bracket balance of PlayerActivity + PlayerGestures (strings / comments stripped), new calls re-read (PlaybackParameters(speed, pitch), PlayerPrefs.getFloat / getBool, Util.dp), the chip never shows with the level bar (hud hidden on hold). kotlinc NOT available: no compile, no render check.
+ NOT tested (needs a phone): compile; long press starts at 2.0x and the chip shows; slide up / down changes speed and chip; release restores 1x / 1.5x exactly; no brightness / volume / seek change while holding; pinch out below 100% and in to 400%; Reset zoom chip tap; chip position over the controls; pinch does not trigger double tap.
+ KNOWN: two-finger double tap reset is NOT built (the chip does it); zoom < 100% scales around the centre (no pan exists); Reset zoom chip may overlap the bottom controls while they are shown (bottom margin 120 dp); hold starts only while playing (as before); speed pill in the bottom row does not show the hold speed.
+ NEXT: P9 Gestures B (size S).
+
+P9 RESULT (0.0.160)  zip: MGB_P9_P10_P11_v0_0_162.zip (P9 + P10 + P11 built in one chat, one zip)
+ Done: brightness / volume HUD = chip with icon + 150 dp bar + percent. Volume boost above 100% (LoudnessEnhancer) when pl_vol_boost > 0: after the system volume is at max, more swipe adds extra gain, bar turns orange, level shows 101..200. Brightness is remembered (saved on finger up, restored in onCreate). Swipe-seek speed and double-tap seconds read their prefs.
+ Changed: PlayerGestures.kt (seekWindowMs, dtapSec, boostCap, savedBrightness / saveBrightness, class Boost) / PlayerPrefs.kt / PlayerActivity.kt (showHud(kind, pct), hud build, onScroll volume + brightness, onDoubleTap, tapFlash(left, sec), onAudioSessionIdChanged, onDestroy release) / ic_pl_bright.xml, ic_pl_volume.xml (new).
+ KEYS: pl_vol_boost (int 0..100, default 0 = off), pl_bright (float, -1 = system), pl_seek_sens (int 0 / 1 / 2, default 1), pl_dtap_sec (int 5 / 10 / 15 / 20, default 10). Only READ, no Settings UI until P13 (P13 adds them + RESET; pl_bright also needs a "use system brightness" reset).
+ Checks: bracket balance (strings / comments stripped) of all Player*.kt, no duplicate funs, every new R.drawable exists, icon xml parse, new calls re-read (LoudnessEnhancer(int) / setTargetGain(int) / setEnabled(boolean), Player.Listener.onAudioSessionIdChanged(int), AudioManager). kotlinc NOT available: no compile.
+ NOT tested (needs a phone): compile; HUD look at 360 dp; boost really louder (set pl_vol_boost through P13 first); no crash on a device without the effect; brightness restored on the next video; seek speed prefs; double tap mark shows 5 / 15 / 20 s; centre -10 / +10 buttons stay 10 s on purpose (their icons say 10).
+ KNOWN: boost level is not saved (starts at 0 each time the player opens); boost only reachable after P13 adds the setting; the 3 hand-typed icon paths (bright / volume) need a look.
+ NEXT: P12 A-B loop.
+
+P10 RESULT (0.0.161)
+ Done: headphone button (bottom icon row, between Subtitles and Rotate, accent when on) + panel row "Audio only". Video track is switched off, black screen with a centred card (title, time, note, "Show video" button). Off brings the video back at the same position. Notification text says "Audio only".
+ Changed: PlayerAudioOnly.kt (new) / PlayerActivity.kt (audioOnly, setAudioOnly, toggleAudioOnly, aoCard above touch layer, aoIcon, ticker hook, enterPip block, bgNote flag) / PlayerService.kt (update(..., audioOnly), note text) / PlayerPages.kt (root toggle) / ic_pl_headphones.xml (new).
+ KEYS: none (state is not saved).
+ Checks: bracket balance, icon xml parse, R.drawable names exist, trackSelectionParameters edits use buildUpon so the quality cap and subtitle settings stay. kotlinc NOT available.
+ NOT tested (needs a phone): compile; taps outside the button still show / hide controls; Show video button; track back at the same position; audio-only on a stream; next episode keeps audio-only; PiP blocked with a toast; notification line; 4 icons + pill + time fit one row at 360 dp portrait.
+ KNOWN: onStop rule is unchanged (keeps playing only if Background audio is ON; the card says so); audio-only is per player session (closed player = video again); the bottom row is tight at 360 dp (time text may shrink).
+ NEXT: none for P10.
+
+P11 RESULT (0.0.162)
+ Done: "Playlist" page (root row "3 of 12", long press on the next button): all files of the folder in the same order as previous / next, current = accent + check, list scrolls to it, tap = jump. Row is hidden when the folder has fewer than 2 files (web streams).
+ Changed: PlayerQueue.kt (new) / PlayerPanel.kt (Builder.mark, scrollMark) / PlayerPages.kt (root row) / PlayerActivity.kt (queueSize / queueIndex / queueName / openAt / showQueue, nextBtn long press) / ic_pl_playlist.xml (new).
+ KEYS: none.
+ Checks: bracket balance, R.drawable names exist, radio / note / mark calls re-read against PlayerPanel.Builder. kotlinc NOT available.
+ NOT tested (needs a phone): compile; scroll position on a long list in portrait + landscape; jump keeps resume of the old file; long press on next does not also skip; a folder with 100+ files is slow to open (all rows are built at once).
+ KNOWN: no search / no reorder in the list; rows are built all at once (fine up to a few hundred).
+ NEXT: P12 A-B loop (size S).
+
+P12 RESULT (0.0.163)  zip: MGB_P12_v0_0_163.zip
+ Done: root row "A-B loop" (value Off / A 01:12 / A-B) opens a page: Set A here, Set B here, Clear loop. Two accent ticks on the seek bar. While a loop is active playback wraps from B to A (100 ms check). B before A is rejected with a toast.
+ Changed: PlayerLoop.kt (new) / PlayerActivity.kt (loop, loopMarks, seekBox, loopRun, setLoopA / setLoopB / clearLoop / loopSummary, ticker marks update, openSibling clears) / PlayerPages.kt (root row + loopPage).
+ KEYS: none (a loop is not saved).
+ Checks: bracket balance of all Player*.kt, R.drawable names exist (ic_repeat reuse, ic_add, ic_close), row / note calls re-read against PlayerPanel.Builder. kotlinc NOT available.
+ NOT tested (needs a phone): compile; ticks at the right x on the bar (portrait + landscape); dragging the seek bar still works through the marks view; wrap is tight; Clear removes ticks; loop cleared on next / previous / Playlist jump; the page covers the video, so A / B are taken at the moment the page opens.
+ KNOWN: setting A / B needs the panel open (no quick buttons on the controls); a manual seek past B wraps to A at once; loop is not kept after the player closes.
+ NEXT: P13 Settings "Player" card (size M). Add pl_vol_boost, pl_bright reset, pl_seek_sens, pl_dtap_sec, pl_hold_speed, pl_hold_slide, pl_speed_*, pl_repeat, pl_quality_cap, pl_sub_* to RESET.
+
+P13 RESULT (0.0.164)  zip: MGB_P13_P14_v0_0_165.zip (P13 + P14 built in one chat, one zip)
+ Done: Settings card "Player": Player gestures (on / off), Hold speed, Slide while holding, Double tap seconds, Seek swipe speed, Volume boost, Saved brightness (tap = follow phone), Default fit, Keep speed, Default quality, Background audio in player (moved from the Grabber card). Reset to default of the card removes every pl_* key.
+ Changed: SettingsScreen.kt (category "player", RESET, KW, pickPl, bg row moved) / PlayerPrefs.kt (K_GESTURES, K_FIT_DEFAULT, remove) / PlayerGestures.kt (enabled, fitDefault) / PlayerActivity.kt (gesture guards, setFit, fit default at start).
+ KEYS: pl_gestures (bool, default true), pl_fit_default (int 0 / 1 / 2). RESET["player"] holds all pl_* keys, sub_size, sub_color, bg_audio.
+ Checks: bracket balance of SettingsScreen + all Player*.kt (strings / comments stripped), Row(icon, label, value, hint, onClick) order, pickPl lambda types, RESET + KW keys match row labels. kotlinc NOT available.
+ NOT tested (needs a phone): compile; card shows in Settings and in search (KW); each dialog saves and the row value updates; reset; gestures off = swipe / hold / pinch dead but tap + double tap work; default fit applies; Background audio row still works from the new card.
+ KNOWN: hint lines are up to 30 characters (check wrapping at 360 dp); "Keep speed" and "Default quality" share their keys with the player panel pages (same value both ways, intended).
+
+P14 RESULT (0.0.165)
+ Done: read all RESULT blocks; removed dead code (cell, iconSlot, subScale, showAudioDialog, showSleepDialog); icon row fits 360 dp (40 dp buttons under 380 dp width); double-tap mark respects Reduce motion; Reset zoom chip no longer sits on the bottom controls; PHONE TEST LIST written (section 9). Handlers: every postDelayed uses `main` and onDestroy calls removeCallbacksAndMessages(null); pipReceiver unregistered; LoudnessEnhancer released in onDestroy; panel closed on PiP / onStop.
+ Changed: PlayerActivity.kt (dead code, applyCompact icon width, tapFlash, zoom chip margin) / HANDOFF.txt / CHANGELOG.txt / build.gradle.kts.
+ Checks: bracket balance, unused private members scan (none left), R.drawable names exist. kotlinc NOT available.
+ NOT tested: everything in section 9.
+ KNOWN (left on purpose): rotate has no way back to auto; panel text of Sleep does not tick by itself; AudioOpt class reused for subtitle rows; old sheet() is still used for Video info and the "Cannot play" dialog; pl_vol_boost level itself is not saved.
+ NEXT: build, fix compile errors, phone test.
+
+======================================================================
+9. PHONE TEST LIST (one line per feature, tick on the phone)
+======================================================================
+ [ ] P1  3-dot opens side panel (landscape) / bottom sheet (portrait); back arrow, back key, tap outside close it; video keeps playing
+ [ ] P2  Playback speed page: slider, - / +, presets, save custom (long press removes), keep speed for next video
+ [ ] P3  Quality page (HLS list, single file = Auto + note); Repeat off / one / folder
+ [ ] P4  Sleep timer (minutes, end of video, +15, custom); Audio track page switches track
+ [ ] P5  Subtitles page: track / Off, add file, size, colour, background, position
+ [ ] P6  Top bar centred title, thin seek bar with time under it, round side lock button locks / unlocks
+ [ ] P7  Bottom row: time, speed pill, Fit / Subtitles / Audio-only / Rotate icons fit at 360 dp; compact variant in landscape
+ [ ] P8  Hold = 2x chip, slide changes speed, release restores; pinch zoom 0.5-4x, Reset zoom chip
+ [ ] P9  HUD with icon + bar for brightness / volume; brightness remembered; boost past 100% (set Volume boost in Settings first); seek speed; double tap seconds
+ [ ] P10 Audio only: black card, Show video, notification line, PiP blocked
+ [ ] P11 Playlist page: list, current mark + scroll, jump; long press on next opens it
+ [ ] P12 A-B loop: Set A / Set B, ticks on seek bar, wraps B to A, Clear, cleared on next video
+ [ ] P13 Settings > Player card: every row, search finds them, Reset to default, gestures off keeps taps
+ [ ] P14 Reduce motion on: no fades in the player; rotate / PiP / lock / screen off do not crash
+
+
+FIX 0.0.166 RESULT (grabber / native download button missing after restart, intermittent)
+ Cause: engine WebView not ready when the first page loads; Sniffer events + content messages dropped. 
+ Done: TabsApi.reloadIfMissed (reload active tab once when engine ready), Sniffer.noteMissed. Files: TabsApi.kt, Sniffer.kt, build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+ Checks: bracket balance, names exist (tm, EngineHost.addLog, main). NOT tested on phone / kotlinc not run.
+ NEXT: (1) background tabs that loaded early are not reloaded (only the tab on screen); (2) if it still happens, read Settings > Diagnose log for "background.js did not register onStartup" (engine slow / crashed).

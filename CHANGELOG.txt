@@ -1,3 +1,9 @@
+0.0.167 (APPEARANCE STEP A1 BUILD: ThazirSwitch + toggle colour tokens)
+- ThazirSwitch.kt (new): MaterialSwitch subclass, drop-in. Track 48x28 dp pill (ON solid violet, OFF 1.5 dp outline), thumb = rounded square 20 dp / radius 7 dp (ON white + check, OFF grey). Drawn in code, tint lists cleared.
+- res/values/colors.xml + res/values-night/colors.xml: mg_toggle_on (#5B4BD6 | #9A8CFF), mg_toggle_thumb (#FFFFFF).
+- SettingsScreen.kt: switchFor() builds a ThazirSwitch (manual tint lines + MaterialSwitch import removed). MenuCustom.kt: the row switch is a ThazirSwitch.
+- app/build.gradle.kts: 0.0.167.
+
 0.0.166 (FIX: native grabber / download button missing after browser restart, sometimes)
 - Root cause: the engine (hidden background WebView) needs about 1-3 s to start, but the first page loads at once. Requests sniffed in that gap (Sniffer.emit) and the page content-script messages are dropped, so get-state has no videos for that page and the button never shows. Only a reload (or a lucky timing) fixed it.
 - TabsApi.kt: isEngineReady() / noteMissed(tabId) / reloadIfMissed(): when the engine becomes ready (400 ms after runtime.onStartup) the tab on screen is reloaded ONCE if it sent requests before that. Log line: "engine: page loaded before the engine was ready, reloading it once".

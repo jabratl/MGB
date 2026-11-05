@@ -21,7 +21,6 @@ import android.widget.TextView
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.google.android.material.materialswitch.MaterialSwitch
 
 /**
  * 0.0.123 (S14): "Customise menu" (like Brave). Full screen with a switch per row of the 3-dot menu.
@@ -157,13 +156,10 @@ object MenuCustom {
         /** one row: icon / bitmap / letter + label (+ small line) + switch. get / set talk to the prefs. */
         fun row(c: LinearLayout, icon: Int, bmp: Bitmap?, letterOf: String?, label: String, small: String, locked: Boolean,
                 get: () -> Boolean, set: (Boolean) -> Unit) {
-            val sw = MaterialSwitch(act).apply {
+            val sw = ThazirSwitch(act).apply { // APPEARANCE A1
                 isChecked = get()
                 isClickable = false
                 isFocusable = false
-                val st = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
-                trackTintList = ColorStateList(st, intArrayOf(cAccent, cVar))
-                thumbTintList = ColorStateList(st, intArrayOf(cOnAccent, cDim))
                 alpha = if (locked) 0.45f else 1f
             }
             val r = LinearLayout(act).apply {

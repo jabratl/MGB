@@ -32,7 +32,6 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import androidx.core.graphics.ColorUtils
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.snackbar.Snackbar
 
 /**
@@ -328,13 +327,10 @@ object SettingsScreen {
 
         private class Sub(val title: String)
 
-        private fun switchFor(on: Boolean) = MaterialSwitch(act).apply {
+        private fun switchFor(on: Boolean) = ThazirSwitch(act).apply { // APPEARANCE A1
             isChecked = on
             isClickable = false
             isFocusable = false
-            val st = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
-            trackTintList = ColorStateList(st, intArrayOf(act.getColor(R.color.mg_primary), act.getColor(R.color.mg_surface_variant)))
-            thumbTintList = ColorStateList(st, intArrayOf(act.getColor(R.color.mg_on_primary), act.getColor(R.color.mg_text_dim)))
         }
 
         private fun subLabel(title: String) = TextView(act).apply {

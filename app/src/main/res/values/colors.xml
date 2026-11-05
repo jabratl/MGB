@@ -12,6 +12,10 @@
     <color name="mg_error">#D93025</color>
     <color name="mg_success">#1E9E5A</color>
 
+    <!-- A1: Thazir switch / "selected" ring (violet, not the rose accent) -->
+    <color name="mg_toggle_on">#5B4BD6</color>
+    <color name="mg_toggle_thumb">#FFFFFF</color>
+
     <color name="thazir_icon_bg">#1B1630</color>
 
     <bool name="mg_light_bars">true</bool>
