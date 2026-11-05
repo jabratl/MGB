@@ -169,7 +169,11 @@ object SettingsScreen {
             "Suspend background tabs" to "memory ram free sleep inactive tabs unload",
             "Site settings" to "site host website per-site javascript desktop zoom text size permissions reset",
             "HTTPS-only mode" to "secure ssl http upgrade",
+            "Hosts and filters" to "adblock block host rules filter list allow whitelist easylist custom test url",
             "Ad blocker" to "ads popup pop-up tracker adblock block",
+            "Userscripts" to "tampermonkey greasemonkey script userscript js inject add paste match include",
+            "Run userscripts" to "userscripts master switch off on",
+            "Userscripts in private tabs" to "incognito private userscript",
             "Hide ad spaces on pages" to "ads empty space cosmetic",
             "Hide cookie banners" to "consent gdpr popup cookies",
             "Auto backup (daily)" to "save restore",
@@ -948,6 +952,9 @@ object SettingsScreen {
                     Util.toast(act, if (AdBlock.toggle()) "Ad blocker ON (reload the page)" else "Ad blocker OFF (reload the page)")
                     fill()
                 },
+                Row(R.drawable.ic_list, "Hosts and filters", "${FilterList.ruleCount} rules") { // T6
+                    AdblockManager.open(act, tabs?.active?.url?.let { SiteConfig.hostOf(it) }) { fill() }
+                },
                 Row(R.drawable.ic_shield, "Hide ad spaces on pages", if (CosmeticFilter.adsOn(act)) "ON" else "OFF") { // S42
                     CosmeticFilter.setAds(act, !CosmeticFilter.adsOn(act))
                     Util.toast(act, "Reload the page")
@@ -1004,7 +1011,18 @@ object SettingsScreen {
                 Row(R.drawable.ic_list, "My email aliases") { EmailAlias.manage(act) }
             ))
             category("extensions", R.drawable.ic_folder, "Extensions", "Add, turn on or off, remove", listOf( // S1
-                Row(R.drawable.ic_folder, "Extensions", ExtListScreen.summary(act), "Add .zip or .crx files") { dismiss(); ExtListScreen.open(act) }
+                Row(R.drawable.ic_folder, "Extensions", ExtListScreen.summary(act), "Add .zip or .crx files") { dismiss(); ExtListScreen.open(act) },
+                Row(R.drawable.ic_code, "Userscripts", "${Userscripts.count(act)} scripts", "Your own scripts on pages") { Userscripts.screen(act) { fill() } }, // T7
+                Row(R.drawable.ic_code, "Run userscripts", if (Userscripts.masterOn(act)) "ON" else "OFF") { // T7
+                    Userscripts.setMaster(act, !Userscripts.masterOn(act)); Userscripts.refreshAll(act)
+                    Util.toast(act, "Reload the page")
+                    fill()
+                },
+                Row(R.drawable.ic_code, "Userscripts in private tabs", if (Userscripts.privOn(act)) "ON" else "OFF") { // T7
+                    Userscripts.setPriv(act, !Userscripts.privOn(act)); Userscripts.refreshAll(act)
+                    Util.toast(act, "Reload the page")
+                    fill()
+                }
             ))
             category("about", R.drawable.ic_info, "About", "Updates, engine, version", listOf(
                 Row(R.drawable.ic_reload, "Check for updates") { UpdateManager.check(act, false) },

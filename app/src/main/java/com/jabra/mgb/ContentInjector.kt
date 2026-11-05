@@ -123,7 +123,7 @@ object ContentInjector {
     }
 
     /** S2: manifest match pattern -> JS regex source (full url check, the origin rule alone ignores the path). */
-    private fun patRegex(p: String): String? {
+    fun patRegex(p: String): String? { // T7: shared with Userscripts
         if (p == "<all_urls>") return "^https?://.*$"
         val m = PATTERN.find(p) ?: return null
         val scheme = if (m.groupValues[1] == "*") "https?" else m.groupValues[1]
