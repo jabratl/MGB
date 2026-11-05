@@ -23,18 +23,19 @@ ASSUMPTIONS (1 line each)
 ======================================================================
 [x] P1  v0.0.151  Side panel framework + player settings root (3-dot menu)            CODE DONE, phone test pending (see RESULT P1)
 [x] P2  v0.0.152  Playback Speed page (slider, preset grid, saved custom speeds)       CODE DONE, phone test pending (see RESULT P2)
-[ ] P3  v0.0.153  Quality page + Repeat page                                           M
-[ ] P4  v0.0.154  Sleep Timer page + Audio track page                                  M
-[ ] P5  v0.0.155  Subtitles page (tracks, add file, size, colour, background, position) M
-[ ] P6  v0.0.156  Controls A: top bar, seek row, centre buttons, side lock button      M
-[ ] P7  v0.0.157  Controls B: bottom icon row, rotate states, portrait / landscape / small-height layouts   M
-[ ] P8  v0.0.158  Gestures A: hold-to-speed chip + slide to change, pinch zoom in / out + reset            M
-[ ] P9  v0.0.159  Gestures B: level HUD restyle, volume boost, brightness memory, seek sensitivity          S
-[ ] P10 v0.0.160  Audio-only mode (headphone button) + notification link               M
-[ ] P11 v0.0.161  Episode queue panel (folder list, jump, now-playing mark)            M
-[ ] P12 v0.0.162  A-B loop (+ marks on seek bar)                                       S
-[ ] P13 v0.0.163  Settings > "Player" card (defaults, gestures, reset) + KW + RESET keys  M
-[ ] P14 v0.0.164  Final polish + QA pass (all steps together, no new features)         S
+[x] P3  v0.0.153  Quality page + Repeat page                                           CODE DONE, phone test pending (see RESULT P3)
+[x] P3.2 v0.0.154 FIX: compile errors of P1 / P2 / P3 (combined zip, see RESULT P3.2)   VERSIONS OF P4..P14 BELOW ARE +1 (P4 = 0.0.155 ... P14 = 0.0.165)
+[ ] P4  v0.0.155  Sleep Timer page + Audio track page                                  M
+[ ] P5  v0.0.156  Subtitles page (tracks, add file, size, colour, background, position) M
+[ ] P6  v0.0.157  Controls A: top bar, seek row, centre buttons, side lock button      M
+[ ] P7  v0.0.158  Controls B: bottom icon row, rotate states, portrait / landscape / small-height layouts   M
+[ ] P8  v0.0.159  Gestures A: hold-to-speed chip + slide to change, pinch zoom in / out + reset            M
+[ ] P9  v0.0.160  Gestures B: level HUD restyle, volume boost, brightness memory, seek sensitivity          S
+[ ] P10 v0.0.161  Audio-only mode (headphone button) + notification link               M
+[ ] P11 v0.0.162  Episode queue panel (folder list, jump, now-playing mark)            M
+[ ] P12 v0.0.163  A-B loop (+ marks on seek bar)                                       S
+[ ] P13 v0.0.164  Settings > "Player" card (defaults, gestures, reset) + KW + RESET keys  M
+[ ] P14 v0.0.165  Final polish + QA pass (all steps together, no new features)         S
 
 Size = share of ONE chat session: S ~25%, M ~40-50%. Never plan above 85%. If a step looks bigger while working: build the part that compiles, zip, write what is left into NEXT, stop at 85% (hard stop 90%).
 
@@ -140,7 +141,7 @@ E. Wording: short, straight English, same words as the old rows ("Playback speed
 ======================================================================
 6. VERSION + CHANGELOG CONVENTION
 ======================================================================
- - app/build.gradle.kts line 6: val appVersionName = "0.0.NNN". Each step: +1 (P1 = 0.0.151 ... P14 = 0.0.164). versionCode comes from CI (GITHUB_RUN_NUMBER), do not touch.
+ - app/build.gradle.kts line 6: val appVersionName = "0.0.NNN". Each step: +1 (P1 = 0.0.151 ... P3 = 0.0.153, P3.2 FIX = 0.0.154, P4 = 0.0.155 ... P14 = 0.0.165). versionCode comes from CI (GITHUB_RUN_NUMBER), do not touch.
  - CHANGELOG.txt (repo root, 135 KB, newest ON TOP): add one entry on top:
      0.0.151 (PLAYER STEP P1 BUILD: side panel framework + settings root)
      - PlayerPanel.kt: ...one line per file...
@@ -295,3 +296,20 @@ P2 RESULT (0.0.152)
  NOT tested (needs a phone): compile; slider drag changes speed live; - / + steps; chips selected state; save / long-press remove of a custom chip; keep speed across two videos; hold-to-2x still returns to the chosen speed; 3 columns at 360 dp portrait, 4 columns landscape; page back arrow returns to root (from root row) or closes (from toolbar); 0.05x playback on a real stream.
  KNOWN: hold-to-speed still fixed 2x (P8); toolbar label keeps the old text cell until P7; slider step 0.05 but saved / chip values can be 0.01 precise.
  NEXT: P3 Quality page + Repeat page (size M).
+
+P3 RESULT (0.0.153)
+ Done: root page has Quality (Auto / 1080p ...) and Repeat (Off / One / Folder) rows that open pages. Quality lists the video heights of the current stream; a single-quality file shows Auto + a note. Repeat folder loops back to the first file after the last.
+ !! FIX included: the P1 root() had "// comment }" on the go() line, which commented out the closing brace (compile error in P1 + P2 zips). PlayerPages.kt in this zip is the corrected file: always take this one.
+ Changed: PlayerPages.kt (go() fix, qualityPage, repeatPage, rows) / PlayerActivity.kt (repeat + quality helpers, STATE_ENDED folder loop, startPlayer applies saved values, toggleRepeat removed) / res/drawable/ic_pl_quality.xml (new) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt.
+ KEYS: pl_repeat (int 0 / 1 / 2, default 0), pl_quality_cap (int height, 0 = auto). (P13 must add both to RESET.)
+ Checks: bracket balance, new icon xml parse + path command check, new media3 calls re-read (TrackSelectionParameters.Builder.setMaxVideoSize / clearOverridesOfType / setOverrideForType, Tracks.Group.isTrackSupported / getTrackFormat / mediaTrackGroup), no leftover toggleRepeat call. kotlinc / phone NOT available: no compile, no 360 / 1280 px render check.
+ NOT tested (needs a phone): compile; HLS master with several heights (list, pick, Auto back); progressive mp4 (only Auto + note); cap survives the next video; repeat one does not start the next episode; repeat folder at the last file; "Repeat" value on root page; ic_pl_quality path (hand-typed).
+ KNOWN: heights are by video HEIGHT (a portrait 1080x1920 video shows 1920p); info line still shows the real playing size (not the chosen one); a saved cap that the new video does not offer leaves no row checked; repeat is now saved between videos / sessions.
+ NEXT: P4 Sleep timer page + Audio track page (size M).
+
+P3.2 RESULT (0.0.154)  zip: MGB_P3.2_v0_0_154.zip
+ Done: FIX only. The CI build of P1 / P2 / P3 failed with: PlayerPages.kt:26 Missing '}' (P1 + P2), PlayerPanel.kt:218 Val cannot be reassigned + Int/Float mismatch (P2 + P3). This zip = final state of ALL files P1-P3 changed, take it instead of P1 / P2 / P3 (or on top of them: same paths overwrite).
+ Changed: PlayerPanel.kt (slider: this.max = n) / PlayerPages.kt (final, go() comment fixed) / res/drawable/ic_open.xml (NEW, was referenced but missing) / PlayerActivity.kt, PlayerSpeed.kt, PlayerPrefs.kt, ic_pl_*.xml (unchanged since P1-P3, re-shipped) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt.
+ KEYS: none new.
+ Checks: bracket balance (strings / comments stripped) of all Player*.kt, every R.drawable / R.color used by PlayerPanel / PlayerPages / PlayerSpeed exists, icon xml parse, PlayerActivity diff vs context re-read (imports Tracks / TrackSelectionOverride / abs present). kotlinc NOT available: no compile, so the NEXT build log may still show a new error: paste it.
+ NEXT: P4 Sleep timer page + Audio track page, version 0.0.155.

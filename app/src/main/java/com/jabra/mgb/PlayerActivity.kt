@@ -309,6 +309,10 @@ class PlayerActivity : AppCompatActivity() {
                         flash("Next: " + sibs[sibIdx + 1].second.substringBeforeLast('.'))
                         main.postDelayed({ if (ended && player?.playbackState == Player.STATE_ENDED) openSibling(1) }, 1800)
                     }
+                    else if (repeatMode() == 2 && sibs.size > 1 && sibIdx == sibs.size - 1) { // P3: repeat folder, back to the first file
+                        flash("Back to the first file")
+                        main.postDelayed({ if (ended && player?.playbackState == Player.STATE_ENDED && repeatMode() == 2) openSibling(-sibIdx) }, 1800)
+                    }
                 }
                 else if (state == Player.STATE_READY) ended = false
                 refreshPlayIcon()
@@ -340,6 +344,8 @@ class PlayerActivity : AppCompatActivity() {
         })
         setItem(resumePos())
         if (PlayerSpeed.keep(this)) setSpeed(PlayerSpeed.last(this)) // P2: keep speed for next video
+        applyRepeat() // P3
+        applyQuality(false) // P3: saved height cap
         p.playWhenReady = true
         p.prepare()
         main.post(ticker)
@@ -921,10 +927,69 @@ class PlayerActivity : AppCompatActivity() {
         return if (off) "Off" else "On"
     }
 
-    internal fun toggleRepeat() {
-        val on = player?.repeatMode == Player.REPEAT_MODE_ONE
-        player?.repeatMode = if (on) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
-        flash(if (on) "Repeat off" else "Repeat on")
+    // P3: repeat (pl_repeat: 0 off / 1 this video / 2 folder)
+    internal fun repeatMode(): Int = PlayerPrefs.getInt(this, PlayerPrefs.K_REPEAT, 0).coerceIn(0, 2)
+
+    internal fun repeatLabel(): String = when (repeatMode()) { 1 -> "One"; 2 -> "Folder"; else -> "Off" }
+
+    internal fun hasSiblings(): Boolean = sibs.size > 1
+
+    internal fun applyRepeat() { player?.repeatMode = if (repeatMode() == 1) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF }
+
+    internal fun setRepeat(m: Int) {
+        PlayerPrefs.putInt(this, PlayerPrefs.K_REPEAT, m)
+        applyRepeat()
+        flash(when (m) { 1 -> "Repeat this video"; 2 -> "Repeat folder"; else -> "Repeat off" })
+    }
+
+    // P3: quality (pl_quality_cap = max video height, 0 = auto)
+    internal fun qualityCap(): Int = PlayerPrefs.getInt(this, PlayerPrefs.K_QUALITY_CAP, 0)
+
+    /** Distinct heights of the supported video tracks, highest first, each with its best bitrate (0 = unknown). */
+    internal fun videoQualities(): List<Pair<Int, Int>> {
+        val p = player ?: return emptyList()
+        val best = HashMap<Int, Int>()
+        for (g in p.currentTracks.groups) {
+            if (g.type != C.TRACK_TYPE_VIDEO) continue
+            for (i in 0 until g.length) {
+                if (!g.isTrackSupported(i)) continue
+                val f = g.getTrackFormat(i)
+                if (f.height <= 0) continue
+                best[f.height] = maxOf(best[f.height] ?: 0, if (f.bitrate > 0) f.bitrate else 0)
+            }
+        }
+        return best.entries.sortedByDescending { it.key }.map { Pair(it.key, it.value) }
+    }
+
+    /** Cap the video height (Auto = no cap). exact = also force the best track of that height right now (user just picked it). */
+    internal fun applyQuality(exact: Boolean) {
+        val p = player ?: return
+        val h = qualityCap()
+        val b = p.trackSelectionParameters.buildUpon().clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+        if (h > 0) {
+            b.setMaxVideoSize(Int.MAX_VALUE, h)
+            if (exact) {
+                var bg: Tracks.Group? = null
+                var bi = 0
+                var bbr = -1
+                for (g in p.currentTracks.groups) {
+                    if (g.type != C.TRACK_TYPE_VIDEO) continue
+                    for (i in 0 until g.length) {
+                        if (!g.isTrackSupported(i)) continue
+                        val f = g.getTrackFormat(i)
+                        if (f.height == h && f.bitrate > bbr) { bg = g; bi = i; bbr = f.bitrate }
+                    }
+                }
+                if (bg != null) b.setOverrideForType(TrackSelectionOverride(bg.mediaTrackGroup, bi))
+            }
+        } else b.setMaxVideoSize(Int.MAX_VALUE, Int.MAX_VALUE)
+        p.trackSelectionParameters = b.build()
+    }
+
+    internal fun setQuality(h: Int) {
+        PlayerPrefs.putInt(this, PlayerPrefs.K_QUALITY_CAP, h)
+        applyQuality(true)
+        flash(if (h == 0) "Quality: Auto" else "Quality: " + h + "p")
     }
 
     internal fun toggleBgAudio() { // S45

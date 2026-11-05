@@ -215,7 +215,7 @@ class PlayerPanel(internal val act: PlayerActivity, private val host: FrameLayou
             head.addView(valueTv)
             card.addView(head)
             val bar = SeekBar(act).apply {
-                max = n
+                this.max = n // P3.2: 'max' is also the Float parameter of slider(), so say this.max (SeekBar.max, Int)
                 progress = Math.round((cur - min) / step)
                 progressTintList = ColorStateList.valueOf(accent)
                 thumbTintList = ColorStateList.valueOf(Color.WHITE)

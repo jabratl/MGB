@@ -1,3 +1,14 @@
+0.0.154 (PLAYER STEP P3.2 FIX: P1 + P2 + P3 compile errors, one combined zip)
+- PlayerPanel.kt: FIX slider(): inside SeekBar(act).apply { max = n } the name "max" meant the Float parameter of slider(), not SeekBar.max ("Val cannot be reassigned" + "Int but Float expected", PlayerPanel.kt:218). Now this.max = n.
+- PlayerPages.kt: FIX root() used R.drawable.ic_open for "Open in another app" but the file did not exist (unresolved reference). res/drawable/ic_open.xml added. The go() comment-brace bug of P1 / P2 stays fixed (comment above the function).
+- This zip holds the FINAL state of every file P1, P2 and P3 changed (PlayerPanel / PlayerPages / PlayerSpeed / PlayerPrefs / PlayerActivity / icons), so it works even if the old P1 / P2 / P3 zips are removed from the repo. No new feature.
+- app/build.gradle.kts: 0.0.154.
+
+0.0.153 (PLAYER STEP P3 BUILD: Quality page + Repeat page, FIX of P1 comment bug)
+- PlayerPages.kt: FIX: in root() the comment after "f()" in go() swallowed the closing brace (P1 / P2 would not compile); comment moved above the function. New qualityPage (Auto + one row per video height, bitrate as sub-line, note when only one quality) and repeatPage (Off / Repeat this video / Repeat folder). Root page: new "Quality" row (value Auto / 720p), "Repeat" is now a page row (value Off / One / Folder).
+- PlayerActivity.kt: repeatMode / setRepeat / applyRepeat / repeatLabel / hasSiblings (pref pl_repeat), videoQualities / applyQuality / setQuality / qualityCap (pref pl_quality_cap: setMaxVideoSize(any, height) + forced best track of that height when picked, cleared by Auto); STATE_ENDED: repeat folder goes back to the first file after the last; startPlayer applies saved repeat + quality cap. toggleRepeat removed (replaced by setRepeat).
+- res/drawable/ic_pl_quality.xml (new). app/build.gradle.kts: 0.0.153.
+
 0.0.152 (PLAYER STEP P2 BUILD: Playback speed page)
 - PlayerSpeed.kt (new): speed page of the side panel: custom slider 0.05x - 6x (step 0.05) with - / + buttons, preset chips 0.5 0.75 1 1.25 1.5 1.75 2 3 4 5 6, saved custom chips (max 8, long press removes), row "Save 1.15x as preset", option "Keep speed for next video". clamp() / fmt() helpers (1x, 1.5x, 1.15x).
 - PlayerPanel.kt: new builders chips(items, cols) + slider(...) and class Chip; Builder.wide (true when the panel is on the right).
