@@ -1,14 +1,20 @@
 package com.jabra.mgb
 
 import android.app.Activity
+import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.text.InputType
 import android.util.Log
 import android.webkit.WebView
 import android.widget.EditText
 import android.widget.FrameLayout
+import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.ScriptHandler
+import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -21,6 +27,9 @@ import org.json.JSONObject
  * Backup copies the prefs file (name added to Backup.SETTINGS).
  * Injection: ONE document-start script per enabled userscript per WebView (a syntax error in one script cannot stop the others).
  * Each one tests location.href against its own @match / @include / @exclude regexes, honours @noframes and @run-at.
+ * T9: a script with a real @grant gets a GM shim (GM_info, values, addStyle, setClipboard, openInTab, notification, menu commands + GM.* promises)
+ *     as function parameters (the page never sees GM_ names). Native side = WebMessageListener "MGBUS" (no replies), per-script token
+ *     ContentInjector.tokenFor("us:<id>"). Values: prefs mgb_us_values, key "v:<id>" = JSON {name: serialized json}, embedded as a snapshot at page start.
  */
 object Userscripts {
     private const val TAG = "Userscripts"
@@ -28,6 +37,8 @@ object Userscripts {
     const val MAX_ONE = 300_000
     const val MAX_ALL = 2_000_000
     const val MAX_N = 50
+    const val MAX_VALS = 1_000_000 // T9: per script, keys + serialized values
+    private const val VPREFS = "mgb_us_values"
 
     class Meta(private val keys: Map<String, List<String>>) {
         fun all(k: String): List<String> = keys[k] ?: emptyList()
@@ -39,7 +50,7 @@ object Userscripts {
         val name: String get() = meta.first("name").ifEmpty { "Script $id" }
     }
 
-    private class Handles(val priv: Boolean, val list: ArrayList<ScriptHandler>)
+    private class Handles(val priv: Boolean, val list: HashMap<String, ScriptHandler>)
     private val handles = java.util.WeakHashMap<WebView, Handles>()
 
     private fun p(c: Context) = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -100,7 +111,12 @@ object Userscripts {
         save(c, id, s.code, on, s.url)
     }
 
-    fun remove(c: Context, id: String) { p(c).edit().remove("s:$id").apply(); refreshAll(c) }
+    fun remove(c: Context, id: String) {
+        p(c).edit().remove("s:$id").apply()
+        synchronized(vals) { vals.remove(id); dirty.remove(id) }
+        c.getSharedPreferences(VPREFS, Context.MODE_PRIVATE).edit().remove("v:$id").apply() // T9
+        refreshAll(c)
+    }
 
     // ---------- injection ----------
     private fun esc(t: String): String {
@@ -147,7 +163,7 @@ object Userscripts {
     fun matchingNow(c: Context, url: String): List<Script> = if (!url.startsWith("http")) emptyList() else all(c).filter { matchesUrl(it, url) }
 
     /** The document-start JS of one script, or null when it has no usable pattern. */
-    private fun build(s: Script): String? {
+    private fun build(c: Context, s: Script): String? {
         val m = s.meta
         val (inc, exc) = lists(m)
         if (inc.length() == 0) return null
@@ -155,7 +171,10 @@ object Userscripts {
         sb.append("(function(){try{var u=location.href;function m(l){for(var i=0;i<l.length;i++){try{if(new RegExp(l[i][0],l[i][1]).test(u))return true}catch(e){}}return false}")
         sb.append("if(!m(").append(inc).append(")||m(").append(exc).append("))return;")
         if (m.has("noframes")) sb.append("if(window!==window.top)return;")
-        sb.append("var __run=function(){try{(function(){\n").append(s.code).append("\n}).call(window)}catch(e){try{console.error('[userscript]',e)}catch(_){}}};")
+        val g = grants(m)
+        if (g.isEmpty()) sb.append("var __run=function(){try{(function(){\n").append(s.code).append("\n}).call(window)}catch(e){try{console.error('[userscript]',e)}catch(_){}}};")
+        else sb.append(shim(c, s, g)).append("var __run=function(){try{(function(GM_info,GM_getValue,GM_setValue,GM_deleteValue,GM_listValues,GM_addStyle,GM_setClipboard,GM_openInTab,GM_notification,GM_registerMenuCommand,GM_unregisterMenuCommand,GM,unsafeWindow){\n").append(s.code)
+            .append("\n}).call(window,__info,__g('getValue',__get),__g('setValue',__set),__g('deleteValue',__del),__g('listValues',__list),__g('addStyle',__style),__g('setClipboard',__clip),__g('openInTab',__open),__g('notification',__note),__g('registerMenuCommand',__reg),__g('unregisterMenuCommand',__unreg),__GM,window)}catch(e){try{console.error('[userscript]',e)}catch(_){}}};")
         when (m.first("run-at").lowercase()) {
             "document-start" -> sb.append("__run();")
             "document-end" -> sb.append("if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',__run,{once:true});else __run();")
@@ -166,20 +185,28 @@ object Userscripts {
 
     fun supported(): Boolean = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
 
-    private fun addTo(c: Context, web: WebView, priv: Boolean): ArrayList<ScriptHandler> {
-        val list = ArrayList<ScriptHandler>()
+    private fun addTo(c: Context, web: WebView, priv: Boolean): HashMap<String, ScriptHandler> {
+        val list = HashMap<String, ScriptHandler>()
         if (!masterOn(c) || (priv && !privOn(c)) || !supported()) return list
-        for (s in all(c)) {
-            if (!s.on) continue
-            val js = build(s) ?: continue
-            try { list.add(WebViewCompat.addDocumentStartJavaScript(web, js, setOf("*"))) } catch (e: Exception) { Log.e(TAG, "add failed: " + s.name, e) }
-        }
+        for (s in all(c)) addOne(c, web, s, list)
         return list
+    }
+
+    private fun addOne(c: Context, web: WebView, s: Script, into: HashMap<String, ScriptHandler>) {
+        if (!s.on) return
+        val js = build(c, s) ?: return
+        try { into[s.id] = WebViewCompat.addDocumentStartJavaScript(web, js, setOf("*")) } catch (e: Exception) { Log.e(TAG, "add failed: " + s.name, e) }
     }
 
     /** Browser tab WebView: call before the first loadUrl (also when a suspended tab gets a new WebView). */
     fun attach(c: Context, web: WebView, priv: Boolean) {
-        try { synchronized(handles) { handles[web] = Handles(priv, addTo(c, web, priv)) } } catch (e: Exception) { Log.e(TAG, "attach failed", e) }
+        try {
+            if (supported() && WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) && (!priv || privOn(c))) { // T9: GM bridge (before the first load)
+                ContentInjector.init(c)
+                try { WebViewCompat.addWebMessageListener(web, "MGBUS", setOf("*"), listener) } catch (e: Exception) { Log.e(TAG, "bridge failed", e) }
+            }
+            synchronized(handles) { handles[web] = Handles(priv, addTo(c, web, priv)) }
+        } catch (e: Exception) { Log.e(TAG, "attach failed", e) }
     }
 
     /** UI thread: after a script or a switch changed, open tabs get the new set on their next page load. */
@@ -188,10 +215,212 @@ object Userscripts {
         for (w in webs) {
             try {
                 val h = synchronized(handles) { handles.remove(w) } ?: continue
-                for (x in h.list) try { x.remove() } catch (_: Exception) { }
+                for (x in h.list.values) try { x.remove() } catch (_: Exception) { }
                 synchronized(handles) { handles[w] = Handles(h.priv, addTo(c, w, h.priv)) }
             } catch (e: Exception) { Log.e(TAG, "refresh failed", e) }
         }
+    }
+
+    // ---------- T9: GM_ API without network ----------
+    /** Real grants only: "none" and an empty list mean page world as in T7. */
+    private fun grants(m: Meta): Set<String> = m.all("grant").map { it.trim() }.filter { it.isNotEmpty() && it != "none" }.toSet()
+
+    private fun can(s: Script, name: String): Boolean { val g = grants(s.meta); return ("GM_$name" in g) || ("GM.$name" in g) }
+
+    private fun evtName(sid: String) = "__u" + ContentInjector.tokenFor("us:$sid").take(24)
+
+    private fun jsSafe(t: String) = t.replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
+
+    // values: id -> (name -> serialized json). Written to prefs 1.5 s after the last change.
+    private val vals = HashMap<String, LinkedHashMap<String, String>>()
+    private val dirty = HashSet<String>()
+    private val ui = Handler(Looper.getMainLooper())
+    private var appCtx: Context? = null
+
+    private fun valsOf(c: Context, id: String): LinkedHashMap<String, String> = synchronized(vals) {
+        vals.getOrPut(id) {
+            val m = LinkedHashMap<String, String>()
+            try {
+                val o = JSONObject(c.getSharedPreferences(VPREFS, Context.MODE_PRIVATE).getString("v:$id", "{}") ?: "{}")
+                for (k in o.keys()) m[k] = o.optString(k)
+            } catch (_: Exception) { }
+            m
+        }
+    }
+
+    private fun valSize(m: Map<String, String>): Int = m.entries.sumOf { it.key.length + it.value.length }
+
+    private val flush = Runnable {
+        val c = appCtx ?: return@Runnable
+        val ids = synchronized(vals) { val l = dirty.toList(); dirty.clear(); l }
+        for (id in ids) {
+            val m = synchronized(vals) { vals[id]?.let { LinkedHashMap(it) } } ?: continue
+            val o = JSONObject(); for ((k, v) in m) o.put(k, v)
+            c.getSharedPreferences(VPREFS, Context.MODE_PRIVATE).edit().putString("v:$id", o.toString()).apply()
+            refreshOne(c, id) // later page loads get the new snapshot (a page that is open keeps its own copy)
+        }
+    }
+
+    private fun markDirty(c: Context, id: String) {
+        appCtx = c.applicationContext
+        synchronized(vals) { dirty.add(id) }
+        ui.removeCallbacks(flush); ui.postDelayed(flush, 1500)
+    }
+
+    /** Rebuild only the handler of one script on every tab that has it. */
+    private fun refreshOne(c: Context, id: String) {
+        val s = all(c).firstOrNull { it.id == id } ?: return
+        val webs = synchronized(handles) { handles.keys.toList() }
+        for (w in webs) {
+            try {
+                val h = synchronized(handles) { handles[w] } ?: continue
+                val old = h.list.remove(id) ?: continue
+                try { old.remove() } catch (_: Exception) { }
+                addOne(c, w, s, h.list)
+            } catch (e: Exception) { Log.e(TAG, "refreshOne failed", e) }
+        }
+    }
+
+    private fun one(c: Context, id: String): Script? {
+        val v = p(c).getString("s:$id", null) ?: return null
+        return try {
+            val o = JSONObject(v); val code = o.optString("c")
+            Script(id, code, o.optBoolean("on", true), parse(code) ?: Meta(emptyMap()), o.optString("u"), o.optLong("t"))
+        } catch (_: Exception) { null }
+    }
+
+    // menu commands: per tab WebView, cleared by the script itself at every page start (top frame)
+    class Cmd(val sid: String, val id: Int, val name: String)
+    private val cmds = java.util.WeakHashMap<WebView, ArrayList<Cmd>>()
+    private val opens = HashMap<String, ArrayList<Long>>() // rate limit for tab / clipboard / toast per script
+
+    private fun allowRate(sid: String): Boolean {
+        val now = System.currentTimeMillis()
+        val l = opens.getOrPut(sid) { ArrayList() }
+        l.removeAll { now - it > 10_000 }
+        if (l.size >= 5) return false
+        l.add(now); return true
+    }
+
+    /** Tap in the page sheet: runs the callback in the page (main frame only). */
+    fun runCmd(web: WebView, sid: String, id: Int) {
+        val e = evtName(sid)
+        web.evaluateJavascript("(function(){try{var f=window['$e'];if(typeof f==='function')f($id)}catch(x){}})()", null)
+    }
+
+    private val listener = object : WebViewCompat.WebMessageListener {
+        override fun onPostMessage(view: WebView, message: WebMessageCompat, sourceOrigin: Uri, isMainFrame: Boolean, replyProxy: JavaScriptReplyProxy) {
+            try { onMsg(view, message.data, isMainFrame) } catch (e: Exception) { Log.e(TAG, "msg failed", e) }
+        }
+    }
+
+    private fun onMsg(view: WebView, data: String?, isMain: Boolean) {
+        if (data == null || data.length > MAX_VALS + 5000) return
+        val m = try { JSONObject(data) } catch (_: Exception) { return }
+        val sid = m.optString("s")
+        val c = view.context.applicationContext
+        ContentInjector.init(c)
+        if (m.optString("t") != ContentInjector.tokenFor("us:$sid")) return // not our shim
+        if (!masterOn(c)) return
+        val s = one(c, sid) ?: return
+        if (!s.on) return
+        val a = m.optString("a")
+        val args = m.optJSONArray("p") ?: JSONArray()
+        when (a) {
+            "set" -> {
+                if (!can(s, "setValue")) return
+                val k = args.optString(0); val v = args.optString(1)
+                if (k.isEmpty() || k.length > 200) return
+                val mp = valsOf(c, sid)
+                synchronized(vals) {
+                    val n = valSize(mp) - (mp[k]?.let { k.length + it.length } ?: 0) + k.length + v.length
+                    if (n > MAX_VALS) { Util.toast(c, s.name + ": stored values are full"); return }
+                    mp[k] = v
+                }
+                markDirty(c, sid)
+            }
+            "del" -> {
+                if (!can(s, "deleteValue")) return
+                val k = args.optString(0)
+                val mp = valsOf(c, sid)
+                if (synchronized(vals) { mp.remove(k) } != null) markDirty(c, sid)
+            }
+            "clip" -> {
+                if (!can(s, "setClipboard") || !allowRate(sid)) return
+                val t = args.optString(0)
+                if (t.length > 100_000) return
+                (c.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("", t))
+                Util.toast(c, "Copied")
+            }
+            "open" -> {
+                if (!can(s, "openInTab") || !allowRate(sid)) return
+                val u = args.optString(0)
+                val sch = try { Uri.parse(u).scheme?.lowercase() } catch (_: Exception) { null }
+                if (sch != "http" && sch != "https") return // never file: / intent: / javascript:
+                val tm = BookmarksScreen.tabsRef ?: return
+                val src = tm.all().firstOrNull { it.web === view }
+                tm.newTab(u, src?.id ?: 0, args.optBoolean(1, true), src?.priv == true)
+            }
+            "toast" -> {
+                if (!can(s, "notification") || !allowRate(sid)) return
+                val t = args.optString(0); val x = args.optString(1)
+                Util.toast(c, (if (t.isEmpty()) x else if (x.isEmpty()) t else "$t: $x").take(160))
+            }
+            "cmd", "cmdclear", "cmdoff" -> {
+                if (!isMain || !can(s, "registerMenuCommand")) return
+                synchronized(cmds) {
+                    val l = cmds.getOrPut(view) { ArrayList() }
+                    when (a) {
+                        "cmdclear" -> l.removeAll { it.sid == sid }
+                        "cmdoff" -> l.removeAll { it.sid == sid && it.id == args.optInt(0) }
+                        else -> if (l.size < 30 && l.count { it.sid == sid } < 10) l.add(Cmd(sid, args.optInt(0), args.optString(1).take(60))) else Unit
+                    }
+                    Unit
+                }
+            }
+        }
+    }
+
+    private val SHIM = """
+var __T='%T%',__S='%S%',__G=%G%,__M=%MAX%,__P=null,__info=%INFO%;
+try{__P=window.MGBUS.postMessage.bind(window.MGBUS)}catch(e){}
+function __send(a,p){try{if(__P)__P(JSON.stringify({t:__T,s:__S,a:a,p:p}))}catch(e){}}
+var __V=Object.create(null),__sz=0;
+%V%.forEach(function(q){__V[q[0]]=q[1];__sz+=q[0].length+q[1].length});
+function __has(k){return k in __V}
+function __del(k){k=String(k);if(__has(k)){__sz-=k.length+__V[k].length;delete __V[k];__send('del',[k])}}
+function __get(k,d){k=String(k);if(__has(k)){try{return JSON.parse(__V[k])}catch(e){}}return d}
+function __set(k,v){k=String(k);var s;if(v===undefined)return __del(k);try{s=JSON.stringify(v)}catch(e){return}if(s===undefined)return __del(k);var n=__sz-(__has(k)?k.length+__V[k].length:0)+k.length+s.length;if(n>__M||k.length>200)return;__sz=n;__V[k]=s;__send('set',[k,s])}
+function __list(){return Object.keys(__V)}
+function __style(css){var s=document.createElement('style');s.textContent=String(css);var a=function(){var r=document.head||document.documentElement;if(!r)return false;r.appendChild(s);return true};if(!a()){var o=new MutationObserver(function(){if(a())o.disconnect()});o.observe(document,{childList:true,subtree:true})}return s}
+function __clip(t){__send('clip',[String(t)])}
+function __open(u,o){try{u=new URL(u,location.href).href}catch(e){}var sel=!(o===true||(o&&typeof o==='object'&&(o.active===false||o.loadInBackground===true)));__send('open',[String(u),sel]);return{closed:false,close:function(){},onclose:null}}
+function __note(a,b){var o=(a&&typeof a==='object')?a:{text:a,title:b};__send('toast',[String(o.title||''),String(o.text||'')])}
+var __C={},__ci=0;
+if(window===window.top&&(__G.indexOf('GM_registerMenuCommand')>=0||__G.indexOf('GM.registerMenuCommand')>=0)){try{Object.defineProperty(window,'%E%',{value:function(i){var f=__C[i];if(typeof f==='function'){try{f()}catch(e){try{console.error('[userscript]',e)}catch(_){}}}},configurable:true});__send('cmdclear',[])}catch(e){}}
+function __reg(n,f){if(window!==window.top||typeof f!=='function')return;var i=++__ci;__C[i]=f;__send('cmd',[i,String(n)]);return i}
+function __unreg(i){if(__C[i]){delete __C[i];__send('cmdoff',[i])}}
+function __g(n,f){return(__G.indexOf('GM_'+n)>=0||__G.indexOf('GM.'+n)>=0)?f:undefined}
+function __pr(f){return function(){var a=arguments;return new Promise(function(r,j){try{r(f.apply(null,a))}catch(e){j(e)}})}}
+var __GM={info:__info};
+[['getValue',__get],['setValue',__set],['deleteValue',__del],['listValues',__list],['addStyle',__style],['setClipboard',__clip],['openInTab',__open],['notification',__note],['registerMenuCommand',__reg],['unregisterMenuCommand',__unreg]].forEach(function(q){if(__g(q[0],1))__GM[q[0]]=__pr(q[1])});
+"""
+
+    private fun shim(c: Context, s: Script, g: Set<String>): String {
+        val m = s.meta
+        val ver = try { c.packageManager.getPackageInfo(c.packageName, 0).versionName ?: "" } catch (_: Exception) { "" }
+        val hdr = Regex("//\\s*==UserScript==[\\s\\S]*?//\\s*==/UserScript==").find(s.code)?.value ?: ""
+        val sc = JSONObject().put("name", m.first("name")).put("namespace", m.first("namespace")).put("version", m.first("version"))
+            .put("description", m.first("description")).put("author", m.first("author"))
+            .put("matches", JSONArray(m.all("match"))).put("includes", JSONArray(m.all("include")))
+            .put("excludes", JSONArray(m.all("exclude") + m.all("exclude-match"))).put("runAt", m.first("run-at").ifEmpty { "document-idle" })
+            .put("grant", JSONArray(g.toList())).put("noframes", m.has("noframes"))
+        val info = JSONObject().put("script", sc).put("scriptMetaStr", hdr).put("scriptHandler", "MGB").put("version", ver).put("scriptWillUpdate", false)
+        // the values snapshot is only needed when the script can read them
+        val pairs = JSONArray()
+        if (can(s, "getValue") || can(s, "listValues")) for ((k, v) in valsOf(c, s.id)) pairs.put(JSONArray().put(k).put(v))
+        return SHIM.replace("%T%", ContentInjector.tokenFor("us:" + s.id)).replace("%S%", s.id).replace("%G%", jsSafe(JSONArray(g.toList()).toString()))
+            .replace("%MAX%", MAX_VALS.toString()).replace("%INFO%", jsSafe(info.toString())).replace("%V%", jsSafe(pairs.toString())).replace("%E%", evtName(s.id))
     }
 
     // ---------- temporary UI (T8 replaces it with a screen) ----------
@@ -309,12 +538,20 @@ object Userscripts {
     /** Page menu row: the scripts that match this page with a switch each. */
     fun pageSheet(act: Activity, url: String) {
         val ms = matchingNow(act, url)
+        val web = BookmarksScreen.tabsRef?.active?.web // T9: menu commands of this tab
         val items = if (ms.isEmpty()) listOf(ToolsSheet.Item(R.drawable.ic_info, "No script matches this page", "") { })
         else ms.map { s -> ToolsSheet.Item(R.drawable.ic_code, s.name, if (s.on) "ON" else "OFF") {
             setOn(act, s.id, !s.on); refreshAll(act); Util.toast(act, if (s.on) "Turned off. Reload the page" else "Turned on. Reload the page")
         } }
-        ToolsSheet.show(act, "Userscripts", Util.host(url), listOf(
-            ToolsSheet.Group("On this page", items),
+        val groups = ArrayList<ToolsSheet.Group>()
+        groups.add(ToolsSheet.Group("On this page", items))
+        if (web != null) for (s in ms) {
+            if (!s.on) continue
+            val cs = synchronized(cmds) { cmds[web]?.filter { it.sid == s.id } } ?: continue
+            if (cs.isEmpty()) continue
+            groups.add(ToolsSheet.Group(s.name, cs.map { cm -> ToolsSheet.Item(R.drawable.ic_play, cm.name, "") { runCmd(web, s.id, cm.id) } }))
+        }
+        ToolsSheet.show(act, "Userscripts", Util.host(url), groups + listOf(
             ToolsSheet.Group("Manage", listOf(
                 ToolsSheet.Item(R.drawable.ic_list, "Manage userscripts", "${count(act)} scripts") { UserscriptsScreen.open(act) }
             ))

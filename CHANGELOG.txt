@@ -1,3 +1,12 @@
+0.0.149 (TOOLS STEP T9 BUILD: Userscripts part 3, GM_ API without network + menu commands)
+- Userscripts.kt: a script with a real @grant (anything but none) runs inside a wrapper that gets the GM shim as function parameters (the page never sees GM_ names): GM_info, GM_getValue / GM_setValue / GM_deleteValue / GM_listValues, GM_addStyle, GM_setClipboard, GM_openInTab, GM_notification (toast), GM_registerMenuCommand / GM_unregisterMenuCommand, unsafeWindow, plus the GM.* promise versions (GM.getValue ...). Not granted = undefined. @grant none / no @grant = page world as in T7.
+- Userscripts.kt: native bridge = WebMessageListener "MGBUS" per tab (no replies), every message carries the script id + a per-script token (ContentInjector.tokenFor("us:<id>")), the script must be ON and hold the grant. openInTab accepts http / https only; clipboard / tab / toast are limited to 5 per 10 s per script.
+- Userscripts.kt: values in prefs mgb_us_values ("v:<id>", max 1 MB per script), embedded as a snapshot at page start, written back 1.5 s after the last change, then only that script's handler is rebuilt on the open tabs (new handler map per id: Handles.list is now a map).
+- Userscripts.kt: menu commands are kept per tab (cleared by the script at every page start), shown under the script name in the page row sheet; a tap runs the callback in the page through a secret-named window function.
+- Userscripts.kt: remove() also deletes the script's values.
+- Backup.kt NOT in this zip: add "mgb_us_values" to the SETTINGS array by hand (see HANDOFF T9 RESULT).
+- No xml, no manifest, no other Kotlin file changed.
+
 0.0.148 (TOOLS STEP T8 BUILD: Userscripts part 2, manager screen + install)
 - UserscriptsScreen.kt (new): full-screen "Userscripts" (cards / rows / buttons from AdblockManager.Ui, dark + light). Search, one row per script with a switch (haptic tick), tap = detail: monospace code editor, Save (a renamed script gets a new id, the old one is removed), Check update, Delete (confirm), discard check on Back. Add menu: from clipboard, from https address, blank template, Import all / Export all through the clipboard (JSON).
 - Userscripts.kt: idOf(), matchesUrl() / matchingNow() (same patterns as the injected script), fetch() (https only, 300 KB), promptInstall() ("Install" or "Update userscript?" with name, version, @match list, warning), offerInstall(), checkUpdate() (@downloadURL, saved address, @updateURL; .meta.js ignored), pageSheet() (scripts that match this page, switch each), isUserJs(), TEMPLATE.
