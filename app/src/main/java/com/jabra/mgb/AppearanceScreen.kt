@@ -35,6 +35,9 @@ object AppearanceScreen {
     private var current: Screen? = null
     @Volatile private var reopen = false
 
+    /** A3: set by MainActivity; called after a change that the main screen must show now (bar icon, full URL). */
+    var onChange: (() -> Unit)? = null
+
     fun open(host: Activity) {
         if (host.isFinishing || host.isDestroyed) return
         closeAll()
@@ -76,6 +79,8 @@ object AppearanceScreen {
         private var body: LinearLayout? = null
         private var titleTv: TextView? = null
         private var page = "root"
+        private var prevUrl: TextView? = null // A3: live preview of the address bar
+        private var prevHome: ImageView? = null
 
         private fun dp(v: Int) = Util.dp(act, v)
 
@@ -133,6 +138,13 @@ object AppearanceScreen {
             fill()
         }
 
+        private fun openPage(key: String, title: String) {
+            page = key
+            titleTv?.text = title
+            fill()
+            (body?.parent as? ScrollView)?.scrollTo(0, 0)
+        }
+
         /** Back order: sub-page -> root -> Settings. */
         private fun goBack() {
             if (page != "root") {
@@ -153,6 +165,7 @@ object AppearanceScreen {
             val col = body ?: return
             col.removeAllViews()
             when (page) {
+                "bar" -> barPage(col)
                 else -> rootPage(col)
             }
         }
@@ -178,6 +191,93 @@ object AppearanceScreen {
                 Util.toast(act, if (on) "Dark pages ON (reload the page)" else "Dark pages OFF (reload the page)")
             }
             col.addView(themeCard, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            col.addView(sectionLabel("Address bar"))
+            val barCard = card()
+            navRow(barCard, R.drawable.ic_screen, "Customize address bar",
+                AppearancePrefs.homeIconAndLabel(AppearancePrefs.homeAction(act)).second) { openPage("bar", "Address bar") }
+            col.addView(barCard, LinearLayout.LayoutParams(MATCH, WRAP))
+        }
+
+        /** A3: Customize address bar = live preview, home-button action, auto-hide, full URL. */
+        private fun barPage(col: LinearLayout) {
+            col.addView(sectionLabel("Preview"))
+            val prevCard = card()
+            prevCard.addView(barPreview(), LinearLayout.LayoutParams(MATCH, WRAP))
+            col.addView(prevCard, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            col.addView(sectionLabel("Home button"))
+            val chipCard = card()
+            val acts = AppearancePrefs.HOME_ACTIONS
+            val chips = acts.map { a -> val ic = AppearancePrefs.homeIconAndLabel(a); Chip(ic.second, ic.first) }
+            chipChoice(chipCard, chips, acts.indexOf(AppearancePrefs.homeAction(act))) { i ->
+                AppearancePrefs.setHomeAction(act, acts[i])
+                AppearanceScreen.onChange?.invoke()
+                fill()
+            }
+            col.addView(chipCard, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            col.addView(sectionLabel("Behaviour"))
+            val behCard = card()
+            val ui = act.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
+            toggleRow(behCard, R.drawable.ic_screen, "Auto-hide bar", "Bar hides when you scroll down",
+                { ui.getBoolean("hide_bar", false) }) { on ->
+                ui.edit().putBoolean("hide_bar", on).apply()
+            }
+            toggleRow(behCard, R.drawable.ic_search, "Show full URL", "https://... instead of the site name only",
+                { AppearancePrefs.fullUrl(act) }) { on ->
+                AppearancePrefs.setFullUrl(act, on)
+                AppearanceScreen.onChange?.invoke()
+                updatePreview()
+            }
+            col.addView(behCard, LinearLayout.LayoutParams(MATCH, WRAP))
+        }
+
+        private fun updatePreview() {
+            prevUrl?.text = if (AppearancePrefs.fullUrl(act)) "https://example.com/watch?v=12" else "example.com"
+            prevHome?.setImageResource(AppearancePrefs.homeIconAndLabel(AppearancePrefs.homeAction(act)).first)
+        }
+
+        /** Mini copy of the bottom bar pill (home action icon, address, tabs, menu), built from views. */
+        private fun barPreview(): View {
+            val bar = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                background = round(act.getColor(R.color.mg_bg), 26, 1f, act.getColor(R.color.mg_outline))
+                setPadding(dp(4), 0, dp(4), 0)
+            }
+            val home = ImageView(act).apply {
+                setColorFilter(act.getColor(R.color.mg_text))
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+            }
+            prevHome = home
+            bar.addView(home, LinearLayout.LayoutParams(dp(44), dp(44)))
+            val url = TextView(act).apply {
+                textSize = 15f
+                setSingleLine(true)
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                setTextColor(act.getColor(R.color.mg_text))
+                setPadding(dp(6), 0, dp(6), 0)
+            }
+            prevUrl = url
+            bar.addView(url, LinearLayout.LayoutParams(0, WRAP, 1f))
+            bar.addView(TextView(act).apply {
+                text = "1"
+                textSize = 12f
+                gravity = Gravity.CENTER
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                setTextColor(act.getColor(R.color.mg_text))
+                background = round(0, 7, 2f, act.getColor(R.color.mg_text_dim))
+            }, LinearLayout.LayoutParams(dp(24), dp(24)).apply { marginEnd = dp(10) })
+            bar.addView(ImageView(act).apply {
+                setImageResource(R.drawable.ic_more)
+                setColorFilter(act.getColor(R.color.mg_text))
+                setPadding(dp(10), dp(10), dp(10), dp(10))
+            }, LinearLayout.LayoutParams(dp(40), dp(40)))
+            updatePreview()
+            val box = LinearLayout(act).apply { setPadding(dp(8), dp(4), dp(8), dp(6)) }
+            box.addView(bar, LinearLayout.LayoutParams(MATCH, dp(52)))
+            return box
         }
 
         // ---------------- helpers (A3-A8 reuse these) ----------------
@@ -303,6 +403,34 @@ object AppearanceScreen {
                 flow.addView(c, ViewGroup.LayoutParams(WRAP, WRAP))
             }
             parent.addView(flow, LinearLayout.LayoutParams(MATCH, WRAP))
+        }
+
+        /** A3: row that opens a page: icon + label + value + chevron. */
+        private fun navRow(parent: LinearLayout, icon: Int, label: String, value: String, onClick: () -> Unit) {
+            val row = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(52)
+                setPadding(dp(18), dp(6), dp(12), dp(6))
+                isClickable = true
+                rippleBg(this)
+                setOnClickListener { onClick() }
+            }
+            row.addView(ImageView(act).apply {
+                setImageResource(icon)
+                setColorFilter(act.getColor(R.color.mg_text_dim))
+            }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(16) })
+            row.addView(TextView(act).apply { text = label; textSize = 15f; setTextColor(act.getColor(R.color.mg_text)) },
+                LinearLayout.LayoutParams(0, WRAP, 1f))
+            row.addView(TextView(act).apply {
+                text = value; textSize = 13f; setTextColor(act.getColor(R.color.mg_primary))
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            }, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(8) })
+            row.addView(ImageView(act).apply {
+                setImageResource(R.drawable.ic_chevron)
+                setColorFilter(act.getColor(R.color.mg_text_dim))
+            }, LinearLayout.LayoutParams(dp(18), dp(18)).apply { marginStart = dp(4) })
+            parent.addView(row, LinearLayout.LayoutParams(MATCH, WRAP))
         }
 
         private fun palette(night: Boolean): Palette {

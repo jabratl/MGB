@@ -32,6 +32,16 @@ object AppearancePrefs {
     fun homeAction(c: Context): String = sp(c).getString(K_HOME_ACTION, "home").let { if (it in HOME_ACTIONS) it!! else "home" }
     fun setHomeAction(c: Context, v: String) { if (v in HOME_ACTIONS) sp(c).edit().putString(K_HOME_ACTION, v).apply() }
 
+    /** A3: icon + name of a home-button action (bar button, preview and chips use the same table). */
+    fun homeIconAndLabel(action: String): Pair<Int, String> = when (action) {
+        "back" -> Pair(R.drawable.ic_back, "Back")
+        "newtab" -> Pair(R.drawable.ic_add, "New tab")
+        "refresh" -> Pair(R.drawable.ic_reload, "Refresh")
+        "bookmarks" -> Pair(R.drawable.ic_bookmark, "Bookmarks")
+        "extensions" -> Pair(R.drawable.ic_ext, "Extensions")
+        else -> Pair(R.drawable.ic_home, "Home")
+    }
+
     fun fullUrl(c: Context): Boolean = sp(c).getBoolean(K_FULL_URL, false)
     fun setFullUrl(c: Context, on: Boolean) { sp(c).edit().putBoolean(K_FULL_URL, on).apply() }
 

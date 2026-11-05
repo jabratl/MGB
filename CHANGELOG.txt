@@ -1,3 +1,9 @@
+0.0.169 (APPEARANCE STEP A3 BUILD: Customize address bar page)
+- AppearanceScreen.kt: root row "Address bar > Customize address bar" opens page "bar": live mini bar preview (home icon, address, tabs, menu), Home button chips (Home / Back / New tab / Refresh / Bookmarks / Extensions), toggles Auto-hide bar (same key hide_bar as Settings) and Show full URL. New helpers navRow / openPage / barPage / barPreview. New hook AppearanceScreen.onChange.
+- AppearancePrefs.kt: homeIconAndLabel(action) (icon + name table).
+- MainActivity.kt: btnHome click = homeClick() by ap_home_action (default home = same as before); applyHomeIcon() sets the icon + description; refreshUrlField() shows the full URL when ap_full_url; onChange hook set in onCreate, cleared in onDestroy.
+- app/build.gradle.kts: 0.0.169.
+
 0.0.168 (APPEARANCE STEP A2 BUILD: Appearance screen shell + AppearancePrefs + THEME section)
 - AppearancePrefs.kt (new): all ap_* prefs (bar pos, home action, full url, swipe fs / tabs, wallpaper dim + file, undo toast, start page) with defaults = today's behaviour.
 - AppearanceScreen.kt (new): full-screen dialog (56 dp header + back). Root page = THEME: 3 mini-phone tiles (System / Light / Dark, violet ring + check dot) + Dark pages ThazirSwitch row. Helpers for A3-A8: sectionLabel / card / toggleRow / tileChoice / chipChoice (+ FlowLayout). Back = Settings. Theme tile = save + recreate, the screen reopens (markReopen / reopenPending).

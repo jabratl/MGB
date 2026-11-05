@@ -95,7 +95,9 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         }
         floating = FloatingDl(this, findViewById<FrameLayout>(R.id.web_container).parent as FrameLayout, tabs) // S11
 
-        btnHome.setOnClickListener { tabs.goHome() } // S22, 0.0.130: Home opens in the same tab
+        btnHome.setOnClickListener { homeClick() } // S22, 0.0.130: Home opens in the same tab; APPEARANCE A3: action from Appearance (default = Home)
+        applyHomeIcon() // A3
+        AppearanceScreen.onChange = { applyHomeIcon(); refreshUrlField() } // A3: live update while the Appearance screen is open
         btnTabs.setOnClickListener { tabs.showSwitcher() }
         btnShield.setOnClickListener { PrivacyGuard.show(this, tabs) { refreshShield() } } // S68
         btnEngine.setOnClickListener { EnginePicker.show(this, btnEngine) { refreshShield() } } // S69
@@ -140,6 +142,25 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         window.decorView.post { PlayerScreen.reopenPending(this) } // S35: player comes back if the Activity was recreated
         window.decorView.post { AppearanceScreen.reopenPending(this) } // APPEARANCE A2: Appearance screen comes back after a theme change
         window.decorView.postDelayed({ Backup.auto(this) }, 10000) // S42: daily auto backup (if ON)
+    }
+
+    /** APPEARANCE A3: the left bar button does what Appearance > Address bar says (default = Home, as before). */
+    private fun homeClick() {
+        when (AppearancePrefs.homeAction(this)) {
+            "back" -> tabs.active?.let { if (tabs.canBack(it)) tabs.back(it) }
+            "newtab" -> tabs.newTab(TabManager.HOME_PAGE)
+            "refresh" -> reloadOrStop()
+            "bookmarks" -> BookmarksScreen.open(this, BookmarksScreen.Mode.BOOKMARKS, tabs)
+            "extensions" -> ExtTray.show(this)
+            else -> tabs.goHome()
+        }
+    }
+
+    /** APPEARANCE A3: icon + label of the left bar button follow the chosen action. */
+    private fun applyHomeIcon() {
+        val (icon, label) = AppearancePrefs.homeIconAndLabel(AppearancePrefs.homeAction(this))
+        btnHome.setImageResource(icon)
+        btnHome.contentDescription = label
     }
 
     /** S22: reload, or stop when the page is still loading (was the top bar button). */
@@ -269,7 +290,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         val u = if (tabs.active?.home == true) "" else (tabs.active?.url ?: "") // S13
         val s = when {
             u == "about:blank" -> ""
-            u.startsWith("http") -> Util.host(u)
+            u.startsWith("http") -> if (AppearancePrefs.fullUrl(this)) u else Util.host(u) // A3: full URL option
             else -> u
         }
         if (urlBar.text.toString() != s) urlBar.setText(s)
@@ -370,6 +391,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     override fun onDestroy() {
         DlFly.detach() // S21e
+        AppearanceScreen.onChange = null // A3
         AppLock.onDestroy() // S45
         AutoDiag.stop() // S87.2
         PlayerScreen.onHostDestroy(this) // S35

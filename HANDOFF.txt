@@ -1,4 +1,4 @@
-QUICKSTART (0.0.168): attach ONLY HANDOFF.txt + MGB-appearance-context.zip (it holds A1 + A2 applied and every file A3-A10 need to read or patch, top folder MGB-main/) + any step zip made AFTER it. No full MGB-main needed. Check app/build.gradle.kts appVersionName = "0.0.168" first. Each step ends with its changed-files zip AND, if a step touches a file the context zip does not hold, say so in RESULT. The player plan is finished (HANDOFF_PLAYER.txt).
+QUICKSTART (0.0.169): attach ONLY HANDOFF.txt + MGB-appearance-context.zip (it holds A1 + A2 + A3 applied and every file A3-A10 need to read or patch, top folder MGB-main/) + any step zip made AFTER it. No full MGB-main needed. Check app/build.gradle.kts appVersionName = "0.0.169" first. Each step ends with its changed-files zip AND, if a step touches a file the context zip does not hold, say so in RESULT. The player plan is finished (HANDOFF_PLAYER.txt).
 MGB (Thazir) - APPEARANCE PLAN, steps A1-A10     (HANDOFF.txt = the file you paste / attach first in every new chat)
 Base: version 0.0.154 (player plan P1-P3.2 done; P4-P14 still open, see HANDOFF_PLAYER.txt = the old file, renamed, not changed).
 No app code was changed when this plan was written. Planning chat only.
@@ -32,7 +32,7 @@ Settings: SettingsScreen.kt (1043 lines, NEVER read whole) = full-screen Dialog,
 ======================================================================
 [x] A1  v0.0.167  S   BUILD   ThazirSwitch (unique toggle) + colour tokens, used in Settings + Customise-menu screen   CODE DONE, phone test pending (see RESULT A1)
 [x] A2  v0.0.168  M   BUILD   Appearance screen shell + AppearancePrefs + THEME section + entry row in Settings > General   CODE DONE, phone test pending (see RESULT A2)
-[ ] A3  M   BUILD   Customize address bar page: live preview, home-button action, auto-hide, show full URL
+[x] A3  v0.0.169  M   BUILD   Customize address bar page: live preview, home-button action, auto-hide, show full URL   CODE DONE, phone test pending (see RESULT A3)
 [ ] A4  M   MODIFY  Bar position Top / Bottom (layout swap at start, preview tiles, "Apply now" recreate)
 [ ] A5  S   FIX     Top-bar polish: snackbar anchors, floating buttons, group strip, hide-on-scroll direction
 [ ] A6  M   BUILD   Bar gestures: swipe for page fullscreen, swipe to view tabs
@@ -204,3 +204,10 @@ RESULT A2 (0.0.168)  zip: MGB_A2_v0_0_168.zip
  Phone test: Settings > General > Appearance opens. Tiles System / Light / Dark: tap changes theme, app recreates, Appearance screen comes back in the new mode, ring on the chosen tile. Dark pages row toggles (ThazirSwitch). Back goes to Settings. Old Theme / Dark pages rows still work. Check 360 dp wide: 3 tiles fit.
  Not compiled (no kotlinc). Risk spots: AppearanceScreen.kt (private nested classes Palette / PhoneView / FlowLayout, createConfigurationContext palette). If a compile error names one, fix only that line.
  NEXT: A3 Customize address bar page (live preview, home-button action, auto-hide, show full URL).
+
+RESULT A3 (0.0.169)  zip: MGB_A3_v0_0_169.zip
+ Files: AppearanceScreen.kt (page "bar", navRow, preview), AppearancePrefs.kt (homeIconAndLabel), MainActivity.kt (homeClick, applyHomeIcon, refreshUrlField full URL, onChange hook), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+ Prefs used: ap_home_action, ap_full_url, hide_bar (existing, same key as Settings).
+ Phone test: Appearance > Customize address bar. Preview matches the bar. Each of 6 chips: tap changes the bar icon at once and the home button really does it (Home / Back / New tab / Refresh / Bookmarks / Extensions); default Home = as before. Show full URL: bar shows https://... after blur; OFF = site name only. Auto-hide toggle and Settings > Hide bar stay in sync. Back from the page -> Appearance root -> Settings. 360 dp, light + dark.
+ Not compiled (no kotlinc). Risk spots: MainActivity homeClick() (when branches), AppearanceScreen barPage chips lambda.
+ NEXT: A4 bar position Top / Bottom (MainActivity layout swap at start, GroupStrip, 2 preview tiles on the bar page, Apply now = recreate).
