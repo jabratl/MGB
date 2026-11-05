@@ -3,6 +3,8 @@ package com.jabra.mgb
 import android.app.Activity
 import android.app.Dialog
 import android.content.Context
+import android.content.res.ColorStateList
+import android.widget.SeekBar
 import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -167,6 +169,8 @@ object AppearanceScreen {
             col.removeAllViews()
             when (page) {
                 "bar" -> barPage(col)
+                "wp" -> wallpaperPage(col)
+                "tabs" -> tabsPage(col)
                 else -> rootPage(col)
             }
         }
@@ -193,11 +197,110 @@ object AppearanceScreen {
             }
             col.addView(themeCard, LinearLayout.LayoutParams(MATCH, WRAP))
 
+            col.addView(sectionLabel("Home page")) // A7
+            val wpCard = card()
+            navRow(wpCard, R.drawable.ic_image, "Wallpaper", if (AppearancePrefs.hasWallpaper(act)) "Custom image" else "None") { openPage("wp", "Wallpaper") }
+            col.addView(wpCard, LinearLayout.LayoutParams(MATCH, WRAP))
+
             col.addView(sectionLabel("Address bar"))
             val barCard = card()
             navRow(barCard, R.drawable.ic_screen, "Customize address bar",
                 AppearancePrefs.homeIconAndLabel(AppearancePrefs.homeAction(act)).second) { openPage("bar", "Address bar") }
             col.addView(barCard, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            col.addView(sectionLabel("Menu and tabs")) // A8
+            val menuCard = card()
+            val all = MenuCustom.QUICK + MenuCustom.GENERAL + MenuCustom.PAGE
+            navRow(menuCard, R.drawable.ic_edit, "Customize menu", "${all.count { MenuCustom.on(act, it.key) }} of ${all.size} shown") { MenuCustom.open(act) }
+            navRow(menuCard, R.drawable.ic_list, "Tabs and start page",
+                if (AppearancePrefs.startPage(act)) "Start page on" else "") { openPage("tabs", "Tabs and start page") }
+            col.addView(menuCard, LinearLayout.LayoutParams(MATCH, WRAP))
+        }
+
+        /** A8: Tabs and start page = undo toast + start page toggles. */
+        private fun tabsPage(col: LinearLayout) {
+            col.addView(sectionLabel("Tabs"))
+            val c = card()
+            toggleRow(c, R.drawable.ic_list, "Show undo toast", "\"Closed ... Undo\" bar after closing or grouping tabs",
+                { AppearancePrefs.undoToast(act) }) { on -> AppearancePrefs.setUndoToast(act, on) }
+            toggleRow(c, R.drawable.ic_home, "Show start page", "Open a fresh home tab at every launch (your other tabs stay)",
+                { AppearancePrefs.startPage(act) }) { on -> AppearancePrefs.setStartPage(act, on) }
+            col.addView(c, LinearLayout.LayoutParams(MATCH, WRAP))
+        }
+
+        private var wpScrimV: View? = null // A7: dim layer of the page preview
+
+        /** A7: Wallpaper page = preview, Choose image, Remove, Dim slider. */
+        private fun wallpaperPage(col: LinearLayout) {
+            col.addView(sectionLabel("Preview"))
+            val pc = card()
+            val frame = FrameLayout(act).apply { background = round(act.getColor(R.color.mg_bg), 16, 1f, act.getColor(R.color.mg_outline)); clipToOutline = true }
+            val bmp = Wallpaper.load(act)
+            if (bmp != null) {
+                frame.addView(ImageView(act).apply { scaleType = ImageView.ScaleType.CENTER_CROP; setImageBitmap(bmp) }, FrameLayout.LayoutParams(MATCH, MATCH))
+            } else {
+                frame.addView(TextView(act).apply {
+                    text = "No wallpaper"; textSize = 13f; gravity = Gravity.CENTER
+                    setTextColor(act.getColor(R.color.mg_text_dim))
+                }, FrameLayout.LayoutParams(MATCH, MATCH))
+            }
+            val scrim = View(act)
+            wpScrimV = scrim
+            frame.addView(scrim, FrameLayout.LayoutParams(MATCH, MATCH))
+            updateWpScrim(bmp != null)
+            pc.addView(frame, LinearLayout.LayoutParams(MATCH, dp(160)).apply { setMargins(dp(12), dp(2), dp(12), dp(6)) })
+            col.addView(pc, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            col.addView(sectionLabel("Image"))
+            val ic = card()
+            navRow(ic, R.drawable.ic_image, "Choose image", "") {
+                BrowserExtras.pickImage { uri ->
+                    Util.toast(act, "Saving wallpaper...")
+                    Thread {
+                        val ok = Wallpaper.save(act, uri)
+                        act.runOnUiThread {
+                            if (ok) { Wallpaper.notifyChanged(); if (page == "wp") fill() } else Util.toast(act, "Could not use this image")
+                        }
+                    }.start()
+                }
+            }
+            if (AppearancePrefs.hasWallpaper(act)) {
+                navRow(ic, R.drawable.ic_close, "Remove wallpaper", "") {
+                    Wallpaper.remove(act); Wallpaper.notifyChanged(); fill()
+                }
+            }
+            col.addView(ic, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            col.addView(sectionLabel("Dim"))
+            val dc = card()
+            val tint = ColorStateList.valueOf(act.getColor(R.color.mg_toggle_on))
+            dc.addView(SeekBar(act).apply {
+                max = 80
+                progress = AppearancePrefs.wpDim(act)
+                progressTintList = tint
+                thumbTintList = tint
+                setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
+                        if (!fromUser) return
+                        AppearancePrefs.setWpDim(act, p)
+                        updateWpScrim(Wallpaper.load(act) != null)
+                        Wallpaper.notifyChanged()
+                    }
+                    override fun onStartTrackingTouch(sb: SeekBar?) { }
+                    override fun onStopTrackingTouch(sb: SeekBar?) { }
+                })
+            }, LinearLayout.LayoutParams(MATCH, dp(48)).apply { setMargins(dp(12), 0, dp(12), 0) })
+            dc.addView(TextView(act).apply {
+                text = "Dim layer in the page colour keeps the tiles readable. Wallpaper is not included in backup."
+                textSize = 12f
+                setTextColor(act.getColor(R.color.mg_text_dim))
+                setPadding(dp(16), 0, dp(16), dp(8))
+            }, LinearLayout.LayoutParams(MATCH, WRAP))
+            col.addView(dc, LinearLayout.LayoutParams(MATCH, WRAP))
+        }
+
+        private fun updateWpScrim(has: Boolean) {
+            wpScrimV?.setBackgroundColor(if (has) ColorUtils.setAlphaComponent(act.getColor(R.color.mg_bg), AppearancePrefs.wpDim(act) * 255 / 100) else 0)
         }
 
         /** A3: Customize address bar = live preview, home-button action, auto-hide, full URL. */

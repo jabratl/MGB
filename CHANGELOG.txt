@@ -1,3 +1,13 @@
+0.0.172 (APPEARANCE STEPS A7 BUILD + A8 BUILD in one zip: home wallpaper + Customize menu row + Tabs and start page)
+- Wallpaper.kt (new): pick -> downscale (long side 1920 / short 1080) -> filesDir/wallpaper.jpg, load (cached), remove, change listeners. try/catch incl. OutOfMemory.
+- res/drawable/ic_image.xml (new): 24dp icon.
+- BrowserExtras.kt: one new launcher (imgLauncher, OpenDocument image/*) + pickImage(), registered last.
+- HomeView.kt: wallpaper ImageView + dim scrim (mg_bg colour, ap_wp_dim) behind the tiles; applyWallpaper() on attach and on change. No wallpaper = unchanged.
+- AppearanceScreen.kt: root rows "Wallpaper" (page: preview, Choose image, Remove, Dim slider), "Customize menu" (N of M shown -> MenuCustom.open), "Tabs and start page" (page: Show undo toast, Show start page).
+- TabSwitcher.kt: undo() returns before drawing the bar when ap_undo_toast is OFF (the close itself is unchanged).
+- MainActivity.kt: after restoreSession(), ap_start_page ON adds a fresh home tab (selected). OFF = as before.
+- app/build.gradle.kts: 0.0.172.
+
 0.0.171 (APPEARANCE STEPS A5 FIX + A6 BUILD in one zip: top-mode snackbars + bar swipe gestures)
 - AppearancePrefs.kt: snackAnchor(act) = the bar in bottom mode, null in top mode.
 - AutoDiag.kt, PasswordStore.kt (2 places): snackbar anchor via snackAnchor, so in top mode they sit at the screen bottom, not under the bar. FloatingDl / DlFly need no change (they live in the page frame, below the top bar and above nothing in bottom mode).

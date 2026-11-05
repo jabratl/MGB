@@ -150,6 +150,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         onBackPressedDispatcher.addCallback(this, backCb)
 
         if (!tabs.restoreSession()) tabs.newTab(TabManager.HOME_PAGE) // S13
+        else if (AppearancePrefs.startPage(this)) tabs.newTab(TabManager.HOME_PAGE) // A8: restored tabs + a fresh home tab selected
         UpdateManager.autoCheck(this)
         CrashLog.showLast(this) // FIX
         AppLock.onCreate(this) // S45: lock screen at cold start (if ON)

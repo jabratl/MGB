@@ -1345,6 +1345,7 @@ object TabSwitcher {
 
         private fun undo(msg: String, onUndo: () -> Unit) {
             hideUndo()
+            if (!AppearancePrefs.undoToast(act)) return // A8: "Show undo toast" OFF = the close / group change already happened, just no bar
             val b = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL

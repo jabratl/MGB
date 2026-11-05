@@ -45,6 +45,8 @@ object BrowserExtras {
     private var treeDone: (() -> Unit)? = null // S49
     private var extLauncher: ActivityResultLauncher<Array<String>>? = null // S1 (multi-extension)
     private var extDone: ((Uri) -> Unit)? = null // S1
+    private var imgLauncher: ActivityResultLauncher<Array<String>>? = null // A7 (wallpaper)
+    private var imgDone: ((Uri) -> Unit)? = null // A7
 
     /** Remembered Allow / Block answers for this run: "origin|kinds" -> answer. */
     private val decided = HashMap<String, Boolean>()
@@ -133,6 +135,21 @@ object BrowserExtras {
             extDone = null
             if (uri != null) cb?.invoke(uri)
         }
+        // A7: wallpaper image picker. Registered last so the keys of the launchers above stay the same.
+        imgLauncher = a.registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            val cb = imgDone
+            imgDone = null
+            if (uri != null) cb?.invoke(uri)
+        }
+    }
+
+    /** A7: let the user pick an image (home wallpaper). */
+    fun pickImage(done: (Uri) -> Unit) {
+        val l = imgLauncher
+        val a = act
+        if (l == null || a == null) return
+        imgDone = done
+        try { l.launch(arrayOf("image/*")) } catch (e: Exception) { imgDone = null; Util.toast(a, "No file picker found") }
     }
 
     /** S1: let the user pick an extension file (.zip / .crx). The .crx mime type is unreliable, so any file is allowed. */

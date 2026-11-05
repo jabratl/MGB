@@ -44,6 +44,9 @@ class HomeView(
 
     private val content = LinearLayout(ctx)
     private val pencil = ImageView(ctx)
+    private val wpImg = ImageView(ctx) // A7: wallpaper under the tiles
+    private val wpScrim = View(ctx) // A7: dim layer (mg_bg colour) so the tiles stay readable
+    private val wpListener: () -> Unit = { applyWallpaper() }
     private var cols = 0
     private var editing = false
     private var folder: String? = null // S26: folder open on the home screen (null = top level)
@@ -65,6 +68,10 @@ class HomeView(
         isClickable = true // swallow touches: the blank WebView below must not get them
         content.orientation = LinearLayout.VERTICAL
         content.setPadding(dp(16), dp(24), dp(16), dp(24))
+        wpImg.scaleType = ImageView.ScaleType.CENTER_CROP
+        wpImg.visibility = View.GONE; wpScrim.visibility = View.GONE
+        addView(wpImg, LayoutParams(MATCH, MATCH)) // A7: first children = behind the scroll content
+        addView(wpScrim, LayoutParams(MATCH, MATCH))
         val sv = ScrollView(context)
         sv.isFillViewport = true
         sv.addView(content, LayoutParams(MATCH, WRAP))
@@ -82,6 +89,20 @@ class HomeView(
         addView(pencil, LayoutParams(dp(44), dp(44), Gravity.TOP or Gravity.END).apply { topMargin = dp(8); marginEnd = dp(8) })
     }
 
+    /** A7: show / hide the wallpaper (file exists = on) and apply the dim value. No wallpaper = home looks as before. */
+    fun applyWallpaper() {
+        val bmp = Wallpaper.load(context)
+        if (bmp == null) { wpImg.visibility = View.GONE; wpScrim.visibility = View.GONE; return }
+        wpImg.setImageBitmap(bmp)
+        wpScrim.setBackgroundColor(androidx.core.graphics.ColorUtils.setAlphaComponent(context.getColor(R.color.mg_bg), AppearancePrefs.wpDim(context) * 255 / 100))
+        wpImg.visibility = View.VISIBLE; wpScrim.visibility = View.VISIBLE
+    }
+
+    override fun onDetachedFromWindow() {
+        Wallpaper.listeners.remove(wpListener)
+        super.onDetachedFromWindow()
+    }
+
     /** Rebuild the tiles from the current bookmarks (width 0 = not laid out yet, onSizeChanged does it). */
     fun refresh() = rebuild()
 
@@ -90,6 +111,7 @@ class HomeView(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        Wallpaper.listeners.add(wpListener); applyWallpaper() // A7
         // S34: if nothing was built yet (first layout not done), build now
         post { if (isAttachedToWindow && content.childCount == 0) rebuild() }
     }

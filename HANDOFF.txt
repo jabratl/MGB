@@ -1,4 +1,4 @@
-QUICKSTART (0.0.171): attach ONLY HANDOFF.txt + MGB-appearance-context.zip (it holds A1 + A2 + A3 applied and every file A3-A10 need to read or patch, top folder MGB-main/) + any step zip made AFTER it. No full MGB-main needed. Check app/build.gradle.kts appVersionName = "0.0.169" first. Each step ends with its changed-files zip AND, if a step touches a file the context zip does not hold, say so in RESULT. The player plan is finished (HANDOFF_PLAYER.txt).
+QUICKSTART (0.0.172): attach ONLY HANDOFF.txt + MGB-appearance-context.zip (it holds A1 + A2 + A3 applied and every file A3-A10 need to read or patch, top folder MGB-main/) + any step zip made AFTER it. No full MGB-main needed. Check app/build.gradle.kts appVersionName = "0.0.169" first. Each step ends with its changed-files zip AND, if a step touches a file the context zip does not hold, say so in RESULT. The player plan is finished (HANDOFF_PLAYER.txt).
 MGB (Thazir) - APPEARANCE PLAN, steps A1-A10     (HANDOFF.txt = the file you paste / attach first in every new chat)
 Base: version 0.0.154 (player plan P1-P3.2 done; P4-P14 still open, see HANDOFF_PLAYER.txt = the old file, renamed, not changed).
 No app code was changed when this plan was written. Planning chat only.
@@ -36,8 +36,8 @@ Settings: SettingsScreen.kt (1043 lines, NEVER read whole) = full-screen Dialog,
 [x] A4  v0.0.170  M   MODIFY  Bar position Top / Bottom   CODE DONE, phone test pending (see RESULT A4)
 [x] A5  v0.0.171  S   FIX     Top-bar polish: snackbar anchors   CODE DONE, phone test pending (see RESULT A5+A6)
 [x] A6  v0.0.171  M   BUILD   Bar gestures: swipe for page fullscreen, swipe to view tabs   CODE DONE, phone test pending (see RESULT A5+A6)
-[ ] A7  M   BUILD   Wallpaper for the home page (pick image, dim slider, remove)
-[ ] A8  M   BUILD   Customize menu row + Tabs and start page page (undo toast, show start page)
+[x] A7  v0.0.172  M   BUILD   Wallpaper for the home page   CODE DONE, phone test pending (see RESULT A7+A8)
+[x] A8  v0.0.172  M   BUILD   Customize menu row + Tabs and start page page   CODE DONE, phone test pending (see RESULT A7+A8)
 [ ] A9  S   MODIFY  Polish: remaining MaterialSwitch -> ThazirSwitch, Settings search/reset, remove old duplicate rows
 [ ] A10 S   MODIFY  OPTIONAL: SwitchCompat screens (Grabber / downloader / subtitle names / detected panel) -> same look
 
@@ -226,3 +226,11 @@ RESULT A5+A6 (0.0.171)  zip: MGB_A5_A6_v0_0_171.zip (both steps built in one cha
  Not compiled (no kotlinc). Risk spots: BarGestures touch listener (url_bar EditText), WindowInsetsControllerCompat hide/show with the existing bar colours.
  Not changed on purpose: FloatingDl / DlFly (checked: not covered by the bar in either mode), hide-on-scroll direction (scroll down hides the bar in both modes).
  NEXT: A7 home wallpaper (Wallpaper.kt, ic_image.xml, HomeView, picker).
+
+RESULT A7+A8 (0.0.172)  zip: MGB_A7_A8_v0_0_172.zip (two steps in one chat on request)
+ Files: Wallpaper.kt (new), res/drawable/ic_image.xml (new), BrowserExtras.kt (pickImage), HomeView.kt, AppearanceScreen.kt, TabSwitcher.kt (undo guard), MainActivity.kt (start page), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+ Prefs used: ap_wp_dim, ap_undo_toast, ap_start_page (+ file filesDir/wallpaper.jpg, not in backup).
+ Phone test: Appearance > Wallpaper > Choose image: preview shows it, Home tab shows it behind the tiles, Dim slider changes it live, Remove = plain home again; huge photo = no crash (toast on failure); light + dark text readable. Customize menu row opens the Customise screen, count matches. Tabs and start page: undo OFF = closing a tab shows no bar (tab still closes); Show start page ON = after restart restored tabs + a fresh home tab selected.
+ Not compiled (no kotlinc). Risk spots: AppearanceScreen wallpaperPage (SeekBar, clipToOutline), HomeView wallpaper children order, BrowserExtras launcher order.
+ Assumptions: EXIF rotation not applied; the row count "N of M" ignores pinned extensions; the Customize menu screen opens above Appearance (summary refreshes next time the page opens).
+ NEXT: A9 (S) remaining MaterialSwitch -> ThazirSwitch, remove old Theme/Dark pages rows, Reset ap_* keys. Then A10 optional.
