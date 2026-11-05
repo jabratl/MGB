@@ -1,3 +1,8 @@
+0.0.155 (PLAYER STEP P4 BUILD: Sleep timer page + Audio track page)
+- PlayerPages.kt: new sleepPage (Off, 15 / 30 / 45 / 60 / 90 min, End of this video, "Pauses in N min" line, Add 15 min, custom slider 5-180 min), audioPage (radio rows: language, channels, codec), AudioOpt, channelName, codecName, sleepValue (root row value "12 min" / "End of video" / "Off"); root rows Sleep timer + Audio track now push these pages (Audio row shows the selected track when there are 2+).
+- PlayerActivity.kt: setSleep internal + sentinel -1 = end of video (STATE_ENDED pauses, no next episode, no folder loop; cleared when another video loads), addSleep, sleepLeftMin, sleepPick; audioOpts / pickAudio; showSleepDialog + showAudioDialog open the panel pages (old sheet versions removed, toolbar Audio button opens the page).
+- app/build.gradle.kts: 0.0.155.
+
 0.0.154 (PLAYER STEP P3.2 FIX: P1 + P2 + P3 compile errors, one combined zip)
 - PlayerPanel.kt: FIX slider(): inside SeekBar(act).apply { max = n } the name "max" meant the Float parameter of slider(), not SeekBar.max ("Val cannot be reassigned" + "Int but Float expected", PlayerPanel.kt:218). Now this.max = n.
 - PlayerPages.kt: FIX root() used R.drawable.ic_open for "Open in another app" but the file did not exist (unresolved reference). res/drawable/ic_open.xml added. The go() comment-brace bug of P1 / P2 stays fixed (comment above the function).

@@ -174,7 +174,8 @@ class PlayerActivity : AppCompatActivity() {
     private var seekTarget = -1L
     private var volAcc = 0f
     private var dxAcc = 0f
-    internal var sleepAt = 0L // S38: sleep timer end (ms), 0 = off
+    internal var sleepAt = 0L // S38: sleep timer end (ms), 0 = off, -1 = end of this video (P4)
+    internal var sleepPick = 0 // P4: minutes the user picked (0 = none / custom add), for the selected row
 
     private val openSub = registerForActivityResult(ActivityResultContracts.OpenDocument()) { u ->
         if (u != null) addSubtitleFile(u)
@@ -305,7 +306,12 @@ class PlayerActivity : AppCompatActivity() {
                 if (state == Player.STATE_ENDED) {
                     ended = true
                     showControls(true)
-                    if (sibIdx in 0 until sibs.size - 1) { // like MX Player: the next episode starts by itself
+                    if (sleepAt == -1L) { // P4: sleep timer "end of this video": stop here, no next episode, no folder loop
+                        sleepAt = 0L
+                        sleepPick = 0
+                        flash("Sleep timer: paused")
+                    }
+                    else if (sibIdx in 0 until sibs.size - 1) { // like MX Player: the next episode starts by itself
                         flash("Next: " + sibs[sibIdx + 1].second.substringBeforeLast('.'))
                         main.postDelayed({ if (ended && player?.playbackState == Player.STATE_ENDED) openSibling(1) }, 1800)
                     }
@@ -390,6 +396,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun setItem(startMs: Long) {
         val p = player ?: return
+        if (sleepAt == -1L) { sleepAt = 0L; sleepPick = 0 } // P4: "end of this video" belongs to the video it was set on
         val ib = MediaItem.Builder().setUri(uri).setSubtitleConfigurations(ArrayList(subs))
         if (isWeb()) { // links without a clear extension in the path (token / query) still need the right source type
             val l = uri.toString().lowercase()
@@ -884,27 +891,40 @@ class PlayerActivity : AppCompatActivity() {
         sheet("Subtitles", if (n == 0) "No subtitle in this video. Add a file, or put it next to the video with the same name." else null, rows)
     }
 
-    internal fun showAudioDialog() {
-        val p = player ?: return
-        val groups = p.currentTracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
-        val rows = ArrayList<SheetRow>()
+    /** P4: audio tracks as page rows (language, channels, codec). Old sheet() version removed. */
+    internal fun audioOpts(): List<PlayerPages.AudioOpt> {
+        val p = player ?: return emptyList()
+        val out = ArrayList<PlayerPages.AudioOpt>()
         var n = 0
-        for (g in groups) for (i in 0 until g.length) {
-            if (!g.isTrackSupported(i)) continue
-            n++
-            val f = g.getTrackFormat(i)
-            val extra = if (f.channelCount > 0) f.channelCount.toString() + " ch" else null
-            val gg = g
-            val ii = i
-            rows.add(SheetRow(trackName(f, n), extra, g.isTrackSelected(i)) {
-                p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
-                    .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
-                    .setOverrideForType(TrackSelectionOverride(gg.mediaTrackGroup, ii))
-                    .build()
-            })
+        for (g in p.currentTracks.groups) {
+            if (g.type != C.TRACK_TYPE_AUDIO) continue
+            for (i in 0 until g.length) {
+                if (!g.isTrackSupported(i)) continue
+                n++
+                val f = g.getTrackFormat(i)
+                val sub = listOfNotNull(PlayerPages.channelName(f.channelCount), PlayerPages.codecName(f.sampleMimeType)).joinToString(" - ")
+                val gg = g
+                val ii = i
+                out.add(PlayerPages.AudioOpt(trackName(f, n), if (sub.isEmpty()) null else sub, g.isTrackSelected(i)) { pickAudio(gg, ii) })
+            }
         }
-        if (rows.isEmpty()) { Util.toast(this, "No audio track"); return }
-        sheet("Audio track", if (rows.size == 1) "This video has only one audio track." else null, rows)
+        return out
+    }
+
+    private fun pickAudio(g: Tracks.Group, i: Int) {
+        val p = player ?: return
+        p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+            .setOverrideForType(TrackSelectionOverride(g.mediaTrackGroup, i))
+            .build()
+        main.postDelayed({ if (panel.isOpen) panel.refresh() }, 250) // the player reports the new selection a moment later
+    }
+
+    internal fun showAudioDialog() {
+        if (audioOpts().isEmpty()) { Util.toast(this, "No audio track"); return }
+        main.removeCallbacks(hider)
+        showControls(false)
+        panel.open(PlayerPages.audioPage(this))
     }
 
     /** P2: speed page of the side panel (toolbar Speed button). Root page row pushes the same page. */
@@ -1000,27 +1020,43 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     internal fun showSleepDialog() {
-        val mins = intArrayOf(15, 30, 45, 60, 90)
-        val rows = ArrayList<SheetRow>()
-        rows.add(SheetRow("Off", null, sleepAt == 0L) { setSleep(0) })
-        for (m in mins) rows.add(SheetRow("$m minutes", null, false) { setSleep(m) })
-        sheet("Sleep timer", "Playback pauses when the time is up.", rows)
+        main.removeCallbacks(hider)
+        showControls(false)
+        panel.open(PlayerPages.sleepPage(this))
     }
 
     private val sleepTask = Runnable {
         sleepAt = 0L
+        sleepPick = 0
         player?.pause()
         flash("Sleep timer: paused")
         showControls(true)
     }
 
-    private fun setSleep(min: Int) {
+    /** P4: min > 0 = pause after min minutes, 0 = off, PlayerPages.SLEEP_END (-1) = pause when this video ends. */
+    internal fun setSleep(min: Int) {
         main.removeCallbacks(sleepTask)
-        if (min <= 0) { sleepAt = 0L; flash("Sleep timer off"); return }
+        if (min == PlayerPages.SLEEP_END) { sleepAt = -1L; sleepPick = min; flash("Sleep timer: end of video"); return }
+        if (min <= 0) { sleepAt = 0L; sleepPick = 0; flash("Sleep timer off"); return }
         sleepAt = System.currentTimeMillis() + min * 60_000L
+        sleepPick = min
         main.postDelayed(sleepTask, min * 60_000L)
         flash("Sleep timer: $min min")
     }
+
+    /** P4: quick add, on top of the time that is left (starts a new timer when none is running). */
+    internal fun addSleep(min: Int) {
+        val left = if (sleepAt > 0L) (sleepAt - System.currentTimeMillis()).coerceAtLeast(0L) else 0L
+        val total = left + min * 60_000L
+        main.removeCallbacks(sleepTask)
+        sleepAt = System.currentTimeMillis() + total
+        sleepPick = 0
+        main.postDelayed(sleepTask, total)
+        flash("Sleep timer: +$min min")
+    }
+
+    /** P4: minutes left, rounded up (0 = no timer or end-of-video mode). */
+    internal fun sleepLeftMin(): Int = if (sleepAt > 0L) ((sleepAt - System.currentTimeMillis()) / 60000L + 1L).toInt().coerceAtLeast(1) else 0
 
     internal fun showInfo() {
         val p = player ?: return
