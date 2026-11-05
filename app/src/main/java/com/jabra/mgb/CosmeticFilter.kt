@@ -34,8 +34,8 @@ object CosmeticFilter {
         if (view == null || url == null || !url.startsWith("http")) return
         val sel = ArrayList<String>()
         if (cookieOn(ctx)) sel.add(COOKIE_CSS)
-        if (adsOn(ctx) && AdBlock.enabled && !SiteConfig.has(url, SiteConfig.ADS_OK)) sel.add(ADS_CSS)
-        val extra = if (adsOn(ctx) && AdBlock.enabled && !SiteConfig.has(url, SiteConfig.ADS_OK)) FilterList.cosmeticCss(SiteConfig.hostOf(url)) else "" // S74
+        if (adsOn(ctx) && AdBlock.enabled && !SiteConfig.has(url, SiteConfig.ADS_OK) && !AdBlock.isAllowed(SiteConfig.hostOf(url))) sel.add(ADS_CSS)
+        val extra = if (adsOn(ctx) && AdBlock.enabled && !SiteConfig.has(url, SiteConfig.ADS_OK) && !AdBlock.isAllowed(SiteConfig.hostOf(url))) FilterList.cosmeticCss(SiteConfig.hostOf(url)) else "" // S74
         if (sel.isEmpty() && extra.isEmpty()) return
         val css = (if (sel.isEmpty()) "" else sel.joinToString(",") + "{display:none!important}") + extra
         val js = "(function(){try{if(window.__mgbCos)return;window.__mgbCos=1;var s=document.createElement('style');" +

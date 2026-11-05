@@ -64,6 +64,8 @@ object AdBlock {
         val p = ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         prefs = p
         enabled = p.getBoolean("on", true)
+        userHostSet = readSet("user_hosts") // T5
+        allowSet = readSet("allow_hosts")
         total0 = p.getInt("total", 0)
         days.clear() // S70
         (p.getString("days", "") ?: "").split(",").forEach { e ->
@@ -84,6 +86,7 @@ object AdBlock {
         if (SiteConfig.has(pageUrl, SiteConfig.ADS_OK)) return false // S29: site config "allow ads here"
         val host = req.url.host?.lowercase() ?: return false
         val ph = try { android.net.Uri.parse(pageUrl ?: "").host?.lowercase() } catch (e: Exception) { null }
+        if (isAllowed(host) || isAllowed(ph)) return false // T5: global allow list beats every rule
         val byHost = listed(host)
         val v = FilterList.verdict(req.url.toString(), host, ph, FilterList.typeOf(req)) // S74: EasyList rules (0 none, 1 block, 2 exception)
         if (v == 2) return false
@@ -106,6 +109,7 @@ object AdBlock {
         if (SiteConfig.has(openerUrl, SiteConfig.ADS_OK)) return false
         val host = try { android.net.Uri.parse(url).host?.lowercase() } catch (e: Exception) { null } ?: return false
         val ph = try { android.net.Uri.parse(openerUrl ?: "").host?.lowercase() } catch (e: Exception) { null }
+        if (isAllowed(host) || isAllowed(ph)) return false // T5
         if (ph != null && (ph == host || ph.endsWith(".$host") || host.endsWith(".$ph"))) return false
         val v = FilterList.verdict(url, host, ph, FilterList.T_SUBDOC)
         if (v == 2) return false
@@ -120,10 +124,65 @@ object AdBlock {
     fun emptyResponse(): WebResourceResponse =
         WebResourceResponse("text/plain", "utf-8", 200, "OK", emptyMap(), ByteArrayInputStream(ByteArray(0)))
 
+    // ---------- T5: user hosts, allow list, explain (strings in prefs mgb_adblock, newline separated: Backup copies strings) ----------
+    @Volatile private var userHostSet: Set<String> = emptySet()
+    @Volatile private var allowSet: Set<String> = emptySet()
+
+    private fun readSet(key: String): Set<String> =
+        (prefs?.getString(key, "") ?: "").split('\n').map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet()
+
+    private fun saveSet(key: String, s: Set<String>) { prefs?.edit()?.putString(key, s.sorted().joinToString("\n"))?.apply() }
+
+    private fun norm(h: String) = h.trim().lowercase().removePrefix("www.")
+
+    private fun okHost(n: String) = n.contains('.') && n.none { it.isWhitespace() || it == '/' || it == ':' } && n.length < 200
+
+    private fun inSet(s: Set<String>, host: String?): Boolean {
+        var h = host?.lowercase()?.removePrefix("www.") ?: return false
+        while (true) {
+            if (h in s) return true
+            val i = h.indexOf('.')
+            if (i < 0 || i == h.length - 1) return false
+            h = h.substring(i + 1)
+        }
+    }
+
+    fun builtinHosts(): List<String> = HOSTS.sorted()
+    fun userHosts(): List<String> = userHostSet.sorted()
+    fun allowHosts(): List<String> = allowSet.sorted()
+    fun isAllowed(host: String?): Boolean = inSet(allowSet, host)
+
+    /** Add / remove return false when the host is not valid (or the list is full: 2000). */
+    @Synchronized fun addUserHost(h: String): Boolean {
+        val n = norm(h)
+        if (!okHost(n) || userHostSet.size >= 2000) return false
+        userHostSet = userHostSet + n; saveSet("user_hosts", userHostSet); return true
+    }
+    @Synchronized fun removeUserHost(h: String) { userHostSet = userHostSet - norm(h); saveSet("user_hosts", userHostSet) }
+    @Synchronized fun addAllow(h: String): Boolean {
+        val n = norm(h)
+        if (!okHost(n) || allowSet.size >= 2000) return false
+        allowSet = allowSet + n; saveSet("allow_hosts", allowSet); return true
+    }
+    @Synchronized fun removeAllow(h: String) { allowSet = allowSet - norm(h); saveSet("allow_hosts", allowSet) }
+
+    /** One short reason for a request (page host = the site it is loaded on, may be null). */
+    fun explain(url: String, pageHost: String?): String {
+        val host = try { android.net.Uri.parse(url).host?.lowercase() } catch (e: Exception) { null } ?: return "Allowed"
+        val ph = pageHost?.lowercase()?.removePrefix("www.")
+        if (isAllowed(host) || isAllowed(ph)) return "Allowed (your allow list)"
+        val v = FilterList.verdict(url, host, ph, FilterList.T_OTHER)
+        if (v == 2) return "Allowed"
+        if (inSet(userHostSet, host)) return "Blocked (your host)"
+        if (v == 1) return "Blocked (filter rule)"
+        if (inSet(HOSTS, host)) return "Blocked (built-in host list)"
+        return "Allowed"
+    }
+
     private fun listed(host: String): Boolean {
         var h = host
         while (true) {
-            if (h in HOSTS) return true
+            if (h in HOSTS || h in userHostSet) return true // T5: + the user's own hosts
             val i = h.indexOf('.')
             if (i < 0 || i == h.length - 1) return false
             h = h.substring(i + 1)

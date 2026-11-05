@@ -104,6 +104,31 @@ object FilterList {
     val ruleCount: Int get() = idx?.count ?: 0
     fun updatedAt(): Long = prefs?.getLong("filters_ts", 0L) ?: 0L
 
+    /** T5: the user's own rules (one per line, same syntax as a list). Saved in prefs mgb_adblock (key user_rules) so Backup includes it. */
+    fun userRules(): String = prefs?.getString("user_rules", "") ?: ""
+
+    /** T5: saves the rules and reloads the index once. [done] gets "N ok, M skipped (unsupported)" (called on a background thread). */
+    fun setUserRules(ctx: Context, text: String, done: (String) -> Unit) {
+        Thread {
+            if (text.length > 100_000) { done("Too long (max 100 KB)"); return@Thread }
+            val lines = text.lines()
+            if (lines.size > 1500) { done("Too many lines (max 1500)"); return@Thread }
+            var ok = 0
+            var bad = 0
+            for (raw in lines) {
+                val l = raw.trim()
+                if (l.isEmpty() || l[0] == '!' || l[0] == '[') continue
+                val t = Builder()
+                try { t.add(l) } catch (_: Throwable) { }
+                if (t.count + t.cosDomN + t.cosGen.size > 0) ok++ else bad++
+            }
+            prefs?.edit()?.putString("user_rules", text)?.apply()
+            while (loading) try { Thread.sleep(150) } catch (_: InterruptedException) { }
+            load(ctx.applicationContext, false)
+            done("$ok ok, $bad skipped (unsupported)")
+        }.start()
+    }
+
     fun init(ctx: Context) {
         val app = ctx.applicationContext
         prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -123,6 +148,7 @@ object FilterList {
                     val f = File(dir(ctx), s.name)
                     if (f.exists()) try { f.bufferedReader().use { r -> r.forEachLine { b.add(it) } } } catch (_: Exception) { }
                 }
+                try { userRules().lineSequence().forEach { b.add(it) } } catch (_: Exception) { } // T5: "my rules", same parser as a list
                 idx = b.build()
             } catch (_: Throwable) {
                 // keep the old index (or none): AdBlock still has its host list
