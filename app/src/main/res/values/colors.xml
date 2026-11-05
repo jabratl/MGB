@@ -1,19 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- MGB design tokens: LIGHT. Dark values live in values-night/colors.xml (S22: calmer greys + rose accent) -->
-    <color name="mg_bg">#FFFFFF</color>
-    <color name="mg_surface">#F5F5F7</color>
-    <color name="mg_surface_variant">#ECEDF0</color>
-    <color name="mg_primary">#D93A5C</color>
+    <!-- Thazir design tokens: LIGHT. Keep resource names stable across the native UI. -->
+    <color name="mg_bg">#F8F8FC</color>
+    <color name="mg_surface">#FFFFFF</color>
+    <color name="mg_surface_variant">#F0F1F7</color>
+
+    <!-- Violet is the primary brand accent; white text remains high-contrast on it. -->
+    <color name="mg_primary">#5947C7</color>
     <color name="mg_on_primary">#FFFFFF</color>
-    <color name="mg_text">#14171C</color>
-    <color name="mg_text_dim">#5F6673</color>
-    <color name="mg_outline">#DCDFE5</color>
+
+    <color name="mg_text">#191A24</color>
+    <color name="mg_text_dim">#626477</color>
+    <color name="mg_outline">#D9DCE7</color>
+
+    <!-- Semantic states intentionally stay distinct from the brand accent. -->
     <color name="mg_error">#D93025</color>
     <color name="mg_success">#1E9E5A</color>
 
-    <!-- A1: Thazir switch / "selected" ring (violet, not the rose accent) -->
-    <color name="mg_toggle_on">#5B4BD6</color>
+    <!-- Selected controls share the primary violet; the thumb stays white. -->
+    <color name="mg_toggle_on">#5947C7</color>
     <color name="mg_toggle_thumb">#FFFFFF</color>
 
     <color name="thazir_icon_bg">#1B1630</color>

@@ -64,7 +64,7 @@ class FloatingDl(
     init {
         val size = dp(52)
         btn = FrameLayout(act)
-        // S67: accent circle (theme rose), soft gradient + ring, vector icon, badge with a ring
+        // S67: accent circle (theme violet), soft gradient + ring, vector icon, badge with a ring
         val accent = act.getColor(R.color.mg_primary)
         btn.background = GradientDrawable(GradientDrawable.Orientation.TL_BR,
             intArrayOf(androidx.core.graphics.ColorUtils.blendARGB(accent, Color.WHITE, 0.22f), accent)).apply {
@@ -76,7 +76,7 @@ class FloatingDl(
         btn.contentDescription = "Download"
         btn.addView(android.widget.ImageView(act).apply {
             setImageResource(R.drawable.ic_download)
-            setColorFilter(Color.WHITE)
+            setColorFilter(act.getColor(R.color.mg_on_primary))
             scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
             setPadding(dp(14), dp(14), dp(14), dp(14))
         }, FrameLayout.LayoutParams(size, size))

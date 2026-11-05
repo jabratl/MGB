@@ -14,7 +14,7 @@ import com.google.android.material.materialswitch.MaterialSwitch
 /**
  * APPEARANCE A1: the Thazir toggle. Drop-in MaterialSwitch (same API, same isChecked / listeners).
  * Track 48 x 28 dp pill: ON = solid mg_toggle_on, OFF = transparent with a 1.5 dp mg_text_dim outline (alpha 0x80).
- * Thumb = rounded square 20 dp, radius 7 dp: ON = white (mg_toggle_thumb) with a small check in mg_toggle_on, OFF = mg_text_dim.
+ * Thumb = rounded square 20 dp, radius 7 dp: ON = mg_toggle_thumb (white light / dark violet night) with a small check in mg_toggle_on, OFF = mg_text_dim.
  * Both are drawn here, so no tint lists are used (they are cleared).
  */
 class ThazirSwitch(ctx: Context) : MaterialSwitch(ctx) {

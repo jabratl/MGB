@@ -45,7 +45,7 @@ object DlFly {
         val size = (44 * d).toInt()
         val badge = ImageView(act).apply {
             setImageResource(R.drawable.ic_download)
-            setColorFilter(Color.WHITE)
+            setColorFilter(act.getColor(R.color.mg_on_primary))
             val p = (11 * d).toInt()
             setPadding(p, p, p, p)
             background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(act.getColor(R.color.mg_primary)) }

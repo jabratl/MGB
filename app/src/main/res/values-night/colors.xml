@@ -1,19 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- MGB design tokens: DARK -->
-    <color name="mg_bg">#0A0C10</color>
-    <color name="mg_surface">#14171C</color>
-    <color name="mg_surface_variant">#1F232A</color>
-    <color name="mg_primary">#F2708A</color>
-    <color name="mg_on_primary">#3A0A15</color>
-    <color name="mg_text">#ECEFF4</color>
-    <color name="mg_text_dim">#98A0AE</color>
-    <color name="mg_outline">#2A2F38</color>
+    <!-- Thazir design tokens: DARK. Keep resource names stable across the native UI. -->
+    <color name="mg_bg">#0B0D13</color>
+    <color name="mg_surface">#141722</color>
+    <color name="mg_surface_variant">#202435</color>
+
+    <!-- A lighter violet preserves clear accent contrast on dark surfaces. -->
+    <color name="mg_primary">#B6A8FF</color>
+    <color name="mg_on_primary">#211B3A</color>
+
+    <color name="mg_text">#F0EFF8</color>
+    <color name="mg_text_dim">#B0B2C2</color>
+    <color name="mg_outline">#34384A</color>
+
+    <!-- Semantic states intentionally stay distinct from the brand accent. -->
     <color name="mg_error">#FF7B72</color>
     <color name="mg_success">#4CD08A</color>
 
-    <color name="mg_toggle_on">#9A8CFF</color>
-    <color name="mg_toggle_thumb">#FFFFFF</color>
+    <color name="mg_toggle_on">#B6A8FF</color>
+    <!-- Dark thumb: white on the light violet track was only 2.1:1 -->
+    <color name="mg_toggle_thumb">#211B3A</color>
+    <color name="thazir_icon_bg">#1B1630</color>
 
     <bool name="mg_light_bars">false</bool>
 </resources>

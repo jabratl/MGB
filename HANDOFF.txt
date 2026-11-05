@@ -1,251 +1,288 @@
-QUICKSTART (0.0.174): attach ONLY HANDOFF.txt + MGB-appearance-context.zip (it holds A1 + A2 + A3 applied and every file A3-A10 need to read or patch, top folder MGB-main/) + any step zip made AFTER it. No full MGB-main needed. Check app/build.gradle.kts appVersionName = "0.0.169" first. Each step ends with its changed-files zip AND, if a step touches a file the context zip does not hold, say so in RESULT. The player plan is finished (HANDOFF_PLAYER.txt).
-MGB (Thazir) - APPEARANCE PLAN, steps A1-A10     (HANDOFF.txt = the file you paste / attach first in every new chat)
-Base: version 0.0.154 (player plan P1-P3.2 done; P4-P14 still open, see HANDOFF_PLAYER.txt = the old file, renamed, not changed).
-No app code was changed when this plan was written. Planning chat only.
+THAZIR / MGB — BROWSER REDESIGN & FEATURE ROADMAP
+Planning baseline: uploaded Thazir-main.zip (project identity MGB)
+Audit date: 2026-11-05 | Source app version: 0.0.174
+STATUS: PLANNING ONLY. No source code was modified for this handoff.
 
-ASSUMPTIONS (1 line each)
- - "Appearance option" = a new Appearance screen in Settings (reference: video "Screenrecorder-2026-11-05-14-08-25-945.mp4", Quetta Settings > Appearance, 480x800). Reference = FEATURE + LAYOUT idea only. Thazir gets its own look (see DESIGN RULES, section 4). No Quetta name / icon / red colour / radio circles copied.
- - Reference features rebuilt for Thazir: Theme (System/Light/Dark + dark pages), Wallpaper, Customize address bar (home-button action, bar position, auto-hide, swipe for fullscreen, swipe to view tabs, show full URL), Customize menu, Tabs and start page (undo toast, start page). "Languages" row is NOT in this plan (Thazir already has "Translate to").
- - UI is built in code (Views, no Compose, no new XML layouts). Keep that style.
- - All new prefs go into the existing prefs file "mgb_ui" with the prefix "ap_" (Backup.kt already saves mgb_ui, so no Backup change). Existing keys are reused: night, dark_pages, hide_bar.
- - Appearance steps and player steps can be mixed: the version is always "newest applied zip + 1" (read app/build.gradle.kts line 6).
+ASSUMPTIONS
+- “MGB-main.zip” and “Thazir-main.zip” refer to the same project; the uploaded archive is named Thazir-main.zip and its top-level directory is Thazir-main/.
+- Product identity shown to users is Thazir; package/namespace remains com.jabra.mgb and internal MGB identifiers remain unchanged unless a later explicit migration is planned.
+- Direction = Hybrid: minimal luxury + restrained futuristic details. Keep existing Material 3 native Android implementation; no Compose migration.
+- First priority is coherent UI polish, then small standalone features. No backend/provider credentials are assumed.
+- Source audit used file-tree and targeted grep/snippet inspection. Large Kotlin files were not read end-to-end; implementation chats must inspect only relevant functions and nearby code.
 
-======================================================================
-0. WHAT TO DO IN A NEW CHAT (read this first)
-======================================================================
-1. Attach: HANDOFF.txt + MGB-context.zip + every step zip made AFTER the context zip (oldest to newest, same paths overwrite). The newest step zip carries the newest HANDOFF.txt: use that one.
-2. Section 2 (PROGRESS): the first step that is not [x] is the step to build. ONE step per chat.
-3. Paste the kickoff line (section 7). Replace [Ax] and [Vxx].
-4. The assistant unzips the context zip, applies older step zips in order, checks app/build.gradle.kts appVersionName = "Previous version", then builds ONLY that step.
-5. Every step ends with: changed-files zip (top folder MGB-main/, changed files only), CHANGELOG.txt entry (newest on top), HANDOFF.txt progress line + RESULT block, version +1, final reply under 10 lines.
-6. Step zip name: MGB_Ax_v0_0_NNN.zip (NNN = new version number). CI (.github/workflows/build.yml) picks every *_vN.zip in the repo root in version order, so the name matters.
-
-======================================================================
 1. PROJECT SUMMARY
-======================================================================
-Thazir (code name MGB, package com.jabra.mgb) = Android browser: WebView tabs + native speed-dial home (HomeView) + native downloader + built-in player + a V77 Chrome-extension engine (assets/ext, chrome-shim). Built on phone only, free, by GitHub Actions. User is not a coder, writes Banglish; wants short replies.
-Main window: res/layout/activity_main.xml = vertical LinearLayout: [FrameLayout weight 1: web_container + progress] then [bottom_bar: floating pill, 52dp, margins 10/6/10/8, bg bg_bar_pill (surface, 1dp outline, radius 26dp)]. Bar children: btn_home (44dp), btn_engine (28dp, hidden by default), btn_shield (34dp, hidden), url_bar (EditText, weight 1, shows host only, empty on home), btn_tabs (34dp), btn_menu (40dp, 3-dot).
-Settings: SettingsScreen.kt (1043 lines, NEVER read whole) = full-screen Dialog, Material3 DayNight. Category cards via category(key, icon, title, subtitle, listOf(Sub/Row...)); General category (line ~801) holds Sub("Appearance") with Row "Theme" and Row "Dark pages". BIG map = categories that open as their own page. HINTS / KW / RESET maps near line 90-180.
+Thazir (internal project MGB) is an Android WebView browser built in Kotlin with native Views and Material 3 DayNight NoActionBar. It includes a native speed-dial HomeView, multi-tab manager and switcher, bookmarks/history, privacy/ad blocking, native download and media detection flows, built-in Media3 player, extension compatibility/runtime bridge, userscripts, saved pages, translation hooks, password/site permissions, appearance customization, backup and diagnostics.
 
-======================================================================
-2. PROGRESS  (the assistant ticks the step and adds a RESULT block at the end of every step)
-======================================================================
-[x] A1  v0.0.167  S   BUILD   ThazirSwitch (unique toggle) + colour tokens, used in Settings + Customise-menu screen   CODE DONE, phone test pending (see RESULT A1)
-[x] A2  v0.0.168  M   BUILD   Appearance screen shell + AppearancePrefs + THEME section + entry row in Settings > General   CODE DONE, phone test pending (see RESULT A2)
-[x] A3  v0.0.169  M   BUILD   Customize address bar page: live preview, home-button action, auto-hide, show full URL   CODE DONE, phone test pending (see RESULT A3)
-[x] A4  v0.0.170  M   MODIFY  Bar position Top / Bottom   CODE DONE, phone test pending (see RESULT A4)
-[x] A5  v0.0.171  S   FIX     Top-bar polish: snackbar anchors   CODE DONE, phone test pending (see RESULT A5+A6)
-[x] A6  v0.0.171  M   BUILD   Bar gestures: swipe for page fullscreen, swipe to view tabs   CODE DONE, phone test pending (see RESULT A5+A6)
-[x] A7  v0.0.172  M   BUILD   Wallpaper for the home page   CODE DONE, phone test pending (see RESULT A7+A8)
-[x] A8  v0.0.172  M   BUILD   Customize menu row + Tabs and start page page   CODE DONE, phone test pending (see RESULT A7+A8)
-[x] A9  v0.0.173  S   MODIFY  Polish: remaining MaterialSwitch -> ThazirSwitch, Settings search/reset, old rows removed   CODE DONE, phone test pending (see RESULT A9+A10)
-[x] A11 v0.0.174  S   MODIFY  Small Thazir polish (violet dash labels, haptic + press feel, Compact bar)   CODE DONE, phone test pending (see RESULT A11)
-[x] A10 v0.0.173  S   MODIFY  SwitchCompat screens -> same look   CODE DONE, phone test pending (see RESULT A9+A10)
+Build facts (verified from app/build.gradle.kts):
+- appVersionName = 0.0.174
+- namespace/applicationId = com.jabra.mgb
+- compileSdk 34; minSdk 24; targetSdk 34
+- Java/Kotlin target 17; Gradle wrapper/build workflow uses Gradle 8.7 in CI.
+- CI workflow: .github/workflows/build.yml; accepts root-level versioned ZIP patches, applies them, builds APK, publishes release. Do not change this workflow in UI feature steps.
+- Current archive top folder: Thazir-main/ (preserve this exact folder structure in future patch ZIPs unless repo owner changes it).
 
-Size = share of ONE chat (S ~20-25%, M ~40-50%). Each step leaves the app compiling and working; a row / switch appears in the UI only when its feature works.
+2. HIGH-LEVEL FILE MAP
+Native browser shell:
+- app/src/main/java/com/jabra/mgb/MainActivity.kt — activity lifecycle, address bar actions, bottom bar wiring, menu, listeners, browser integration.
+- app/src/main/res/layout/activity_main.xml — web container, progress indicator, bottom address/navigation pill and view IDs.
+- HomeView.kt — native speed-dial home, bookmark tiles/folders, recent visits, search pill, wallpaper/scrim.
+- TabManager.kt — WebView tabs, tab lifecycle/suspension, navigation, session save/restore, page events and WebView clients.
+- TabSwitcher.kt + GroupStrip.kt — visual tab grid, groups, snapshots, close/undo and group strip.
+- Bookmarks.kt + BookmarksScreen.kt + Favicons.kt — bookmark/history data and UI.
 
-======================================================================
-3. KEY IDS / FUNCTIONS / DATA SHAPES  (verified by grep in 0.0.154)
-======================================================================
-Prefs file "mgb_ui" (SharedPreferences, MODE_PRIVATE):
-  night Int 0 System / 1 Light / 2 Dark (UiMode.mode / UiMode.apply / UiMode.pick -> recreate)
-  dark_pages Bool (UiMode.darkPages / setDarkPages; then tabs?.applyDarkPages())
-  hide_bar Bool (MainActivity.kt ~line 83-95 tabs.onScroll hides bottom_bar after 40dp down, shows after 20dp up)
-  swipe_close, close_confirm, reduce_motion (TabPrefs)
-NEW prefs (A2 creates AppearancePrefs.kt with ALL getters / setters, so later steps only use them):
-  ap_bar_pos String "bottom"(default)|"top"
-  ap_home_action String "home"(default)|"back"|"newtab"|"refresh"|"bookmarks"|"extensions"
-  ap_full_url Bool false
-  ap_swipe_fs Bool false      ap_swipe_tabs Bool false
-  ap_wp_dim Int 35 (0-80)     wallpaper file = filesDir/wallpaper.jpg (exists = wallpaper on)
-  ap_undo_toast Bool true     ap_start_page Bool false (ON = open a fresh home tab at every launch, keep restored tabs; OFF = today's behaviour)
-Functions to reuse (grep the real signature before every call):
-  TabManager: goHome(), newTab(url, ?, select, priv), back(tab), canBack, showSwitcher(), active, inFullscreen (= customView != null, VIDEO fullscreen), exitFullscreen(), restoreSession() (MainActivity line ~136: if false -> newTab(HOME_PAGE)), HOME_PAGE = "about:home"
-  MainActivity: btnHome / btnTabs / urlBar, refreshUrlField() (line ~266, uses Util.host(u)), showMenu() (line ~156), BookmarksScreen.open(this, BookmarksScreen.Mode.BOOKMARKS, tabs), ExtTray.show(this), DownloadsScreen.open(this)
-  MenuCustom.open(act) = Customise menu screen; MenuCustom.on(c,key); GENERAL / PAGE / QUICK entry lists (prefs file mgb_menu_custom, not mgb_ui: Backup saves mgb_ui only, leave as is)
-  TabPrefs.tint(key, night): HSV soft tint per Settings category (used for the squircle icon badge)
-  Util.dp(ctx, v), Util.toast, Util.host(url)
-  SettingsScreen: switchFor(on) (line ~319), Row(icon,label,value,hint,onClick), Sub(title), fill(), openPage(key), restartBar() (Snackbar "Restart needed" + "Apply now" -> act.recreate())
-  TabSwitcher: private fun undo(msg, onUndo) (line ~1346) = "Closed X  Undo" bar
-  BrowserExtras (line ~63-131): registerForActivityResult launchers (OpenDocument etc.) - copy that pattern for the wallpaper picker
-Switch classes today: MaterialSwitch in SettingsScreen, AdblockManager, MenuCustom, PrivacyGuard, ExtListScreen; SwitchCompat in DetectedPanel, DlEngine, GrabSet, SubName.
-Icons that exist: ic_home ic_back ic_forward ic_add ic_reload ic_bookmark ic_bookmark_border ic_download ic_check ic_chevron ic_close ic_edit ic_more ic_settings ic_theme ic_screen ic_list ic_ext ic_history ic_shield ic_lock ic_search ic_folder ic_info. Missing (create when needed, 24dp vector like the others): ic_image (A7), ic_gesture (A6).
+Appearance / navigation:
+- SettingsScreen.kt — searchable category settings UI; large (~1,099 lines), inspect targeted regions only.
+- AppearanceScreen.kt + AppearancePrefs.kt + UiMode.kt + Wallpaper.kt — dedicated appearance pages, persisted options, theme selection and home wallpaper.
+- BarGestures.kt — current bar swipe/fullscreen/tab gestures.
+- TabPrefs.kt — tab preferences/helpers.
+- colors.xml + values-night/colors.xml + themes.xml — native light/dark theme tokens.
+- bg_bar_pill.xml and res/drawable/ic_*.xml — address bar background and vector icons.
 
-======================================================================
-4. DESIGN RULES  (audit result; every new screen follows these)
-======================================================================
-4.1 Existing style (do not change)
- - Material3 DayNight NoActionBar, theme Theme.MGB. Views in code. System sans-serif only (no custom font). Typeface.create("sans-serif-medium", ...) for titles.
- - Tokens (res/values/colors.xml light | values-night/colors.xml dark):
-     mg_bg #FFFFFF | #0A0C10     mg_surface #F5F5F7 | #14171C     mg_surface_variant #ECEDF0 | #1F232A
-     mg_primary (rose) #D93A5C | #F2708A     mg_on_primary #FFFFFF | #3A0A15
-     mg_text #14171C | #ECEFF4     mg_text_dim #5F6673 | #98A0AE     mg_outline #DCDFE5 | #2A2F38
-     mg_error #D93025 | #FF7B72     mg_success #1E9E5A | #4CD08A     thazir_icon_bg #1B1630
-   Always getColor(R.color.x); never hard-code hex in Kotlin (except TabPrefs.tint HSV).
- - Text sizes: screen title 22sp bold medium (header 56dp, back button 44x48dp padding 10dp); card title 16sp medium; row label 15sp; row hint 12sp (mg_text_dim); group label 11sp UPPERCASE letterSpacing 0.08 medium in mg_primary; search box 15sp; bar engine letter 13sp bold.
- - Spacing: screen side padding 16dp, bottom 32dp; card = round(mg_surface, 24dp) + 1dp stroke mg_outline alpha 0x99, cards 12dp apart; row min height 52dp, padding 18/6/16/6dp; row icon 22dp + 16dp gap; category badge = 42dp squircle, radius 13dp, fill TabPrefs.tint alpha 0x2B, icon 22dp tinted; dividers 1dp mg_outline inset 16dp; bottom pill bar 52dp / radius 26dp / margins 10-6-10-8dp; dialogs radius 16-24dp; undo bar = surface_variant radius 16dp elevation 8dp.
- - Dark / light: automatic through values-night; status + nav bars = mg_bg; light bars flag mg_light_bars. Test every screen in BOTH modes.
- - Breakpoints: no width classes. Only phone check: smallestScreenWidthDp < 600 (Orient.kt) and landscape check (Configuration.ORIENTATION_LANDSCAPE). New screens: scrollable column, no fixed heights, must work in landscape.
- - Icons: 24dp vector XML, tinted by setColorFilter. Selected row flash / chevron rotation exist in SettingsScreen (reuse by calling its helpers, do not re-invent in other screens).
-4.2 NEW tokens (added in A1)
-     mg_toggle_on  light #5B4BD6 | dark #9A8CFF   (Thazir violet, same family as the launcher icon background; NOT red, NOT the rose accent)
-     mg_toggle_thumb #FFFFFF (both modes)
-   Rose (mg_primary) stays the brand accent for labels / progress / buttons. Violet is only for switches and "selected" rings in Appearance.
-4.3 UNIQUE Thazir look (this is what makes it different from the reference video)
- - ThazirSwitch (class ThazirSwitch : MaterialSwitch, drop-in, same API): track 48x28dp pill; ON = solid mg_toggle_on, OFF = transparent with 1.5dp mg_text_dim (alpha 0x80) outline; thumb = ROUNDED SQUARE 20dp radius 7dp (not a circle): ON = white with a small check in mg_toggle_on, OFF = mg_text_dim. Reference uses a red round-thumb switch: ours differs in colour AND shape.
- - No radio circles anywhere. Single choice = tiles / chips: selected = 2dp mg_toggle_on ring + small check dot top-right; unselected = 1dp mg_outline.
- - Theme picker = 3 mini-phone preview tiles (System = half light / half dark, Light, Dark), each ~100x120dp, radius 16dp, label under it. Bar position picker = 2 mini-phone tiles with the pill drawn at top or at bottom. Home-button action = wrap of chips (icon + label, radius 20dp).
- - Appearance root rows use the same category-style squircle badge (tint key "appearance" = hue 330, add to TabPrefs.HUE only if A2 touches TabPrefs; otherwise pass the colour directly).
- - Motion: 150-200ms alpha/scale only; respect TabPrefs.reduce(ctx) (skip animations when true).
-4.4 Mobile first: all targets >= 44dp; text never below 11sp; check 360dp wide portrait and landscape.
+Tools / page features:
+- ToolsSheet.kt + MenuSheet.kt — native tool and overflow sheets.
+- FindBar.kt, Translate.kt, PageSave.kt, SavedPages.kt — find, translation, offline .mht save/open and saved page library.
+- PrivacyGuard.kt, SiteSettings.kt — privacy dashboard and per-site permissions.
+- Backup.kt + BrowserExtras.kt — browser data backup/import/export and Android document/image pickers.
 
-======================================================================
-5. STEP PLAN  (goal / mode / size / files / read-only / depends / design / checks)
-======================================================================
-A1  BUILD  S (~20%)   Goal: ThazirSwitch + tokens, used by Settings and the Customise-menu screen.
-   Add: app/src/main/java/com/jabra/mgb/ThazirSwitch.kt
-   Modify: res/values/colors.xml, res/values-night/colors.xml (3 tokens), SettingsScreen.kt (ONLY switchFor(): construct ThazirSwitch, remove the manual tint lines, keep isClickable=false / isFocusable=false; fix import), MenuCustom.kt (the one MaterialSwitch at line ~160)
-   Read-only: themes.xml, ic_check.xml
-   Depends: none.   Design: 4.3 ThazirSwitch.
-   Checks: token names unique in both colour files; ThazirSwitch compiles as MaterialSwitch subclass (grep other MaterialSwitch calls untouched); toggling a Settings row still works (row click toggles, switch is not clickable itself); light + dark.
+Downloads / media:
+- DlEngine.kt, DownloadsScreen.kt, DownloadService.kt, DownloadFolder.kt, FloatingDl.kt, Sniffer.kt — download controls, service, folders, detected media.
+- WebPlay.kt + WebVideo.kt — media link routing and in-page video integration.
+- PlayerActivity.kt, PlayerPanel.kt, PlayerPrefs.kt, PlayerQueue.kt, PlayerSubs.kt — Media3 player and playback preferences. PlayerActivity.kt is large; inspect targeted functions only.
+- assets/ext/{downloader,player,popup}.* — extension-side downloader/player UI. Keep native and extension surfaces consistent if both are touched.
 
-A2  BUILD  M (~45%)   Goal: Appearance screen with the Theme section, opened from Settings > General.
-   Add: AppearancePrefs.kt (ALL ap_* getters/setters of section 3), AppearanceScreen.kt (Dialog like SettingsScreen: 56dp header + back, scroll column; page stack "root"; helper funcs header / card / toggleRow / tileChoice / chipChoice / sectionLabel kept in this file for A3-A8)
-   Modify: SettingsScreen.kt (General: new first Row "Appearance" with value like "Dark" -> AppearanceScreen.open(act); HINTS + KW entries; keep old Theme / Dark pages rows for now), UiMode.kt (add setMode(ctx, which) that saves + apply, used by tiles; pick() stays)
-   Read-only: TabPrefs.kt, Util.kt, SettingsScreen.kt lines 199-345 (dp/round/header/rowView pattern), UiMode.kt
-   Root page content: THEME section (3 preview tiles, tap = setMode + recreate), "Dark pages" toggle (UiMode.darkPages), nothing else yet.
-   Checks: tile tap changes theme and the screen reopens in the new mode (recreate); back closes to Settings; old Theme row still works; no duplicate class names.
+Extension bridge (read-only context unless a step explicitly needs integration):
+- EngineHost.kt, ContentInjector.kt, ExtApi.kt, ChromeBridge.kt — local extension origin, injection and browser API bridge. Do not casually alter these during visual-only work.
 
-A3  BUILD  M (~45%)   Goal: "Customize address bar" page that really changes the bar.
-   Modify: AppearanceScreen.kt (root row + page: live mini-bar preview built from views, home-action chips, "Auto-hide bar" toggle = hide_bar, "Show full URL" toggle), MainActivity.kt (btnHome click -> by ap_home_action; btnHome icon by action; refreshUrlField: full URL when ap_full_url), AppearancePrefs.kt only if a getter is missing
-   Read-only: TabManager.kt (grep goHome/newTab/back), ExtTray.kt (grep fun show), BookmarksScreen.kt (grep open + Mode), Util.kt (host)
-   Depends: A2.   Design: chips 4.3; preview bar = same pill look as bg_bar_pill.
-   Checks: each of the 6 actions works from the bar; icon changes; full URL shows https://... and still goes back to host-only on blur rule (focus shows full URL already); hide_bar switch in Settings and here stay in sync (same key).
+3. VERIFIED KEY IDS / FUNCTIONS / DATA SHAPES
+Main layout IDs (activity_main.xml):
+- web_container: FrameLayout hosting active WebView.
+- progress: LinearProgressIndicator.
+- bottom_bar: current floating address/navigation pill.
+- btn_home, btn_engine, btn_shield, url_bar, btn_tabs, btn_menu: primary controls. btn_engine and btn_shield may be hidden depending on state.
+- Current layout is vertical: web area with weight 1, then bottom_bar. MainActivity can move bottom_bar to top when ap_bar_pos = top.
 
-A4  MODIFY M (~40%)   Goal: bar position Top / Bottom, applied after "Apply now".
-   Modify: MainActivity.kt (right after setContentView: if ap_bar_pos == "top" move bottom_bar to index 0 of its parent, swap margins to top 8dp / bottom 6dp), GroupStrip.kt (attach(): put the group strip on the side of the bar that faces the page; grep "bar.parent" / addView index), AppearanceScreen.kt (2 mini-phone tiles in the address-bar page + restart snackbar)
-   Read-only: activity_main.xml, bg_bar_pill.xml, FloatingDl.kt, DlFly.kt (grep margins / gravity only)
-   Depends: A3.   Design: tiles 4.3.
-   Checks: bottom mode identical to today (regression); top mode: bar at top, web below, progress line still under bar? (progress is inside the web FrameLayout: top is OK), group strip not overlapping, keyboard behaviour; no crash when tabs.onScroll hides the bar.
+Core classes / methods (re-check exact signatures and surrounding code before patching):
+- MainActivity: homeClick(), showMenu(), openSite(url), submitUrl(), refreshUrlField(), refreshAll(tab), refreshShield(). It owns the URL EditText and primary control references.
+- HomeView: refresh(), showTop(), applyWallpaper(); constructor receives Context and callbacks/data from TabManager. Keep current callback contract unless deliberately migrated in a contained step.
+- TabManager: Tab data class (id, web, openerId, lastActive, suspended, savedState, url, title, progress, pending, home, keepUrl, desktop, priv, savedPage); all(), byId(id), newTab(url, openerId=0, select=true, priv=false, lazy=false), switchTo(tab), close(tab), saveSession(), restoreSession(), goHome(), showSwitcher(), active, HOME_PAGE="about:home", MAX_TABS=30.
+- TabSwitcher: show(activity, tabManager), group/export/import helpers, snap(tab), onChanged callback. Tab groups are currently represented as name -> collection of tab IDs and session JSON export/import.
+- AppearancePrefs uses SharedPreferences file "mgb_ui". Existing keys include ap_bar_pos (bottom/top), ap_home_action (home/back/newtab/refresh/bookmarks/extensions), ap_full_url, ap_swipe_fs, ap_swipe_tabs, ap_wp_dim (0..80), ap_undo_toast, ap_start_page, ap_bar_compact. Do not rename existing keys.
+- UiMode: night key (0 System / 1 Light / 2 Dark), dark_pages key.
+- Wallpaper file: filesDir/wallpaper.jpg; wallpaper is not included in current backup.
+- PageSave: .mht files under app-private files; metadata Entry has id/title/url/date/size-like fields (inspect class before use). PageSave.save(activity, tab), list(context), open(activity,tabs,entry), remove/rename.
+- Downloads/media: detected item data is JSON-oriented through extension bridge/ChromeBridge; native download state lives across DlEngine / DownloadService / DownloadsScreen. Inspect actual queue/storage schema before adding a unified library; do not invent a second source of truth.
+- Player entry: WebPlay.play(context,url,title?,referer?,ua?) routes media URLs to PlayerActivity; player queue/subtitle preferences are separate modules.
+- Backup: current Backup operates on "mgb_ui" and selected app data; new preferences should be added to the existing backup shape only after checking import/export migration behaviour.
+- ToolsSheet.show(activity,title,subtitle,groups) is the existing native tools-sheet entry point.
 
-A5  FIX    S (~25%)   Goal: everything that assumed "bar at the bottom" behaves in top mode.
-   Modify: AutoDiag.kt (setAnchorView at ~118), PasswordStore.kt (~193, ~224), + at most one of FloatingDl.kt / DlFly.kt if its position clashes. New helper AppearancePrefs.snackAnchor(act) (returns the bar only in bottom mode, else null) - add to AppearancePrefs.kt.
-   Read-only: MainActivity.kt tabs.onScroll block (lines ~83-95)
-   Depends: A4.
-   Checks: snackbars appear at the bottom, not under the bar; floating download button not hidden behind the bar; bottom mode unchanged.
+4. DESIGN RULES — BASELINE AUDIT
+Native app:
+- Framework: Theme.Material3.DayNight.NoActionBar; native Android Views built mostly programmatically. Existing layout XML is limited and should stay limited. No Jetpack Compose migration in this plan.
+- Font: system sans-serif. Titles/labels commonly use Typeface.create("sans-serif-medium", ...); no bundled custom font resources found. Keep this to avoid added assets and font licensing/weight problems.
+- Light palette (values/colors.xml): mg_bg #FFFFFF; mg_surface #F5F5F7; mg_surface_variant #ECEDF0; mg_primary #D93A5C (rose); mg_on_primary #FFFFFF; mg_text #14171C; mg_text_dim #5F6673; mg_outline #DCDFE5; mg_error #D93025; mg_success #1E9E5A; mg_toggle_on #5B4BD6; mg_toggle_thumb #FFFFFF.
+- Dark palette (values-night/colors.xml): mg_bg #0A0C10; mg_surface #14171C; mg_surface_variant #1F232A; mg_primary #F2708A; mg_on_primary #3A0A15; mg_text #ECEFF4; mg_text_dim #98A0AE; mg_outline #2A2F38; mg_error #FF7B72; mg_success #4CD08A; mg_toggle_on #9A8CFF; mg_toggle_thumb #FFFFFF.
+- Theme maps Material 3 primary/surface/on-surface/outline/error and surface-container roles to mg_* tokens; status/navigation bars follow light/dark bool mg_light_bars.
+- Brand signals already present: rose primary in native app, violet toggle/selection, icon background #1B1630. Prior A11 appearance work adds small violet dash section markers and restrained haptic/press feedback. Do not abruptly replace every token without checking contrast and existing icon/state semantics.
+- Existing screen spacing is mostly 14–20dp horizontal padding; settings headers ~56dp; search fields ~48dp; row minimum heights ~52dp; cards use 12–16dp corner radii; bottom bar 52dp default / 44dp compact; bar outer margins 10dp and vertical margins 6–8dp. Other dialogs/cards use 20–24dp radii. Treat these as observed ranges, not rigid universal constants.
+- Touch targets: common controls 40–48dp; prefer >=44dp for primary touch actions. Respect system insets/cutouts and keyboard resize.
+- Corners: rounded cards and pills; existing bottom bar drawable is a pill. Keep elevation/shadows subtle; use outline and surface contrast before strong shadow/glow.
+- Icons: existing vector drawables in res/drawable, mostly 24dp. Reuse exact icons where semantically appropriate; add vector XML only if missing. Avoid emoji as primary app icons.
+- Animation: native View animations/animators already used. Existing Reduce motion setting exists; new motion must respect it. Keep normal transitions short and restrained (~150–250ms as design target, not a current global constant).
+- Dark/light: both are first-class and implemented via resource qualifiers + UiMode. Every new native surface must use themed resources/context and be tested in both modes; never hardcode a light-only surface.
+- Responsive: native app primarily phone-first; AndroidManifest handles orientation/screenSize/smallestScreenSize/screenLayout/keyboardHidden/uiMode config changes. No meaningful swNNNdp resource breakpoint system was found. Extension web UI has CSS media breakpoints at 360/400/420/520/760px and coarse pointer >=44px; reduce-motion CSS exists in theme.css. Do not assume native UI already has tablet breakpoints.
+- Extension web theme CSS (assets/ext/theme.css) uses 4/8/12/16/24px spacing tokens; 10/14/20px radius tokens; compact font scale 11/12/13.5/16/20px; tap token 40px (44px for coarse pointer); dark default palette with light override. CSS uses system font stack unless page-specific serif/monospace preview is intentional.
 
-A6  BUILD  M (~45%)   Goal: swipe on the bar = page fullscreen (down in bottom mode, up in top mode) and swipe the other way = tab switcher.
-   Add: BarGestures.kt (GestureDetector on bottom_bar; page fullscreen = hide system bars + bar, small 28dp translucent "restore" handle; NOT the video fullscreen)
-   Modify: MainActivity.kt (attach BarGestures after click listeners), AppearanceScreen.kt (two toggles ap_swipe_fs / ap_swipe_tabs)
-   Read-only: TabManager.kt (showSwitcher, inFullscreen)
-   Depends: A3 (A4 for the direction rule).   Checks: taps on bar buttons and the url field still work (gesture must not steal clicks: use fling threshold 60dp); back press leaves page fullscreen; both toggles OFF = no change.
+Target direction for future redesign (design note, not current implementation):
+- Hybrid minimal + futuristic; retain Thazir's violet identity as the primary signature accent, with restrained neutral surfaces. Existing rose primary is legacy; S1 must migrate tokens carefully and test all native surfaces. Do not blanket-apply glow/glassmorphism.
+- Obsidian/deep neutral dark surfaces, calm off-white light surfaces, violet accent and soft-violet selected states; keep error/success semantic colors independent.
+- Prefer consistent 16–20dp cards, 12–16dp controls, clear hierarchy, compact labels, predictable spacing and 44dp+ touch areas.
+- Home screen should be calm and customizable, not a dense widget wall. Address bar stays the main navigation affordance. Tabs should prioritize readable previews and quick close/switch. Settings should expose category + search and concise summaries.
+- Use actual labels and accessible content descriptions; preserve screen-reader focus order, contrast and text scaling. Avoid decorative animation that blocks navigation.
 
-A7  BUILD  M (~45%)   Goal: wallpaper behind the home page speed dial.
-   Add: Wallpaper.kt (pick via OpenDocument, decode downscaled to max 1080px, save filesDir/wallpaper.jpg, dim value, remove; returns Drawable / Bitmap), res/drawable/ic_image.xml
-   Modify: HomeView.kt (ImageView under the scroll content + scrim of ap_wp_dim; tiles stay readable), AppearanceScreen.kt (Wallpaper row opens a small page: preview, Choose image, Dim slider, Remove), BrowserExtras.kt (ONE new launcher copied from importLauncher pattern, lines ~77-100)
-   Read-only: MainActivity.kt (grep BrowserExtras.register call), HomeView.kt init (lines 56-90)
-   Depends: A2.   Checks: huge photo does not crash (downscale + try/catch + toast); no wallpaper = home looks exactly as today; text contrast in light + dark; file removed on "Remove"; Backup unaffected (file not saved - say so in the row hint "not included in backup").
+5. IMPLEMENTATION STANDING RULES
+1. Planning baseline is version 0.0.174. Before each BUILD/MODIFY/FIX step, confirm current appVersionName equals the expected previous version. Never overwrite a newer project.
+2. One step per chat. Do not start the next step in the same chat, even if time remains.
+3. Session guard: stop work by 85% of available session/context budget; absolute hard stop at 90%. If not finished, stop safely and report exact remaining work. Never rush past checks.
+4. Patch only. Do not rewrite whole files or replace large classes wholesale. Make minimal targeted edits around existing functions; preserve working behaviour and identifiers.
+5. Modify only files listed for the active step unless a genuinely required dependency is discovered. If scope expands, stop and split/replan rather than silently adding files.
+6. Read only the listed read-only context files and targeted sections of large files. Do not dump/read large Kotlin files fully. Use grep/rg, line ranges and focused snippets.
+7. Each step must leave the project compiling and usable. No half-wired menu items or dead UI. Feature flags/entry points appear only when the feature works.
+8. After each step: run available static checks/build (CI or local equivalent), inspect diff, verify no unrelated changes, update appVersionName +1, prepend CHANGELOG.txt entry, update HANDOFF progress [x] and RESULT block, create changed-files-only patch ZIP with original Thazir-main/ root.
+9. Patch ZIP must contain only changed files for that step, not the full context. Name convention: Thazir_Sn_v0_0_NNN.zip (NNN = new version number); preserve workflow's root ZIP application convention. Do not include .github unless a step explicitly changes workflow.
+10. Do not change applicationId/namespace/package, persisted preference keys, backup schema, extension origin, or public bridge contracts without a separate migration plan.
+11. For new preferences: use existing "mgb_ui" only if semantically appropriate; prefix new keys (e.g. thz_reader_*) and add explicit backup/import compatibility where needed. Do not store secrets in SharedPreferences/plain source.
+12. No external API key in APK/source. Companion requires a secure proxy or user-supplied provider configuration and a privacy disclosure; no provider choice is assumed.
+13. Test matrix: light/dark, small phone (360–390dp), typical phone (400–440dp), landscape/large width where applicable, keyboard open, long text, empty/loading/error states, TalkBack labels, and existing feature regression.
+14. Avoid adding dependencies unless a step proves they are needed. If dependency changes are unavoidable, isolate and explain them.
+15. Do not promise Chrome/Chromium feature parity: the browser engine is Android WebView and extension APIs are shimmed/partial.
 
-A8  BUILD  M (~40%)   Goal: "Customize menu" row and "Tabs and start page" page.
-   Modify: AppearanceScreen.kt (row "Customize menu" with summary "N of M shown" -> MenuCustom.open(act); page "Tabs and start page": toggles Show undo toast, Show start page), TabSwitcher.kt (undo(): skip the bar when ap_undo_toast is false, the close itself must still work), MainActivity.kt (line ~136: after restoreSession(), if ap_start_page then newTab(HOME_PAGE))
-   Read-only: MenuCustom.kt (GENERAL/PAGE/QUICK lists, on()), TabManager.kt (restoreSession/newTab)
-   Depends: A2.   Checks: undo toggle OFF closes tabs silently; start page ON gives restored tabs + a fresh home tab selected; OFF = today's behaviour; row summary count matches the real menu.
+6. FULL STEP PLAN
+All sizes are per single chat/session: S ~20–25%, M ~30–45%. No L steps are allowed. Every step is independently buildable and leaves the app working. The step plan assumes the previous listed step has been applied.
 
-A9  MODIFY S (~25%)   Goal: finish the unique look and tidy Settings.
-   Modify: AdblockManager.kt (switchFor ~90), PrivacyGuard.kt (switchOf ~105), ExtListScreen.kt (MaterialSwitch usage), SettingsScreen.kt (remove old rows Theme + Dark pages from General, replaced by the Appearance row; add Appearance keys to the RESET map / Reset card: ap_* + night? NO: only ap_* and dark_pages; KW words: "appearance wallpaper bar top bottom toggle theme")
-   Read-only: Backup.kt (confirm mgb_ui is in SETTINGS), SettingsScreen.kt RESET block (lines ~88-110)
-   Depends: A1-A8.   Checks: every MaterialSwitch constructor now ThazirSwitch (grep), search "wallpaper" finds the row, Reset removes ap_* only, light + dark pass.
+[S1] Design token alignment — Hybrid Thazir palette
+Goal: unify native light/dark colors around restrained violet identity without breaking semantic colors.
+Mode: MODIFY | Size: S (~20–25%).
+Modify: app/src/main/res/values/colors.xml; app/src/main/res/values-night/colors.xml; app/src/main/res/values/themes.xml only if a token mapping is required.
+Read-only context: MainActivity.kt; SettingsScreen.kt; AppearanceScreen.kt; ThazirSwitch.kt; res/drawable/bg_bar_pill.xml; app/src/main/res/values/strings.xml.
+Dependencies: none; baseline v0.0.174 -> target v0.0.175.
+Design note: preserve mg_* resource names, maintain separate error/success, check text contrast; unify primary and selected-control accents around violet, with a neutral premium light palette and a softer near-black dark palette. Do not recolor every asset in this step.
+Checks: assembleDebug/CI; inspect all token references; light/dark screenshots of home, settings, dialogs, switch; status/navigation bar icon contrast; no hardcoded color regressions.
 
-A10 MODIFY S (~25%)  OPTIONAL   Goal: the SwitchCompat toggles get the same look.
-   Add: function ThazirSwitch.tint(sw: SwitchCompat) in ThazirSwitch.kt
-   Modify: GrabSet.kt (~106), DlEngine.kt (~116), SubName.kt (~152, ~248), DetectedPanel.kt (~1649, 92KB: grep + patch only the sw() helper)
-   Checks: colours match ON violet / OFF outline; no behaviour change.
+[S2] Home screen — hierarchy and customization polish
+Goal: redesign HomeView into a calm signature dashboard with clear search, favorite shortcuts and recent activity.
+Mode: MODIFY | Size: M (~35–40%).
+Modify: app/src/main/java/com/jabra/mgb/HomeView.kt; add a new vector drawable only if required.
+Read-only context: MainActivity.kt; TabManager.kt; Bookmarks.kt; Favicons.kt; Wallpaper.kt; AppearancePrefs.kt; colors.xml + values-night/colors.xml.
+Dependencies: S1.
+Design note: keep existing bookmark/folder editing, wallpaper/dim, recent row, search callback and add-tile behaviours. Do not add weather/news network widgets. Make sections optional/compact only if the existing data contract supports it.
+Checks: home with 0/1/many bookmarks; folders/edit mode; wallpaper on/off; recent empty/populated; search focus; dark/light; small width; tap target and scroll behaviour.
 
-======================================================================
-6. STANDING RULES
-======================================================================
- - PATCH ONLY. No full rewrites. Keep ids, handlers, file names. grep first, view only the line range. Never read SettingsScreen.kt, TabSwitcher.kt, TabManager.kt, MainActivity.kt, DetectedPanel.kt whole.
- - ONE step per chat. Extra ideas go to a NEXT list inside the RESULT block, never into the code.
- - Output = CHANGED FILES ONLY in MGB_Ax_v0_0_NNN.zip (top folder MGB-main/), plus CHANGELOG.txt and HANDOFF.txt and app/build.gradle.kts (appVersionName +1).
- - Max 3-4 files per step. New files are fine; a new dependency / gradle change is not (ask first only if truly blocking).
- - Checks before zipping: bracket balance, duplicate names / ids, every R.drawable / R.color / R.id used exists, every new Kotlin call re-read against the real signature (grep it), no Compose, no new library. (kotlinc may not exist.)
- - Defaults must keep today's behaviour: a user who never opens Appearance sees no change.
- - SESSION GUARD: at ~85% used stop building, finish what compiles, zip + handoff at once, say exactly what is left. HARD STOP at 90%.
- - Reply under 10 lines: what changed, zip name, version, what to test on the phone.
- - CHANGELOG convention (same as before, newest on top):
-     0.0.NNN (APPEARANCE STEP Ax BUILD|MODIFY|FIX: short title)
-     - File.kt: what changed, one line per file.
-     - app/build.gradle.kts: 0.0.NNN.
- - HANDOFF convention: tick the step "[x] Ax v0.0.NNN ... CODE DONE, phone test pending (see RESULT Ax)", then add a block:
-     RESULT Ax: files changed / new prefs / what to test on phone / NEXT ideas (max 5 lines).
+[S3] Address bar — premium navigation pill
+Goal: refine address bar hierarchy, URL/domain display, loading/privacy/search states and touch actions.
+Mode: MODIFY | Size: M (~35–40%).
+Modify: app/src/main/res/layout/activity_main.xml; app/src/main/res/drawable/bg_bar_pill.xml; MainActivity.kt; AppearancePrefs.kt only if a genuinely new preference is needed.
+Read-only context: AppearanceScreen.kt; BarGestures.kt; Util.kt; TabManager.kt; PageInfo.kt; PrivacyGuard.kt; all existing bar icon vectors.
+Dependencies: S1.
+Design note: preserve IDs btn_home, btn_engine, btn_shield, url_bar, btn_tabs, btn_menu and top/bottom/compact bar options. Do not redesign TabSwitcher in this step. Keep keyboard resize and scroll hide/show intact.
+Checks: URL typing/submission, search query, focus/keyboard, progress, HTTPS/privacy state, long URL, home blank URL, top/bottom and compact mode, rotation/insets.
 
-======================================================================
-7. KICKOFF LINE  (paste in the new chat, one step per chat)
-======================================================================
-MGB (Thazir) appearance plan step [Ax]. Mode: [BUILD|MODIFY|FIX]. Previous version: [Vxx]. Attached: HANDOFF.txt + MGB-context.zip + step zips [list].
-Goal: [paste the Goal line of the step]. Rules: patch only, no full rewrite; keep ids / handlers / file names; grep first, view only the range (SettingsScreen.kt, TabSwitcher.kt, MainActivity.kt are big: NEVER read whole);
-plan max 5 lines, then build; one step only (extra ideas go to NEXT); no questions unless truly blocked, state assumptions in 1 line; follow DESIGN RULES (section 4) and use only ap_* prefs from section 3;
-check = bracket balance + duplicate ids / names + resource names exist; re-read every new Kotlin call against the real signature (grep it); kotlinc may not exist;
-session ~85% used = stop building, finish what compiles, zip + handoff at once, say exactly what is left (hard stop 90%).
+[S4] Tab switcher — visual refresh
+Goal: make tab cards easier to scan, search and manage while preserving tab groups and undo.
+Mode: MODIFY | Size: M (~35–45%).
+Modify: TabSwitcher.kt; GroupStrip.kt only if the switcher integration needs a small companion adjustment.
+Read-only context: TabManager.kt; TabPrefs.kt; Backup.kt (closed tabs/session); colors/tokens; sheet_tabs.xml; MainActivity.kt.
+Dependencies: S1; S3 recommended but not required.
+Design note: preserve tab IDs, snapshot cache, group JSON shape, close/undo semantics, private tab distinction, suspended/older tabs and max-tab limit. No new persistent schema unless separately migrated.
+Checks: 0/1/many tabs; grouped/ungrouped; private; suspended; restore; close/undo; swipe close; long titles; low-memory snapshots; portrait/landscape; accessibility.
 
-======================================================================
-8. RESULT BLOCKS  (the assistant adds one per finished step below this line)
-======================================================================
+[S5] Settings — information architecture polish
+Goal: simplify Settings navigation and make category cards, search, summaries and Appearance entry feel consistent.
+Mode: MODIFY | Size: M (~35–45%).
+Modify: SettingsScreen.kt; AppearanceScreen.kt only where shared visual language or navigation handoff requires it.
+Read-only context: AppearancePrefs.kt; UiMode.kt; Backup.kt; TabPrefs.kt; PrivacyGuard.kt; SiteSettings.kt; DownloadsScreen.kt; DlEngine.kt; ExtListScreen.kt; UserscriptsScreen.kt.
+Dependencies: S1–S4 for consistent design, but can be implemented after S1.
+Design note: keep all current setting keys, search keywords, reset scopes, restart behaviour and feature destinations. Large SettingsScreen is targeted-edit only; no wholesale rewrite.
+Checks: every existing row opens/toggles correct feature; search all categories; reset each category; restart-required flows; backup/import; light/dark; no orphaned setting.
 
-RESULT A1 (0.0.167)  zip: MGB_A1_v0_0_167.zip
- Files: ThazirSwitch.kt (new), res/values/colors.xml + values-night/colors.xml (mg_toggle_on, mg_toggle_thumb), SettingsScreen.kt (switchFor only), MenuCustom.kt (row switch only), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt, HANDOFF_PLAYER.txt.
- New prefs: none. Not touched: AdblockManager / PrivacyGuard / ExtListScreen MaterialSwitch (A9), SwitchCompat screens (A10).
- Phone test: Settings rows + Customise menu toggles: tap row toggles, ON = violet pill + white square thumb with check, OFF = outline pill + grey square thumb; check width is 48 dp (no wide track), light + dark; locked menu rows stay dimmed.
- Not compiled (no kotlinc). Risk spots if CI fails: MaterialSwitch calls setTrackDecorationDrawable(null) / setThumbIconDrawable(null) (Material 1.12.0); if one is missing, delete that line.
- NEXT: A2 Appearance screen shell + AppearancePrefs + THEME section.
+[S6] Smart Reader Mode — first new reading feature
+Goal: provide a focused reading view for the current page with typography, width, theme and read-aloud entry point.
+Mode: BUILD | Size: M (~35–40%).
+Add: ReaderMode.kt.
+Modify: MainActivity.kt; ToolsSheet.kt; optionally TabManager.kt only for a narrow active-tab helper.
+Read-only context: Translate.kt; FindBar.kt; TabManager.kt; BrowserExtras.kt; SavedPages.kt; colors/tokens; activity_main.xml.
+Dependencies: S1–S3.
+Design note: start with safe DOM extraction/readability heuristic and a reversible overlay/native reader view; do not destroy the original page. Reader must fail gracefully on unsupported pages, login forms and extension pages. Text-to-speech can be a separate follow-up if it grows beyond this step.
+Checks: article, blog, cluttered page, image-heavy page, unsupported/login page, long article, font/width/theme changes, back/restore original page, TalkBack.
 
-RESULT A2 (0.0.168)  zip: MGB_A2_v0_0_168.zip
- Files: AppearancePrefs.kt (new), AppearanceScreen.kt (new), UiMode.kt (setMode), SettingsScreen.kt (General row + HINTS + KW), MainActivity.kt (1 line: reopenPending; not in the plan list, needed so the screen reopens after the theme recreate), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
- New prefs: all ap_* keys exist in AppearancePrefs (no UI uses them yet except none). Existing: night, dark_pages.
- Phone test: Settings > General > Appearance opens. Tiles System / Light / Dark: tap changes theme, app recreates, Appearance screen comes back in the new mode, ring on the chosen tile. Dark pages row toggles (ThazirSwitch). Back goes to Settings. Old Theme / Dark pages rows still work. Check 360 dp wide: 3 tiles fit.
- Not compiled (no kotlinc). Risk spots: AppearanceScreen.kt (private nested classes Palette / PhoneView / FlowLayout, createConfigurationContext palette). If a compile error names one, fix only that line.
- NEXT: A3 Customize address bar page (live preview, home-button action, auto-hide, show full URL).
+[S7] Thazir Command Center — universal action launcher
+Goal: add one searchable palette to launch browser actions and jump to tabs/bookmarks/downloads/settings.
+Mode: BUILD | Size: M (~35–40%).
+Add: CommandCenter.kt.
+Modify: MainActivity.kt; ToolsSheet.kt only for entry-point integration.
+Read-only context: TabManager.kt; TabSwitcher.kt; Bookmarks.kt; BookmarksScreen.kt; DownloadsScreen.kt; SettingsScreen.kt; AppearanceScreen.kt; ExtTray.kt/ExtListScreen.kt; Util.kt.
+Dependencies: S1–S5.
+Design note: local command registry only; do not parse arbitrary commands or execute scripts. Use clear prefixes/sections, recent actions only if privacy-safe, keyboard and touch navigation.
+Checks: command search, no-result state, open tab, new tab, bookmark, download, settings destination, keyboard navigation, private mode behaviour, no accidental destructive action.
 
-RESULT A3 (0.0.169)  zip: MGB_A3_v0_0_169.zip
- Files: AppearanceScreen.kt (page "bar", navRow, preview), AppearancePrefs.kt (homeIconAndLabel), MainActivity.kt (homeClick, applyHomeIcon, refreshUrlField full URL, onChange hook), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
- Prefs used: ap_home_action, ap_full_url, hide_bar (existing, same key as Settings).
- Phone test: Appearance > Customize address bar. Preview matches the bar. Each of 6 chips: tap changes the bar icon at once and the home button really does it (Home / Back / New tab / Refresh / Bookmarks / Extensions); default Home = as before. Show full URL: bar shows https://... after blur; OFF = site name only. Auto-hide toggle and Settings > Hide bar stay in sync. Back from the page -> Appearance root -> Settings. 360 dp, light + dark.
- Not compiled (no kotlinc). Risk spots: MainActivity homeClick() (when branches), AppearanceScreen barPage chips lambda.
- NEXT: A4 bar position Top / Bottom (MainActivity layout swap at start, GroupStrip, 2 preview tiles on the bar page, Apply now = recreate).
+[S8] Screenshot Studio — page capture tools
+Goal: provide viewport/full-page capture with preview, share/save and optional annotation entry point.
+Mode: BUILD | Size: M (~35–40%).
+Add: ScreenshotStudio.kt.
+Modify: MainActivity.kt; ToolsSheet.kt; BrowserExtras.kt only if Android save/share picker wiring is required.
+Read-only context: TabManager.kt; PageInfo.kt; PageSave.kt; Backup.kt; manifest/extra manifest; activity_main.xml.
+Dependencies: S1–S3.
+Design note: capture active WebView only; full-page capture must be bounded to avoid OOM. Annotation can be limited to crop/markup basics; redact/blur is not promised in v1. Never capture private app UI without explicit user action.
+Checks: viewport and tall page; very long page cap; images/lazy loading; permission/save cancellation; share; rotation; memory pressure; private page handling.
 
-RESULT A4 (0.0.170)  zip: MGB_A4_v0_0_170.zip
- Files: MainActivity.kt (layout swap + ViewGroup import), GroupStrip.kt (attach side + slide direction), AppearanceScreen.kt (Bar position tiles + Apply now, PhoneView barTop), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
- Prefs used: ap_bar_pos.
- Phone test: Appearance > Customize address bar > Bar position: tap Top -> snackbar "Apply now" -> app restarts with bar at top, web below; group strip under the bar; Bottom = as before; auto-hide still hides the bar; keyboard opens fine.
- Not compiled (no kotlinc). Risk spots: AppearanceScreen barPage tileChoice lambda (Snackbar in Dialog), MainActivity swap block.
- NEXT: A5 snackbar anchors (AutoDiag, PasswordStore), floating download button, hide-on-scroll direction in top mode.
+[S9] Gesture Studio — discoverable custom gestures
+Goal: expose a small safe set of configurable browser gestures with conflict detection and reset.
+Mode: MODIFY | Size: M (~35–40%).
+Modify: BarGestures.kt; AppearancePrefs.kt; AppearanceScreen.kt; MainActivity.kt only for dispatch wiring.
+Read-only context: TabManager.kt; TabSwitcher.kt; existing gesture prefs; UiMode/Reduce motion; activity_main.xml.
+Dependencies: S3–S5.
+Design note: start with existing bar swipe gestures and add a few non-conflicting actions. Do not intercept page/WebView gestures globally. Keep defaults unchanged and provide reset/preview.
+Checks: every gesture mapping; conflict prevention; disabled/default state; top/bottom bar; fullscreen video; scroll; keyboard; reduce motion; accessibility alternative.
 
-RESULT A5+A6 (0.0.171)  zip: MGB_A5_A6_v0_0_171.zip (both steps built in one chat on request)
- Files: AppearancePrefs.kt (snackAnchor), AutoDiag.kt, PasswordStore.kt, BarGestures.kt (new), MainActivity.kt, AppearanceScreen.kt, build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
- Prefs used: ap_swipe_fs, ap_swipe_tabs, ap_bar_pos. No new prefs.
- Phone test: top mode: "Suggest a strong password?" / "Nothing found" snackbars show at the screen bottom. Appearance > Customize address bar > turn both swipe toggles ON: bottom bar swipe down = page fullscreen (bar + status/nav bars hidden, small handle at the bottom), tap handle or Back = restore; swipe up = tab switcher. Top bar: directions reversed. Taps on home / url / tabs / menu still work. Both OFF = no change. Opening a new tab leaves fullscreen.
- Not compiled (no kotlinc). Risk spots: BarGestures touch listener (url_bar EditText), WindowInsetsControllerCompat hide/show with the existing bar colours.
- Not changed on purpose: FloatingDl / DlFly (checked: not covered by the bar in either mode), hide-on-scroll direction (scroll down hides the bar in both modes).
- NEXT: A7 home wallpaper (Wallpaper.kt, ic_image.xml, HomeView, picker).
+[S10] Thazir Media Library — unified media hub
+Goal: present detected, queued, downloaded and recently played media in one native library view.
+Mode: BUILD | Size: M (~35–45%).
+Add: MediaLibrary.kt.
+Modify: ToolsSheet.kt; MainActivity.kt only for navigation entry if needed.
+Read-only context: DlEngine.kt; DownloadsScreen.kt; DownloadService.kt; DownloadFolder.kt; FloatingDl.kt; Sniffer.kt; WebPlay.kt; PlayerActivity.kt; PlayerQueue.kt; PlayerPrefs.kt; assets/ext/downloader.html/js and player.html/js.
+Dependencies: S1; media source-of-truth audit is mandatory before coding.
+Design note: reuse existing download/player records and IDs. Do not create duplicate downloads, copy media files, or imply all streams are downloadable. Distinguish detected vs queued vs completed vs history.
+Checks: empty/loading/error; detected item open; download queue; completed file open/share/delete; player history; subtitle association; refresh; storage permission/cancellation; no duplicate records.
 
-RESULT A7+A8 (0.0.172)  zip: MGB_A7_A8_v0_0_172.zip (two steps in one chat on request)
- Files: Wallpaper.kt (new), res/drawable/ic_image.xml (new), BrowserExtras.kt (pickImage), HomeView.kt, AppearanceScreen.kt, TabSwitcher.kt (undo guard), MainActivity.kt (start page), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
- Prefs used: ap_wp_dim, ap_undo_toast, ap_start_page (+ file filesDir/wallpaper.jpg, not in backup).
- Phone test: Appearance > Wallpaper > Choose image: preview shows it, Home tab shows it behind the tiles, Dim slider changes it live, Remove = plain home again; huge photo = no crash (toast on failure); light + dark text readable. Customize menu row opens the Customise screen, count matches. Tabs and start page: undo OFF = closing a tab shows no bar (tab still closes); Show start page ON = after restart restored tabs + a fresh home tab selected.
- Not compiled (no kotlinc). Risk spots: AppearanceScreen wallpaperPage (SeekBar, clipToOutline), HomeView wallpaper children order, BrowserExtras launcher order.
- Assumptions: EXIF rotation not applied; the row count "N of M" ignores pinned extensions; the Customize menu screen opens above Appearance (summary refreshes next time the page opens).
- NEXT: A9 (S) remaining MaterialSwitch -> ThazirSwitch, remove old Theme/Dark pages rows, Reset ap_* keys. Then A10 optional.
+[S11] Thazir Spaces — data model and tab membership
+Goal: introduce named logical workspaces and persist each tab's Space membership without breaking session restore.
+Mode: BUILD | Size: M (~35–45%).
+Add: Spaces.kt.
+Modify: TabManager.kt; Backup.kt only if new Space metadata must be included in export/import.
+Read-only context: TabSwitcher.kt; GroupStrip.kt; Bookmarks.kt; TabPrefs.kt; AppearancePrefs.kt; existing session JSON save/restore functions.
+Dependencies: S4.
+Design note: v1 Spaces are logical workspaces, not isolated security profiles. Do not claim cookie/history/password isolation; WebView profile is currently shared for non-private tabs. Preserve existing tab group data separately from Space IDs.
+Checks: create/rename/delete Space; default Space; tab membership; move tabs; close/reopen; restore session; backup import/export; migration of all existing tabs to default Space.
 
-RESULT A9+A10 (0.0.173)  zip: MGB_A9_A10_v0_0_173.zip (two steps in one chat on request). APPEARANCE PLAN A1-A10 = ALL CODE DONE.
- Files: AdblockManager.kt, PrivacyGuard.kt, ExtListScreen.kt (import), SettingsScreen.kt, ThazirSwitch.kt, GrabSet.kt, DlEngine.kt, SubName.kt, DetectedPanel.kt, build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
- Phone test: Ad blocker + Privacy Guard + Grabber / downloader / subtitle names / Detected panel filter toggles all show the violet pill + square thumb, ON/OFF still work, light + dark, width not stretched. Settings > General: only "Appearance" (no Theme / Dark pages rows); search "wallpaper" finds Appearance. General > Reset to default: ap_* settings back to default (bar returns to bottom, app restarts if it was top).
- Not compiled (no kotlinc). Risk spots: ThazirSwitch.tint (SwitchCompat thumb/track drawables, if CI errors on thumbTintList = null, delete that line), unused imports/vars are only warnings.
- Not changed on purpose: Reset keeps filesDir/wallpaper.jpg (remove it on the Wallpaper page).
- NEXT: full phone test of A1-A10 (list in each RESULT block), then fix whatever fails as FIX steps.
+[S12] Thazir Spaces — switcher and workspace UI
+Goal: add an accessible Space selector and workspace-specific tab filtering to the browser UI.
+Mode: MODIFY | Size: M (~35–40%).
+Modify: MainActivity.kt; TabSwitcher.kt; GroupStrip.kt; ToolsSheet.kt only if needed for a workspace action.
+Read-only context: Spaces.kt; TabManager.kt; HomeView.kt; Bookmarks.kt; colors/tokens; activity_main.xml.
+Dependencies: S11.
+Design note: clear active Space indicator; no hidden tabs/data loss; allow switching back to all spaces if useful. Avoid overloading tab groups with workspace semantics.
+Checks: switch Spaces with active tab; empty Space; many Spaces; move tab; private tab; group interactions; restore and backup; small-screen selector.
 
-RESULT A11 (0.0.174)  zip: MGB_A11_v0_0_174.zip (extra step, requested after A10)
- Files: AppearanceScreen.kt, AppearancePrefs.kt, MainActivity.kt (1 line), SettingsScreen.kt (reset key), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
- New pref: ap_bar_compact (Bool, default false = today's bar).
- Phone test: section labels in Appearance have a violet dash, light + dark; tap a toggle row / tile / chip = light tick and a small press shrink (none with Reduce motion); Customize address bar > Compact bar ON: preview gets slimmer at once, "Apply now" restarts and the real bar is 44 dp (top and bottom mode); OFF + restart = 52 dp as before; Reset (General) clears it.
- Not compiled (no kotlinc). Risk spots: AppearanceScreen touch listener (pressFx) on tiles / chips, compact bar height on very small phones (buttons are 44 dp, so no extra padding).
- Ideas NOT built (NEXT, optional): accent colour choice (touches colour tokens, bigger), AMOLED pure-black dark mode, bar corner style (pill / rounded square), home tile shape.
+[S13] Offline Reading Library — saved-page experience
+Goal: improve the existing .mht saved-page library with reading status, collections/search and clear offline availability states.
+Mode: MODIFY | Size: M (~35–40%).
+Modify: SavedPages.kt; PageSave.kt; optionally BookmarksScreen.kt only if a shared navigation link is required.
+Read-only context: TabManager.kt; Backup.kt; BrowserExtras.kt; HomeView.kt; colors/tokens.
+Dependencies: S1, S5, S6.
+Design note: preserve existing .mht storage and file format; do not silently re-download or convert existing saved pages. Keep saved content local and clearly label unavailable assets.
+Checks: existing saved page open; new save; rename/delete; corrupted/missing file; search/collection; backup expectations; low storage; private page behaviour.
+
+[S14] Thazir Companion — safe assistant foundation (provider-gated)
+Goal: define a page-context assistant panel and provider-neutral request boundary without embedding secrets or pretending AI works before backend setup.
+Mode: BUILD | Size: M (~35–40%).
+Add: CompanionPanel.kt; CompanionProvider.kt (interface/data contracts).
+Modify: MainActivity.kt; ToolsSheet.kt only for entry point.
+Read-only context: TabManager.kt; ContentInjector.kt; EngineHost.kt; Translate.kt; ReaderMode.kt; privacy/settings UI; app/build.gradle.kts.
+Dependencies: S6, S7. Live provider integration is gated on a secure proxy or user-configured endpoint and explicit privacy policy.
+Design note: request only user-selected/current-page context, show exactly what is sent, allow cancel/clear, redact obvious secrets where feasible, never hardcode API keys. First step may ship disabled until provider configured. No automatic page scraping/upload.
+Checks: disabled/no-provider state; page context opt-in; cancel; long text limit; private tab disabled by default; network failure; no secret in APK/logs; clear conversation.
+
+7. EXACT KICKOFF LINE FOR NEXT CHAT
+START S2 ONLY — Home screen hierarchy and customization polish, baseline appVersionName 0.0.175. S1 is complete; this HANDOFF is authoritative. Inspect only S2 files/targeted references, preserve all existing bookmark/folder editing, wallpaper/dim, recent-row, search, and add-tile behaviours. Patch only S2 files plus required version/CHANGELOG/HANDOFF updates, keep the app working, stop by 85% session (hard stop 90%), build/check, and return a changed-files-only ZIP. Do not begin S3.
+
+8. PROGRESS / RESULT LOG
+[x] S1 — complete (0.0.175 tokens + 0.0.176 contrast fix; native light/dark design tokens aligned)
+[ ] S2 — pending
+[ ] S3 — pending
+[ ] S4 — pending
+[ ] S5 — pending
+[ ] S6 — pending
+[ ] S7 — pending
+[ ] S8 — pending
+[ ] S9 — pending
+[ ] S10 — pending
+[ ] S11 — pending
+[ ] S12 — pending
+[ ] S13 — pending
+[ ] S14 — pending / provider-gated
+
+RESULT (S1 implementation):
+- Baseline 0.0.174 updated to 0.0.175.
+- Updated only values/colors.xml and values-night/colors.xml for the design-token palette; Theme.MGB mappings, all mg_* resource names, system-bar icon mode, and UI behaviour were preserved.
+- Light palette: off-white canvas, white surfaces, subtle cool neutral variant, deep violet primary/selected accent, high-contrast dark text.
+- Dark palette: near-black canvas, layered charcoal/navy surfaces, lighter violet primary/selected accent, high-contrast light text.
+- Error and success semantic colors were retained unchanged; no drawable, icon, screen layout, or feature behaviour was recolored or changed.
+- CHANGELOG.txt and app/build.gradle.kts updated; this HANDOFF progress/result log updated.
+- Checks completed: XML parsing; resource-name parity between light/dark sets; mg_* reference audit; calculated text/accent contrast checks; patch ZIP content/path audit.
+- Build could not be executed in this environment: the archive contains no Gradle wrapper, no system Gradle is installed, and network access is unavailable to install Gradle 8.7. CI build remains required.
+- No S2 work was started.
+
+RESULT (S1 FIX 0.0.176):
+- Browser compatibility audit of 0.0.175 tokens against 0.0.174 source: all 11 mg_* names + thazir_icon_bg present in both sets; Theme.MGB mappings unchanged; no leftover hardcoded rose/violet token hex except ic_launcher_fg.xml dot (#F2708A, intentional icon accent), PageInfo.kt reader colours (#0A0C10/#FFFFFF, reader page only).
+- Contrast (WCAG): text/dim/primary/error all >= 4.5:1 light and dark. Found 3 dark-mode bugs and fixed them: switch thumb (2.1:1), DlFly badge icon, FloatingDl button icon (hard white on light violet).
+- Open note for S2/S3: PageInfo.kt READER_JS still uses old dark bg #0A0C10; align when that file is next touched.
+- Build not run here (no Gradle wrapper / no network); CI build still required.
