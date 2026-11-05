@@ -97,7 +97,7 @@ object ClosedTabs {
  */
 object Backup {
     private val NAMES = arrayOf("Bookmarks and folders", "Home pins", "Browsing history", "Settings (theme, ad blocker, sites)", "Recently closed tabs")
-    private val SETTINGS = arrayOf("mgb_ui", "mgb_adblock", "mgb_site", "mgb_userscripts") // T7
+    private val SETTINGS = arrayOf("mgb_ui", "mgb_adblock", "mgb_site", "mgb_userscripts", "mgb_us_values") // T7, T9
 
     // S42: automatic backup. Once a day when the app starts, all five parts, one file that is replaced each time.
     private const val AUTO_NAME = "mgb-auto-backup.json"

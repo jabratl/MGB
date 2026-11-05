@@ -171,6 +171,7 @@ object UserscriptsScreen {
         val right = if (s == null) null else ui.textBtn("Check update") { Userscripts.checkUpdate(act, s) { changed(); dlg.dismiss() } }
         root.addView(ui.header(dlg, s?.name ?: "New script", right) { askClose() }, LinearLayout.LayoutParams(MATCH, ui.dp(56)))
         root.addView(info, LinearLayout.LayoutParams(MATCH, WRAP))
+        if (s != null) root.addView(ui.textBtn("Network and libraries") { Userscripts.netDialog(act, s) }, LinearLayout.LayoutParams(WRAP, ui.dp(40)).apply { setMargins(ui.dp(14), 0, ui.dp(14), 0) }) // T10
         root.addView(ed, LinearLayout.LayoutParams(MATCH, 0, 1f).apply { setMargins(ui.dp(14), 0, ui.dp(14), 0) })
         root.addView(status, LinearLayout.LayoutParams(MATCH, WRAP).apply { setMargins(ui.dp(14), 0, ui.dp(14), 0) })
         val bar = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(ui.dp(14), ui.dp(4), ui.dp(14), ui.dp(12)) }

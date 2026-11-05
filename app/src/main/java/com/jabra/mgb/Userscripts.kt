@@ -103,6 +103,7 @@ object Userscripts {
         if (cur.filter { it.id != id }.sumOf { it.code.length } + code.length > MAX_ALL) return "Total size over 2 MB"
         save(c, id, code, old?.on ?: true, url)
         refreshAll(c)
+        fetchDeps(c, id, meta, false) // T10: @require / @resource in the background
         return null
     }
 
@@ -115,6 +116,7 @@ object Userscripts {
         p(c).edit().remove("s:$id").apply()
         synchronized(vals) { vals.remove(id); dirty.remove(id) }
         c.getSharedPreferences(VPREFS, Context.MODE_PRIVATE).edit().remove("v:$id").apply() // T9
+        p(c).edit().remove("r:$id").remove("n:$id").apply() // T10: libraries + network permissions
         refreshAll(c)
     }
 
@@ -172,9 +174,10 @@ object Userscripts {
         sb.append("if(!m(").append(inc).append(")||m(").append(exc).append("))return;")
         if (m.has("noframes")) sb.append("if(window!==window.top)return;")
         val g = grants(m)
-        if (g.isEmpty()) sb.append("var __run=function(){try{(function(){\n").append(s.code).append("\n}).call(window)}catch(e){try{console.error('[userscript]',e)}catch(_){}}};")
-        else sb.append(shim(c, s, g)).append("var __run=function(){try{(function(GM_info,GM_getValue,GM_setValue,GM_deleteValue,GM_listValues,GM_addStyle,GM_setClipboard,GM_openInTab,GM_notification,GM_registerMenuCommand,GM_unregisterMenuCommand,GM,unsafeWindow){\n").append(s.code)
-            .append("\n}).call(window,__info,__g('getValue',__get),__g('setValue',__set),__g('deleteValue',__del),__g('listValues',__list),__g('addStyle',__style),__g('setClipboard',__clip),__g('openInTab',__open),__g('notification',__note),__g('registerMenuCommand',__reg),__g('unregisterMenuCommand',__unreg),__GM,window)}catch(e){try{console.error('[userscript]',e)}catch(_){}}};")
+        val pre = deps(c, s.id).q.filter { it.isNotEmpty() }.joinToString("") { it + "\n;\n" } // T10: @require texts
+        if (g.isEmpty()) sb.append("var __run=function(){try{(function(){\n").append(pre).append(s.code).append("\n}).call(window)}catch(e){try{console.error('[userscript]',e)}catch(_){}}};")
+        else sb.append(shim(c, s, g)).append("var __run=function(){try{(function(GM_info,GM_getValue,GM_setValue,GM_deleteValue,GM_listValues,GM_addStyle,GM_setClipboard,GM_openInTab,GM_notification,GM_registerMenuCommand,GM_unregisterMenuCommand,GM_xmlhttpRequest,GM_getResourceText,GM_getResourceURL,GM,unsafeWindow){\n").append(pre).append(s.code)
+            .append("\n}).call(window,__info,__g('getValue',__get),__g('setValue',__set),__g('deleteValue',__del),__g('listValues',__list),__g('addStyle',__style),__g('setClipboard',__clip),__g('openInTab',__open),__g('notification',__note),__g('registerMenuCommand',__reg),__g('unregisterMenuCommand',__unreg),__g('xmlhttpRequest',__xhr),__g('getResourceText',__rtext),__g('getResourceURL',__rurl),__GM,window)}catch(e){try{console.error('[userscript]',e)}catch(_){}}};")
         when (m.first("run-at").lowercase()) {
             "document-start" -> sb.append("__run();")
             "document-end" -> sb.append("if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',__run,{once:true});else __run();")
@@ -223,7 +226,12 @@ object Userscripts {
 
     // ---------- T9: GM_ API without network ----------
     /** Real grants only: "none" and an empty list mean page world as in T7. */
-    private fun grants(m: Meta): Set<String> = m.all("grant").map { it.trim() }.filter { it.isNotEmpty() && it != "none" }.toSet()
+    private fun grants(m: Meta): Set<String> {
+        val g = m.all("grant").map { it.trim() }.filter { it.isNotEmpty() && it != "none" }.toMutableSet()
+        if ("GM.xmlHttpRequest" in g || "GM.xmlhttpRequest" in g) g.add("GM_xmlhttpRequest") // T10: GM4 spelling
+        if ("GM.getResourceUrl" in g) g.add("GM_getResourceURL")
+        return g
+    }
 
     private fun can(s: Script, name: String): Boolean { val g = grants(s.meta); return ("GM_$name" in g) || ("GM.$name" in g) }
 
@@ -366,6 +374,12 @@ object Userscripts {
                 val t = args.optString(0); val x = args.optString(1)
                 Util.toast(c, (if (t.isEmpty()) x else if (x.isEmpty()) t else "$t: $x").take(160))
             }
+            "xhr" -> {
+                if (!isMain || !can(s, "xmlhttpRequest")) return
+                val r = try { JSONObject(args.optString(1)) } catch (_: Exception) { return }
+                startXhr(view, c, s, args.optInt(0), r)
+            }
+            "xhrabort" -> { val k = sid + ":" + args.optInt(0); aborted.add(k); aborts[k]?.let { try { it.disconnect() } catch (_: Exception) { } } }
             "cmd", "cmdclear", "cmdoff" -> {
                 if (!isMain || !can(s, "registerMenuCommand")) return
                 synchronized(cmds) {
@@ -400,10 +414,26 @@ var __C={},__ci=0;
 if(window===window.top&&(__G.indexOf('GM_registerMenuCommand')>=0||__G.indexOf('GM.registerMenuCommand')>=0)){try{Object.defineProperty(window,'%E%',{value:function(i){var f=__C[i];if(typeof f==='function'){try{f()}catch(e){try{console.error('[userscript]',e)}catch(_){}}}},configurable:true});__send('cmdclear',[])}catch(e){}}
 function __reg(n,f){if(window!==window.top||typeof f!=='function')return;var i=++__ci;__C[i]=f;__send('cmd',[i,String(n)]);return i}
 function __unreg(i){if(__C[i]){delete __C[i];__send('cmdoff',[i])}}
+var __R=%RES%;
+function __rtext(n){if(!Object.prototype.hasOwnProperty.call(__R,n))return undefined;var b=__R[n][1];try{return decodeURIComponent(escape(atob(b)))}catch(e){try{return atob(b)}catch(_){return undefined}}}
+function __rurl(n){if(!Object.prototype.hasOwnProperty.call(__R,n))return undefined;return 'data:'+__R[n][0]+';base64,'+__R[n][1]}
+var __X={},__xi=0;
+function __xdone(i,r){var d=__X[i];if(!d)return;delete __X[i];var ev=r.ev,o={readyState:4,status:r.status||0,statusText:r.statusText||'',responseHeaders:r.headers||'',finalUrl:r.url||d.url,context:d.context,responseText:'',response:null};
+if(ev==='load'){var rt=d.responseType||'';if(rt==='arraybuffer'||rt==='blob'){try{var bs=atob(r.b64||''),u=new Uint8Array(bs.length);for(var k=0;k<bs.length;k++)u[k]=bs.charCodeAt(k);o.response=rt==='blob'?new Blob([u],{type:r.type||''}):u.buffer}catch(e){}}else{o.responseText=r.text||'';o.response=o.responseText;if(rt==='json'){try{o.response=JSON.parse(o.responseText)}catch(e){o.response=null}}}}else o.error=r.err||ev;
+var cb=ev==='load'?d.onload:ev==='timeout'?d.ontimeout:ev==='abort'?d.onabort:d.onerror;
+try{if(d.onreadystatechange)d.onreadystatechange(o)}catch(e){}
+try{if(cb)cb(o)}catch(e){try{console.error('[userscript]',e)}catch(_){}}}
+if(window===window.top&&__G.indexOf('GM_xmlhttpRequest')>=0){try{Object.defineProperty(window,'%R%',{value:function(i,r){__xdone(i,r)}})}catch(e){}}
+function __xhr(d){d=d||{};if(window!==window.top){try{if(d.onerror)d.onerror({error:'GM_xmlhttpRequest works in the top frame only'})}catch(e){}return{abort:function(){}}}
+var u=d.url;try{u=new URL(u,location.href).href}catch(e){}var i=++__xi;__X[i]=d;var h={};if(d.headers)for(var k in d.headers)h[k]=String(d.headers[k]);
+__send('xhr',[i,JSON.stringify({m:d.method||'GET',u:String(u),h:h,d:typeof d.data==='string'?d.data:null,to:d.timeout||0,rt:d.responseType||'',an:!!d.anonymous})]);
+return{abort:function(){if(__X[i]){__send('xhrabort',[i]);__xdone(i,{ev:'abort'})}}}}
 function __g(n,f){return(__G.indexOf('GM_'+n)>=0||__G.indexOf('GM.'+n)>=0)?f:undefined}
 function __pr(f){return function(){var a=arguments;return new Promise(function(r,j){try{r(f.apply(null,a))}catch(e){j(e)}})}}
 var __GM={info:__info};
-[['getValue',__get],['setValue',__set],['deleteValue',__del],['listValues',__list],['addStyle',__style],['setClipboard',__clip],['openInTab',__open],['notification',__note],['registerMenuCommand',__reg],['unregisterMenuCommand',__unreg]].forEach(function(q){if(__g(q[0],1))__GM[q[0]]=__pr(q[1])});
+[['getValue',__get],['setValue',__set],['deleteValue',__del],['listValues',__list],['addStyle',__style],['setClipboard',__clip],['openInTab',__open],['notification',__note],['registerMenuCommand',__reg],['unregisterMenuCommand',__unreg],['getResourceText',__rtext],['getResourceURL',__rurl]].forEach(function(q){if(__g(q[0],1))__GM[q[0]]=__pr(q[1])});
+if(__GM.getResourceURL)__GM.getResourceUrl=__GM.getResourceURL;
+if(__g('xmlhttpRequest',1))__GM.xmlHttpRequest=function(d){return new Promise(function(res,rej){var o={};for(var k in d)o[k]=d[k];o.onload=function(r){res(r)};o.onerror=o.ontimeout=o.onabort=function(r){rej(r)};__xhr(o)})};
 """
 
     private fun shim(c: Context, s: Script, g: Set<String>): String {
@@ -419,8 +449,254 @@ var __GM={info:__info};
         // the values snapshot is only needed when the script can read them
         val pairs = JSONArray()
         if (can(s, "getValue") || can(s, "listValues")) for ((k, v) in valsOf(c, s.id)) pairs.put(JSONArray().put(k).put(v))
-        return SHIM.replace("%T%", ContentInjector.tokenFor("us:" + s.id)).replace("%S%", s.id).replace("%G%", jsSafe(JSONArray(g.toList()).toString()))
+        val res = JSONObject()
+        if (can(s, "getResourceText") || can(s, "getResourceURL")) for (x in deps(c, s.id).x) if (x[2].isNotEmpty()) res.put(x[0], JSONArray().put(x[1]).put(x[2]))
+        return SHIM.replace("%RES%", jsSafe(res.toString())).replace("%R%", rspName(s.id)).replace("%T%", ContentInjector.tokenFor("us:" + s.id)).replace("%S%", s.id).replace("%G%", jsSafe(JSONArray(g.toList()).toString()))
             .replace("%MAX%", MAX_VALS.toString()).replace("%INFO%", jsSafe(info.toString())).replace("%V%", jsSafe(pairs.toString())).replace("%E%", evtName(s.id))
+    }
+
+    // ---------- T10: network + @require / @resource ----------
+    private const val MAX_DEP = 500_000
+    private const val MAX_RESP = 5_000_000
+    private const val MAX_BODY = 1_000_000
+    private val exec = java.util.concurrent.Executors.newFixedThreadPool(4)
+    private val aborts = java.util.concurrent.ConcurrentHashMap<String, java.net.HttpURLConnection>()
+    private val aborted: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+    private val inflight = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>()
+    private val asking = HashMap<String, ArrayList<(Boolean) -> Unit>>()
+
+    private fun rspName(sid: String) = "__x" + ContentInjector.tokenFor("us:$sid").take(24)
+
+    /** Per script network permissions, prefs key "n:<id>": {all, ok[], no[], log[[host, time]]} */
+    class Net(var all: Boolean, val ok: LinkedHashSet<String>, val no: LinkedHashSet<String>, val log: ArrayList<Pair<String, Long>>)
+
+    fun net(c: Context, id: String): Net {
+        val n = Net(false, LinkedHashSet(), LinkedHashSet(), ArrayList())
+        try {
+            val o = JSONObject(p(c).getString("n:$id", "{}") ?: "{}")
+            n.all = o.optBoolean("all")
+            o.optJSONArray("ok")?.let { for (i in 0 until it.length()) n.ok.add(it.optString(i)) }
+            o.optJSONArray("no")?.let { for (i in 0 until it.length()) n.no.add(it.optString(i)) }
+            o.optJSONArray("log")?.let { for (i in 0 until it.length()) it.optJSONArray(i)?.let { x -> n.log.add(Pair(x.optString(0), x.optLong(1))) } }
+        } catch (_: Exception) { }
+        return n
+    }
+
+    fun saveNet(c: Context, id: String, n: Net) {
+        val o = JSONObject().put("all", n.all).put("ok", JSONArray(n.ok.toList())).put("no", JSONArray(n.no.toList()))
+        val lg = JSONArray(); for ((h, t) in n.log) lg.put(JSONArray().put(h).put(t))
+        p(c).edit().putString("n:$id", o.put("log", lg).toString()).apply()
+    }
+
+    private fun hostIn(set: Collection<String>, host: String) = set.any { host == it || host.endsWith(".$it") }
+
+    /** 1 = allowed, 0 = ask, -1 = denied earlier. @connect "*" never allows by itself. */
+    private fun hostState(s: Script, n: Net, host: String, pageHost: String): Int {
+        if (host == pageHost || n.all) return 1
+        val con = s.meta.all("connect").map { it.trim().lowercase() }.filter { it.isNotEmpty() && it != "*" }
+        if (con.any { (it == "self" && host == pageHost) || host == it || host.endsWith(".$it") }) return 1
+        if (hostIn(n.ok, host)) return 1
+        if (hostIn(n.no, host)) return -1
+        return 0
+    }
+
+    private fun logHost(c: Context, id: String, host: String) {
+        val n = net(c, id)
+        n.log.removeAll { it.first == host }
+        n.log.add(0, Pair(host, System.currentTimeMillis()))
+        while (n.log.size > 15) n.log.removeAt(n.log.size - 1)
+        saveNet(c, id, n)
+    }
+
+    // ----- cached @require / @resource: prefs "r:<id>" {qu[], q[], xu[], x[[name, mime, base64]]}
+    class Deps(val qu: List<String>, val q: List<String>, val xu: List<String>, val x: List<Array<String>>)
+
+    fun deps(c: Context, id: String): Deps {
+        try {
+            val o = JSONObject(p(c).getString("r:$id", null) ?: return Deps(emptyList(), emptyList(), emptyList(), emptyList()))
+            fun sl(a: JSONArray?) = if (a == null) emptyList() else (0 until a.length()).map { a.optString(it) }
+            val xs = o.optJSONArray("x")
+            val x = if (xs == null) emptyList() else (0 until xs.length()).mapNotNull { i -> xs.optJSONArray(i)?.let { arrayOf(it.optString(0), it.optString(1), it.optString(2)) } }
+            return Deps(sl(o.optJSONArray("qu")), sl(o.optJSONArray("q")), sl(o.optJSONArray("xu")), x)
+        } catch (_: Exception) { return Deps(emptyList(), emptyList(), emptyList(), emptyList()) }
+    }
+
+    private fun httpsOf(u: String): String = u.trim().let { if (it.startsWith("//")) "https:$it" else it }.substringBefore('#')
+
+    private fun wantedReq(m: Meta) = m.all("require").map { httpsOf(it) }.filter { it.startsWith("https://") }.take(5)
+    private fun wantedRes(m: Meta): List<Pair<String, String>> = m.all("resource").mapNotNull { l ->
+        val parts = l.trim().split(Regex("\\s+"), 2)
+        if (parts.size == 2 && httpsOf(parts[1]).startsWith("https://")) Pair(parts[0], httpsOf(parts[1])) else null
+    }.take(10)
+
+    private fun getBytes(url: String): Pair<ByteArray, String>? = try {
+        val c = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+        c.connectTimeout = 15000; c.readTimeout = 20000; c.instanceFollowRedirects = true
+        if (c.responseCode != 200) null else {
+            val bo = java.io.ByteArrayOutputStream(); val buf = ByteArray(8192); var ok = true
+            c.inputStream.use { ins -> while (true) { val n = ins.read(buf); if (n < 0) break; bo.write(buf, 0, n); if (bo.size() > MAX_DEP) { ok = false; break } } }
+            if (ok) Pair(bo.toByteArray(), (c.contentType ?: "").substringBefore(';').trim()) else null
+        }
+    } catch (_: Exception) { null }
+
+    /** Background download of @require / @resource (https only, 500 KB each). Rebuilds that script's handler when done. */
+    fun fetchDeps(c: Context, id: String, meta: Meta, force: Boolean) {
+        val rq = wantedReq(meta); val rs = wantedRes(meta)
+        val app = c.applicationContext
+        if (rq.isEmpty() && rs.isEmpty()) { if (p(app).contains("r:$id")) p(app).edit().remove("r:$id").apply(); return }
+        val cur = deps(app, id)
+        if (!force && cur.qu == rq && cur.xu == rs.map { it.second } && cur.q.size == rq.size) return
+        Thread {
+            val o = JSONObject(); val q = JSONArray(); val x = JSONArray(); var fail = 0
+            for (u in rq) { val b = getBytes(u); if (b == null) { fail++; q.put("") } else q.put(String(b.first, Charsets.UTF_8)) }
+            for ((nm, u) in rs) { val b = getBytes(u); if (b == null) { fail++; x.put(JSONArray().put(nm).put("").put("")) } else x.put(JSONArray().put(nm).put(b.second.ifEmpty { "application/octet-stream" }).put(android.util.Base64.encodeToString(b.first, android.util.Base64.NO_WRAP))) }
+            o.put("qu", JSONArray(rq)).put("q", q).put("xu", JSONArray(rs.map { it.second })).put("x", x)
+            p(app).edit().putString("r:$id", o.toString()).apply()
+            ui.post {
+                refreshOne(app, id)
+                if (fail > 0) Util.toast(app, "$fail library file(s) could not be downloaded")
+            }
+        }.start()
+    }
+
+    private fun xReply(view: WebView, sid: String, i: Int, r: JSONObject) {
+        val js = "(function(){try{var f=window['" + rspName(sid) + "'];if(typeof f==='function')f(" + i + "," + jsSafe(r.toString()) + ")}catch(x){}})()"
+        ui.post { try { view.evaluateJavascript(js, null) } catch (_: Exception) { } }
+    }
+
+    private fun xErr(view: WebView, sid: String, i: Int, ev: String, msg: String) = xReply(view, sid, i, JSONObject().put("ev", ev).put("err", msg))
+
+    private fun startXhr(view: WebView, c: Context, s: Script, i: Int, r: JSONObject) {
+        val url = r.optString("u")
+        val uri = try { Uri.parse(url) } catch (_: Exception) { null }
+        val sch = uri?.scheme?.lowercase()
+        val host = uri?.host?.lowercase() ?: ""
+        if ((sch != "http" && sch != "https") || host.isEmpty()) { xErr(view, s.id, i, "error", "Bad address"); return }
+        val pageHost = try { Uri.parse(view.url ?: "").host?.lowercase() ?: "" } catch (_: Exception) { "" }
+        val priv = BookmarksScreen.tabsRef?.all()?.firstOrNull { it.web === view }?.priv == true
+        val ua = try { view.settings.userAgentString } catch (_: Exception) { "" }
+        val cnt = inflight.getOrPut(s.id) { java.util.concurrent.atomic.AtomicInteger() }
+        if (cnt.get() >= 4) { xErr(view, s.id, i, "error", "Too many requests at once"); return }
+        val go = {
+            cnt.incrementAndGet()
+            exec.execute { try { doXhr(view, c, s, i, r, pageHost, priv, ua) } finally { cnt.decrementAndGet() } }
+        }
+        val n = net(c, s.id)
+        when (hostState(s, n, host, pageHost)) {
+            1 -> go()
+            -1 -> xErr(view, s.id, i, "error", "Blocked: you denied $host for this script")
+            else -> {
+                val act = view.context as? Activity
+                if (act == null) { xErr(view, s.id, i, "error", "No permission screen"); return }
+                val key = s.id + "|" + host
+                val q = asking.getOrPut(key) { ArrayList() }
+                q.add { ok -> if (ok) go() else xErr(view, s.id, i, "error", "Blocked: $host was denied") }
+                if (q.size > 1) return
+                fun done(mode: Int) { // 0 deny, 1 host, 2 all
+                    val nn = net(c, s.id)
+                    when (mode) { 1 -> { nn.ok.add(host); nn.no.remove(host) }; 2 -> nn.all = true; else -> nn.no.add(host) }
+                    saveNet(c, s.id, nn)
+                    val l = asking.remove(key) ?: return
+                    for (f in l) f(mode != 0)
+                }
+                MaterialAlertDialogBuilder(act).setTitle("Allow network access?")
+                    .setMessage(s.name + " wants to connect to\n" + host + "\n\nPage: " + pageHost + "\nIt can send data there and read the answer. Page cookies are only sent to the page's own site.")
+                    .setCancelable(false)
+                    .setPositiveButton("Allow this host") { _, _ -> done(1) }
+                    .setNeutralButton("Allow all hosts") { _, _ -> done(2) }
+                    .setNegativeButton("Deny") { _, _ -> done(0) }.show()
+            }
+        }
+    }
+
+    private fun doXhr(view: WebView, c: Context, s: Script, i: Int, r: JSONObject, pageHost: String, priv: Boolean, ua: String) {
+        val key = s.id + ":" + i
+        var cur = r.optString("u")
+        var method = r.optString("m", "GET").uppercase().let { if (it == "POST" || it == "HEAD") it else "GET" }
+        var body: ByteArray? = if (method == "POST" && !r.isNull("d")) r.optString("d").toByteArray(Charsets.UTF_8) else null
+        if (body != null && body.size > MAX_BODY) { xErr(view, s.id, i, "error", "Request body too big (max 1 MB)"); return }
+        val to = r.optInt("to", 0).let { if (it <= 0) 30000 else minOf(it, 60000) }
+        val rt = r.optString("rt")
+        val anon = r.optBoolean("an")
+        val hdr = r.optJSONObject("h")
+        val sn = net(c, s.id)
+        try {
+            var hops = 0
+            lateinit var conn: java.net.HttpURLConnection
+            while (true) {
+                val u = java.net.URL(cur)
+                val h = u.host.lowercase()
+                if (hops > 0 && hostState(s, net(c, s.id), h, pageHost) != 1) { xErr(view, s.id, i, "error", "Redirect to $h is not allowed"); return }
+                if (hops == 0) logHost(c, s.id, h)
+                conn = u.openConnection() as java.net.HttpURLConnection
+                aborts[key] = conn
+                conn.instanceFollowRedirects = false; conn.connectTimeout = to; conn.readTimeout = to; conn.requestMethod = method
+                if (ua.isNotEmpty()) conn.setRequestProperty("User-Agent", ua)
+                if (hdr != null) for (k in hdr.keys()) {
+                    val kl = k.lowercase(); val v = hdr.optString(k)
+                    if (kl in setOf("host", "content-length", "cookie", "connection", "transfer-encoding") || k.any { it == '\r' || it == '\n' } || v.any { it == '\r' || it == '\n' }) continue
+                    conn.setRequestProperty(k, v)
+                }
+                if (!priv && !anon && (h == pageHost || sn.all)) android.webkit.CookieManager.getInstance().getCookie(cur)?.let { conn.setRequestProperty("Cookie", it) }
+                if (body != null) { conn.doOutput = true; conn.outputStream.use { it.write(body!!) } }
+                val code = conn.responseCode
+                if (code in listOf(301, 302, 303, 307, 308) && hops < 5) {
+                    val loc = conn.getHeaderField("Location")
+                    conn.disconnect()
+                    if (loc == null) { xErr(view, s.id, i, "error", "Bad redirect"); return }
+                    cur = java.net.URL(u, loc).toString()
+                    if (!cur.startsWith("http://") && !cur.startsWith("https://")) { xErr(view, s.id, i, "error", "Bad redirect"); return }
+                    if (code == 303 || ((code == 301 || code == 302) && method == "POST")) { method = if (method == "HEAD") "HEAD" else "GET"; body = null }
+                    hops++
+                    continue
+                }
+                break
+            }
+            val code = conn.responseCode
+            val stream = if (method == "HEAD") null else (if (code >= 400) conn.errorStream else conn.inputStream)
+            val bo = java.io.ByteArrayOutputStream()
+            if (stream != null) stream.use { ins ->
+                val buf = ByteArray(16384)
+                while (true) {
+                    val n = ins.read(buf)
+                    if (n < 0) break
+                    bo.write(buf, 0, n)
+                    if (bo.size() > MAX_RESP) { xErr(view, s.id, i, "error", "Response too big (max 5 MB)"); return }
+                }
+            }
+            val hs = StringBuilder()
+            for ((k, vs) in conn.headerFields) if (k != null) for (v in vs) hs.append(k).append(": ").append(v).append("\r\n")
+            val ct = conn.contentType ?: ""
+            val out = JSONObject().put("ev", "load").put("status", code).put("statusText", conn.responseMessage ?: "").put("headers", hs.toString()).put("url", cur).put("type", ct)
+            if (rt == "arraybuffer" || rt == "blob") out.put("b64", android.util.Base64.encodeToString(bo.toByteArray(), android.util.Base64.NO_WRAP))
+            else {
+                val cs = Regex("charset=([\\w-]+)", RegexOption.IGNORE_CASE).find(ct)?.groupValues?.get(1)
+                out.put("text", try { String(bo.toByteArray(), if (cs != null) java.nio.charset.Charset.forName(cs) else Charsets.UTF_8) } catch (_: Exception) { String(bo.toByteArray(), Charsets.UTF_8) })
+            }
+            xReply(view, s.id, i, out)
+        } catch (e: java.net.SocketTimeoutException) {
+            xErr(view, s.id, i, "timeout", "Timeout")
+        } catch (e: Exception) {
+            if (aborted.remove(key)) xErr(view, s.id, i, "abort", "Aborted") else xErr(view, s.id, i, "error", "Network error")
+        } finally { aborts.remove(key) }
+    }
+
+    /** Detail screen: libraries + network permissions of one script (tap an entry to revoke it). */
+    fun netDialog(act: Activity, s: Script) {
+        val n = net(act, s.id); val d = deps(act, s.id)
+        val labels = ArrayList<String>(); val acts = ArrayList<() -> Unit>()
+        val kb = (d.q.sumOf { it.length } + d.x.sumOf { it[2].length * 3 / 4 }) / 1024
+        labels.add("Libraries: ${wantedReq(s.meta).size} @require, ${wantedRes(s.meta).size} @resource, $kb KB (tap: download again)")
+        acts.add { fetchDeps(act, s.id, s.meta, true); Util.toast(act, "Downloading...") }
+        labels.add("Allow all hosts: " + (if (n.all) "ON (tap to turn off)" else "OFF"))
+        acts.add { n.all = !n.all; saveNet(act, s.id, n); Util.toast(act, if (n.all) "Allowed for all hosts" else "Back to asking") }
+        for (h in n.ok) { labels.add("Allowed: $h (tap to revoke)"); acts.add { n.ok.remove(h); saveNet(act, s.id, n); Util.toast(act, "Revoked") } }
+        for (h in n.no) { labels.add("Denied: $h (tap to forget)"); acts.add { n.no.remove(h); saveNet(act, s.id, n); Util.toast(act, "Will ask again") } }
+        val con = s.meta.all("connect")
+        if (con.isNotEmpty()) { labels.add("@connect: " + con.take(8).joinToString(", ")); acts.add { } }
+        for ((h, t) in n.log.take(8)) { labels.add("Recent: $h, " + ((System.currentTimeMillis() - t) / 60000) + " min ago"); acts.add { } }
+        MaterialAlertDialogBuilder(act).setTitle("Network and libraries").setItems(labels.toTypedArray()) { _, i -> acts[i]() }
+            .setNegativeButton("Close", null).show()
     }
 
     // ---------- temporary UI (T8 replaces it with a screen) ----------
@@ -506,6 +782,10 @@ var __GM={info:__info};
         if (old != null) msg.append("\nInstalled: ").append(old.meta.first("version").ifEmpty { "no version" })
         msg.append("\n\nRuns on:\n").append(if (pats.isEmpty()) "(no pattern: it would never run)" else pats.take(6).joinToString("\n"))
         if (pats.size > 6) msg.append("\n...")
+        val con = meta.all("connect")
+        if (con.isNotEmpty()) msg.append("\n\nNetwork: ").append(con.take(6).joinToString(", ")).append(if (con.any { it.trim() == "*" }) " (asks for every new host)" else "")
+        val libs = wantedReq(meta).size + wantedRes(meta).size
+        if (libs > 0) msg.append("\nDownloads ").append(libs).append(" file(s) from the web")
         msg.append("\n\nOnly install scripts you trust. A script can read and change every page it matches.")
         MaterialAlertDialogBuilder(act).setTitle(if (old != null) "Update userscript?" else "Install userscript?").setMessage(msg.toString())
             .setPositiveButton(if (old != null) "Update" else "Install") { _, _ ->
@@ -529,7 +809,7 @@ var __GM={info:__info};
             act.runOnUiThread {
                 if (text == null) Util.toast(act, err ?: "Failed")
                 else if (parse(text) == null) Util.toast(act, "Not a userscript")
-                else if (text == s.code) Util.toast(act, "Up to date")
+                else if (text == s.code) { fetchDeps(act, s.id, s.meta, true); Util.toast(act, "Up to date") }
                 else promptInstall(act, text, u, changed)
             }
         }
