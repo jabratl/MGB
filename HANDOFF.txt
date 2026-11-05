@@ -9,15 +9,15 @@ ASSUMPTIONS (1 line each)
  - UI is built in code (Views, no Compose, no XML layouts for the player). Keep that style.
 
 ======================================================================
-QUICKSTART FOR THE NEXT CHAT (current state: P7 done, next = P8)
+QUICKSTART FOR THE NEXT CHAT (current state: P8 done, next = P9)
 ======================================================================
-STATE: version 0.0.158. P1-P7 code is done. The first CI builds of P1-P3 FAILED; P3.2 is the FIX zip. P3.2, P4, P5, P6 and P7 have NOT been confirmed to build yet (kotlinc is not available in chat). If the user pastes a new build error, switch to Mode FIX first, smallest fix, then continue with P8.
-ATTACH: HANDOFF.txt (this one, newest) + MGB-context.zip + MGB_P3.2_v0_0_154.zip + MGB_P4_v0_0_155.zip + MGB_P5_v0_0_156.zip + MGB_P6_v0_0_157.zip + MGB_P7_v0_0_158.zip. Apply order: context, P3.2, P4, P5, P6, P7 (same paths overwrite). The old MGB_P1 / P2 / P3 zips are NOT needed (P3.2 holds their final state).
-CHECK before building: app/build.gradle.kts appVersionName = "0.0.158".
+STATE: version 0.0.159. P1-P8 code is done. The first CI builds of P1-P3 FAILED; P3.2 is the FIX zip. P3.2, P4, P5, P6, P7 and P8 have NOT been confirmed to build yet (kotlinc is not available in chat). If the user pastes a new build error, switch to Mode FIX first, smallest fix, then continue with P9.
+ATTACH: HANDOFF.txt (this one, newest) + MGB-context.zip + MGB_P3.2_v0_0_154.zip + MGB_P4_v0_0_155.zip + MGB_P5_v0_0_156.zip + MGB_P6_v0_0_157.zip + MGB_P7_v0_0_158.zip + MGB_P8_v0_0_159.zip. Apply order: context, P3.2, P4, P5, P6, P7, P8 (same paths overwrite). The old MGB_P1 / P2 / P3 zips are NOT needed (P3.2 holds their final state).
+CHECK before building: app/build.gradle.kts appVersionName = "0.0.159".
 USER: not a coder, writes Banglish (Bengali in Latin letters): reply in Banglish, short, simple. Everything is built on an Android phone, free tools only (GitHub Actions builds the APK). Zip name rule: MGB_Px_v0_0_NNN.zip, new version = previous + 1.
 KICKOFF LINE TO PASTE:
-  MGB (Thazir) player plan step P8. Mode: MODIFY. Previous version: 0.0.158. Attached: HANDOFF.txt + MGB-context.zip + MGB_P3.2_v0_0_154.zip + MGB_P4_v0_0_155.zip + MGB_P5_v0_0_156.zip + MGB_P6_v0_0_157.zip + MGB_P7_v0_0_158.zip.
-  Goal: Gestures A: hold-to-speed chip (pl_hold_speed, slide up / down changes it), pinch zoom 0.5x..4x with reset. (+ rules in section 2)
+  MGB (Thazir) player plan step P9. Mode: MODIFY. Previous version: 0.0.159. Attached: HANDOFF.txt + MGB-context.zip + MGB_P3.2_v0_0_154.zip + MGB_P4_v0_0_155.zip + MGB_P5_v0_0_156.zip + MGB_P6_v0_0_157.zip + MGB_P7_v0_0_158.zip + MGB_P8_v0_0_159.zip.
+  Goal: Gestures B: level HUD restyle (icon + bar), volume boost via LoudnessEnhancer, brightness memory, seek sensitivity, double-tap seconds. (+ rules in section 2)
 LESSONS FROM THE P1-P3 BUILD FAILURES (apply in every step):
  - NEVER put a // comment after code on a line that also holds a closing brace } (it swallows the brace).
  - Inside X(act).apply { ... } a name that is also a function PARAMETER (max, min, text...) means the PARAMETER, not the view property: write this.max = ...
@@ -45,7 +45,7 @@ LESSONS FROM THE P1-P3 BUILD FAILURES (apply in every step):
 [x] P5  v0.0.156  Subtitles page (tracks, add file, size, colour, background, position) CODE DONE, phone test pending (see RESULT P5)
 [x] P6  v0.0.157  Controls A: top bar, seek row, centre buttons, side lock button      CODE DONE, phone test pending (see RESULT P6)
 [x] P7  v0.0.158  Controls B: bottom icon row, rotate states, portrait / landscape / small-height layouts   CODE DONE, phone test pending (see RESULT P7)
-[ ] P8  v0.0.159  Gestures A: hold-to-speed chip + slide to change, pinch zoom in / out + reset            M
+[x] P8  v0.0.159  Gestures A: hold-to-speed chip + slide to change, pinch zoom in / out + reset            CODE DONE, phone test pending (see RESULT P8)
 [ ] P9  v0.0.160  Gestures B: level HUD restyle, volume boost, brightness memory, seek sensitivity          S
 [ ] P10 v0.0.161  Audio-only mode (headphone button) + notification link               M
 [ ] P11 v0.0.162  Episode queue panel (folder list, jump, now-playing mark)            M
@@ -365,3 +365,12 @@ P7 RESULT (0.0.158)  zip: MGB_P7_v0_0_158.zip
  NOT tested (needs a phone): compile; one row fits at 360 dp portrait (time + pill + 3 x 44 dp); landscape 640 x 360 nothing overlaps the seek bar; speed pill opens the page and turns accent when not 1x; fit icon swaps; rotate icon accent; compact variant on rotate; the 3 icon paths (hand-typed Material paths).
  KNOWN: rotate has no way back to "auto" (as before, only portrait <-> landscape); old cell() / iconSlot() are now unused (P14 removes); compact threshold 400 dp (plan said 360, a landscape phone is 360-412 dp high).
  NEXT: P8 Gestures A (size M).
+
+P8 RESULT (0.0.159)  zip: MGB_P8_v0_0_159.zip
+ Done: long press = fast play at pl_hold_speed (default 2.0x) with a top-centre chip "2.0x  >>"; sliding up / down while holding changes it in 0.1x steps (0.25..5.0); release restores the exact previous speed. Pinch zoom 0.5x..4x, "Reset zoom NNN%" chip while zoom is not 100%.
+ Changed: PlayerGestures.kt (new) / PlayerActivity.kt (fields holdCur / holdLastY / holdAcc / holdChip / zoomChip, onLongPress, touch listener hold-slide + release, onScale range + chip, resetZoom hides chip, chips added after the level bar in buildUi) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt.
+ KEYS: pl_hold_speed (float, default 2.0), pl_hold_slide (bool, default true): both only READ now, no Settings UI until P13 (P13 adds them + RESET).
+ Checks: bracket balance of PlayerActivity + PlayerGestures (strings / comments stripped), new calls re-read (PlaybackParameters(speed, pitch), PlayerPrefs.getFloat / getBool, Util.dp), the chip never shows with the level bar (hud hidden on hold). kotlinc NOT available: no compile, no render check.
+ NOT tested (needs a phone): compile; long press starts at 2.0x and the chip shows; slide up / down changes speed and chip; release restores 1x / 1.5x exactly; no brightness / volume / seek change while holding; pinch out below 100% and in to 400%; Reset zoom chip tap; chip position over the controls; pinch does not trigger double tap.
+ KNOWN: two-finger double tap reset is NOT built (the chip does it); zoom < 100% scales around the centre (no pan exists); Reset zoom chip may overlap the bottom controls while they are shown (bottom margin 120 dp); hold starts only while playing (as before); speed pill in the bottom row does not show the hold speed.
+ NEXT: P9 Gestures B (size S).

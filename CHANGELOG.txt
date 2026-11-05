@@ -1,3 +1,8 @@
+0.0.159 (PLAYER STEP P8 MODIFY: Gestures A)
+- PlayerGestures.kt (new): holdSpeed / holdSlide (prefs pl_hold_speed default 2.0, pl_hold_slide default true), nextHold (0.1 steps, 0.25..5.0), chipText, zoomText, pill() overlay chip factory.
+- PlayerActivity.kt: long press = fast play at the hold speed with a top-centre chip "2.0x  >>" (replaces the 2x flash, never shown with the level bar); while holding, sliding up / down changes it by 0.1x (handled in the touch listener, because the GestureDetector sends no scroll events after a long press); release restores the exact previous speed and flashes "Playback speed X". Pinch zoom range 0.5x..4x (zoom out allowed), "Reset zoom NNN%" chip at the bottom while zoom is not 100% (tap = resetZoom, cycleFit already resets).
+- app/build.gradle.kts: 0.0.159.
+
 0.0.158 (PLAYER STEP P7 MODIFY: Controls B)
 - PlayerActivity.kt: bottom row rebuilt: "cur / total" left, speed pill (opens the speed page) + icon buttons Fit / Subtitles / Rotate on the right, no text labels, 44 dp targets. Old Lock / Audio / PiP cells removed (lock = side button, Audio track + PiP stay in the 3-dot panel). Fit icon changes per mode (fitIcon replaces fitLabel); rotate icon turns accent once the button fixed the orientation (rotManual); CC icon dim / accent as before. Small height (screenHeightDp < 400): info line hidden, tighter top / bottom padding (isCompact, applyCompact, also on configuration change). Audio-only button is not shown (comes in P10).
 - PlayerPages.kt: temporary "Rotate screen" row of P6 removed.

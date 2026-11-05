@@ -171,6 +171,11 @@ class PlayerActivity : AppCompatActivity() {
     private var userRot = false
     private var boost = false
     private var speedBeforeBoost = 1f
+    private var holdCur = 2f // P8: speed while holding (slide changes it)
+    private var holdLastY = 0f
+    private var holdAcc = 0f
+    private lateinit var holdChip: TextView // P8
+    private lateinit var zoomChip: TextView // P8: "Reset zoom" while zoom != 100%
     private var fitMode = 0 // 0 fit, 1 fill (crop), 2 stretch
     private var ended = false
     private var swipe = 0 // 0 none, 1 vertical, 2 horizontal
@@ -513,6 +518,7 @@ class PlayerActivity : AppCompatActivity() {
         zoom = 1f
         playerView.scaleX = 1f
         playerView.scaleY = 1f
+        if (this::zoomChip.isInitialized) zoomChip.visibility = View.GONE
     }
 
     private fun saveResume() {
@@ -1325,8 +1331,13 @@ class PlayerActivity : AppCompatActivity() {
                 if (!p.isPlaying) return
                 boost = true
                 speedBeforeBoost = p.playbackParameters.speed
-                p.playbackParameters = PlaybackParameters(2f)
-                flash("2x")
+                holdCur = PlayerGestures.holdSpeed(this@PlayerActivity)
+                holdLastY = e.y
+                holdAcc = 0f
+                p.playbackParameters = PlaybackParameters(holdCur, 1f)
+                hud.visibility = View.GONE // the chip and the level bar never show together
+                holdChip.text = PlayerGestures.chipText(holdCur)
+                holdChip.visibility = View.VISIBLE
             }
 
             override fun onScroll(e1: MotionEvent?, e2: MotionEvent, dx: Float, dy: Float): Boolean {
@@ -1373,10 +1384,12 @@ class PlayerActivity : AppCompatActivity() {
         val sgd = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
             override fun onScale(d: ScaleGestureDetector): Boolean {
                 if (locked) return true
-                zoom = (zoom * d.scaleFactor).coerceIn(1f, 4f)
+                zoom = (zoom * d.scaleFactor).coerceIn(PlayerGestures.ZOOM_MIN, PlayerGestures.ZOOM_MAX) // P8: zoom out allowed, scales around the centre
                 playerView.scaleX = zoom
                 playerView.scaleY = zoom
-                flash((zoom * 100).toInt().toString() + "%")
+                flash(PlayerGestures.zoomText(zoom))
+                zoomChip.text = "Reset zoom  " + PlayerGestures.zoomText(zoom)
+                zoomChip.visibility = if (abs(zoom - 1f) < 0.01f) View.GONE else View.VISIBLE
                 return true
             }
         })
@@ -1384,11 +1397,24 @@ class PlayerActivity : AppCompatActivity() {
             sgd.onTouchEvent(ev)
             if (sgd.isInProgress || ev.pointerCount > 1) return@setOnTouchListener true
             gd.onTouchEvent(ev)
+            if (boost && ev.actionMasked == MotionEvent.ACTION_MOVE && PlayerGestures.holdSlide(this)) {
+                // P8: after a long press the GestureDetector sends no scroll events: slide up / down here, 0.1x per ~28 dp
+                holdAcc += holdLastY - ev.y
+                holdLastY = ev.y
+                val st = (holdAcc / dp(28)).toInt()
+                if (st != 0) {
+                    holdAcc -= st * dp(28)
+                    holdCur = PlayerGestures.nextHold(holdCur, st)
+                    player?.playbackParameters = PlaybackParameters(holdCur, 1f)
+                    holdChip.text = PlayerGestures.chipText(holdCur)
+                }
+            }
             if (ev.actionMasked == MotionEvent.ACTION_UP || ev.actionMasked == MotionEvent.ACTION_CANCEL) {
                 if (boost) {
                     boost = false
-                    player?.playbackParameters = PlaybackParameters(speedBeforeBoost)
-                    flash("1x")
+                    holdChip.visibility = View.GONE
+                    player?.playbackParameters = PlaybackParameters(speedBeforeBoost, 1f)
+                    flash("Playback speed " + speedText(speedBeforeBoost))
                 }
                 if (swipe == 2 && seekTarget >= 0) { player?.seekTo(seekTarget) }
                 seekTarget = -1
@@ -1530,6 +1556,10 @@ class PlayerActivity : AppCompatActivity() {
         hud.addView(hudText)
         hud.addView(hudBar, LinearLayout.LayoutParams(dp(170), dp(6)).apply { topMargin = dp(8) })
         rootView.addView(hud, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dp(60) })
+        holdChip = PlayerGestures.pill(this, 14f, true) // P8: same place as the level bar, never both at once
+        rootView.addView(holdChip, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dp(60) })
+        zoomChip = PlayerGestures.pill(this, 13f, false).apply { setOnClickListener { resetZoom(); poke() } }
+        rootView.addView(zoomChip, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = dp(120) })
 
         fun tapMark(label: String) = TextView(this).apply {
             text = label
