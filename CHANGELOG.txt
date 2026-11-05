@@ -1,3 +1,10 @@
+0.0.151 (PLAYER STEP P1 BUILD: side panel framework + player settings root)
+- PlayerPanel.kt (new): translucent settings panel over the video: slides from the right in landscape (>= 480 dp wide), bottom sheet in portrait. Page stack (open / push / pop / close / refresh), back arrow + system back + tap outside, builders: section, row, radio, toggle, note, custom. Instant when "reduce motion" is on.
+- PlayerPages.kt (new): root page of the 3-dot button: Subtitles, Audio track, Playback speed, Repeat, Sleep timer, Background audio, Picture in picture, Video info, Open in another app. Subtitles / Audio / Speed / Sleep still open the old dialogs (rebuilt in P2-P5).
+- PlayerPrefs.kt (new): central pl_* prefs (mgb_ui) with defaults.
+- PlayerActivity.kt: showMore() opens the panel; back button pops the panel first; controls auto-hide paused while the panel is open; panel closes on PiP and onStop; helpers subSummary / toggleRepeat / toggleBgAudio; a few members private -> internal (player, sleepAt, showSubtitleDialog, showAudioDialog, showSpeedDialog, showSleepDialog, enterPip, showInfo, openExternal, speedText).
+- res/drawable: ic_pl_speed.xml, ic_pl_repeat.xml (new). app/build.gradle.kts: 0.0.151.
+
 0.0.150 (TOOLS STEP T10 BUILD: Userscripts part 4, GM_xmlhttpRequest + @require / @resource + permission prompt)
 - Userscripts.kt: GM_xmlhttpRequest / GM.xmlHttpRequest run natively (GET / POST / HEAD, headers, string body max 1 MB, timeout max 60 s, 5 MB response cap, responseType text / json / arraybuffer / blob). Redirects are followed by hand and the host is checked again on every hop. Page cookies are sent only to the page's own host (or every host after "Allow all"), never from private tabs, never with anonymous: true. 4 requests at once per script. Top frame only; the answer comes back through a secret-named, locked window function (no reply proxy the page could listen to).
 - Userscripts.kt: permission prompt (blocking): page host and @connect hosts (not "*") are allowed; any other host asks once: Allow this host / Allow all hosts / Deny, remembered per script (prefs key "n:<id>"), with the last 15 request hosts logged.

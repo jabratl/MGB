@@ -126,7 +126,7 @@ class PlayerActivity : AppCompatActivity() {
     private var title = ""
     private var refUrl = "" // S39: web streams
     private var uaStr = ""
-    private var player: ExoPlayer? = null
+    internal var player: ExoPlayer? = null
 
     private lateinit var rootView: FrameLayout
     private lateinit var playerView: PlayerView
@@ -151,6 +151,7 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var prevBtn: ImageView
     private lateinit var nextBtn: ImageView
     private lateinit var resumeBar: TextView
+    internal lateinit var panel: PlayerPanel // P1: side panel (3-dot menu)
     private lateinit var audio: AudioManager
     private lateinit var prefs: android.content.SharedPreferences
 
@@ -173,7 +174,7 @@ class PlayerActivity : AppCompatActivity() {
     private var seekTarget = -1L
     private var volAcc = 0f
     private var dxAcc = 0f
-    private var sleepAt = 0L // S38: sleep timer end (ms), 0 = off
+    internal var sleepAt = 0L // S38: sleep timer end (ms), 0 = off
 
     private val openSub = registerForActivityResult(ActivityResultContracts.OpenDocument()) { u ->
         if (u != null) addSubtitleFile(u)
@@ -245,6 +246,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        if (this::panel.isInitialized) panel.close(true) // P1
         val keep = PlayerService.on(this) && player?.isPlaying == true && !pipWas && !isFinishing
         if (!keep) player?.pause()
         saveResume()
@@ -278,6 +280,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun installBackHandler() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
+                if (this@PlayerActivity::panel.isInitialized && panel.isOpen) { panel.pop(); return } // P1
                 if (locked) { Util.toast(this@PlayerActivity, "Locked: tap the screen, then the lock button"); return }
                 isEnabled = false
                 onBackPressedDispatcher.onBackPressed()
@@ -636,7 +639,7 @@ class PlayerActivity : AppCompatActivity() {
 
     // ---------- actions ----------
 
-    private fun openExternal() {
+    internal fun openExternal() {
         try {
             val mime = contentResolver.getType(uri) ?: "video/*"
             val i = Intent(Intent.ACTION_VIEW).setDataAndType(uri, mime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -676,7 +679,7 @@ class PlayerActivity : AppCompatActivity() {
         flash((if (ms > 0) "+" else "-") + abs(ms / 1000) + " s   " + fmt(t))
     }
 
-    private fun speedText(s: Float) = if (s == s.toInt().toFloat()) "${s.toInt()}x" else "${s}x"
+    internal fun speedText(s: Float) = if (s == s.toInt().toFloat()) "${s.toInt()}x" else "${s}x"
 
     private fun setSpeed(s: Float) {
         player?.playbackParameters = PlaybackParameters(s)
@@ -696,7 +699,7 @@ class PlayerActivity : AppCompatActivity() {
         flash(when (fitMode) { 1 -> "FILL (CROP)"; 2 -> "STRETCH"; else -> "FIT TO SCREEN" })
     }
 
-    private fun enterPip() {
+    internal fun enterPip() {
         if (Build.VERSION.SDK_INT < 26) { Util.toast(this, "Needs Android 8 or newer"); return }
         try {
             val vs = player?.videoSize
@@ -739,7 +742,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-        if (isInPictureInPictureMode) { pipWas = true; controls.visibility = View.GONE; resumeBar.visibility = View.GONE } else showControls(true)
+        if (isInPictureInPictureMode) { pipWas = true; if (this::panel.isInitialized) panel.close(true); controls.visibility = View.GONE; resumeBar.visibility = View.GONE } else showControls(true)
     }
 
     // ---------- S38: dark bottom sheets (replace the grey platform dialogs) ----------
@@ -830,7 +833,7 @@ class PlayerActivity : AppCompatActivity() {
         return d
     }
 
-    private fun showSubtitleDialog() {
+    internal fun showSubtitleDialog() {
         val p = player ?: return
         val groups = textGroups(p.currentTracks)
         val off = p.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT) || groups.none { it.isSelected }
@@ -872,7 +875,7 @@ class PlayerActivity : AppCompatActivity() {
         sheet("Subtitles", if (n == 0) "No subtitle in this video. Add a file, or put it next to the video with the same name." else null, rows)
     }
 
-    private fun showAudioDialog() {
+    internal fun showAudioDialog() {
         val p = player ?: return
         val groups = p.currentTracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
         val rows = ArrayList<SheetRow>()
@@ -895,7 +898,7 @@ class PlayerActivity : AppCompatActivity() {
         sheet("Audio track", if (rows.size == 1) "This video has only one audio track." else null, rows)
     }
 
-    private fun showSpeedDialog() {
+    internal fun showSpeedDialog() {
         val vals = floatArrayOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f, 3f, 4f, 6f)
         val cur = player?.playbackParameters?.speed ?: 1f
         val rows = vals.map { v ->
@@ -904,31 +907,33 @@ class PlayerActivity : AppCompatActivity() {
         sheet("Playback speed", null, rows)
     }
 
+    /** P1: the 3-dot button opens the side panel (PlayerPages.root). The old bottom sheets stay for the pages not rebuilt yet. */
     private fun showMore() {
-        val p = player
-        val rows = ArrayList<SheetRow>()
-        rows.add(SheetRow("Subtitles", null, false) { showSubtitleDialog() })
-        rows.add(SheetRow("Audio track", null, false) { showAudioDialog() })
-        val rep = p?.repeatMode == Player.REPEAT_MODE_ONE
-        rows.add(SheetRow("Repeat this video", if (rep) "On" else "Off", rep) {
-            player?.repeatMode = if (rep) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
-            flash(if (rep) "Repeat off" else "Repeat on")
-        })
-        val left = if (sleepAt > 0) ((sleepAt - System.currentTimeMillis()) / 60000 + 1).coerceAtLeast(1) else 0L
-        rows.add(SheetRow("Sleep timer", if (left > 0) "Pauses in $left min" else "Off", left > 0) { showSleepDialog() })
-        val bg = PlayerService.on(this)
-        rows.add(SheetRow("Background audio", if (bg) "On" else "Off", bg) { // S45
-            PlayerService.setOn(this, !bg)
-            if (bg) PlayerService.stop(this) else if (player?.isPlaying == true) bgNote(true)
-            flash(if (bg) "Background audio off" else "Background audio on")
-        })
-        rows.add(SheetRow("Picture in picture", null, false) { enterPip() })
-        rows.add(SheetRow("Video info", null, false) { showInfo() })
-        rows.add(SheetRow("Open in another app", null, false) { openExternal() })
-        sheet("More", null, rows)
+        main.removeCallbacks(hider)
+        showControls(false)
+        panel.open(PlayerPages.root(this))
     }
 
-    private fun showSleepDialog() {
+    internal fun subSummary(): String {
+        val p = player ?: return "Off"
+        val off = p.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT) || textGroups(p.currentTracks).none { it.isSelected }
+        return if (off) "Off" else "On"
+    }
+
+    internal fun toggleRepeat() {
+        val on = player?.repeatMode == Player.REPEAT_MODE_ONE
+        player?.repeatMode = if (on) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
+        flash(if (on) "Repeat off" else "Repeat on")
+    }
+
+    internal fun toggleBgAudio() { // S45
+        val bg = PlayerService.on(this)
+        PlayerService.setOn(this, !bg)
+        if (bg) PlayerService.stop(this) else if (player?.isPlaying == true) bgNote(true)
+        flash(if (bg) "Background audio off" else "Background audio on")
+    }
+
+    internal fun showSleepDialog() {
         val mins = intArrayOf(15, 30, 45, 60, 90)
         val rows = ArrayList<SheetRow>()
         rows.add(SheetRow("Off", null, sleepAt == 0L) { setSleep(0) })
@@ -951,7 +956,7 @@ class PlayerActivity : AppCompatActivity() {
         flash("Sleep timer: $min min")
     }
 
-    private fun showInfo() {
+    internal fun showInfo() {
         val p = player ?: return
         val rows = ArrayList<SheetRow>()
         rows.add(SheetRow("Name", title))
@@ -982,7 +987,7 @@ class PlayerActivity : AppCompatActivity() {
 
     // ---------- controls visibility ----------
 
-    private val hider = Runnable { if (player?.isPlaying == true && !dragging) showControls(false) }
+    private val hider = Runnable { if (player?.isPlaying == true && !dragging && !(this::panel.isInitialized && panel.isOpen)) showControls(false) }
 
     private fun showControls(on: Boolean) {
         shown = on && !locked
@@ -1415,6 +1420,7 @@ class PlayerActivity : AppCompatActivity() {
             visibility = View.GONE
         }
         rootView.addView(resumeBar, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { setMargins(0, 0, 0, dp(140)) })
+        panel = PlayerPanel(this, rootView).also { it.onClosed = { showControls(true) } } // P1: added last = on top of everything
         updateNav()
         updateInfoLine()
 

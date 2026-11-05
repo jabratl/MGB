@@ -1,318 +1,288 @@
-MGB (Thazir) - TOOLS PLAN, steps T1-T10   (HANDOFF.txt = the ONLY file you need to paste/attach for the plan)
-Base: version 0.0.140 (Settings plan A-E is finished). This file replaces the old HANDOFF.txt; the old long history is in HANDOFF_OLD.txt (do NOT attach it unless a step says so).
-No app code was changed when this plan was written (pack = repo files at 0.0.140).
+MGB (Thazir) - PLAYER PLAN, steps P1-P14     (HANDOFF.txt = the file you paste / attach first in every new chat)
+Base: version 0.0.150 (TOOLS plan T1-T10 is finished; its old text is replaced by this file, history stays in CHANGELOG.txt).
+No app code was changed when this plan was written. Planning chat only.
+
+ASSUMPTIONS (1 line each)
+ - "Thazir browser er inbuilt player" = the NATIVE player: PlayerActivity (Media3 ExoPlayer). The old V77 extension page assets/ext/player.html is NOT touched.
+ - The reference video (Quetta Player, 800x480 screen recording) is a FEATURE + LAYOUT reference only. We rebuild every feature in the MGB look (rose accent, own icons, own wording). No Quetta name / logo / text copied.
+ - All new player prefs go into the existing prefs file "mgb_ui" with the prefix "pl_" (so Backup.kt already saves them, no Backup change needed). Resume positions stay in "mgb_resume".
+ - UI is built in code (Views, no Compose, no XML layouts for the player). Keep that style.
 
 ======================================================================
 0. WHAT TO DO IN A NEW CHAT (read this first)
 ======================================================================
-1. Attach: HANDOFF.txt + MGB_TOOLS_PACK_v0_0_140.zip + every step zip made AFTER the pack (T1, T2 ... oldest to newest, same paths overwrite).
-   The newest step zip carries the newest HANDOFF.txt: use that one. Do NOT attach the full MGB-main.
-2. Look at section 1 (PROGRESS): the first step that is not DONE is the step to build. One step per chat.
-3. Paste the standing prompt (section 2). Replace [Tx] and [Vxx].
-4. The assistant unzips the pack, applies the older step zips in order, checks the version in app/build.gradle.kts = the "Previous version" below, then builds ONLY that step.
-5. Every step ends with: changed-files zip (top folder MGB-main/), CHANGELOG.txt entry (newest on top), HANDOFF.txt progress line updated, version +1 in app/build.gradle.kts, final reply under 10 lines.
+1. Attach: HANDOFF.txt + MGB-context.zip + every step zip made AFTER the context zip (P1, P2 ... oldest to newest, same paths overwrite). The newest step zip carries the newest HANDOFF.txt: use that one.
+2. Section 1 (PROGRESS): the first step that is not [x] is the step to build. ONE step per chat.
+3. Paste the kickoff line (section 2). Replace [Px] and [Vxx].
+4. The assistant unzips the context zip, applies the older step zips in order, checks app/build.gradle.kts appVersionName = "Previous version", then builds ONLY that step.
+5. Every step ends with: changed-files zip (top folder MGB-main/), CHANGELOG.txt entry (newest on top), HANDOFF.txt progress line + RESULT block, version +1, final reply under 10 lines.
+6. Step zip name: MGB_Px_v0_0_NNN.zip (NNN = new version number). The CI (.github/workflows/build.yml) picks every *_vN.zip in the repo root in version order, so the name matters.
 
 ======================================================================
-1. PROGRESS  (the assistant updates this block at the end of every step)
+1. PROGRESS  (the assistant ticks the step and adds a RESULT block at the end of every step)
 ======================================================================
-STATE FROM THE END OF THE SETTINGS PLAN (verbatim, keep until the phone test is done):
-CURRENT VERSION 0.0.140 (Settings STEP E: tab suspend, Older section, audit script; see CHANGELOG 0.0.140; apply after 0.0.139). NOT tested (needs a real phone): compile; 20+ tabs with suspend 5 min; media tab keeps playing in background; restore after restart (ts saved, Older after 7 days); suspended tab reopens with history + scroll; desktop-site tab after suspend; tab in a group never suspended; download running = no suspend; Older header + cards at 360 px; drag/reorder with an Older section. KNOWN: a background tab that never had a thumbnail shows the letter avatar; JS-off sites count as "not playing"; the sweep checks every 60 s. AUDIT (step E part 1) NOT applied, waits for OK: candidates = single switches overlapping Button mode: Video button on pages, Grabber button on pages, Grabber button opens Files detected panel, Grabber button on video players, Extra native download button (all call DlMode.manual); V77 backup row; hide_bar flagged by the script is a false positive. No duplicate labels found. NEXT: user says which rows to remove, then a small MODIFY step (SettingsScreen.kt only, keep prefs keys so old backups still import).
+[x] P1  v0.0.151  Side panel framework + player settings root (3-dot menu)            CODE DONE, phone test pending (see RESULT P1)
+[ ] P2  v0.0.152  Playback Speed page (slider, preset grid, saved custom speeds)       M
+[ ] P3  v0.0.153  Quality page + Repeat page                                           M
+[ ] P4  v0.0.154  Sleep Timer page + Audio track page                                  M
+[ ] P5  v0.0.155  Subtitles page (tracks, add file, size, colour, background, position) M
+[ ] P6  v0.0.156  Controls A: top bar, seek row, centre buttons, side lock button      M
+[ ] P7  v0.0.157  Controls B: bottom icon row, rotate states, portrait / landscape / small-height layouts   M
+[ ] P8  v0.0.158  Gestures A: hold-to-speed chip + slide to change, pinch zoom in / out + reset            M
+[ ] P9  v0.0.159  Gestures B: level HUD restyle, volume boost, brightness memory, seek sensitivity          S
+[ ] P10 v0.0.160  Audio-only mode (headphone button) + notification link               M
+[ ] P11 v0.0.161  Episode queue panel (folder list, jump, now-playing mark)            M
+[ ] P12 v0.0.162  A-B loop (+ marks on seek bar)                                       S
+[ ] P13 v0.0.163  Settings > "Player" card (defaults, gestures, reset) + KW + RESET keys  M
+[ ] P14 v0.0.164  Final polish + QA pass (all steps together, no new features)         S
 
-[x] T1  v0.0.141  Tab link tools: Clone Tab, Copy all tab links, Open links from clipboard      DONE (see T1 RESULT below)
-[x] T2  v0.0.142  View page source                                                               DONE (see T2 RESULT below)
-[x] T3  v0.0.143  Save page + minimal saved list                                                  CODE DONE, GO / NO-GO NOT TESTED (see T3 RESULT)
-[x] T4  v0.0.144  Saved pages screen (search, rename, share, Settings row)                     DONE (see T4 RESULT)
-[x] T5  v0.0.145  Adblock manager part 1: backend                                                DONE (see T5 RESULT)
-[x] T6  v0.0.146  Adblock manager part 2: screen                                            DONE (see T6 RESULT)
-[x] T7  v0.0.147  Userscripts part 1: store, parser, injection, minimal paste/enable            DONE (see T7 RESULT)
-[x] T8  v0.0.148  Userscripts part 2: manager screen, install, page row                       DONE (see T8 RESULT)
-[x] T9  v0.0.149  Userscripts part 3: GM_ API without network + menu commands                    DONE (see T9 RESULT)
-[x] T10 v0.0.150  Userscripts part 4: GM_xmlhttpRequest, @require, @resource, permission prompt  DONE (see T10 RESULT)  -> TOOLS PLAN COMPLETE
-
-T1 RESULT (0.0.141)
- Done: Clone tab (tab card menu, select menu, page menu), Copy all tab links / Copy group links / Copy links (selected), Open links from clipboard (tab switcher menu).
- Changed: TabManager.kt (cloneTab, newTab lazy flag) / TabSwitcher.kt (menus, groupTabs) / TabBookmarks.kt (linkOf, copyLinks, fromClipboard) / MainActivity.kt (page row) / MenuCustom.kt (entry) / res/drawable ic_copy + ic_paste (new) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt.
- Checks: bracket balance of all 5 Kotlin files, icon xml parses, every new call re-read against its real signature. kotlinc not available.
- NOT tested (needs a phone): compile; clone of a tab with 5 history pages (Back works); clone of a suspended tab and of a desktop-site tab; clone inside a group (it lands at the END of the group, not next to the source: known); clone of a private tab; copy 10 tabs, then Open links from clipboard (already-open links unchecked); 25 links over the tab limit; links pasted from a chat (trailing punctuation trimmed); lazy tabs show the host as title and no thumbnail until opened.
- NEXT: was T2 (now done, see T2 RESULT).
-
-T2 RESULT (0.0.142)
- Done: page menu row "View page source" -> full-screen viewer: Rendered / Original pills, line numbers, search (count, next / prev, highlight), Copy all, Share as .html, Wrap lines on / off.
- Changed: PageSource.kt (new: whole viewer) / MainActivity.kt (page row) / MenuCustom.kt (entry) / build.gradle.kts (0.0.142) / CHANGELOG.txt / HANDOFF.txt.
- Checks: bracket balance of the 3 Kotlin files, render JS parses (node), every new API call re-read against its real signature (Util.host / dp / toast, Tab fields, MenuSheet.Item, FileProvider authority = packageName + ".fileprovider"). kotlinc not available. No xml ids / no new resources, so no duplicate-id risk.
- NOT tested (needs a phone): compile; Rendered on a JS-heavy page; Original of a redirecting page (http -> https) and of a login-only page; non-text url (pdf) toast; page over 2 MB (note shown); private tab (no Original pill); suspended tab (Rendered says "not loaded", Original works); search on 5000+ matches; wrap off scroll sideways; Share as .html opens in a chooser; layout at 360 px dark + light (not render-checked: no emulator here). KNOWN: a search match that is split by the 400-character row cut is not found; "Share as .html" shares the tab currently shown (Rendered or Original).
- NEXT: was T3 (now coded, see T3 RESULT).
-
-T3 RESULT (0.0.143)
- Done: page menu "Save page" (name dialog) + main menu "Saved pages" (list dialog: tap open, long press delete). Saved pages open offline in a normal tab with JS off + network blocked.
- Changed: PageSave.kt (new: store, save, flags, list dialog) / TabManager.kt (savedPage flag, openSaved, 3 guards, restore) / MainActivity.kt (2 rows) / MenuCustom.kt (2 entries) / res/drawable/ic_save.xml (new) / build.gradle.kts (0.0.143) / CHANGELOG.txt / HANDOFF.txt.
- Checks: bracket balance of the 4 Kotlin files (TabManager has a 1-paren script artifact that was already there in 0.0.141, diff shows only the intended lines), icon xml parses, every new call re-read against its real signature. kotlinc and a real WebView are NOT available here.
- !! GO / NO-GO NOT DONE (no phone): FIRST phone test = save a page, open it from Saved pages. If the tab stays blank / shows an error, T3 must NOT go on to T4: tell the chat, the fallback is a single HTML snapshot (bigger step). Code assumes loadUrl("file://.../x.mht") renders with allowFileAccess = true.
- NOT tested (needs a phone): compile; save + open of a normal page, a page with images, a JS-heavy page (MHT shows the DOM at save time, JS is off); airplane mode open; delete while the tab is open; restart with a saved-page tab open (restored from file); Back / Forward inside a saved tab; a normal tab opened after a saved tab still has JS on and normal file access (flags are per tab); 100 page limit toast.
- KNOWN: "Copy all tab links" (T1) may include the file:// address of a saved-page tab (TabBookmarks.linkOf not touched); a restored saved-page tab whose file was deleted shows an error page; the Saved pages row is a plain dialog (T4 replaces it); no thumbnails, no size-total beyond the dialog title.
- NEXT: if the go / no-go passed on the phone: T4 Saved pages screen (size M). Goal: full-screen "Saved pages" list replacing the T3 dialog (search, rename, share file, Settings row). If it failed: stop, report to the chat.
-
-T4 RESULT (0.0.144)
- Done: full-screen "Saved pages" (search, header card with count + size + Delete all, per-page sheet: Open in new tab / Rename / Share file / Open original site / Delete). Opened from the main menu row and from Settings > Data and backup.
- Changed: SavedPages.kt (new: screen) / PageSave.kt (rename, removeAll) / MainActivity.kt (menu row opens the screen) / SettingsScreen.kt (row + hint + KW) / build.gradle.kts (0.0.144) / CHANGELOG.txt / HANDOFF.txt.
- Checks: bracket balance of the changed Kotlin files, every new call re-read against its real signature (ToolsSheet.Item / Group / show, SettingsScreen Row, PageSave API, FileProvider authority). kotlinc not available, no emulator (360 / 1280 px, dark + light not render-checked).
- !! T3 go / no-go (mht opens offline on the real WebView) is STILL not confirmed on a phone: test that first; T4 is only useful if it passes.
- NOT tested (needs a phone): compile; open / rename / share / delete; Delete all; search; delete while a tab still shows that file (tab keeps the page until reload, then shows an error); row layout at 360 px with a 2-line title; share chooser with the .mht type.
- KNOWN / NEXT ideas (not done): no thumbnails (needs a snapshot at save time); the unused PageSave.dialog can be removed in a cleanup step; T1 "Copy all tab links" may include a saved tab's file:// address.
- NEXT: T5 Adblock manager part 1: backend (size M). Goal: engine support for user rules, user blocked hosts, a global allow list, a read-only built-in host list and AdBlock.explain; no UI. Pack files: FilterList.kt, AdBlock.kt, CosmeticFilter.kt, Backup.kt, BlockerStats.kt, Util.kt (these are in the pack zip).
-
-T5 RESULT (0.0.145)
- Done: backend for user rules, user blocked hosts, global allow list, built-in host list accessor and explain(). No UI.
- Changed: FilterList.kt (userRules, setUserRules, load adds them) / AdBlock.kt (user hosts, allow list, accessors, explain, allow check in shouldBlock + blocksPage) / CosmeticFilter.kt (allow list skips cosmetic hiding) / build.gradle.kts (0.0.145) / CHANGELOG.txt / HANDOFF.txt.
- Checks: bracket balance of the 3 Kotlin files, every new call re-read against its real signature (Builder.count / cosDomN / cosGen, FilterList.verdict + T_OTHER, SiteConfig.hostOf). kotlinc not available. Backup.kt NOT changed: mgb_adblock is already in SETTINGS and the new keys are plain strings (Backup skips string SETS, so sets were avoided on purpose).
- NOT tested (needs a phone): compile; add rules then check a blocked request changes; user host blocks a subdomain; allow host beats a filter rule and the built-in host list; cosmetic hiding off on an allow-listed site; setUserRules while a list update is loading; 1500-line rules reload time; restore from a backup (AdBlock.init re-reads the hosts, but FilterList does NOT reload user_rules until the app restarts: known, T6 can call setUserRules(userRules()) after an import).
- KNOWN: explain() uses request type OTHER and ignores the "same site as the page" exception of the host list (safe cut: 5 fixed reasons, no rule text).
- NEXT: T6 Adblock manager part 2: screen (size M). Goal: one full-screen "Hosts and filters" page: filter lists, my rules editor, my hosts, allowed hosts, built-in hosts (searchable), test a URL. Pack files: NEW AdblockManager.kt, BlockerStats.kt, SettingsScreen.kt, SiteSettings.kt (skeleton), Backup.kt, Util.kt.
-
-T6 RESULT (0.0.146)
- Done: full-screen "Hosts and filters": filter list switches + update + add list, My rules editor (Validate / Apply / Copy / Paste), blocked hosts, allowed hosts, built-in hosts (long press = allow), Test a URL.
- Changed: AdblockManager.kt (new: whole screen) / FilterList.kt (checkRules) / BlockerStats.kt (button) / SettingsScreen_T6.patch (Settings row + KW) / build.gradle.kts (0.0.146) / CHANGELOG.txt / HANDOFF.txt.
- !! APPLY THE PATCH: SettingsScreen.kt is NOT in the zip (the pack copy is 0.0.140 and lacks the T4 "Saved pages" row; a full file would undo T4). From the repo root: patch -p1 < SettingsScreen_T6.patch (or add by hand: Row(R.drawable.ic_list, "Hosts and filters", "${FilterList.ruleCount} rules") { AdblockManager.open(act, tabs?.active?.url?.let { SiteConfig.hostOf(it) }) { fill() } } after the "Ad blocker" Row, and the KW entry "Hosts and filters" to "adblock block host rules filter list allow whitelist easylist custom test url"). Without it the screen is only reachable from Blocker stats.
- Checks: bracket balance of the 3 Kotlin files, every new call re-read against its real signature (FilterList.lists / setEnabledAll / addCustom / removeCustom / update / userRules / setUserRules, AdBlock user / allow / builtin / explain, CosmeticFilter.allowList, TabPrefs.tint, Util.dp / toast). No xml, no js, no ids. kotlinc not available, no emulator (360 / 1280 px, dark + light NOT render-checked).
- NOT tested (needs a phone): compile; list switches (900 ms apply, rules reload); Update now; add / remove custom list; rules editor with 1500 lines and the keyboard at 360 px; Validate vs Apply text; Back with unsaved edits; add host from a URL / hosts-file text; clipboard paste of 300 hosts; allowed host beats a filter rule on a page; built-in list scroll with thousands of rows; long press allow; Test a URL with and without an open tab.
- KNOWN: PrivacyGuard.kt was not in the pack, so the planned row in the Privacy Guard sheet is NOT done (entry points: Settings > Privacy and security, Blocker stats). Restoring a backup does not reload user_rules until restart (T5 note, not changed). The page host for Test a URL is read when the screen opens. Icons reused (ic_list / ic_check), no paste icon.
- NEXT: add the "Hosts and filters" row to the Privacy Guard sheet (needs PrivacyGuard.kt), reload user rules after a backup import (Backup.kt), then T7 Userscripts part 1 (size L, TIGHT). T7 pack files: NEW Userscripts.kt, ContentInjector.kt, TabManager.kt, SettingsScreen.kt, Backup.kt, Util.kt (attach the CURRENT repo SettingsScreen.kt and TabManager.kt: the pack copies are 0.0.140).
-
-T7 RESULT (0.0.147)
- Done: a pasted Tampermonkey-style script (@grant none) can be added, switched on / off, deleted, and runs on matching pages. Master switch + private-tab switch in Settings > Extensions.
- Changed: Userscripts.kt (new: store, parser, injection, temp dialog) / TabManager.kt (1 line) / SettingsScreen.kt (3 rows + KW; also carries the T6 row) / ContentInjector.kt (patRegex public) / Backup.kt (SETTINGS) / build.gradle.kts (0.0.147) / CHANGELOG.txt / HANDOFF.txt.
- Deviation from the plan: ONE document-start script PER script (not one bootstrap per WebView), so a syntax error in one script cannot stop the others. Cost: N handlers per tab (max 50 scripts).
- Checks: bracket balance of all 5 Kotlin files (TabManager keeps its old 1-paren artifact), generated JS template passes node --check, every new call re-read against its real signature (WebViewCompat.addDocumentStartJavaScript, ScriptHandler.remove, ContentInjector.patRegex, Row, Util.toast / dp). kotlinc not available, no emulator.
- NOT tested (needs a phone): compile; add a script and see it run on a matching page; @run-at start / end / idle; @noframes in an iframe; @exclude; /regex/ @include; switch off then reload; delete; master OFF; private tab OFF / ON; 20+ tabs; suspended tab gets scripts again; script with a syntax error (others still run); CSP-strict site (script is injected by the WebView, but anything it does with eval / inline script can be blocked); backup export / import of scripts; clipboard prefill in Add.
- KNOWN: edits to an enabled script apply on the next page load of each tab; no update check, no URL install, no @require / @resource (T8 / T10); @grant other than none still runs in the page world without any GM_ function (T9); a script that needs top-level await fails.
- NEXT: T8 Userscripts part 2: manager screen (search, card per script, detail with code editor, install from clipboard / URL / file, .user.js install prompt, page menu row + MenuCustom entry). Pack files: Userscripts.kt, NEW UserscriptsScreen.kt, SettingsScreen.kt, MainActivity.kt, MenuCustom.kt, TabManager.kt (url hook), SiteSettings.kt (skeleton), ExtMenus.kt, Util.kt. Attach the CURRENT repo copies of MainActivity.kt, MenuCustom.kt, TabManager.kt, SettingsScreen.kt (pack copies are 0.0.140).
-
-T8 RESULT (0.0.148)
- Done: "Userscripts" screen (search, switch per script, detail editor, Save / Check update / Delete), install from clipboard / https address / .user.js link, blank template, import / export through the clipboard, page menu row with the scripts that match this page.
- Changed: UserscriptsScreen.kt (new) / Userscripts.kt (install, fetch, update check, page sheet, matching) / TabManager.kt (.user.js install prompt) / MainActivity.kt (page row) / MenuCustom.kt (entry) / SettingsScreen.kt (row opens the screen) / AdblockManager.kt (Ui internal) / build.gradle.kts (0.0.148) / CHANGELOG.txt / HANDOFF.txt.
- Assumptions: the Ui style helpers of AdblockManager are reused (tint = the Privacy hue). No SAF file import and no GENERAL (main menu) row: SAFE CUT, the Settings row and the page row are the entries. The old T7 dialog (Userscripts.screen) stays in the file, unused.
- Checks: bracket balance of all changed Kotlin files (TabManager keeps its old 1-paren artifact), template script passes node --check, every new call re-read against its real signature (ToolsSheet.Item / Group / show, MenuSheet.Item, AdblockManager.Ui helpers, HttpURLConnection). kotlinc not available, no emulator (360 / 1280 px, dark + light NOT render-checked).
- NOT tested (needs a phone): compile; open a .user.js link on a real site (greasyfork) and install; Update prompt for the same script; Check update with @downloadURL; From https address with a bad / http address; blank template saves and runs; rename in the editor; switch in the list vs master switch OFF; page row shows N active and the sheet toggles a script; import / export round trip; search; screen at 360 px with a 2-line name; Back with unsaved edits; link opened in a private tab (no prompt, normal page).
- KNOWN: a .user.js address typed into the address bar (loadUrl) does not ask: only links and redirects do. A .user.js served with a download header goes to the downloader, not the prompt. Edits apply on the next page load of each tab. No auto update schedule.
- NEXT: T9 Userscripts part 3: GM_ API without network (GM_info, GM_getValue / setValue / deleteValue / listValues + GM.* promises, GM_addStyle, GM_setClipboard, GM_openInTab, GM_notification, GM_registerMenuCommand, unsafeWindow) with a per-script token bridge, menu commands under the script in the page sheet. Pack files: Userscripts.kt, ChromeBridge.kt, ContentInjector.kt (read: tokenFor, wrap), ExtMenus.kt, UserscriptsScreen.kt, Backup.kt, Util.kt (ChromeBridge / ContentInjector / ExtMenus / Backup / Util are in the pack; attach the CURRENT Userscripts.kt, UserscriptsScreen.kt from the T8 zip).
-
-T9 RESULT (0.0.149)
- Done: scripts with a real @grant get the GM shim (GM_info, GM_get / set / delete / listValue(s), GM_addStyle, GM_setClipboard, GM_openInTab, GM_notification as toast, GM_registerMenuCommand / unregister, unsafeWindow, GM.* promises). Menu commands show under the script in the page row sheet ("Userscripts").
- Changed: Userscripts.kt (shim, native bridge MGBUS + token, values store, menu commands, handler map) / build.gradle.kts (0.0.149) / CHANGELOG.txt / HANDOFF.txt.
- (DONE IN T10: Backup.kt is in the T10 zip) !! was BY HAND: Backup.kt was NOT in the T8 zip (the pack copy is 0.0.140, a full file could undo the T7 edit). In Backup.kt line "private val SETTINGS = arrayOf(...)" make sure it contains "mgb_userscripts" (T7) AND "mgb_us_values" (new, the script values).
- Deviations from the plan: separate listener "MGBUS" instead of the shared ChromeBridge (that one is tied to extension ids / ExtApi gates); the page does not get replies at all, values travel as a snapshot inside the document-start script, so GM_getValue stays synchronous. Page row: no change in MainActivity (the sheet reads the active tab through BookmarksScreen.tabsRef).
- Checks: bracket balance of Userscripts.kt; the generated JS (shim + wrapper) passes node --check and a mock run in node (values, delete, list, commands, GM.getValue promise, ungranted = undefined, no enumerable global); every new Kotlin call re-read against its real signature (WebViewCompat.addWebMessageListener / WebMessageListener, ContentInjector.init / tokenFor, TabManager.all / newTab, Tab.web / priv / id, ToolsSheet.Group / Item, Util.toast, ClipData). kotlinc not available, no emulator.
- NOT tested (needs a phone): compile; a script with @grant GM_setValue / GM_getValue keeps a counter across reloads and across tabs (after ~2 s); GM_addStyle at document-start and document-end; GM_setClipboard (Android 13 shows its own clip toast); GM_openInTab opens a tab, background flag, private source tab gives a private tab; GM_notification toast; menu command appears in the page sheet after the page loads, tap runs it, disappears / refreshes after navigation; GM.getValue / GM.setValue promise form; a script with only GM.* grants; @grant none script still runs as before; a CSP-strict site; values over 1 MB (toast "stored values are full"); delete a script (values gone); app killed within 1.5 s of a setValue (last value lost).
- KNOWN: values changed in tab A reach tab B only on B's NEXT page load (snapshot, no live sync); GM_addValueChangeListener, GM_getResourceText / GM_getResourceURL, GM_xmlhttpRequest, GM_download, GM_log, GM_getTab are NOT there (T10 / later); GM_notification ignores onclick / ondone / timeout; GM_openInTab returns a stub (close() does nothing); the wrapper still runs in the PAGE world (unsafeWindow = window): a script that leaks a GM_ function to the page gives the page that power; renaming a script gives it a new id, its old values stay orphaned in mgb_us_values; commands exist for the main frame only; a script that registers commands needs a top-frame match.
- NEXT: T10 Userscripts part 4: GM_xmlhttpRequest (+ GM.xmlHttpRequest), @require, @resource, GM_getResourceText / URL, permission prompt (Allow this host / Allow all / Deny, per script, revocable in the detail screen). Pack files: Userscripts.kt, UserscriptsScreen.kt (T8 zip + this zip), ChromeBridge.kt, Backup.kt, Util.kt. Reuse the "MGBUS" listener of Userscripts.onMsg: add api names there, and add them to the SHIM table (reply needed here: use the JavaScriptReplyProxy of the message, but check that the page cannot read it: send the reply as a JSON with the request id only the shim knows).
-
-T10 RESULT (0.0.150)
- Done: GM_xmlhttpRequest (+ GM.xmlHttpRequest) with a blocking permission prompt, @require, @resource, GM_getResourceText / GM_getResourceURL, "Network and libraries" dialog in the script detail, Backup.kt carries mgb_us_values.
- Changed: Userscripts.kt (net store, xhr engine, deps download, prompt, shim) / UserscriptsScreen.kt (1 button) / Backup.kt (SETTINGS, from the attached current copy) / build.gradle.kts (0.0.150) / CHANGELOG.txt / HANDOFF.txt.
- Rules: allowed without asking = page host + @connect hosts (not "*"); everything else asks once per script and host (Deny is remembered too); "Allow all hosts" in the prompt or the dialog; redirects to a host that is not allowed fail (no prompt on a redirect); cookies only to the page host or after Allow all, never private tabs.
- Checks: bracket balance of the 3 Kotlin files; generated JS passes node --check and a mock run (POST + json response, abort, GM.xmlHttpRequest promise, resource text / data url, no enumerable global); every new Kotlin call re-read against its real signature (HttpURLConnection, CookieManager.getCookie, Base64, WebView.evaluateJavascript / settings, Uri.parse, MaterialAlertDialogBuilder, ui.textBtn). kotlinc not available, no emulator.
- NOT tested (needs a phone): compile; prompt appears on the first request to a new host and not again; Deny then retry; Allow all; revoke in the dialog; @connect host runs without a prompt; POST with headers; json / arraybuffer / blob; redirect http -> https and to a new host; timeout and abort; 5 MB cap; cookie sent to the page host only; private tab sends none; @require jQuery and use it; @resource text and data URL; libraries downloaded after install and after Check update; script in an iframe (error "top frame only"); a request while the page navigates; prompt when no Activity.
- KNOWN: the page-world wrapper still gives the page the GM_ power if a script leaks a function; responses are delivered to the top frame only (iframe scripts cannot use xhr); request bodies are strings only (no FormData / Blob / ArrayBuffer upload); Set-Cookie from a response is ignored; no @sha256 check of @require; a syntax error in a @require file breaks that whole script (console shows it); the prompt blocks nothing else in the page (it is async, the page just waits for the answer); no GM_download / websockets / GM_addValueChangeListener / GM_log; library download is not retried after a failure (use "download again").
- NEXT: tools plan T1-T10 is complete. Open items: phone test of everything (T3 go / no-go first: mht opens offline), Privacy Guard row for Hosts and filters (T6), reload user rules after a backup import (T5), audit rows to remove (Settings plan E), cleanup of the unused PageSave.dialog and Userscripts.screen / addDialog.
-
-Order rules: T1, T2 can go first (easy wins). Tracks are independent: SAVE (T3 -> T4), ADBLOCK (T5 -> T6), USERSCRIPTS (T7 -> T8 -> T9 -> T10).
-Inside a track never skip a step. Sizes are estimates; the "SAFE CUT" line of every step says what to drop if the chat reaches about 85%.
-If a step is done early (under ~50%), the assistant may NOT start the next step in the same chat. It stops and hands off.
+Size = share of ONE chat session: S ~25%, M ~40-50%. Never plan above 85%. If a step looks bigger while working: build the part that compiles, zip, write what is left into NEXT, stop at 85% (hard stop 90%).
 
 ======================================================================
-2. STANDING PROMPT (paste in the new chat)
+2. KICKOFF LINE (paste in the new chat, one step per chat)
 ======================================================================
-MGB (Thazir) tools plan step [Tx]. Mode: [BUILD|MODIFY|FIX]. Previous version: [Vxx]. Attached: HANDOFF.txt + MGB_TOOLS_PACK zip + step zips [list].
-Goal: [paste the Goal line of the step].
-Rules: patch only, no full rewrite; keep ids / handlers / file names; grep first, view only the range; plan max 5 lines, then build;
-one step only (extra ideas go to NEXT, not into code); no questions unless something is truly missing, state assumptions in one line;
-check = bracket balance + duplicate ids + (if a .js is touched) node --check + resource names exist; kotlinc is NOT available, so re-read every new Kotlin call against the real signature (grep it);
-FIX = root cause first, smallest fix; session about 85% used = stop building, finish what compiles, zip + handoff at once, say exactly what is left.
-Output: zip of ONLY the changed / new files (top folder MGB-main/), version +1, CHANGELOG entry, HANDOFF progress update, reply under 10 lines
-(done / what changed per file / checks / NOT tested on phone / next step).
+MGB (Thazir) player plan step [Px]. Mode: [BUILD|MODIFY|FIX]. Previous version: [Vxx]. Attached: HANDOFF.txt + MGB-context.zip + step zips [list].
+Goal: [paste the Goal line of the step]. Rules: patch only, no full rewrite; keep ids / handlers / file names; grep first, view only the range (PlayerActivity.kt is 1400+ lines: NEVER read it whole);
+plan max 5 lines, then build; one step only (extra ideas go to NEXT); no questions unless truly blocked, state assumptions in 1 line;
+check = bracket balance + duplicate ids / names + (if .js touched) node --check + resource names exist; re-read every new Kotlin call against the real signature (grep it); kotlinc may not exist;
+session ~85% used = stop building, finish what compiles, zip + handoff at once, say exactly what is left (hard stop 90%).
+Output: zip of ONLY changed / new files (top folder MGB-main/), version +1, CHANGELOG entry, HANDOFF progress + RESULT, reply under 10 lines (done / files / checks / NOT tested on phone / next).
 
-======================================================================
-3. DESIGN STYLE (every new screen / row must look like the rest of the app)
-======================================================================
-Reuse first, do not restyle. Copy the pattern of the nearest existing file (named in each step).
- Colors   : only R.color.mg_text, mg_text_dim, mg_primary, mg_on_primary, mg_surface, mg_outline (light + dark come for free). No hard-coded colors.
-            Soft tint per area: TabPrefs.tint(key, night) (see SettingsScreen category badges). Overlay alpha: ColorUtils.setAlphaComponent(color, 0x26 / 0x2B / 0x40).
- Cards    : rounded 20-24 dp, fill mg_surface, 1 dp stroke mg_outline (alpha 0x99 in SettingsScreen), rows min height 56 dp, divider 1 dp inset 16 dp (Dialog) or 64 dp (sheet).
- Rows     : icon badge 38 dp circle (tint @ 15%), icon 20 dp, title 15 sp mg_text (max 2 lines), hint 12 sp mg_text_dim (max 2 lines, keep under ~32 characters so it fits 360 px), chevron ic_chevron 20 dp dim.
- Labels   : section label = UPPERCASE 11 sp bold, letterSpacing 0.08, mg_primary.
- Buttons  : filled pill = height 44 dp, radius 22 dp, mg_primary + mg_on_primary text 14 sp bold. Text button = mg_primary bold 14 sp. Destructive = confirm dialog first.
- Sheets   : tool menus = ToolsSheet.show(act, title, subtitle, groups) (BottomSheetDialog). Do not write a new sheet layout.
- Full pages: Dialog like SettingsScreen / SiteSettings (back arrow 44x48 dp, title 20 sp bold, optional search box, scrolling cards). Copy the skeleton of SiteSettings.open(act, done).
- 3-dot menu: MenuSheet.Item(label, icon, enabled, trail, key). Every new row must ALSO be added to MenuCustom.GENERAL / PAGE (Entry(key, icon)) so "Customise menu" can hide it. Settings and Customise stay locked.
- Tab switcher menus: MI(label, icon) { } inside TabSwitcher.menu / tabMenu / selectMenu / groupMenu (popup()).
- Motion   : respect TabPrefs.reduce(ctx) (no slide / flash when true). Haptic CLOCK_TICK on ON/OFF rows. Short highlight that fades after a toggle (see SettingsScreen.rowView).
- Text     : Util.toast(ctx, msg) for short feedback, MaterialAlertDialogBuilder for dialogs, Util.dp(ctx, n) for sizes. Straight, short English. No emoji in UI text.
- Icons    : existing: ic_add ic_back ic_book ic_bookmark ic_bookmark_border ic_check ic_chevron ic_clock ic_close ic_code ic_cut ic_desktop ic_download ic_edit ic_ext ic_folder ic_forward ic_history ic_home ic_info ic_list ic_lock ic_more ic_open ic_pause ic_play ic_reload ic_screen ic_search ic_settings ic_share ic_shield ic_theme ic_trash.
-            New icons only if needed, as 24 dp vector, android:tint="@color/mg_text", fillColor #FF000000 (same file shape as ic_code.xml). Material paths you can use:
-            ic_copy      M16,1L4,1c-1.1,0 -2,0.9 -2,2v14h2L4,3h12L16,1zM19,5L8,5c-1.1,0 -2,0.9 -2,2v14c0,1.1 0.9,2 2,2h11c1.1,0 2,-0.9 2,-2L21,7c0,-1.1 -0.9,-2 -2,-2zM19,21L8,21L8,7h11v14z
-            ic_paste     M19,2h-4.18C14.4,0.84 13.3,0 12,0c-1.3,0 -2.4,0.84 -2.82,2L5,2c-1.1,0 -2,0.9 -2,2v16c0,1.1 0.9,2 2,2h14c1.1,0 2,-0.9 2,-2L21,4c0,-1.1 -0.9,-2 -2,-2zM12,2c0.55,0 1,0.45 1,1s-0.45,1 -1,1 -1,-0.45 -1,-1 0.45,-1 1,-1zM19,20L5,20L5,4h2v3h10L17,4h2v16z
-            ic_save      M17,3L5,3c-1.11,0 -2,0.9 -2,2v14c0,1.1 0.89,2 2,2h14c1.1,0 2,-0.9 2,-2L21,7l-4,-4zM12,19c-1.66,0 -3,-1.34 -3,-3s1.34,-3 3,-3 3,1.34 3,3 -1.34,3 -3,3zM15,9L5,9L5,5h10v4z
- Privacy  : private tabs are never copied / saved / listed (TabSwitcher.urlOf already returns null for private, home and extension tabs: reuse it).
+Example for step 1:
+  MGB (Thazir) player plan step P1. Mode: BUILD. Previous version: 0.0.150. Attached: HANDOFF.txt + MGB-context.zip. Goal: right-side translucent panel framework + player settings root page opened from the 3-dot button. (+ rules above)
 
 ======================================================================
-4. THE STEPS
+3. STANDING RULES
 ======================================================================
-Anchors below were checked in 0.0.140 (use grep to find the exact line again, lines move).
-
-----------------------------------------------------------------------
-T1  TAB LINK TOOLS   (Clone Tab, Copy all tab links, Open tabs from clipboard)      size S+S+M
-----------------------------------------------------------------------
-Pack files: TabManager.kt, TabSwitcher.kt, TabBookmarks.kt, MainActivity.kt, MenuCustom.kt, MenuSheet.kt, Util.kt, res/drawable/ic_*.xml
-Goal: three tab tools in the tab switcher (and Clone also in the page menu), no new setting.
-Hooks:
- - TabSwitcher: menu(anchor) "New tab / Share all tabs / Close all..." (~line 780), selectMenu (~818), tabMenu(anchor, t) (~832), groupMenu (~841), helper urlOf(t) (~313, null for private/home/ext), class MI(label, icon, on), groups map + groupOf(t).
- - TabBookmarks.shareAll(ctx, tm) = the pattern for "all tabs -> text".
- - TabManager: newTab(url, openerId, select, priv) (~216), tabs list (private ArrayList<Tab>), Tab.pending (lazy load on first select), Tab.savedState (Bundle), MAX_TABS = 30, suspend code (STEP E) shows how a Bundle is saved / restored (saveState / restoreState ~160-195).
- - MainActivity page rows (~189-200) and MenuCustom.PAGE for the "Clone tab" row.
-Plan:
- 1. Clone: TabManager.cloneTab(src, select): home tab -> newTab(HOME_PAGE); else newTab(null, 0, select=false, src.priv) and copy history: src live = web.saveState(Bundle) -> new.web.restoreState(b); src suspended = copy savedState; fall back to loading src.url. Copy desktop flag. Insert the clone right after the source in tabs; if the source is in a group, put the clone in the same group (TabSwitcher.groups). Entry points: tabMenu "Clone tab" (icon ic_copy), selectMenu "Clone tabs", page menu row "Clone tab" (enabled when canMark). Respect MAX_TABS (newTab already toasts).
- 2. Copy all tab links: menu() row "Copy all tab links" (only when onList and mode != 1), groupMenu "Copy group links", selectMenu "Copy links". Text = one url per line, urlOf(t) only, dedupe, toast "N links copied". Nothing for private tabs.
- 3. Open links from clipboard: menu() row "Open links from clipboard" (ic_paste). Read the clipboard ONLY when the row is tapped (Android 12+ shows a paste toast on read). Find http/https urls (and www.xxx) with a regex, dedupe, cap at MAX_TABS - tabs.size. Dialog: title "N links found", multi-choice list (host + path, all checked, already-open ones unchecked), buttons Open / Open in new group (only when mode != 1) / Cancel. Open each with newTab(url, 0, false) and set tab.pending = url so pages load only when selected (no 20 WebViews loading at once); toast "Opened N tabs". In the private view the new tabs are private.
-Design: popup rows only (MI), dialogs = MaterialAlertDialogBuilder. No new screen.
-Risks: clone of a suspended tab; clone order / group sync; pending tab shows no thumbnail (letter avatar is the known fallback); clipboard with 200 links (cap + say how many were skipped).
-Not in this step: paste-to-address-bar, clone into a different group, titles in the copied text.
-SAFE CUT: drop "Open in new group" and the select-mode clone.
-Test on phone: clone a tab with 5 history pages (Back works), clone while suspended, copy 10 tabs then open them again, 25 links over the limit.
-
-----------------------------------------------------------------------
-T2  VIEW PAGE SOURCE                                                               size M
-----------------------------------------------------------------------
-Pack files: NEW PageSource.kt (create), MainActivity.kt, MenuCustom.kt, PageInfo.kt (reader() shows how JS is run on the page and the result decoded), SiteSettings.kt (full-screen Dialog skeleton), Util.kt, res/drawable
-Goal: page menu row "View page source" opens a full-screen viewer with two tabs: Rendered (what the page is now) and Original (what the server sent).
-Plan:
- 1. PageSource.open(act, tab): Dialog skeleton from SiteSettings; top bar = back arrow, host, overflow (Copy all, Share as .html, Wrap lines on/off).
- 2. Two pill tabs (primary @ 15% when selected). Rendered = web.evaluateJavascript("document.documentElement.outerHTML") (decode the JSON string; cap 2 MB and show "Cut at 2 MB"). Original = background thread HttpURLConnection GET of tab.url with the tab user agent + CookieManager cookie header, gzip ok, follow redirects, cap 2 MB. Private tab = Rendered only (never send its cookies from the normal jar). Non text content-type = toast "Not a text page".
- 3. List = RecyclerView of lines (virtualised), monospace 12 sp, dim line numbers, long lines chunked at 400 chars (continuation rows without a number). Light tag tint only for rows up to 400 chars.
- 4. Search box (count, next / prev, scroll to match, highlight in the visible row).
- 5. Menu row: MenuSheet.Item("View page source", ic_code, canMark) + MenuCustom.PAGE Entry("View page source", ic_code). Disabled on home / extension tabs.
-Risks: huge pages (memory), evaluateJavascript result escaping, fetch on the main thread (must not), cookies for private tabs.
-Not in this step: view-source: in the address bar, editing, syntax colouring beyond tags, source of iframes.
-SAFE CUT: drop search next/prev (keep the count), drop tag tint.
-
-----------------------------------------------------------------------
-T3  SAVE PAGE  (+ minimal saved list)                                              size M+   TIGHT
-----------------------------------------------------------------------
-Pack files: NEW PageSave.kt (create), MainActivity.kt, MenuCustom.kt, TabManager.kt (read active tab, one small flag), TabSwitcher.kt (thumbs map is private: use web.draw / capture if needed), SettingsScreen.kt (no change planned), DownloadFolder.kt, DownloadsApi.kt (FileProvider + shareFile pattern), AndroidManifest.xml + res/xml/file_paths.xml (read; a FileProvider exists), Util.kt
-Goal: page menu row "Save page" keeps a copy that opens offline, plus a plain list dialog (open / delete) so the whole round trip is proven on a phone before T4 builds the screen.
-Plan:
- 1. PageSave: store in filesDir/saved_pages/<id>.mht + index.json (id, title, url, time, size). API: list(), add(), remove(), file(id). Max 100 pages; show total size.
- 2. Save = web.saveWebArchive(path, false, callback) on the main thread. Dialog first: name (prefilled with the title), button Save. Not for private, home or extension tabs (row disabled).
- 3. Open = new tab with the file. WebView default blocks file:// on new targets: for THAT tab only set settings.allowFileAccess = true, javaScriptEnabled = false, blockNetworkLoads = true (offline view must not call the network). Add a Tab flag savedPage so session restore / AdBlock / HttpsOnly / PageInfo skip it (a restored saved page tab simply reloads the file with the same flags).
- 4. Menu: GENERAL row "Saved pages" (ic_folder, trail = count) opens a simple list dialog: tap = open, long press / button = delete. PAGE row "Save page" (ic_save). Add both keys to MenuCustom.
- 5. FIRST thing in the step: test loadUrl("file://.../x.mht") on the real engine path (go / no-go). If it does not render, STOP and tell the user: the fallback is a single HTML file (DOM snapshot with inlined css / images) = a bigger step; do not improvise.
-Risks: file access flags leaking into other tabs, MHT of JS-heavy pages, storage growth, thumbnails.
-Not in this step: Save as PDF, export to Downloads, the full screen, backup of saved pages (too large: left out of Backup on purpose).
-SAFE CUT: skip thumbnails and the size total.
-
-----------------------------------------------------------------------
-T4  SAVED PAGES SCREEN                                                             size M
-----------------------------------------------------------------------
-Pack files: PageSave.kt (from T3), NEW SavedPages.kt (create), SettingsScreen.kt (one row), MainActivity.kt, MenuCustom.kt, SiteSettings.kt (skeleton), DownloadsApi.kt (share pattern), Util.kt
-Goal: full-screen "Saved pages" list replacing the T3 dialog.
-Plan: Dialog skeleton like SiteSettings; search box (title / host); row = thumbnail (rounded 12 dp) + title + host + date + size; tap = open (T3 path); row menu (ToolsSheet or MenuSheet): Open in new tab, Rename, Share file (FileProvider), Open original site, Delete (confirm). Header card: "N pages, X MB" + "Delete all" (confirm). Settings row in the Data card: Row(ic_folder, "Saved pages", "N pages") opens it (same pattern as "Site settings", STEP D). Menu row now opens this screen.
-Risks: thumbnail memory (decode small, 240 px), delete while a tab shows the file.
-Not in this step: folders, tags, full-text search inside pages.
-SAFE CUT: no thumbnails.
-
-----------------------------------------------------------------------
-T5  ADBLOCK MANAGER, PART 1 (backend)                                              size M
-----------------------------------------------------------------------
-Pack files: FilterList.kt, AdBlock.kt, CosmeticFilter.kt (ADS_OK list pattern), Backup.kt (SETTINGS array: mgb_ui, mgb_adblock, mgb_site), BlockerStats.kt (read), Util.kt
-Goal: engine support for user rules, user blocked hosts, a global allow list, a read-only built-in host list and an "explain" function. No UI yet (one temporary debug-free path: none).
-Plan:
- 1. Store in prefs mgb_adblock (so the existing Backup already includes it): user_rules (text, max 1500 lines / 100 KB), user_hosts (string set), allow_hosts (string set).
- 2. FilterList: parse user_rules with the SAME parser as a list source named "mine" (no url, no download); FilterList.userRules(ctx) / setUserRules(ctx, text, done) returns "N ok, M skipped (unsupported)". Reload on a background thread; reuse load(app,false).
- 3. AdBlock: host in user_hosts counts as listed(); host in allow_hosts is never blocked (page and sub requests) and never cosmetic-hidden. Accessors: builtinHosts(): List<String> (sorted copy of HOSTS), userHosts(), allowHosts(), add / remove functions.
- 4. AdBlock.explain(url, pageHost): String = one short reason: "Allowed (your allow list)", "Blocked (built-in host list)", "Blocked (your host)", "Blocked (filter rule)", "Allowed".
-Risks: reload cost of 160k rules on every edit (debounce, run once on Apply), the allow list must beat every other rule, unsupported syntax must not crash the parser.
-Not in this step: any screen, new filter syntax support.
-SAFE CUT: explain() only returns the 5 fixed reasons (no rule text).
-
-----------------------------------------------------------------------
-T6  ADBLOCK MANAGER, PART 2 (screen)                                               size M
-----------------------------------------------------------------------
-Pack files: NEW AdblockManager.kt (create), BlockerStats.kt (add one row; REUSE its addDialog / removeDialog / manage / update code by calling it, do not rewrite), SettingsScreen.kt (one row in the Privacy card), SiteSettings.kt (skeleton), Backup.kt, Util.kt
-Goal: one full-screen "Hosts and filters" page.
-Cards (SettingsScreen style):
- 1. FILTER LISTS: one switch row per list (FilterList.lists()), "Update now", "Add list by address", rule count + age.
- 2. MY RULES: card with the rule count + "Edit rules" (full-screen EditText, monospace, Validate = "N ok, M skipped", Apply = setUserRules) + Import / Export through the clipboard.
- 3. MY BLOCKED HOSTS: list with delete, "Add host", "Add from clipboard".
- 4. ALLOWED HOSTS: global allow list (add / delete) + a link row to the existing per-site "Sites with ads allowed" list (CosmeticFilter).
- 5. BUILT-IN HOSTS: row with the count opens a searchable read-only list (RecyclerView), long press = "Allow this host".
- 6. TEST A URL: field + button, result text from AdBlock.explain (page host = the active tab host when available).
-Entries: Privacy Guard sheet gets a row "Hosts and filters" (ic_shield); Settings > Privacy and security gets Row(ic_shield, "Hosts and filters", "N rules") next to the ad blocker rows; add a KW search keyword.
-Risks: keyboard covering the editor at 360 px, long lists in a scroll view (use RecyclerView for hosts).
-Not in this step: per-list rule counts, element picker.
-SAFE CUT: no Import / Export, no Allow-from-long-press.
-
-----------------------------------------------------------------------
-T7  USERSCRIPTS, PART 1 (store, parser, injection)                                 size L   TIGHT
-----------------------------------------------------------------------
-Pack files: NEW Userscripts.kt (create), ContentInjector.kt (READ: attach(), ScriptHandler / addDocumentStartJavaScript, patRegex, wrap()), TabManager.kt (createWebView: one call after ContentInjector.attach + refreshAll), SettingsScreen.kt (one row), Backup.kt (add "mgb_userscripts" to SETTINGS), Util.kt
-Goal: a script (Tampermonkey style, @grant none) can be pasted, switched on, and runs on matching pages. No GM_ API yet.
-Plan:
- 1. Storage: prefs mgb_userscripts (one key per script: code + enabled + install url + time). Limits: 300 KB per script, 2 MB total, 50 scripts. Because it is a prefs file the existing Backup covers it after adding the name to SETTINGS.
- 2. Parser for the ==UserScript== block: @name @namespace @version @description @match @include (globs) @exclude @exclude-match @run-at (document-start / end / idle) @noframes @grant @require @resource @connect @icon @downloadURL @updateURL. Unknown keys kept. Match -> regex with the same rules as ContentInjector.patRegex.
- 3. Injection: ONE small bootstrap per WebView (WebViewCompat.addDocumentStartJavaScript, all https origins) that holds the enabled scripts' patterns, tests location.href at runtime, honours @noframes, and runs each script at its run-at moment (start = now, end = DOMContentLoaded, idle = load + short timeout). Script body wrapped in try/catch; an error never breaks the page. Feature check WebViewFeature.DOCUMENT_START_SCRIPT, otherwise a toast and the feature stays off.
- 4. Userscripts.refreshAll(tm): remove + re-add handlers on all open tabs when a script changes. Master switch (default ON) and "Run in private tabs" (default OFF).
- 5. Temporary UI: Settings row "Userscripts" (value "N scripts") opens a dialog: multi-choice enable list + "Add (paste code)" + delete. T8 replaces it with the screen.
-Risks: handlers on 20+ tabs, regex from @match, scripts that never end, privacy (scripts see the page: user installs only what he trusts; warn in the add dialog), suspended tabs (Userscripts.attach must run again when the WebView is recreated in TabManager).
-Not in this step: GM_ functions, @require download, update check, URL install.
-SAFE CUT: if the chat is near 85%: ship parser + store + injection with only the "Add (paste code)" dialog.
-
-----------------------------------------------------------------------
-T8  USERSCRIPTS, PART 2 (manager screen, install)                                  size M+
-----------------------------------------------------------------------
-Pack files: Userscripts.kt, NEW UserscriptsScreen.kt (create), SettingsScreen.kt, MainActivity.kt, MenuCustom.kt, TabManager.kt (url hook), SiteSettings.kt (skeleton), ExtMenus.kt (pattern for per-page rows), Util.kt
-Goal: real "Userscripts" screen, install from a link, and a page row that shows what runs here.
-Plan:
- 1. Screen (Dialog skeleton): search, card per script (name, version, match summary, switch with haptic tick), tap = detail (metadata, code in a monospace EditText, Save, Delete, "Check update").
- 2. Add: from clipboard, from URL (https only, 300 KB), from file (SAF), blank template.
- 3. Install prompt: when the user opens a url that ends with .user.js (TabManager navigation / download hook), show "Install userscript?" with name, version, @match list, warning text, Install / Cancel. Same name + namespace = update.
- 4. Page menu row "Userscripts" (trail = N active on this page) opens a ToolsSheet: scripts that match this url with switches. GENERAL menu row too (key "Userscripts"). Add keys to MenuCustom.
- 5. Export all / import (JSON via clipboard).
-Risks: the hook must not break normal .js downloads, SAF permission, editing a big script in an EditText.
-Not in this step: GM_ API, auto-update schedule.
-SAFE CUT: no SAF file import, no export.
-
-----------------------------------------------------------------------
-T9  USERSCRIPTS, PART 3 (GM_ API without network)                                  size M+   TIGHT
-----------------------------------------------------------------------
-Pack files: Userscripts.kt, ChromeBridge.kt (READ: bridge token / message pattern), ContentInjector.kt (READ: tokenFor, wrap() = isolated scope with a shim), ExtMenus.kt (menu commands pattern), UserscriptsScreen.kt, Backup.kt, Util.kt
-Goal: scripts with @grant get a GM shim: GM_info, GM_getValue / setValue / deleteValue / listValues (+ GM.* promise versions), GM_addStyle, GM_setClipboard, GM_openInTab, GM_notification (toast), GM_registerMenuCommand, unsafeWindow.
-Plan:
- 1. @grant none = page world as in T7. Any other @grant = wrapped in a function scope that receives the GM shim (page never sees GM_).
- 2. Native bridge with a per-script token (derived like ContentInjector.tokenFor); calls: values get/set/delete/list (prefs mgb_us_values, ~1 MB per script), clipboard, open tab, toast.
- 3. Menu commands: the page registers, native keeps a per-tab list, the "Userscripts" page row (T8) shows them under the script; tap = run the callback in the page.
-Risks: bridge token leaking to the page, values quota, menu commands after navigation (clear on page start).
-Not in this step: GM_xmlhttpRequest, @require, @resource.
-SAFE CUT: leave GM_notification and GM_openInTab for T10.
-
-----------------------------------------------------------------------
-T10 USERSCRIPTS, PART 4 (network + @require / @resource)                           size L    TIGHT
-----------------------------------------------------------------------
-Pack files: Userscripts.kt, ChromeBridge.kt, UserscriptsScreen.kt, Backup.kt, Util.kt
-Goal: GM_xmlhttpRequest (+ GM.xmlHttpRequest), @require, @resource, GM_getResourceText / URL, with a permission prompt.
-Plan:
- 1. GM_xmlhttpRequest runs natively (HttpURLConnection, https and http, methods GET / POST / HEAD, headers, timeout, 5 MB cap, responseType text / json / blob-as-base64). Allowed hosts = @connect list; the first request to an unlisted host asks once: Allow this host / Allow all / Deny (remembered per script, shown and revocable in the script detail).
- 2. @require / @resource downloaded at install (https only, 500 KB each), cached with the script, shown in the detail screen, re-fetched on "Check update".
- 3. Cookies: send the page cookie jar only when the target host is the page host or the user allowed "Allow all"; never for private tabs.
-Risks: this is the most dangerous capability (a script reading logged-in data): keep the prompt blocking, log the request host in the script detail, never auto-allow. Redirects must re-check the host.
-Not in this step: GM_download, websockets.
-SAFE CUT: no @resource (keep @require), no blob responses.
+ - PATCH ONLY. No full rewrite of any file. Keep existing ids, function names, handlers, file names, prefs keys.
+ - ONE step per chat. Extra ideas go to NEXT in the RESULT block, never into code.
+ - CHANGED FILES ONLY in the zip (top folder MGB-main/). Never ship unchanged files.
+ - SESSION GUARD: ~85% = stop building and deliver; 90% = hard stop. Deliver compiling code + zip + handoff first, explanations after.
+ - Every step must leave the app WORKING and the player openable. Old dialogs (PlayerActivity.sheet) stay until the step that replaces them says "remove".
+ - Do not touch files outside the step list. Visibility change of an existing PlayerActivity member (private -> internal) is allowed, only the ones the step needs, listed in the RESULT.
+ - kotlinc / a phone may not be available: re-read each new call against its real signature; list everything not tested on a phone.
+ - FIX mode = root cause first, smallest fix.
+ - Player is ALWAYS dark (black window). Do not add a light player theme.
+ - No emoji in UI text. Straight short English. Util.toast(ctx, msg) for short feedback.
+ - Respect TabPrefs.reduce(ctx): when true use no slide / flash animation (instant show / hide).
 
 ======================================================================
-5. EVERY STEP, ALWAYS
+4. PROJECT SUMMARY + FILE MAP (player related only)
 ======================================================================
-- CHANGELOG.txt: new entry on top ("0.0.14x (TOOLS STEP Tn MODIFY|BUILD: ...)", one line per file).
-- HANDOFF.txt: tick the step in section 1, add under it: Done / what changed (file: 1 line) / checks done / NOT tested (needs real use) / Next step. Keep the file short: no history dumps.
-- app/build.gradle.kts: appVersionName +1.
-- Zip: only changed and new files, top folder MGB-main/ (so it can be copied over the GitHub repo as is).
-- New menu rows: also add the MenuCustom entry. New Settings rows: also add a KW search keyword in SettingsScreen (KW map) and keep hints under ~32 characters.
-- Do not touch files outside the step. Extra ideas go to NEXT in the handoff.
-- PACK REFRESH (optional, any time): the user can ask a chat only to "refresh the pack": unzip the old pack, apply the later step zips, zip again as MGB_TOOLS_PACK_v0_0_xxx.zip. No code work.
+App: Thazir (repo name MGB), Kotlin, Android, minSdk 24, targetSdk 34, compileSdk 34. Media3 1.3.1 (exoplayer, ui, hls, dash). Package com.jabra.mgb. CI builds the APK (GitHub Actions).
+Packages / dirs: app/src/main/java/com/jabra/mgb/*.kt (flat), res/values (colors, themes, styles_player), res/values-night/colors.xml, res/drawable (vector icons), app/src/extra/AndroidManifest.xml (PlayerActivity + PlayerService declared HERE).
+
+PlayerActivity.kt (1429 lines, 65 KB) - the player. ExoPlayer in a PlayerView (useController=false), all UI in code.
+  Intent: PlayerActivity.start(ctx, uri, title) = local / content file; startStream(ctx, url, title, referer, ua) = web stream. Extras: title, ref, ua. Companion: live (the open activity, used by PlayerService).
+  Fields (grep these): player (ExoPlayer?), rootView, playerView, controls (LinearLayout: top / mid / bottom), seek (SeekBar 0..1000), tCur, tTotal, playBtn, speedVal, fitLabel, ccIcon, infoTv, titleTv, hud, hudText, hudBar, tapL, tapR, spinner, flash, unlockBtn, prevBtn, nextBtn, resumeBar,
+          subs (ArrayList<SubtitleConfiguration>), sibs (ArrayList<Pair<Uri,String>> = other media of the same folder), sibIdx, zoom (1f..4f), fitMode (0 fit / 1 fill / 2 stretch), shown, locked, dragging, userRot, boost, speedBeforeBoost, ended, swipe (0 none / 1 vertical / 2 horizontal), sleepAt (ms, 0 = off).
+  Functions (grep "fun X"): onCreate, installBackHandler, startPlayer (Player.Listener inside), buildPlayer, setItem(startMs), resumePos, saveResume, ticker (500 ms), findSidecars, findSiblings, openSibling(delta), updateNav,
+          addSubtitleFile, textGroups, trackName, autoPickSubtitle, styleSubtitles, subColors / subColorNames / subScale, updateCcLabel,
+          toggleRotate, togglePlay, refreshPlayIcon, seekBy(ms), setSpeed(s) + speedText, cycleFit, resetZoom, enterPip + pipParams + updatePipActions, setSleep(min) + showSleepDialog,
+          sheet(title, note, rows: List<SheetRow>) = the old bottom dialog (SheetRow(label, sub, checked, onClick)), showSubtitleDialog, showAudioDialog, showSpeedDialog, showMore (the 3-dot menu), showInfo, openExternal,
+          showControls(on) + hider (3.5 s auto hide) + poke, setLocked(on), flash(msg) (centre text, 0.9 s), showHud(label, pct) (top level bar), tapFlash(left), updateInfoLine,
+          iconBtn(res,size,pad,on), skipBtn, cell(label, slot, on), iconSlot(res), styledSeek(accent), buildUi() (touch layer: GestureDetector + ScaleGestureDetector, then controls top / mid / bottom, then overlays).
+  Gestures now: single tap show / hide controls; double tap left / right third = -10 / +10 s, middle = play / pause; long press = 2x until release; swipe vertical left = brightness, right = volume; swipe horizontal = seek (90 s per screen width); pinch = zoom 1..4x.
+  Prefs: "mgb_resume" (key = uri string -> Long ms), "mgb_ui": sub_size (0..2), sub_color (index).
+PlayerService.kt (98 lines) - foreground service for background audio. PlayerService.on(ctx) / setOn(ctx, bool) / stop(ctx); notification buttons call PlayerActivity.live.bgToggle() / bgClose().
+PlayerScreen.kt (31 lines) - open(act, uri, title) / openUrl(...) entry points. WebPlay.kt (82) - isMediaUrl, linksEnabled, play(ctx, url, title, referer, ua) -> startStream. Callers: MainActivity, DetectedPanel, FloatingDl, TabsApi, TabManager, DownloadsApi, ExtScreen (none need change).
+SettingsScreen.kt (60 KB) - Settings dialog. Row(icon, label, value, hint, onClick), category(key, icon, title, subtitle, items), Sub("..."), RESET map (card key -> mgb_ui keys), KW map (search keywords), rows hint < ~32 chars. Player rows now live in category "grabber" (Sub "Player and buttons"). Step P13 only.
+Util.kt: Util.dp(ctx, n), Util.toast(ctx, msg), Util.host(url). TabPrefs.kt: TabPrefs.reduce(ctx), TabPrefs.tint(key, night).
+Resources: colors mg_* (light in values, dark in values-night). Drawables for the player: ic_pl_audio, ic_pl_back10, ic_pl_fwd10, ic_pl_cc, ic_pl_fit, ic_pl_pip, ic_screen, ic_lock, ic_more, ic_back, ic_play, ic_pause, ic_skip_prev, ic_skip_next, ic_chevron, ic_check, ic_close, ic_add, ic_list, ic_trash, ic_clock, ic_info, ic_settings (24 dp vectors, fillColor #FFFFFFFF in ic_pl_*, tinted in code with setColorFilter).
+Manifest (app/src/extra/AndroidManifest.xml): PlayerActivity theme Theme.MGB.Player, configChanges orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|uiMode|density, supportsPictureInPicture, launchMode singleTop.
+
+NEW FILES the plan adds (all in app/src/main/java/com/jabra/mgb/, not in the context zip because they do not exist yet):
+  PlayerPrefs.kt   P1   central getters / setters for every pl_* key (one place, defaults here)
+  PlayerPanel.kt   P1   the side panel framework + page builder (rows, radios, switches, chips, slider)
+  PlayerPages.kt   P1,P3,P4   page builders: root, quality, repeat, sleep, audio (one function per page, takes the activity)
+  PlayerSpeed.kt   P2   speed page + helpers (clamp, step, saved custom list)
+  PlayerSubs.kt    P5   subtitles page + CaptionStyle helper
+  PlayerGestures.kt P8,P9   hold-speed, zoom, HUD helpers (moved OUT of buildUi step by step)
+  PlayerAudioOnly.kt P10
+  PlayerQueue.kt   P11 (+ P12 loop helper PlayerLoop inside, or PlayerLoop.kt)
+RULE: new logic goes into new files; PlayerActivity.kt only gets short hook calls. It already is a god class.
+
+Key data shapes
+  Panel page: Page(title: String, build: PageBuilder.() -> Unit). PageBuilder: section(label), row(icon, label, value, chevron, onClick), radio(label, sub, checked, onClick), toggle(label, on, onToggle), chips(items: List<Chip>, cols), slider(min, max, step, value, onChange, fmt), custom(view).
+  Panel API (P1): panel.open(page) / push(page) / pop() / close() / isOpen / refresh(). Back button, back arrow and tap outside = pop / close. Video keeps playing; controls stay hidden while open (hider paused).
+  Reserved prefs keys in mgb_ui (add to RESET list in P13, keep names):
+    pl_speeds  csv of saved custom speeds ("1.15,2.75", max 8)      pl_speed_keep  bool (keep speed for next video)   pl_speed_last  float
+    pl_hold_speed float (default 2.0)   pl_hold_slide bool (default true)   pl_repeat int 0 off / 1 one / 2 all (folder)   pl_quality_cap int max height, 0 = auto
+    pl_sub_size int percent 50..200 (default 100; old sub_size 0/1/2 migrates: 0->80, 1->100, 2->135)   pl_sub_bg int 0 none / 1 shadow / 2 box   pl_sub_pos int 0 low / 1 mid / 2 high   (sub_color stays)
+    pl_vol_boost int 0..100 (extra % over system max, default 0 = off)   pl_bright float (-1 = system)   pl_seek_sens int 0 slow / 1 normal / 2 fast   pl_dtap_sec int (5 / 10 / 15 / 20, default 10)   pl_gestures bool (default true)   pl_fit_default int 0..2
+  Each step writes the keys it really used into its RESULT block ("KEYS:").
+
+======================================================================
+5. DESIGN RULES (audit result: every new player screen must match these)
+======================================================================
+A. App tokens (res/values + values-night, Material3 DayNight "Theme.MGB"):
+   mg_bg #FFFFFF / #0A0C10, mg_surface #F5F5F7 / #14171C, mg_surface_variant #ECEDF0 / #1F232A, mg_primary #D93A5C / #F2708A (rose accent), mg_on_primary #FFFFFF / #3A0A15,
+   mg_text #14171C / #ECEFF4, mg_text_dim #5F6673 / #98A0AE, mg_outline #DCDFE5 / #2A2F38, mg_error, mg_success. In the app (settings, sheets) use ONLY these tokens, no hard-coded colours. Soft tint per area: TabPrefs.tint(key, night).
+   Fonts: system (Roboto). Titles "sans-serif-medium". No custom font files. Sizes: title 16-20 sp, row 15-15.5 sp, hint / value 12-13 sp, section label 11 sp bold UPPERCASE letterSpacing 0.08.
+   Spacing: 4 dp grid. Row min height 52-56 dp, horizontal padding 22 dp (player sheets) / 16 dp (app cards), card radius 20-24 dp, 1 dp outline. Icon button 48 dp, badge circle 38 dp.
+   Buttons: filled pill 44 dp high radius 22 dp mg_primary + mg_on_primary 14 sp bold; text button mg_primary bold 14 sp.
+   Breakpoints: none in XML. Code rule: phone = smallestScreenWidthDp < 600 (see Orient.isPhone). Sheets: width min(screen, 460 dp). Test widths: 360 dp portrait, 640 x 360 dp landscape, 600+ dp tablet.
+   Dark / light: app follows system DayNight. Player window is forced black (Theme.MGB.Player) -> the player uses fixed dark values below, but the ACCENT is always R.color.mg_primary (rose changes with theme).
+B. Player look (existing, keep): sheet / panel fill 0xFF1B1C20, top radius 22 dp, grab handle 36x4 dp 0x40FFFFFF, title white 17 sp medium, row 15.5 sp (selected = accent + check), sub 12.5 sp 0x99FFFFFF, dim layer 0.55,
+   overlay chips 0xB3000000 radius 16 dp, gradients top 0xCC000000 -> 0 and bottom 0xD9000000 -> 0, play button 72 dp round accent, seek: styledSeek(accent), time 12.5 sp white / 0xCCFFFFFF, controls fade 160 ms, auto hide 3.5 s, flash text 20 sp.
+C. TARGET look (from the reference video, rebuilt in MGB style):
+   Panel   : opens from the RIGHT in landscape (width = min(46% of screen, 380 dp), full height, left corners radius 22 dp, fill 0xE61B1C20 = 90% so the video shows through), bottom sheet (max height 62%) in portrait / small width < 480 dp. Slide 200 ms (instant if reduce).
+             Header 56 dp: back arrow 24 dp left, centred title 17 sp medium, no divider. Rows 52 dp: left icon 22 dp 0xD9FFFFFF, label 15.5 sp white, right value 13 sp 0x99FFFFFF + chevron (ic_chevron 18 dp) when it opens a page.
+             Pages are pushed / popped (stack). Tap on the dimmed video side closes the panel.
+   Chips   : grid, 4 columns landscape / 3 portrait, height 40 dp, radius 20 dp, fill 0x22FFFFFF, text 14 sp white; selected = fill accent @ 26% + accent text; saved custom chip = accent text with a small "x" on long press.
+   Slider  : card (radius 16 dp, fill 0x14FFFFFF), label left, value right 14 sp; track 4 dp (accent progress, 0x33FFFFFF rest), thumb 18 dp white; "-" and "+" 32 dp round buttons at both ends; min / max text 10.5 sp 0x80FFFFFF under the ends.
+   Controls: top bar = back (left), title CENTRED 16 sp (info line 11.5 sp under it), 3-dot (right); lock = round 44 dp button on the right edge, vertically centred; seek = thin (3 dp) track + 12 dp thumb, time "00:12 / 23:39" 12.5 sp UNDER the bar on the left; bottom-right = 4 icon buttons 40 dp (fit, subtitles, audio-only, rotate) with no text labels; centre = prev, -10, play (72 dp), +10, next as now.
+   Hold-speed chip: pill at top centre "2.0x" + "fast forward" glyph, 0xB3000000, radius 16 dp, visible while holding; sliding up / down changes the speed in 0.1 steps (0.25..5.0).
+   Toast    : speed change text "Playback speed 1.15x" in the existing flash(), 0.9 s.
+D. Interaction rules: min touch target 44 dp; every toggle row gives haptic CLOCK_TICK; panel and controls never overlap display cutouts (use the existing insets listener on rootView); panel must work at 360 x 640 and 640 x 360 dp; text never wraps the value: label gets weight 1, value max 1 line.
+E. Wording: short, straight English, same words as the old rows ("Playback speed", "Sleep timer", "Subtitles", "Audio track", "Repeat", "Quality"), no emoji.
+
+======================================================================
+6. VERSION + CHANGELOG CONVENTION
+======================================================================
+ - app/build.gradle.kts line 6: val appVersionName = "0.0.NNN". Each step: +1 (P1 = 0.0.151 ... P14 = 0.0.164). versionCode comes from CI (GITHUB_RUN_NUMBER), do not touch.
+ - CHANGELOG.txt (repo root, 135 KB, newest ON TOP): add one entry on top:
+     0.0.151 (PLAYER STEP P1 BUILD: side panel framework + settings root)
+     - PlayerPanel.kt: ...one line per file...
+   Prepend with a small script (python / sed), never rewrite the whole file from memory.
+ - HANDOFF.txt: tick the step in section 1 and add a RESULT block under section 8 (Done / Changed files (1 line each) / KEYS / Checks done / NOT tested on phone / KNOWN / NEXT). Keep each block under 12 lines. No history dumps.
+
+======================================================================
+7. THE STEPS
+======================================================================
+Anchors = function names (grep "fun name"), line numbers move. "Read-only" = open only to copy a pattern / check a signature.
+
+P1  SIDE PANEL FRAMEWORK + SETTINGS ROOT                                   MODE BUILD   SIZE M (~45%)
+  Goal   : a right-side translucent panel with page stack, and the 3-dot button opens it with the root page (Subtitles, Quality, Playback speed, Repeat, Sleep timer + Audio track, Background audio, Picture in picture, Video info, Open in another app).
+  Add    : PlayerPrefs.kt (empty-safe getters for the reserved keys), PlayerPanel.kt (Panel + Page + PageBuilder: section, row, radio, toggle; chips / slider come in P2), PlayerPages.kt (root page).
+  Modify : PlayerActivity.kt (showMore -> panel root; installBackHandler -> pop panel first; one `panel` field added to rootView in buildUi after the overlays; controls hider paused while panel.isOpen; panel closed in onPictureInPictureModeChanged / onStop), CHANGELOG.txt, HANDOFF.txt, app/build.gradle.kts.
+  Read-only: PlayerActivity.sheet (copy window / colour / ripple pattern), showMore, installBackHandler, buildUi insets listener, Util.kt, TabPrefs.reduce.
+  Depends: none.
+  Design : section C "Panel" + "Header" + "Rows". The Quality row is NOT shown until P3 (no dead rows). Speed / Repeat / Sleep / Subtitles / Audio rows call the OLD sheet dialogs for now (showSpeedDialog, showSleepDialog, showSubtitleDialog, showAudioDialog), repeat toggles one / off as today. Old sheet() stays.
+  Checks : bracket balance of 5 files, every new call re-read against signature, panel opens in portrait + landscape (code path), back arrow / back button / outside tap close, panel closes on PiP, no leaked handler on onDestroy, player keeps playing while open.
+
+P2  PLAYBACK SPEED PAGE                                                     MODE BUILD   SIZE M (~40%)
+  Goal   : the speed page: custom slider 0.05-5.0 with -/+ (step 0.05), preset grid 0.5 0.75 1.0 1.25 1.5 1.75 2.0 3.0 5.0, saved custom chips (add current, long press = delete, max 8), live label on the toolbar Speed cell, option "keep speed for next video".
+  Add    : PlayerSpeed.kt. Extend PlayerPanel.kt with chips(...) and slider(...) builders (only these two).
+  Modify : PlayerPages.kt (root Speed row opens PlayerSpeed page, value text "1.15x"), PlayerPrefs.kt (pl_speeds, pl_speed_keep, pl_speed_last), PlayerActivity.kt (setSpeed uses clamp + PlaybackParameters(s, 1f) + persists pl_speed_last when keep is on; speedText keeps 2 decimals only when needed; showSpeedDialog -> opens the page; startPlayer applies kept speed), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: setSpeed, speedText, showSpeedDialog, buildUi toolbar Speed cell, PlayerPanel.kt (from P1).
+  Depends: P1.
+  Design : section C "Chips" + "Slider". Selected chip = current speed (float compare 0.005). Custom chip accent text. Flash "Playback speed 1.15x".
+  Checks : float formatting 1.0x / 1.15x / 5.0x, clamp 0.05..5.0, dedupe saved list, boost (hold) restore still returns to the chosen speed, ExoPlayer accepts 0.05x (pitch stays 1f).
+
+P3  QUALITY PAGE + REPEAT PAGE                                              MODE BUILD   SIZE M (~40%)
+  Goal   : Quality = Auto + one row per available video height (e.g. 1080p, 720p, 480p; bitrate as sub-line) using TrackSelectionParameters (setMaxVideoSize / override) for HLS / DASH; single-track files show "Auto" only with a note. Repeat page = Off / Repeat one / Repeat folder (all siblings).
+  Add    : (functions inside PlayerPages.kt).
+  Modify : PlayerPages.kt (qualityPage, repeatPage; root rows show value "Auto" / "720p", "Off" / "One" / "Folder"), PlayerPrefs.kt (pl_quality_cap, pl_repeat), PlayerActivity.kt (apply repeat in startPlayer + Player.Listener STATE_ENDED: mode 2 = after the last sibling go to the first; mode 1 = player.repeatMode ONE; apply pl_quality_cap in buildPlayer / onTracksChanged; update updateInfoLine to show chosen height), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: onTracksChanged, STATE_ENDED branch in startPlayer, openSibling, findSiblings, buildPlayer, textGroups (pattern for track groups).
+  Depends: P1.
+  Design : radio rows with check, note line under title 12.5 sp when only one quality exists. Value text on the root row.
+  Checks : HLS master with 3 heights (read the code path), progressive mp4 (single track), repeat folder at the last file, repeat one does not fire the "next episode" auto-start, cap survives next video.
+
+P4  SLEEP TIMER PAGE + AUDIO TRACK PAGE                                     MODE BUILD   SIZE M (~35%)
+  Goal   : Sleep page: Off, 15 / 30 / 45 / 60 / 90 min, "End of this video", custom minutes (slider 5-180 via the P2 slider builder), live "Pauses in 12 min" line, +15 min quick add. Audio page: the audio tracks as radio rows (language, channels, codec) + "Audio delay" NOT included (NEXT).
+  Add    : none (PlayerPages.kt).
+  Modify : PlayerPages.kt (sleepPage, audioPage), PlayerActivity.kt (setSleep handles END_OF_VIDEO sentinel -1; ticker or STATE_ENDED checks it; showSleepDialog / showAudioDialog -> open pages), PlayerPrefs.kt, CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: setSleep, showSleepDialog, showAudioDialog, ticker, trackName.
+  Depends: P1, P2 (slider builder).
+  Design : same radio rows; remaining time shown as sub-line of the selected row and as value on the root row ("12 min", "End of video", "Off").
+  Checks : sleep fires once, cancelled by Off, end-of-video pauses instead of opening the next episode, audio list empty -> toast as before.
+
+P5  SUBTITLES PAGE                                                          MODE BUILD   SIZE M (~45%)
+  Goal   : Subtitles page: Off + each text track (radio), "Add subtitle file...", text size slider 50-200%, colour swatches (the existing subColors), background (None / Shadow / Box), position (Low / Middle / High). Root row value = current track or "Off".
+  Add    : PlayerSubs.kt (page + applyStyle()).
+  Modify : PlayerActivity.kt (styleSubtitles -> PlayerSubs.applyStyle; subScale / subColorIdx kept as thin wrappers; showSubtitleDialog -> opens page; migrate old sub_size 0/1/2 once), PlayerPages.kt (root row), PlayerPrefs.kt (pl_sub_size, pl_sub_bg, pl_sub_pos), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: styleSubtitles, subColors, subColorNames, subScale, addSubtitleFile, autoPickSubtitle, updateCcLabel, showSubtitleDialog.
+  Depends: P1, P2 (slider + chips builders).
+  Design : colour swatches are 32 dp circles in a chips row, selected = 2 dp white ring. Live preview line "Sample subtitle text" inside the page.
+  Checks : subtitleView style API names (CaptionStyleCompat, setFractionalTextSize, setBottomPaddingFraction) re-checked against media3 1.3.1 signatures, old pref migration runs once, ccIcon tint still follows on / off.
+
+P6  CONTROLS A: TOP BAR, SEEK ROW, CENTRE, SIDE LOCK                         MODE MODIFY  SIZE M (~45%)
+  Goal   : restyle the controls to section C "Controls": centred title + info line, back + 3-dot only in the top bar, thin seek bar with "cur / total" time under it on the left, round lock button on the right edge (vertically centred). Old bottom toolbar stays untouched in this step.
+  Add    : none (maybe res/drawable/ic_pl_lock_open.xml, ic_pl_lock_closed.xml if ic_lock is not enough).
+  Modify : PlayerActivity.kt (buildUi top block + seekRow block, styledSeek track thickness, ticker time text "cur / total", setLocked + unlockBtn use the side button for both lock and unlock, rotate button leaves the top bar (comes back in P7)), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: buildUi (top / mid / bottom blocks), styledSeek, setLocked, ticker, controls insets listener.
+  Depends: none (works without panel) but run after P1-P5 to avoid merge noise in buildUi.
+  Design : section C "Controls". Keep the play button 72 dp round accent. Auto-hide, fade 160 ms, cutout insets unchanged.
+  Checks : bar never overlaps cutout, title ellipsizes at 360 dp, lock still blocks every gesture, tCur / tTotal references still valid (other code uses them), seek drag shows the dragged time.
+
+P7  CONTROLS B: BOTTOM ICON ROW + LAYOUT VARIANTS                            MODE MODIFY  SIZE M (~45%)
+  Goal   : bottom-right icon row (no text labels): Fit, Subtitles, Audio-only (button shows now, works in P10; until then toast "Soon" is NOT allowed: hide the button until P10), Rotate; Speed shows as a small "1.15x" pill left of the icons; Lock, PiP and Audio track move into the panel / lock side button. Icon states: fit icon changes per mode, rotate icon shows locked / auto, CC icon dim when off.
+  Add    : drawables needed (ic_pl_fit_fill.xml, ic_pl_fit_stretch.xml, ic_pl_rotate.xml) only if missing.
+  Modify : PlayerActivity.kt (buildUi bottom toolbar, cell() / iconSlot() reuse or replace, cycleFit label -> icon swap, toggleRotate + icon, small-height variant: when height < 360 dp hide the info line and shrink gaps), app/src/extra/AndroidManifest.xml only if needed (not expected), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: cell, iconSlot, cycleFit, toggleRotate, onConfigurationChanged, res/drawable ic_pl_*.xml.
+  Depends: P6.
+  Design : section C "Controls" bottom-right; 40 dp touch targets with 44 dp hit area (padding), spacing 4 dp.
+  Checks : portrait 360 dp: icons fit one row; landscape 640 x 360: nothing overlaps the seek bar; PiP and Audio are still reachable (3-dot panel); no reference to removed views (fitLabel, speedVal) left dangling.
+
+P8  GESTURES A: HOLD-TO-SPEED CHIP, SLIDE TO CHANGE, ZOOM                      MODE MODIFY  SIZE M (~45%)
+  Goal   : long press = fast play at pl_hold_speed (default 2.0x) with a top-centre chip "2.0x >>"; while holding, vertical slide changes the speed 0.25..5.0 in 0.1 steps (chip updates), release returns to the previous speed. Pinch zoom 0.5x..4x (zoom OUT below 100% allowed), double-tap with two fingers or a "100%" chip resets zoom; zoom value chip while pinching.
+  Add    : PlayerGestures.kt (holdStart / holdMove / holdEnd, zoom helpers, chip view factory).
+  Modify : PlayerActivity.kt (buildUi touch layer: onLongPress, onScroll guard `boost`, ACTION_UP restore, ScaleGestureDetector range, resetZoom, cycleFit calls resetZoom), PlayerPrefs.kt (pl_hold_speed, pl_hold_slide), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: buildUi touch layer, resetZoom, cycleFit, boost / speedBeforeBoost usage, showHud.
+  Depends: P2 (speed clamp / format helpers).
+  Design : chip = overlay chip rule (0xB3000000, radius 16 dp), 14 sp bold, top margin 60 dp (same place as the HUD, never both at once).
+  Checks : hold + slide never triggers brightness / volume / seek, release always restores the exact previous speed (also if the speed page changed it meanwhile), zoom < 1 re-centres, pinch does not fire double tap.
+
+P9  GESTURES B: LEVEL HUD, VOLUME BOOST, BRIGHTNESS MEMORY, SEEK SENSITIVITY   MODE MODIFY  SIZE S (~30%)
+  Goal   : brightness / volume HUD with an icon + vertical-feel bar (restyle of showHud), volume boost above 100% via LoudnessEnhancer (0-100% extra, off by default, safe cap), remember brightness for the session / pref, horizontal seek sensitivity setting, double-tap seconds setting.
+  Add    : (inside PlayerGestures.kt).
+  Modify : PlayerActivity.kt (showHud restyle, onScroll volume branch, seek swipe factor 90_000f -> by pl_seek_sens, seekBy default step from pl_dtap_sec, buildPlayer: audioSessionId for LoudnessEnhancer, release in onDestroy), PlayerPrefs.kt, CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: showHud, onScroll volume / brightness branch, seekBy, buildPlayer.
+  Depends: P8 (file exists).
+  Design : HUD = overlay chip rule + 18 dp icon (ic_screen / ic_play are NOT right: add ic_pl_bright.xml, ic_pl_volume.xml, 24 dp vectors, Material paths) + 170 dp bar as now.
+  Checks : LoudnessEnhancer created only when boost > 0 and released, no crash on devices without the effect (try / catch), volume 0..max steps unchanged.
+
+P10 AUDIO-ONLY MODE                                                         MODE BUILD   SIZE M (~40%)
+  Goal   : the headphone button switches to audio-only: video track disabled (saves data / battery), black screen with a centred card (title, elapsed time, small "Audio only - tap to show video"), playback continues, controls still work; ties into PlayerService (notification shows "Audio only"). Leaving restores the video track at the current position.
+  Add    : PlayerAudioOnly.kt.
+  Modify : PlayerActivity.kt (toggle + state + icon, setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, ...), bgNote text), PlayerService.kt (extra text line only), PlayerPages.kt (root row "Audio only" toggle), P7 icon row (button becomes visible), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: bgNote, PlayerService notification builder, enterPip, onStop (do not pause in audio-only), buildPlayer.
+  Depends: P7.
+  Design : card = surface 0xFF1B1C20, radius 22 dp, title 16 sp, time 13 sp dim; accent icon. Screen stays black.
+  Checks : PiP while audio-only is blocked or shows the card, onStop keeps playing only when background audio is ON (unchanged rule), video track comes back with the same quality cap.
+
+P11 EPISODE QUEUE PANEL                                                      MODE BUILD   SIZE M (~45%)
+  Goal   : panel page "Playlist" (from the root page and from a long press on the next button): the sibs list with now-playing mark, tap to jump, scrolls to the current item, shows "n of N".
+  Add    : PlayerQueue.kt.
+  Modify : PlayerPages.kt (root row, hidden when sibs.size < 2), PlayerActivity.kt (expose sibs / sibIdx / openSibling(index) as internal; add openAt(index) next to openSibling(delta); long press on nextBtn), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: findSiblings, openSibling, natural, updateNav, updateInfoLine.
+  Depends: P1.
+  Design : radio-style rows, label = file name without extension, sub = nothing; current row accent + check; list max height as other pages.
+  Checks : natural order same as next / prev buttons, jump saves the resume position of the old file, web streams (no sibs) hide the row.
+
+P12 A-B LOOP                                                                MODE BUILD   SIZE S (~25%)
+  Goal   : A-B loop: root row "A-B loop" with Set A / Set B / Clear; two marks on the seek bar; playback wraps from B to A.
+  Add    : PlayerLoop.kt (or inside PlayerQueue.kt).
+  Modify : PlayerActivity.kt (ticker checks position >= B -> seekTo(A); marks drawn by a tiny overlay view over the seek bar), PlayerPages.kt (row), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: ticker, styledSeek, buildUi seekRow.
+  Depends: P6 (seek row layout).
+  Design : marks = 2 dp accent ticks 10 dp high; page rows with the time as value ("A 01:12").
+  Checks : B < A rejected with toast, loop cleared on next video, ticker granularity 500 ms is acceptable (note) or use a 100 ms handler only while a loop is active.
+
+P13 SETTINGS "PLAYER" CARD                                                  MODE MODIFY  SIZE M (~40%)
+  Goal   : a Settings card "Player" (category in SettingsScreen) with: hold speed, double-tap seconds, gestures on / off, seek sensitivity, default fit, keep speed, quality default, + the existing "Background audio in player" row moved here (or linked), plus "Reset to default" using RESET["player"].
+  Add    : none.
+  Modify : SettingsScreen.kt (category("player", ...), RESET entry with every pl_* key, KW entries, rows hints < ~32 chars), PlayerPrefs.kt (all getters used by the page), PlayerActivity.kt (read pl_gestures, pl_fit_default at start), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Read-only: SettingsScreen category() / Row / Sub / RESET / KW, the "grabber" card player rows, Backup.kt SETTINGS (mgb_ui already included).
+  Depends: P8, P9 (keys exist).
+  Design : app tokens (section A), copy the nearest card; choices with a ToolsSheet / MaterialAlertDialogBuilder single choice like "Button mode" (DlMode.dialog).
+  Checks : search finds the new rows (KW), reset removes only pl_* keys, gestures off = no swipe / hold but tap + double tap still work.
+
+P14 FINAL POLISH + QA                                                        MODE FIX     SIZE S (~25%)
+  Goal   : read all RESULT blocks, fix the KNOWN items, re-check the whole player on code level: 360 x 640, 640 x 360, tablet, cutout, PiP, lock, reduce motion, back stack, memory leaks (handlers, receivers, LoudnessEnhancer), strings, dead code (old sheet() rows no longer used).
+  Modify : whatever the KNOWN list names (PlayerActivity.kt, PlayerPages.kt, PlayerPanel.kt ...), CHANGELOG.txt, HANDOFF.txt, build.gradle.kts.
+  Depends: P1-P13.
+  Checks : bracket balance of every player file, no unused private function warnings left that were created by the plan, final "PHONE TEST LIST" written into HANDOFF.txt (one line per feature).
+
+======================================================================
+8. RESULT BLOCKS (the assistant appends here, newest at the bottom)
+======================================================================
+P1 RESULT (0.0.151)
+ Done: 3-dot button opens a translucent side panel (right in landscape >= 480 dp, bottom sheet in portrait) with page stack; root page: Subtitles, Audio track, Playback speed, Repeat, Sleep timer | More: Background audio, Picture in picture, Video info, Open in another app.
+ Changed: PlayerPanel.kt (new: Panel + Page + Builder section / row / radio / toggle / note / custom) / PlayerPages.kt (new: root) / PlayerPrefs.kt (new: pl_* getters, keys P2 / P3 / P8 only) / PlayerActivity.kt (showMore, back handler, hider, onStop, PiP, buildUi adds panel last, subSummary / toggleRepeat / toggleBgAudio, private -> internal: player, sleepAt, showSubtitleDialog, showAudioDialog, showSpeedDialog, showSleepDialog, enterPip, showInfo, openExternal, speedText) / res/drawable ic_pl_speed.xml + ic_pl_repeat.xml (new) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt.
+ KEYS: none new in use yet (PlayerPrefs only declares K_SPEEDS, K_SPEED_KEEP, K_SPEED_LAST, K_HOLD_SPEED, K_HOLD_SLIDE, K_REPEAT, K_QUALITY_CAP).
+ Checks: bracket balance of the 4 Kotlin files, 2 new icon xml parse, every new call re-read against its real signature (TabPrefs.reduce(Context), Util.dp, ViewCompat.getRootWindowInsets, PlayerService.on / setOn / stop, textGroups). kotlinc and a phone NOT available: no compile, no render check at 360 / 1280 px, dark / light.
+ NOT tested (needs a phone): compile; panel in portrait + landscape; back arrow / system back / tap outside; panel over a display cutout; toggles Repeat + Background audio refresh in place; Speed / Subtitles / Audio / Sleep rows open the old dialogs and controls come back; PiP and screen-off with the panel open; reduce-motion (instant); ic_pl_speed / ic_pl_repeat paths (hand-typed Material paths: if one looks wrong, fix the path only).
+ KNOWN: Quality row is absent until P3; panel dims the video slightly (0x26) and flash() text may sit behind the panel box.
+ NEXT: P2 Playback speed page (size M). Needs PlayerPanel chips(...) + slider(...) builders (add only those two).
