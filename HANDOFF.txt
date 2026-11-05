@@ -1,4 +1,4 @@
-QUICKSTART (0.0.173): attach ONLY HANDOFF.txt + MGB-appearance-context.zip (it holds A1 + A2 + A3 applied and every file A3-A10 need to read or patch, top folder MGB-main/) + any step zip made AFTER it. No full MGB-main needed. Check app/build.gradle.kts appVersionName = "0.0.169" first. Each step ends with its changed-files zip AND, if a step touches a file the context zip does not hold, say so in RESULT. The player plan is finished (HANDOFF_PLAYER.txt).
+QUICKSTART (0.0.174): attach ONLY HANDOFF.txt + MGB-appearance-context.zip (it holds A1 + A2 + A3 applied and every file A3-A10 need to read or patch, top folder MGB-main/) + any step zip made AFTER it. No full MGB-main needed. Check app/build.gradle.kts appVersionName = "0.0.169" first. Each step ends with its changed-files zip AND, if a step touches a file the context zip does not hold, say so in RESULT. The player plan is finished (HANDOFF_PLAYER.txt).
 MGB (Thazir) - APPEARANCE PLAN, steps A1-A10     (HANDOFF.txt = the file you paste / attach first in every new chat)
 Base: version 0.0.154 (player plan P1-P3.2 done; P4-P14 still open, see HANDOFF_PLAYER.txt = the old file, renamed, not changed).
 No app code was changed when this plan was written. Planning chat only.
@@ -39,6 +39,7 @@ Settings: SettingsScreen.kt (1043 lines, NEVER read whole) = full-screen Dialog,
 [x] A7  v0.0.172  M   BUILD   Wallpaper for the home page   CODE DONE, phone test pending (see RESULT A7+A8)
 [x] A8  v0.0.172  M   BUILD   Customize menu row + Tabs and start page page   CODE DONE, phone test pending (see RESULT A7+A8)
 [x] A9  v0.0.173  S   MODIFY  Polish: remaining MaterialSwitch -> ThazirSwitch, Settings search/reset, old rows removed   CODE DONE, phone test pending (see RESULT A9+A10)
+[x] A11 v0.0.174  S   MODIFY  Small Thazir polish (violet dash labels, haptic + press feel, Compact bar)   CODE DONE, phone test pending (see RESULT A11)
 [x] A10 v0.0.173  S   MODIFY  SwitchCompat screens -> same look   CODE DONE, phone test pending (see RESULT A9+A10)
 
 Size = share of ONE chat (S ~20-25%, M ~40-50%). Each step leaves the app compiling and working; a row / switch appears in the UI only when its feature works.
@@ -241,3 +242,10 @@ RESULT A9+A10 (0.0.173)  zip: MGB_A9_A10_v0_0_173.zip (two steps in one chat on 
  Not compiled (no kotlinc). Risk spots: ThazirSwitch.tint (SwitchCompat thumb/track drawables, if CI errors on thumbTintList = null, delete that line), unused imports/vars are only warnings.
  Not changed on purpose: Reset keeps filesDir/wallpaper.jpg (remove it on the Wallpaper page).
  NEXT: full phone test of A1-A10 (list in each RESULT block), then fix whatever fails as FIX steps.
+
+RESULT A11 (0.0.174)  zip: MGB_A11_v0_0_174.zip (extra step, requested after A10)
+ Files: AppearanceScreen.kt, AppearancePrefs.kt, MainActivity.kt (1 line), SettingsScreen.kt (reset key), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+ New pref: ap_bar_compact (Bool, default false = today's bar).
+ Phone test: section labels in Appearance have a violet dash, light + dark; tap a toggle row / tile / chip = light tick and a small press shrink (none with Reduce motion); Customize address bar > Compact bar ON: preview gets slimmer at once, "Apply now" restarts and the real bar is 44 dp (top and bottom mode); OFF + restart = 52 dp as before; Reset (General) clears it.
+ Not compiled (no kotlinc). Risk spots: AppearanceScreen touch listener (pressFx) on tiles / chips, compact bar height on very small phones (buttons are 44 dp, so no extra padding).
+ Ideas NOT built (NEXT, optional): accent colour choice (touches colour tokens, bigger), AMOLED pure-black dark mode, bar corner style (pill / rounded square), home tile shape.

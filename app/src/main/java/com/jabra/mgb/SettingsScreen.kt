@@ -87,7 +87,7 @@ object SettingsScreen {
         /** Step C: the ONLY mgb_ui keys each card's "Reset to default" may remove. Nothing else is ever touched. */
         private val RESET = mapOf(
             "general" to listOf("night", "dark_pages", "engine", "tr_lang", "hide_bar", "pull_refresh", "rotate_browser",
-                "ap_bar_pos", "ap_home_action", "ap_full_url", "ap_swipe_fs", "ap_swipe_tabs", "ap_wp_dim", "ap_undo_toast", "ap_start_page"), // A9: + Appearance keys
+                "ap_bar_pos", "ap_home_action", "ap_full_url", "ap_swipe_fs", "ap_swipe_tabs", "ap_wp_dim", "ap_undo_toast", "ap_start_page", "ap_bar_compact"), // A9, A11: + Appearance keys
             "tabs" to listOf("swipe_close", "close_confirm", "reduce_motion", "tab_suspend_min"),
             "downloads" to listOf("auto_diag"),
             "grabber" to listOf("web_play", "v77_backup", "v77_prev_mode", "dl_mode", "native_btn", "video_btn"),

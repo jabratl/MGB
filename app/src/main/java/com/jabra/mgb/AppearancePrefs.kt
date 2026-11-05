@@ -17,6 +17,7 @@ object AppearancePrefs {
     const val K_WP_DIM = "ap_wp_dim"
     const val K_UNDO_TOAST = "ap_undo_toast"
     const val K_START_PAGE = "ap_start_page"
+    const val K_BAR_COMPACT = "ap_bar_compact" // A11
 
     val BAR_POS = listOf("bottom", "top")
     val HOME_ACTIONS = listOf("home", "back", "newtab", "refresh", "bookmarks", "extensions")
@@ -66,6 +67,10 @@ object AppearancePrefs {
     /** A5: snackbars anchor above the bar only when it is at the bottom; in top mode they sit at the screen bottom. */
     fun snackAnchor(a: android.app.Activity): android.view.View? =
         if (barTop(a)) null else a.findViewById<android.view.View>(R.id.bottom_bar)
+
+    /** A11: slimmer bar (44 dp instead of 52 dp), applied at start. Default OFF = today's bar. */
+    fun compactBar(c: Context): Boolean = sp(c).getBoolean(K_BAR_COMPACT, false)
+    fun setCompactBar(c: Context, on: Boolean) { sp(c).edit().putBoolean(K_BAR_COMPACT, on).apply() }
 
     fun startPage(c: Context): Boolean = sp(c).getBoolean(K_START_PAGE, false)
     fun setStartPage(c: Context, on: Boolean) { sp(c).edit().putBoolean(K_START_PAGE, on).apply() }

@@ -48,6 +48,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         ClosedTabs.init(this) // S29
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        if (AppearancePrefs.compactBar(this)) findViewById<View>(R.id.bottom_bar)?.layoutParams?.height = Util.dp(this, 44) // A11: compact bar
         if (AppearancePrefs.barTop(this)) { // A4: bar position Top = move the pill to index 0, margins top 8 / bottom 6
             val bb = findViewById<View>(R.id.bottom_bar)
             val bp = bb.parent as? ViewGroup

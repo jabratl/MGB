@@ -17,6 +17,8 @@ import android.os.Bundle
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -84,6 +86,7 @@ object AppearanceScreen {
         private var page = "root"
         private var prevUrl: TextView? = null // A3: live preview of the address bar
         private var prevHome: ImageView? = null
+        private var prevBar: View? = null // A11: live height of the preview bar
 
         private fun dp(v: Int) = Util.dp(act, v)
 
@@ -342,6 +345,12 @@ object AppearanceScreen {
             col.addView(sectionLabel("Behaviour"))
             val behCard = card()
             val ui = act.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
+            toggleRow(behCard, R.drawable.ic_screen, "Compact bar", "Slimmer bar (44 dp). Restart to apply",
+                { AppearancePrefs.compactBar(act) }) { on ->
+                AppearancePrefs.setCompactBar(act, on)
+                updatePreview()
+                applySnack("Restart needed to resize the bar")
+            }
             toggleRow(behCard, R.drawable.ic_screen, "Auto-hide bar", "Bar hides when you scroll down",
                 { ui.getBoolean("hide_bar", false) }) { on ->
                 ui.edit().putBoolean("hide_bar", on).apply()
@@ -362,6 +371,7 @@ object AppearanceScreen {
 
         private fun updatePreview() {
             prevUrl?.text = if (AppearancePrefs.fullUrl(act)) "https://example.com/watch?v=12" else "example.com"
+            prevBar?.let { b -> b.layoutParams?.let { lp -> lp.height = dp(if (AppearancePrefs.compactBar(act)) 44 else 52); b.layoutParams = lp } } // A11
             prevHome?.setImageResource(AppearancePrefs.homeIconAndLabel(AppearancePrefs.homeAction(act)).first)
         }
 
@@ -403,7 +413,8 @@ object AppearanceScreen {
             }, LinearLayout.LayoutParams(dp(40), dp(40)))
             updatePreview()
             val box = LinearLayout(act).apply { setPadding(dp(8), dp(4), dp(8), dp(6)) }
-            box.addView(bar, LinearLayout.LayoutParams(MATCH, dp(52)))
+            prevBar = bar
+            box.addView(bar, LinearLayout.LayoutParams(MATCH, dp(if (AppearancePrefs.compactBar(act)) 44 else 52)))
             return box
         }
 
@@ -416,6 +427,34 @@ object AppearanceScreen {
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             setTextColor(act.getColor(R.color.mg_primary))
             setPadding(dp(8), dp(16), 0, dp(6))
+            // A11: Thazir signature = small violet dash before every section label
+            setCompoundDrawablesWithIntrinsicBounds(GradientDrawable().apply {
+                setColor(act.getColor(R.color.mg_toggle_on)); cornerRadius = dp(2).toFloat(); setSize(dp(4), dp(12))
+            }, null, null, null)
+            compoundDrawablePadding = dp(8)
+        }
+
+        /** A11: soft tick on a choice (the phone's haptic setting decides if it is felt). */
+        private fun tick(v: View) { v.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK) }
+
+        /** A11: press = tiny shrink, release = back. Skipped when Reduce motion is ON. Does not eat the click. */
+        private fun pressFx(v: View) {
+            if (TabPrefs.reduce(act)) return
+            v.setOnTouchListener { x, e ->
+                when (e.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> x.animate().scaleX(0.96f).scaleY(0.96f).setDuration(120).start()
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> x.animate().scaleX(1f).scaleY(1f).setDuration(160).start()
+                }
+                false
+            }
+        }
+
+        private fun applySnack(msg: String) {
+            try {
+                Snackbar.make(findViewById<View>(android.R.id.content), msg, Snackbar.LENGTH_INDEFINITE)
+                    .setAction("Apply now") { AppearanceScreen.markReopen(); dismiss(); act.recreate() }
+                    .show()
+            } catch (_: Exception) { }
         }
 
         private fun card(): LinearLayout = LinearLayout(act).apply {
@@ -452,6 +491,7 @@ object AppearanceScreen {
             row.addView(txt, LinearLayout.LayoutParams(0, WRAP, 1f))
             row.addView(sw, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginStart = dp(8) })
             row.setOnClickListener {
+                tick(it) // A11
                 set(!get())
                 sw.isChecked = get()
             }
@@ -471,7 +511,8 @@ object AppearanceScreen {
                     orientation = LinearLayout.VERTICAL
                     gravity = Gravity.CENTER_HORIZONTAL
                     isClickable = true
-                    setOnClickListener { onPick(i) }
+                    setOnClickListener { tick(this); onPick(i) } // A11
+                    pressFx(this)
                 }
                 val frame = FrameLayout(act).apply {
                     background = round(0, 16, if (on) 2f else 1f,
@@ -514,7 +555,8 @@ object AppearanceScreen {
                     isClickable = true
                     background = round(0, 20, if (on) 2f else 1f,
                         if (on) act.getColor(R.color.mg_toggle_on) else act.getColor(R.color.mg_outline))
-                    setOnClickListener { onPick(i) }
+                    setOnClickListener { tick(this); onPick(i) } // A11
+                    pressFx(this)
                 }
                 chips[i].icon?.let { ic ->
                     c.addView(ImageView(act).apply {

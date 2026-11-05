@@ -1,3 +1,10 @@
+0.0.174 (APPEARANCE STEP A11 MODIFY: small Thazir polish)
+- AppearanceScreen.kt: every section label gets a small violet dash (Thazir signature); choices give a soft haptic tick (toggle rows, tiles, chips) and tiles / chips shrink a little while pressed (skipped when Reduce motion is ON); new toggle "Compact bar" on the address bar page, live preview height, snackbar "Apply now".
+- AppearancePrefs.kt: ap_bar_compact (default OFF) getter / setter.
+- MainActivity.kt: compact bar = bottom_bar height 44 dp right after setContentView (before the top-mode move).
+- SettingsScreen.kt: General Reset also removes ap_bar_compact.
+- app/build.gradle.kts: 0.0.174.
+
 0.0.173 (APPEARANCE STEPS A9 MODIFY + A10 MODIFY in one zip: every toggle in the Thazir look, Settings tidy-up)
 - AdblockManager.kt, PrivacyGuard.kt: switch builders now ThazirSwitch (old MaterialSwitch + tint lines removed). ExtListScreen.kt: unused MaterialSwitch import removed. No MaterialSwitch( constructor left except inside ThazirSwitch.
 - SettingsScreen.kt: old General rows "Theme" and "Dark pages" removed (Appearance row replaces them; the quick-row "Dark pages" chip stays). Reset (General card) now also removes the ap_* keys and restarts the app when the bar was at the top. Search words of "Appearance" extended (wallpaper, bar, swipe, undo, start page...).
