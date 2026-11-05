@@ -196,6 +196,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Item("Text size", R.drawable.ic_edit, canMark, cur?.let { c -> TextZoom.get(this, Util.host(c.url)).takeIf { it != 100 }?.let { "$it%" } } ?: "") { TextZoom.dialog(this, tabs) }, // S41
             MenuSheet.Item("Detected files", R.drawable.ic_download, canMark) { floating.openSheet() }, // S50
             MenuSheet.Item("Page info", R.drawable.ic_info, canMark) { PageInfo.show(this, tabs) }, // S29
+            MenuSheet.Item("View page source", R.drawable.ic_code, canMark) { tabs.active?.let { PageSource.open(this, it) } }, // T2
             MenuSheet.Item("Fill password", R.drawable.ic_lock, canMark && cur?.priv != true) { PasswordStore.fill(this, tabs) }, // S30
             MenuSheet.Item("Email alias", R.drawable.ic_share, true) { EmailAlias.create(this, cur?.url?.takeIf { canMark }?.let { Util.host(it) } ?: "") }, // S30
             MenuSheet.Item("Privacy Guard", R.drawable.ic_shield, true, if (AdBlock.enabled) "ON · ${AdBlock.blocked}" else "OFF") { // S19 + S71: opens the Privacy Guard sheet on web pages

@@ -58,7 +58,8 @@ object MenuCustom {
         Entry("Clone tab", R.drawable.ic_copy), // T1
         Entry("Translate page", R.drawable.ic_search), Entry("Reader view", R.drawable.ic_list),
         Entry("Text size", R.drawable.ic_edit), Entry("Detected files", R.drawable.ic_download),
-        Entry("Page info", R.drawable.ic_info), Entry("Fill password", R.drawable.ic_lock),
+        Entry("Page info", R.drawable.ic_info), Entry("View page source", R.drawable.ic_code), // T2
+        Entry("Fill password", R.drawable.ic_lock),
         Entry("Email alias", R.drawable.ic_share), Entry("Privacy Guard", R.drawable.ic_shield)
     )
 

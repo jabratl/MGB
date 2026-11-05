@@ -19,7 +19,7 @@ STATE FROM THE END OF THE SETTINGS PLAN (verbatim, keep until the phone test is 
 CURRENT VERSION 0.0.140 (Settings STEP E: tab suspend, Older section, audit script; see CHANGELOG 0.0.140; apply after 0.0.139). NOT tested (needs a real phone): compile; 20+ tabs with suspend 5 min; media tab keeps playing in background; restore after restart (ts saved, Older after 7 days); suspended tab reopens with history + scroll; desktop-site tab after suspend; tab in a group never suspended; download running = no suspend; Older header + cards at 360 px; drag/reorder with an Older section. KNOWN: a background tab that never had a thumbnail shows the letter avatar; JS-off sites count as "not playing"; the sweep checks every 60 s. AUDIT (step E part 1) NOT applied, waits for OK: candidates = single switches overlapping Button mode: Video button on pages, Grabber button on pages, Grabber button opens Files detected panel, Grabber button on video players, Extra native download button (all call DlMode.manual); V77 backup row; hide_bar flagged by the script is a false positive. No duplicate labels found. NEXT: user says which rows to remove, then a small MODIFY step (SettingsScreen.kt only, keep prefs keys so old backups still import).
 
 [x] T1  v0.0.141  Tab link tools: Clone Tab, Copy all tab links, Open links from clipboard      DONE (see T1 RESULT below)
-[ ] T2  v0.0.142  View page source                                                               size M      (~60%)
+[x] T2  v0.0.142  View page source                                                               DONE (see T2 RESULT below)
 [ ] T3  v0.0.143  Save page + minimal saved list (proves the offline open path)                  size M+     (~70%)  TIGHT
 [ ] T4  v0.0.144  Saved pages screen (search, rename, share, thumbnails, Settings row)           size M      (~55%)
 [ ] T5  v0.0.145  Adblock manager part 1: backend (my rules, my hosts, allow list, explain)      size M      (~55%)
@@ -34,7 +34,14 @@ T1 RESULT (0.0.141)
  Changed: TabManager.kt (cloneTab, newTab lazy flag) / TabSwitcher.kt (menus, groupTabs) / TabBookmarks.kt (linkOf, copyLinks, fromClipboard) / MainActivity.kt (page row) / MenuCustom.kt (entry) / res/drawable ic_copy + ic_paste (new) / build.gradle.kts / CHANGELOG.txt / HANDOFF.txt.
  Checks: bracket balance of all 5 Kotlin files, icon xml parses, every new call re-read against its real signature. kotlinc not available.
  NOT tested (needs a phone): compile; clone of a tab with 5 history pages (Back works); clone of a suspended tab and of a desktop-site tab; clone inside a group (it lands at the END of the group, not next to the source: known); clone of a private tab; copy 10 tabs, then Open links from clipboard (already-open links unchecked); 25 links over the tab limit; links pasted from a chat (trailing punctuation trimmed); lazy tabs show the host as title and no thumbnail until opened.
- NEXT: T2 View page source (size M). Goal line: page menu row "View page source" opens a full-screen viewer with Rendered / Original tabs.
+ NEXT: was T2 (now done, see T2 RESULT).
+
+T2 RESULT (0.0.142)
+ Done: page menu row "View page source" -> full-screen viewer: Rendered / Original pills, line numbers, search (count, next / prev, highlight), Copy all, Share as .html, Wrap lines on / off.
+ Changed: PageSource.kt (new: whole viewer) / MainActivity.kt (page row) / MenuCustom.kt (entry) / build.gradle.kts (0.0.142) / CHANGELOG.txt / HANDOFF.txt.
+ Checks: bracket balance of the 3 Kotlin files, render JS parses (node), every new API call re-read against its real signature (Util.host / dp / toast, Tab fields, MenuSheet.Item, FileProvider authority = packageName + ".fileprovider"). kotlinc not available. No xml ids / no new resources, so no duplicate-id risk.
+ NOT tested (needs a phone): compile; Rendered on a JS-heavy page; Original of a redirecting page (http -> https) and of a login-only page; non-text url (pdf) toast; page over 2 MB (note shown); private tab (no Original pill); suspended tab (Rendered says "not loaded", Original works); search on 5000+ matches; wrap off scroll sideways; Share as .html opens in a chooser; layout at 360 px dark + light (not render-checked: no emulator here). KNOWN: a search match that is split by the 400-character row cut is not found; "Share as .html" shares the tab currently shown (Rendered or Original).
+ NEXT: T3 Save page + minimal saved list (size M+, TIGHT). FIRST thing: go / no-go test of loadUrl("file://.../x.mht") on the real engine path; if it does not render, STOP and tell the user.
 
 Order rules: T1, T2 can go first (easy wins). Tracks are independent: SAVE (T3 -> T4), ADBLOCK (T5 -> T6), USERSCRIPTS (T7 -> T8 -> T9 -> T10).
 Inside a track never skip a step. Sizes are estimates; the "SAFE CUT" line of every step says what to drop if the chat reaches about 85%.
