@@ -302,14 +302,43 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     }
 
     private fun refreshUrlField() {
-        if (urlBar.hasFocus()) return
+        if (urlBar.hasFocus()) { setUrlLock(null); return }
         val u = if (tabs.active?.home == true) "" else (tabs.active?.url ?: "") // S13
+        val full = AppearancePrefs.fullUrl(this)
         val s = when {
             u == "about:blank" -> ""
-            u.startsWith("http") -> if (AppearancePrefs.fullUrl(this)) u else Util.host(u) // A3: full URL option
+            u.startsWith("http") -> if (full) u else Util.host(u) // A3: full URL option
             else -> u
         }
-        if (urlBar.text.toString() != s) urlBar.setText(s)
+        if (urlBar.text.toString() != s) {
+            if (full && u.startsWith("http") && s.isNotEmpty()) { // S3: host stays strong, the rest of a full URL is dimmed
+                val h = Util.host(u)
+                val i = s.indexOf(h)
+                val sp = android.text.SpannableString(s)
+                if (i >= 0) {
+                    val dim = getColor(R.color.mg_text_dim)
+                    if (i > 0) sp.setSpan(android.text.style.ForegroundColorSpan(dim), 0, i, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    if (i + h.length < s.length) sp.setSpan(android.text.style.ForegroundColorSpan(dim), i + h.length, s.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+                urlBar.setText(sp)
+            } else urlBar.setText(s)
+        }
+        setUrlLock(if (u.startsWith("https://")) true else if (u.startsWith("http://")) false else null)
+    }
+
+    /** S3: small connection cue at the start of the address field: lock = https, open lock (red) = plain http, none = home / other. */
+    private fun setUrlLock(secure: Boolean?) {
+        val d = when (secure) {
+            true -> getDrawable(R.drawable.ic_lock)
+            false -> getDrawable(R.drawable.ic_pl_lock_open)
+            null -> null
+        }?.mutate()
+        if (d != null) {
+            val sz = Util.dp(this, 14)
+            d.setBounds(0, 0, sz, sz)
+            d.setTint(getColor(if (secure == false) R.color.mg_error else R.color.mg_text_dim))
+        }
+        urlBar.setCompoundDrawablesRelative(d, null, null, null)
     }
 
     private fun refreshAll(tab: TabManager.Tab?) {

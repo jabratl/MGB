@@ -252,12 +252,12 @@ Design note: request only user-selected/current-page context, show exactly what 
 Checks: disabled/no-provider state; page context opt-in; cancel; long text limit; private tab disabled by default; network failure; no secret in APK/logs; clear conversation.
 
 7. EXACT KICKOFF LINE FOR NEXT CHAT
-START S3 ONLY — Address bar premium navigation pill, baseline appVersionName 0.0.177. S1 and S2 are complete; this HANDOFF is authoritative. Inspect only S3 files/targeted references, preserve btn_home, btn_engine, btn_shield, url_bar, btn_tabs, btn_menu IDs and all existing navigation, keyboard, loading, privacy, bar-position, compact-bar, and gesture behaviours. Patch only S3 files plus required version/CHANGELOG/HANDOFF updates, keep the app working, stop by 85% session (hard stop 90%), build/check, and return a changed-files-only ZIP. Do not begin S4.
+START S4 ONLY — Tab switcher visual refresh, baseline appVersionName 0.0.178. S1-S3 are complete; this HANDOFF is authoritative. Inspect only S4 files/targeted references, preserve tab IDs, snapshot cache, group JSON shape, close/undo semantics, private-tab distinction and max-tab limit. Patch only S4 files plus required version/CHANGELOG/HANDOFF updates, keep the app working, stop by 85% session (hard stop 90%), build/check, and return a changed-files-only ZIP. Do not begin S5.
 
 8. PROGRESS / RESULT LOG
 [x] S1 — complete (0.0.175; native light/dark design tokens aligned)
 [x] S2 — complete (0.0.176; home hierarchy and responsive shortcuts polish)
-[ ] S3 — pending
+[x] S3 — complete (0.0.178; address bar pill, inset URL field, lock cue)
 [ ] S4 — pending
 [ ] S5 — pending
 [ ] S6 — pending
@@ -269,6 +269,12 @@ START S3 ONLY — Address bar premium navigation pill, baseline appVersionName 0
 [ ] S12 — pending
 [ ] S13 — pending
 [ ] S14 — pending / provider-gated
+
+RESULT (S3 implementation, 0.0.178):
+- Baseline 0.0.177 (S2 zip merged over MGB-context 0.0.174). Added bg_url_field.xml (new, needed so the layout can use a focus-state background); edited activity_main.xml, MainActivity.kt, build.gradle.kts, CHANGELOG, HANDOFF.
+- Bar: 3dp elevation, inset URL capsule, violet focus ring, lock/open-lock cue, dimmed path in Full URL mode. IDs, sizes, bar position, compact bar, scroll-hide, keyboard resize untouched.
+- Checks: XML well-formed; duplicate-id scan; Kotlin brace/paren balance; R.* refs exist. NOT tested: Gradle build (CI), device render at 360/1280 dp, dark/light screenshots, TalkBack.
+- Next (S4): tab switcher. Open notes: PageInfo.kt READER_JS old dark bg; btn_tabs outlined button style and btn_shield 34dp width not touched.
 
 RESULT (S2 implementation):
 - Baseline 0.0.175 updated to 0.0.176.

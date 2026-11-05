@@ -1,3 +1,10 @@
+0.0.178 (S3 MODIFY: Address bar premium navigation pill)
+- res/layout/activity_main.xml: bottom_bar gets a soft 3dp elevation; url_bar now uses the new inset field background, 12dp text padding, end ellipsize. All view ids, sizes (44dp touch rows) and the top/bottom/compact logic are unchanged.
+- res/drawable/bg_url_field.xml (new): quiet inset capsule (36dp visual inside the 44dp touch area); focused = surface + violet ring. Theme tokens only, light + dark.
+- MainActivity.kt: refreshUrlField() dims everything except the host when "Full URL" is ON; new setUrlLock(): small lock (https) / red open lock (plain http) at the start of the field, hidden on Home, other schemes and while typing.
+- No new preferences, no bar-position, keyboard, gesture or scroll-hide changes. bg_bar_pill.xml left as is (already a pill with outline).
+- app/build.gradle.kts: 0.0.178.
+
 0.0.177 (S1 FIX + S2 combined: dark-mode contrast fixes, one zip)
 - values-night/colors.xml: mg_toggle_thumb white -> #211B3A (white thumb on the light violet track was 2.1:1; now 7.8:1). ThazirSwitch + Appearance tile check dot pick it up automatically.
 - DlFly.kt, FloatingDl.kt: download icon on the accent circle was hard white (unreadable on light violet in dark mode); now mg_on_primary. FloatingDl comment rose -> violet.
