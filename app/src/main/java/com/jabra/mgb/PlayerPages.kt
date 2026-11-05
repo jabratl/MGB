@@ -21,7 +21,6 @@ object PlayerPages {
         row(R.drawable.ic_clock, "Sleep timer", sleepValue(a), true) { a.panel.push(sleepPage(a)) }
         section("More")
         toggle(R.drawable.ic_pl_audio, "Background audio", PlayerService.on(a)) { a.toggleBgAudio() }
-        row(R.drawable.ic_screen, "Rotate screen") { go { a.toggleRotate() } } // P6: left the top bar, P7 puts a button back
         row(R.drawable.ic_pl_pip, "Picture in picture") { go { a.enterPip() } }
         row(R.drawable.ic_info, "Video info") { go { a.showInfo() } }
         row(R.drawable.ic_open, "Open in another app") { go { a.openExternal() } }

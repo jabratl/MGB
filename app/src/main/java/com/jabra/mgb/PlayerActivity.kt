@@ -136,7 +136,11 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var tTotal: TextView
     private lateinit var playBtn: ImageView
     private lateinit var speedVal: TextView
-    private lateinit var fitLabel: TextView
+    private lateinit var fitIcon: ImageView // P7: icon changes per fit mode
+    private lateinit var rotIcon: ImageView // P7
+    private var rotManual = false // P7: the user fixed the orientation with the rotate button
+    private var topBox: LinearLayout? = null // P7: compact (small height) padding
+    private var bottomBox: LinearLayout? = null
     private lateinit var ccIcon: ImageView
     private lateinit var infoTv: TextView
     private lateinit var hud: LinearLayout
@@ -235,6 +239,7 @@ class PlayerActivity : AppCompatActivity() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig) // declared in configChanges: no recreate, the player keeps playing
         hideBars()
+        applyCompact() // P7
     }
 
     // S45: background audio: keep playing when the screen turns off / the user leaves (not after PiP, not when finishing)
@@ -699,6 +704,8 @@ class PlayerActivity : AppCompatActivity() {
 
     internal fun toggleRotate() {
         userRot = true
+        rotManual = true
+        if (this::rotIcon.isInitialized) rotIcon.setColorFilter(getColor(R.color.mg_primary)) // P7: accent = orientation fixed by the button
         val land = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         requestedOrientation = if (land) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT else ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
     }
@@ -744,7 +751,7 @@ class PlayerActivity : AppCompatActivity() {
             2 -> AspectRatioFrameLayout.RESIZE_MODE_FILL
             else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
         }
-        fitLabel.text = when (fitMode) { 1 -> "Fill"; 2 -> "Stretch"; else -> "Fit" }
+        fitIcon.setImageResource(when (fitMode) { 1 -> R.drawable.ic_pl_fit_fill; 2 -> R.drawable.ic_pl_fit_stretch; else -> R.drawable.ic_pl_fit })
         resetZoom()
         flash(when (fitMode) { 1 -> "FILL (CROP)"; 2 -> "STRETCH"; else -> "FIT TO SCREEN" })
     }
@@ -1180,7 +1187,17 @@ class PlayerActivity : AppCompatActivity() {
         val vs = player?.videoSize
         if (vs != null && vs.width > 0 && vs.height > 0) parts.add(vs.width.toString() + "x" + vs.height)
         infoTv.text = parts.joinToString("  ·  ")
-        infoTv.visibility = if (parts.isEmpty()) View.GONE else View.VISIBLE
+        infoTv.visibility = if (parts.isEmpty() || isCompact()) View.GONE else View.VISIBLE
+    }
+
+    /** P7: small height (phone in landscape): no info line, tighter gaps. */
+    private fun isCompact(): Boolean = resources.configuration.screenHeightDp < 400
+
+    private fun applyCompact() {
+        val c = isCompact()
+        topBox?.setPadding(dp(6), dp(6), dp(6), if (c) dp(10) else dp(22))
+        bottomBox?.setPadding(dp(14), if (c) dp(10) else dp(26), dp(14), if (c) dp(2) else dp(8))
+        updateInfoLine()
     }
 
     // ---------- UI ----------
@@ -1454,34 +1471,37 @@ class PlayerActivity : AppCompatActivity() {
             })
         }
         bottom.addView(seek, LinearLayout.LayoutParams(MATCH, dp(32)))
-        val timeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(10), 0, 0, 0) } // P6: "cur / total" under the bar, left
-        timeRow.addView(tCur)
-        timeRow.addView(tSep)
-        timeRow.addView(tTotal)
-        bottom.addView(timeRow, LinearLayout.LayoutParams(MATCH, WRAP))
-
-        // toolbar: lock, speed, subtitles, audio, fit, picture in picture
-        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        // P7: bottom row = "cur / total" on the left, speed pill + icon buttons on the right (no text labels)
+        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), 0, 0, 0) }
+        val timeBox = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        timeBox.addView(tCur)
+        timeBox.addView(tSep)
+        timeBox.addView(tTotal)
+        bar.addView(timeBox, LinearLayout.LayoutParams(0, WRAP, 1f))
         speedVal = TextView(this).apply {
             text = "1x"
-            textSize = 15f
+            textSize = 12.5f
             typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
+            minimumHeight = dp(36)
+            setPadding(dp(10), dp(4), dp(10), dp(4))
+            background = round(0x22FFFFFF, 18)
+            setOnClickListener { showSpeedDialog() }
         }
-        ccIcon = iconSlot(R.drawable.ic_pl_cc)
-        val fitCell = cell("Fit", iconSlot(R.drawable.ic_pl_fit)) { cycleFit() }
-        fitLabel = fitCell.getChildAt(1) as TextView
-        val cw = LinearLayout.LayoutParams(0, WRAP, 1f)
-        bar.addView(cell("Lock", iconSlot(R.drawable.ic_lock)) { setLocked(true) }, cw)
-        bar.addView(cell("Speed", speedVal) { showSpeedDialog() }, cw)
-        bar.addView(cell("Subtitles", ccIcon) { showSubtitleDialog() }, cw)
-        bar.addView(cell("Audio", iconSlot(R.drawable.ic_pl_audio)) { showAudioDialog() }, cw)
-        bar.addView(fitCell, cw)
-        bar.addView(cell("PiP", iconSlot(R.drawable.ic_pl_pip)) { enterPip() }, cw)
-        bottom.addView(bar, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(2) })
+        bar.addView(speedVal, LinearLayout.LayoutParams(WRAP, WRAP).apply { setMargins(0, 0, dp(6), 0) })
+        fitIcon = iconBtn(R.drawable.ic_pl_fit, 44, 10) { cycleFit() }
+        ccIcon = iconBtn(R.drawable.ic_pl_cc, 44, 10) { showSubtitleDialog() }
+        rotIcon = iconBtn(R.drawable.ic_pl_rotate, 44, 10) { toggleRotate() }
+        bar.addView(fitIcon)
+        bar.addView(ccIcon)
+        bar.addView(rotIcon)
+        bottom.addView(bar, LinearLayout.LayoutParams(MATCH, WRAP))
+        topBox = top
+        bottomBox = bottom
         controls.addView(bottom, LinearLayout.LayoutParams(MATCH, WRAP))
         rootView.addView(controls, FrameLayout.LayoutParams(MATCH, MATCH))
+        applyCompact()
 
         // ----- overlays -----
         flash = TextView(this).apply {

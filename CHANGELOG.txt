@@ -1,3 +1,8 @@
+0.0.158 (PLAYER STEP P7 MODIFY: Controls B)
+- PlayerActivity.kt: bottom row rebuilt: "cur / total" left, speed pill (opens the speed page) + icon buttons Fit / Subtitles / Rotate on the right, no text labels, 44 dp targets. Old Lock / Audio / PiP cells removed (lock = side button, Audio track + PiP stay in the 3-dot panel). Fit icon changes per mode (fitIcon replaces fitLabel); rotate icon turns accent once the button fixed the orientation (rotManual); CC icon dim / accent as before. Small height (screenHeightDp < 400): info line hidden, tighter top / bottom padding (isCompact, applyCompact, also on configuration change). Audio-only button is not shown (comes in P10).
+- PlayerPages.kt: temporary "Rotate screen" row of P6 removed.
+- res/drawable: ic_pl_fit_fill.xml, ic_pl_fit_stretch.xml, ic_pl_rotate.xml (new). app/build.gradle.kts: 0.0.158.
+
 0.0.157 (PLAYER STEP P6 MODIFY: Controls A)
 - PlayerActivity.kt: top bar = back + centred title (16 sp) with the info line under it + 3-dot (rotate button left the top bar); seek bar thinner (3 dp track, 12 dp thumb) with "cur / total" time UNDER it on the left (tCur / tTotal kept, seekRow removed); round 44 dp side lock button on the right edge, vertically centred: open-lock icon follows the controls, tap = lock; when locked it shows a closed lock (accent) on tap for 2.5 s, tap = unlock (setLocked, styleLockBtn, syncLockBtn); kept clear of the display cutout; hidden in PiP; toggleRotate private -> internal.
 - PlayerPages.kt: root page "More" gets a "Rotate screen" row (rotate stays reachable until P7 adds its icon).
