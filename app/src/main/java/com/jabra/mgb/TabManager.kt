@@ -373,7 +373,6 @@ class TabManager(
         val arr = JSONArray()
         val idx = HashMap<Int, Int>() // S41: tab id -> position in the saved list (groups)
         val ts = JSONArray() // STEP E: last opened time of each saved tab (same order)
-        val tp = JSONArray() // 0.0.276 (C5): login profile name of each saved tab (same order), "" = none
         var activeIdx = 0
         for (t in tabs) {
             if (t.priv) continue // S26: private tabs are never saved
@@ -383,12 +382,10 @@ class TabManager(
             idx[t.id] = arr.length()
             arr.put(u)
             ts.put(t.lastActive)
-            tp.put(t.socialProfile ?: "")
         }
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString("tabs", arr.toString())
             .putString("ts", ts.toString())
-            .putString("tp", tp.toString())
             .putString("groups", TabSwitcher.exportGroups(idx))
             .putInt("active", activeIdx)
             .apply()
@@ -402,13 +399,11 @@ class TabManager(
         if (arr.length() == 0) return false
         val act = sp.getInt("active", 0).coerceIn(0, arr.length() - 1)
         val ts = try { JSONArray(sp.getString("ts", "[]") ?: "[]") } catch (_: Exception) { JSONArray() } // STEP E
-        val tp = try { JSONArray(sp.getString("tp", "[]") ?: "[]") } catch (_: Exception) { JSONArray() } // 0.0.276 (C5)
         var target: Tab? = null
         val ids = ArrayList<Int>()
         for (i in 0 until arr.length()) {
             val u = arr.getString(i)
-            val keep = tp.optString(i, "").takeIf { it.startsWith("social_") && it.endsWith("_2") && SocialMode.sepSupported() } // 0.0.276 (C5): only Account 2 names are kept as saved
-            val t = newTab(null, 0, false, false, false, keep ?: SocialMode.profileName(ctx, u)) ?: break // 0.0.234 (P9)
+            val t = newTab(null, 0, false, false, false, SocialMode.profileName(ctx, u)) ?: break // 0.0.234 (P9)
             ids.add(t.id)
             t.url = u
             ts.optLong(i, 0L).let { if (it > 0L) t.lastActive = it } // STEP E
