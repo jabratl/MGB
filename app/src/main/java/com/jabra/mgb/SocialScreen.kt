@@ -211,6 +211,14 @@ object SocialScreen {
                 tlTv.text = tlHint()
             }
             tlTv = ((tlRow as LinearLayout).getChildAt(1) as LinearLayout).getChildAt(1) as TextView
+            switchRow(extra, R.drawable.ic_info, "Data saver plus: no videos on mobile data", "On mobile data (or a Wi-Fi the phone marks as metered) video files are not downloaded on social sites. Wi-Fi is not touched. Some sites use video addresses that this cannot see",
+                null, { SocialSave2.on(act) }) { on -> SocialSave2.setOn(act, on) }
+            lateinit var mtTv: TextView // 0.0.267 (C6)
+            fun mtHint() = (if (SocialMute.count(act) == 0) "No words yet" else SocialMute.count(act).toString() + " word(s)") + " (tap to edit). Posts with these words are hidden on Facebook, Instagram, Reddit, X, LinkedIn. Stays on the phone"
+            val mtRow = actionRow(extra, R.drawable.ic_info, "Muted words", mtHint()) {
+                muteDialog { mtTv.text = mtHint() }
+            }
+            mtTv = ((mtRow as LinearLayout).getChildAt(1) as LinearLayout).getChildAt(1) as TextView
             col.addView(extra, LinearLayout.LayoutParams(MATCH, WRAP))
             siteRows.add(extra)
 
@@ -585,6 +593,8 @@ object SocialScreen {
                 .append(", lock: ").append(yn(SocialLock.on(act))).append(" (").append(SocialLock.delayLabel(act)).append(")")
                 .append(", error screen: ").append(yn(SocialError.on(act)))
                 .append(", focus mode: ").append(yn(SocialFocus.on(act)))
+                .append(", data saver plus: ").append(yn(SocialSave2.on(act))).append(" (").append(SocialSave2.blocked).append(" videos blocked)")
+                .append(", muted words: ").append(SocialMute.count(act))
                 .append(", time limit: ").append(SocialTime.label(act)).append("\n\n")
             for (p in SocialProfiles.all) {
                 sb.append(p.label).append(": ").append(yn(SocialProfiles.siteOn(act, p.id)))
@@ -679,6 +689,35 @@ object SocialScreen {
                     onDone()
                 }
                 .setNeutralButton("Clear") { _, _ -> SocialProfiles.clearFix(act, p.id); onDone() }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+
+        /** 0.0.267 (C6): edit the muted words, one per line (max 20). Empty + Save = list removed. Applies from the next page load. */
+        private fun muteDialog(onDone: () -> Unit) {
+            val box = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), dp(4)) }
+            box.addView(TextView(act).apply {
+                text = "One word or phrase per line, up to " + SocialMute.MAX + ". Capital letters do not matter. A post with any of them is hidden."
+                textSize = 12f; setTextColor(act.getColor(R.color.mg_text_dim)); setPadding(0, dp(6), 0, dp(8))
+            })
+            val et = EditText(act).apply {
+                hint = "word"; setText(SocialMute.words(act).joinToString("\n")); textSize = 14f; minLines = 4; maxLines = 10
+                gravity = Gravity.TOP or Gravity.START
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                setTextColor(act.getColor(R.color.mg_text)); setHintTextColor(act.getColor(R.color.mg_text_dim))
+                background = round(act.getColor(R.color.mg_surface_variant), 12, 1f, act.getColor(R.color.mg_outline))
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+            }
+            box.addView(et, LinearLayout.LayoutParams(MATCH, WRAP))
+            MaterialAlertDialogBuilder(act)
+                .setTitle("Muted words")
+                .setView(ScrollView(act).apply { addView(box) })
+                .setPositiveButton("Save") { _, _ ->
+                    SocialMute.setWords(act, et.text.toString())
+                    Util.toast(act, "Saved. Reload the site page")
+                    onDone()
+                }
+                .setNeutralButton("Clear") { _, _ -> SocialMute.setWords(act, ""); onDone() }
                 .setNegativeButton("Cancel", null)
                 .show()
         }

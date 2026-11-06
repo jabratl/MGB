@@ -1,3 +1,17 @@
+0.0.267 (C6: muted words)
+- Why: hide posts about topics the person does not want to see. Extras > Tabs and data > row "Muted words" (tap = edit box, one word per line, max 20; Save / Clear / Cancel). Stored as sm_mute in mgb_ui. Empty = off.
+- How: NEW SocialMute.kt (words / count / setWords, per-site post selector map SEL, page script with MutationObserver throttled 300 ms, guard window.__mgSw, words passed as a JSON array, no data leaves the page). SocialMode.inject: one call SocialMute.inject(ctx, view, p?.id). SocialScreen: row + muteDialog + summary line. SettingsScreen RESET + sm_mute. HowToUse phrase.
+- Files: SocialMute.kt (new), SocialMode.kt, SocialScreen.kt, SettingsScreen.kt, HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES.
+- Could break: selectors are assumptions about live sites and WILL change (one line in SEL); a post hidden once stays hidden until reload; a very common word hides many posts.
+- NOT tested: Gradle build (CI), device, live sites.
+
+0.0.266 (C7: data saver plus)
+- Why: save mobile data. Extras > Tabs and data > switch "Data saver plus" (sm_save2, default OFF): on a metered connection (mobile data) video files are not downloaded on social sites. Wi-Fi is not touched.
+- How: NEW SocialSave2.kt (on / setOn, blocked counter, intercept(): social tab + site switch ON + not main frame + address ends in .mp4 .webm .m3u8 .mpd .mov + isActiveNetworkMetered -> empty 404 response, any error = null). TabManager.shouldInterceptRequest: one line before SocialNsfw.intercept. SocialScreen: switch + summary. SettingsScreen RESET + sm_save2. HowToUse phrase. ACCESS_NETWORK_STATE is already in the Manifest.
+- Files: SocialSave2.kt (new), TabManager.kt, SocialScreen.kt, SettingsScreen.kt, HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES.
+- Could break: sites that stream video through other addresses are not covered; a blocked video shows as an error / empty player until the switch is OFF or Wi-Fi.
+- NOT tested: Gradle build (CI), device, metered detection.
+
 0.0.265 (D7 delay picker: how long away before the social lock asks)
 - Why: the social lock was fixed at 1 minute. Extras > Tabs and data > new row "Lock social tabs: ask" (sm_lockd, tap cycles Immediately -> After 1 minute (default) -> After 5 minutes).
 - How: SocialLock.kt: DELAYS / DELAY_LABELS arrays, delayIdx / delayLabel / cycleDelay, onStart compares the time away with DELAYS[delayIdx]; the fixed DELAY_MS constant is removed. SocialScreen: action row (same tap-cycle pattern as the time limit row) + summary shows the choice. SettingsScreen RESET + sm_lockd. HowToUse phrase. Default = 1 minute = same behaviour as 0.0.260.

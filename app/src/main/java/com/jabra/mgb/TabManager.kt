@@ -521,6 +521,7 @@ class TabManager(
                 if (!tab.priv) HeaderModes.pageRequest(r, tab.id, tab.url)?.let { return it }
                 if (AdBlock.shouldBlock(r, tab.url)) return AdBlock.emptyResponse() // S19
                 Sniffer.onRequest(tab, r)
+                SocialSave2.intercept(ctx, tab.url, r)?.let { return it } // 0.0.266 (C7): no video files on mobile data (pref OFF = null)
                 SocialNsfw.intercept(ctx, tab.url, r)?.let { return it } // 0.0.232 (P8a): experimental picture check (pref OFF / no model = null)
                 return null
             }

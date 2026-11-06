@@ -317,6 +317,7 @@ object SocialMode {
         val css = ((p?.css ?: "") + " " + (if (p != null && touchOn(ctx)) TOUCH_CSS else "") + " " + (if (p != null && bigOn(ctx)) SocialProfiles.bigCss(p.id) else "") + " " + (if (p != null && dfixOn(ctx)) SocialProfiles.extraCss(p.id) else "") + " " + (if (p != null && SocialFocus.on(ctx)) SocialFocus.css(p.id) else "") + " " + (if (p != null) SocialProfiles.fixCss(ctx, p.id) else "")).trim() // 0.0.236 (U2): built-in + 0.0.245 (A5) big targets + Site fix (last = wins)
         if (css.isNotEmpty()) view.evaluateJavascript(cssJs(css), null)
         SocialBlur.inject(ctx, view, p?.id) // 0.0.229 (P5): sensitive-media blur (mode OFF = only removes an old blur)
+        SocialMute.inject(ctx, view, p?.id) // 0.0.267 (C6): word mute (no words = nothing)
         SocialBadge.injectSaver(ctx, view) // 0.0.231 (P7): data saver (switch OFF = nothing)
         SocialBars.read(ctx, view) // 0.0.240 (A2): site colour for the phone bars (switch OFF = returns at once)
     }
