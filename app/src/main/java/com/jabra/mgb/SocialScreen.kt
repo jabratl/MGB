@@ -173,7 +173,7 @@ object SocialScreen {
             switchRow(extra, R.drawable.ic_open, "Open social links from other apps", "A link to a social site sent from another app opens in a Social tab. Also use the button below, Android decides who opens a link",
                 null, { SocialLinks.on(act) }) { on -> SocialLinks.setOn(act, on) }
             actionRow(extra, R.drawable.ic_open, "Choose links Thazir opens (Android)", "Opens Android settings: Open by default, then allow the social sites") { SocialLinks.openAndroidSettings(act) }
-            switchRow(extra, R.drawable.ic_screen, "Own window per site (experimental)", "Shortcut and Open button start each site in its own window, so Recent apps shows one card per site. Uploads and camera may use the main window",
+            switchRow(extra, R.drawable.ic_screen, "Own window per site (experimental)", "Shortcut and Open button start each site in its own window, so Recent apps shows one card per site",
                 null, { SiteWindow.on(act) }) { on -> SiteWindow.setOn(act, on) }
             col.addView(extra, LinearLayout.LayoutParams(MATCH, WRAP))
             siteRows.add(extra)

@@ -46,7 +46,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         siteWin = SiteWindow.isSite(intent); shared = !siteWin || !SiteWindow.mainUp // 0.0.247 (A7)
-        if (siteWin) SiteWindow.live++ else SiteWindow.mainUp = true
+        if (siteWin) { SiteWindow.live++; SiteWindow.used = true } else SiteWindow.mainUp = true
         UiMode.apply(this) // S20: saved theme (System / Light / Dark), before the Activity is created
         AdBlock.init(this) // S19
         DlRules.init(this) // D2
@@ -71,7 +71,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         lastNight = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         Orient.apply(this) // S35: phones keep the browser in portrait (setting: Rotate browser with phone)
         CrashLog.install(this) // FIX: save crash trace for the next start
-        if (shared) BrowserExtras.init(this) // S14 (A7: only the owner window): file chooser + permission launchers (before STARTED)
+        BrowserExtras.init(this) // S14 (A7b: every window registers its own launchers, focus() picks the one in front): file chooser + permission launchers (before STARTED)
 
         Util.loadEngine(this) // S33
         urlBar = findViewById(R.id.url_bar)
@@ -84,7 +84,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         progress = findViewById(R.id.progress)
         progress.trackColor = android.graphics.Color.TRANSPARENT // S21d: only the accent line, thicker
         progress.trackThickness = (3 * resources.displayMetrics.density).toInt()
-        if (shared) EngineHost.start(this) // S6 (A7: only the owner window): background.js engine (hidden WebView)
+        EngineHost.start(this) // S6 (A7b: safe twice, it starts once for the whole app): background.js engine (hidden WebView)
         tabs = TabManager(this, findViewById<FrameLayout>(R.id.web_container), this)
         if (shared) TabsApi.attach(tabs)
         if (shared) { GroupStrip.attach(this, tabs); TabSwitcher.onChanged = { GroupStrip.refresh() } } // S13
@@ -496,9 +496,19 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     override fun onResume() {
         super.onResume()
         backCb.isEnabled = true
-        if (siteWin || SiteWindow.live > 0) BookmarksScreen.tabsRef = tabs // 0.0.247 (A7): the window in front owns the Settings / Open actions
+        if (siteWin || SiteWindow.used) bindWindow() // 0.0.248 (A7b): the window in front owns the shared helpers
         tabs.active?.web?.onResume()
         floating.start() // S11
+    }
+
+    /** 0.0.248 (A7b): shared helpers follow the window in front (only runs when a site window exists in this process). */
+    private fun bindWindow() {
+        BookmarksScreen.tabsRef = tabs
+        BrowserExtras.focus(this) // file chooser, permission asks, dialogs
+        DlFly.attach(this, findViewById<View>(R.id.btn_menu)) // download fly animation
+        TabsApi.onNativePanel = { floating.openSheet() }
+        AppearanceScreen.onChange = { applyHomeIcon(); applyNavArrows(); refreshUrlField(); refreshShield() }
+        if (!SiteWindow.mainUp) TabsApi.attach(tabs) // only site windows left: they take the extension bridge
     }
 
     override fun onPause() {
@@ -512,11 +522,13 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         if (!siteWin) SiteWindow.mainUp = false else SiteWindow.live-- // 0.0.247 (A7)
         if (siteWin && !shared) { // site window while the main window lives: only its own things go
             floating.stop()
+            BrowserExtras.release(this) // 0.0.248 (A7b)
             if (BookmarksScreen.tabsRef === tabs) BookmarksScreen.tabsRef = null
             tabs.destroyAll()
             super.onDestroy()
             return
         }
+        BrowserExtras.release(this) // 0.0.248 (A7b)
         DlFly.detach() // S21e
         AppearanceScreen.onChange = null // A3
         AppLock.onDestroy() // S45

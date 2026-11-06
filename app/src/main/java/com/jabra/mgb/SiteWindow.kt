@@ -15,8 +15,9 @@ import android.net.Uri
  * ON: the pinned home-screen shortcut (P6) and the Open button of the Social sites page start MainActivity as its own document task
  * (FLAG_ACTIVITY_NEW_DOCUMENT, one per site), so Recent apps shows one card per site (site name + letter icon). That window starts with
  * only that site (no session restore) and never saves the session, so the main browser tabs are not touched.
- * App-wide helpers (BrowserExtras, TabsApi, GroupStrip, EngineHost, DlFly) stay with the main window while it lives: see MainActivity
- * fields siteWin / shared. Known limit: uploads / camera / permission questions in a site window use the main window if it is alive.
+ * App-wide helpers follow the window in front (A7b): BrowserExtras.focus (file chooser, permission asks), DlFly, tabsRef, onNativePanel,
+ * AppearanceScreen.onChange are re-bound in MainActivity.bindWindow on every onResume. TabsApi (extension bridge) and GroupStrip stay with the main
+ * window (site windows have no group strip; extensions do not see site window tabs).
  */
 object SiteWindow {
     const val ACTION = "com.jabra.mgb.SITE_WINDOW"
@@ -27,6 +28,8 @@ object SiteWindow {
     @Volatile var mainUp = false
     /** number of site windows alive (MainActivity.onResume re-points tabsRef only when this is > 0). */
     @Volatile var live = 0
+    /** true once any site window was created in this process (main window then re-binds the shared helpers on every onResume). */
+    @Volatile var used = false
 
     private fun sp(c: Context) = c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
     fun on(c: Context): Boolean = sp(c).getBoolean(KEY, false)

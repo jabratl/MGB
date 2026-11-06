@@ -149,6 +149,33 @@ object BrowserExtras {
             vaultTreeDone = null
             if (uri != null) cb?.invoke(uri)
         }
+        slots[a] = Slot(a, fileLauncher, permLauncher, exportLauncher, importLauncher, backupOut, backupIn, csvOut, treeLauncher, vaultTreeLauncher, extLauncher, imgLauncher) // 0.0.248 (A7b)
+    }
+
+    /** 0.0.248 (A7b): launchers of one window. Callbacks only use shared state (pendingFile ...), so a window swap = swap these fields. */
+    private class Slot(
+        val act: ComponentActivity,
+        val file: ActivityResultLauncher<Intent>?, val perm: ActivityResultLauncher<Array<String>>?,
+        val export: ActivityResultLauncher<String>?, val imp: ActivityResultLauncher<Array<String>>?,
+        val backupOut: ActivityResultLauncher<String>?, val backupIn: ActivityResultLauncher<Array<String>>?,
+        val csvOut: ActivityResultLauncher<String>?, val tree: ActivityResultLauncher<Uri?>?,
+        val vaultTree: ActivityResultLauncher<Uri?>?, val ext: ActivityResultLauncher<Array<String>>?,
+        val img: ActivityResultLauncher<Array<String>>?
+    )
+    private val slots = HashMap<ComponentActivity, Slot>()
+
+    /** The window in front (MainActivity.onResume with a site window around) takes over file chooser, permission asks and dialogs. */
+    fun focus(a: ComponentActivity) {
+        val s = slots[a] ?: return
+        act = s.act; fileLauncher = s.file; permLauncher = s.perm; exportLauncher = s.export; importLauncher = s.imp
+        backupOut = s.backupOut; backupIn = s.backupIn; csvOut = s.csvOut; treeLauncher = s.tree
+        vaultTreeLauncher = s.vaultTree; extLauncher = s.ext; imgLauncher = s.img
+    }
+
+    /** MainActivity.onDestroy: forget this window (no leak); another living window takes over. */
+    fun release(a: ComponentActivity) {
+        slots.remove(a)
+        if (act === a) slots.keys.firstOrNull()?.let { focus(it) }
     }
 
     /** V2: let the user pick the vault folder (system folder picker). The result goes to [done] only, no download setting changes. */
