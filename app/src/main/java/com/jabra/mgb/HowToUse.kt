@@ -18,13 +18,14 @@ import androidx.core.view.ViewCompat
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 /**
- * V14: "How to use" guide for new users. Full-screen page: Quick start + 10 short topics, each with
- * numbered steps and a tip. Plain text only (no images), mg_* colours, dark and light, 560dp max width.
+ * V14/V15: "How to use" guide for new users. Full-screen page: Quick start + 6 basic and 11 advanced topics, each with
+ * numbered steps, a tip and real examples (V15). Plain text only (no images), mg_* colours, dark and light, 560dp max width.
  * Entry points: 3-dot menu, Command Center, Settings > About, and a one-time offer on the first start.
  * State lives in this object (openIdx), the Dialog is rebuilt from scratch on every open, so rotation is safe.
  */
 object HowToUse {
-    private class Topic(val icon: Int, val title: String, val sum: String, val steps: List<String>, val tip: String = "")
+    private class Topic(val icon: Int, val title: String, val sum: String, val steps: List<String>, val tip: String = "",
+        val examples: List<String> = emptyList(), val adv: Boolean = false)
 
     private val QUICK = listOf(
         "Type a web address or a search in the bar at the top and press Go.",
@@ -32,6 +33,7 @@ object HowToUse {
         "Tap the tab counter to switch tabs. Menu > New private tab leaves no history."
     )
 
+    // Examples that start with "CODE:" are shown in a monospace box. Advanced topics (adv = true) come after the basics.
     private val TOPICS = listOf(
         Topic(R.drawable.ic_screen, "Browse and tabs", "Open, switch and close tabs",
             listOf(
@@ -40,21 +42,30 @@ object HowToUse {
                 "Close a tab with its X. If Settings > Tabs and motion has swipe on, swipe the tab card instead.",
                 "Closed one by mistake? Menu > Recently closed tabs brings it back.",
                 "Menu > Bookmark all tabs saves every open web tab into one folder."
-            ), "Menu > New private tab keeps no history and uses separate cookies."),
+            ), "Menu > New private tab keeps no history and uses separate cookies.",
+            listOf(
+                "Type: weather today - it runs a search. Type: example.com - it opens that site.",
+                "Planning a trip with 8 tabs open: Menu > Bookmark all tabs, name the folder Trip, Save. Close the tabs and open the folder later."
+            )),
         Topic(R.drawable.ic_search, "Menu and Command Center", "Find any action fast",
             listOf(
                 "Open the 3-dot menu. The top part is for the app, the lower part is for the page you are on.",
                 "Page actions: Find on page, Desktop site, Reader view, Translate page, Text size, Page info, Save page.",
                 "Menu > Command Center: type a few letters to find an action, an open tab or a bookmark.",
                 "Menu > Customise menu lets you hide rows you never use."
-            ), "Command Center is the fastest way when you do not remember where something is."),
+            ), "Command Center is the fastest way when you do not remember where something is.",
+            listOf(
+                "In Command Center type: private - New private tab appears. Type: dark - Appearance appears. Type: help - this guide appears.",
+                "A mobile page looks cramped? Menu > Desktop site. A long article is hard to read? Menu > Reader view."
+            )),
         Topic(R.drawable.ic_bookmark, "Bookmarks and history", "Save pages, find them again",
             listOf(
                 "On a page, use the bookmark button in the menu bar to save it. Tap it again to remove it.",
                 "Menu > Bookmarks shows your saved pages and folders. Menu > History shows where you have been.",
                 "Select rows in the list to open, move or delete many at once.",
                 "Settings > Data and backup can clear history, cookies and cache."
-            )),
+            ), "",
+            listOf("You found a recipe: tap the bookmark button. Next week: Menu > Bookmarks, tap the recipe.")),
         Topic(R.drawable.ic_download, "Downloads and Grabber", "Get videos, files and pages",
             listOf(
                 "When a page has a file or video, Menu > Detected files lists what Thazir found.",
@@ -62,19 +73,28 @@ object HowToUse {
                 "Menu > Grabber and Menu > Queue help with bigger or many downloads.",
                 "Menu > Media Library collects detected, downloaded and saved media in one place.",
                 "Novel grabber (in the menu) turns web novels into EPUB, DOCX or TXT."
-            ), "Settings > Downloads has quality, folder and speed options."),
+            ), "Settings > Downloads has quality, folder and speed options. See Download settings in Advanced.",
+            listOf(
+                "Open a page with a video. Tap the Grabber button on the page, pick a quality, download. Watch it in Menu > Downloads.",
+                "A download failed? Menu > Queue shows the failed job. Menu > Report center explains why."
+            )),
         Topic(R.drawable.ic_save, "Saved pages", "Read without internet",
             listOf(
                 "Open a page, then Menu > Save page. It is stored on your phone.",
                 "Menu > Saved pages lists them. Tap one to open it offline.",
                 "Use the row menu to share, rename or delete a saved page."
-            ), "Private tabs cannot be saved on purpose."),
+            ), "Private tabs cannot be saved on purpose.",
+            listOf("Before a flight: open the articles you want, Menu > Save page on each. In the air: Menu > Saved pages.")),
         Topic(R.drawable.ic_play, "Video and audio player", "Built-in player with gestures",
             listOf(
                 "Open a video or audio file from Downloads or the Media Library and it plays in the built-in player.",
                 "Double-tap the left or right side to jump back or forward. Hold to speed up.",
                 "Slide on the screen for volume and brightness, if gestures are on.",
                 "Settings > Player: gestures, speed, default fit, quality and subtitles."
+            ), "",
+            listOf(
+                "Watching a long lecture: hold the screen to speed up while you hold it, release to return to normal.",
+                "Want the same speed every time? Settings > Player > Keep speed ON."
             )),
         Topic(R.drawable.ic_shield, "Privacy and security", "Blocking, locking, passwords",
             listOf(
@@ -82,7 +102,85 @@ object HowToUse {
                 "Settings > Privacy and security: app lock, HTTPS only, permissions.",
                 "Menu > Passwords stores logins. On a login page use Menu > Fill password.",
                 "Menu > Email alias makes a throw-away address for a site."
-            ), "App lock asks for your fingerprint or screen lock when you come back to the app."),
+            ), "App lock asks for your fingerprint or screen lock when you come back to the app.",
+            listOf("Share your phone with family: Settings > Privacy and security > App lock ON, Lock after 1 minute."), false),
+        Topic(R.drawable.ic_settings, "Settings and look", "Make Thazir yours",
+            listOf(
+                "Menu > Settings. Tap a card to open it. Use the search box at the top to jump to a setting.",
+                "Menu > Settings > Appearance changes theme, address bar and home page.",
+                "Reduce motion (Tabs and motion) turns animations off.",
+                "Each card has Reset to default. It only resets the settings of that card."
+            ), "",
+            listOf("Cannot find a setting? Search for: animation - Reduce motion appears. Search for: dark - theme options appear.")),
+        Topic(R.drawable.ic_code, "Userscripts", "Small scripts that run on a site",
+            listOf(
+                "Open Settings > Extensions > Userscripts (or Menu > Userscripts on a page).",
+                "Tap Add (paste code) and paste a script. It must start with a header between ==UserScript== lines.",
+                "The header needs an @match (or @include) line. Without it the script would never run and Thazir tells you so.",
+                "Use @exclude to skip pages, @run-at to choose when it runs, @noframes to skip embedded frames.",
+                "Settings > Extensions has Run userscripts (master switch) and Userscripts in private tabs (separate switch)."
+            ), "Only paste scripts you trust. A script can read and change the pages it matches.",
+            listOf(
+                "CODE:// ==UserScript==\n// @name  Dark example\n// @match https://example.com/*\n// ==/UserScript==\ndocument.body.style.background = '#111';",
+                "@match https://example.com/* runs on every page of example.com. @match *://*/* would run on every site - avoid that unless you mean it."
+            ), true),
+        Topic(R.drawable.ic_shield, "Ad blocker and filters", "Fine control over blocking",
+            listOf(
+                "Settings > Privacy and security > Ad blocker turns blocking on or off.",
+                "Hosts and filters shows how many rules are loaded.",
+                "Hide ad spaces on pages removes the empty boxes ads leave behind. Hide cookie banners removes consent pop-ups.",
+                "Sites with ads allowed is your allow list for sites that break or that you want to support.",
+                "On any page, Menu > Privacy Guard shows what was blocked there."
+            ), "If a page looks broken, try allowing that one site before turning the blocker off for everything.",
+            listOf(
+                "A shop will not load its pay button: open Privacy Guard on that page, or add the shop in Sites with ads allowed, then reload.",
+                "A news site keeps a blank gap where an ad was: turn on Hide ad spaces on pages."
+            ), true),
+        Topic(R.drawable.ic_download, "Download settings", "Quality, folder and speed",
+            listOf(
+                "Settings > Downloads > Download quality sets the best video height you want by default.",
+                "Subtitles and file names: choose subtitle languages and the format, for example en and SRT.",
+                "Convert .ts to .mp4 turns streaming pieces into a normal video file when a download finishes.",
+                "Download folder lets you pick a folder (for example on an SD card). Sub-folders keeps files in sub-folders instead of one long list.",
+                "Download engine (Settings > Grabber and buttons > Engine) sets how many downloads run at a time, retries, speed limits and live recording."
+            ), "Changes apply to new downloads. Files already saved are not changed.",
+            listOf(
+                "Shared Wi-Fi at home: Settings > Grabber and buttons > Download engine > 1 at a time, speed limit 500 KB/s.",
+                "Small phone storage: Download folder > pick a folder on the SD card.",
+                "Lecture videos with captions: Subtitles and file names > languages: en, format: SRT."
+            ), true),
+        Topic(R.drawable.ic_history, "Scheduled downloads and Followed manga", "Let Thazir do it later",
+            listOf(
+                "Scheduled downloads (Settings > Downloads): pick a job and a time. Thazir starts it at that time.",
+                "Live streams scheduled this way are recorded until the Stop recording after limit set in Download engine (Settings > Grabber and buttons).",
+                "Followed manga: follow a series page and Thazir checks it for new chapters on its own, every few hours.",
+                "Open Followed manga to see unread chapters and check now."
+            ), "Scheduled jobs need the phone to be on at that time.",
+            listOf(
+                "A 3 GB movie: schedule it for 03:00 so it does not use your daytime data or Wi-Fi.",
+                "A weekly manga: Follow its page. Tomorrow open Followed manga and read what is unread."
+            ), true),
+        Topic(R.drawable.ic_list, "Site settings and permissions", "Rules for one website",
+            listOf(
+                "Settings > Privacy and security > Site permissions lists sites that have asked for camera, microphone or location, with your answer.",
+                "Site settings keeps choices per site: switches, text size, download buttons and permissions.",
+                "Open a site in the list to change or reset only that site."
+            ), "",
+            listOf(
+                "A video-call site keeps asking for the camera: open it in Site permissions and set it to Allow.",
+                "One blog is too small to read: Site settings > that site > Text size larger. Other sites stay as they are."
+            ), true),
+        Topic(R.drawable.ic_lock, "Passwords and email alias", "Logins without repeating yourself",
+            listOf(
+                "Menu > Passwords stores logins on this phone. Use Import passwords (file or paste) to bring them from another app.",
+                "On a login page: Menu > Fill password.",
+                "Password generator makes strong passwords. Export passwords (CSV) makes a plain file - keep it private.",
+                "Email alias: add your addy.io API key in Settings > Passwords and email, then Create email alias."
+            ), "A CSV export is not encrypted. Delete it after you use it.",
+            listOf(
+                "Signing up on a new shop: Menu > Email alias > create. Use that address. Your real email stays private.",
+                "Moving from a browser that exports CSV: Settings > Passwords and email > Import passwords > choose the file."
+            ), true),
         Topic(R.drawable.ic_vault, "Vault", "Encrypted copy of your data",
             listOf(
                 "Menu > Vault > Create. Pick a folder you can find again (make a new one, for example ThazirVault).",
@@ -90,21 +188,27 @@ object HowToUse {
                 "Use Move to vault or Copy to vault in Bookmarks, History, Saved pages and Downloads.",
                 "Before you uninstall: Vault > Exit vault / Prepare for uninstall, then choose what to keep.",
                 "On a new install: Vault > I already have a vault, pick the same folder and unlock."
-            ), "Android deletes app data when you uninstall. Your vault stays only because it lives in your own folder."),
-        Topic(R.drawable.ic_settings, "Settings and backup", "Make Thazir yours",
+            ), "Android deletes app data when you uninstall. Your vault stays only because it lives in your own folder.",
             listOf(
-                "Menu > Settings. Tap a card to open it. Use the search box at the top to jump to a setting.",
-                "Menu > Settings > Appearance changes theme, address bar and home page.",
-                "Reduce motion (Tabs and motion) turns animations off.",
-                "Settings > Data and backup: Export data saves your bookmarks, history and settings to a file; Import brings them back."
-            ), "Export data does not include the Vault. The Vault keeps its own folder."),
+                "Bookmarks > select rows > More > Move to vault. They leave the browser list and appear in Vault > Bookmarks.",
+                "Changing phone: before you leave, Vault > Prepare for uninstall > Keep all. On the new phone install Thazir, Vault > I already have a vault."
+            ), true),
+        Topic(R.drawable.ic_save, "Backup and restore", "Move to a new phone safely",
+            listOf(
+                "Settings > Data and backup > Export data: tick what to include (bookmarks, history, settings and more) and save the file.",
+                "Import data on the new phone and choose that file.",
+                "Auto backup (daily) keeps a fresh copy for you.",
+                "The Vault is not in this file. It stays in its own folder."
+            ), "Keep the backup file somewhere safe. It holds your browsing data.",
+            listOf("New phone: old phone Export data > send the file to yourself. New phone Import data. Then unlock the Vault from the same folder."), true),
         Topic(R.drawable.ic_ext, "Extensions and extras", "Add more features",
             listOf(
                 "Open the 3-dot menu and tap the extensions icon to open the Extensions tray.",
                 "Settings > Extensions: add, turn on or off and remove them.",
-                "Menu > Userscripts shows scripts that run on the page you are on.",
-                "Something wrong? Menu > Report center helps you collect details to report it."
-            ))
+                "Menu > Report center helps you collect details when something is wrong, so you can copy or share them."
+            ), "",
+            listOf("A page misbehaves: Menu > Report center > copy the report and send it to the developer.")
+            , true)
     )
 
     private var current: Screen? = null
@@ -246,8 +350,10 @@ object HowToUse {
             }
             QUICK.forEachIndexed { i, s -> card.addView(stepRow(i + 1, s), VaultScreen.lp(if (i == 0) 0 else dp(12))) }
             b.addView(card, VaultScreen.lp(dp(10)))
-            b.addView(header("Topics"), VaultScreen.lp(dp(24)))
-            TOPICS.forEachIndexed { i, t -> b.addView(topicRow(i, t), VaultScreen.lp(dp(10))) }
+            b.addView(header("Basics"), VaultScreen.lp(dp(24)))
+            TOPICS.forEachIndexed { i, t -> if (!t.adv) b.addView(topicRow(i, t), VaultScreen.lp(dp(10))) }
+            b.addView(header("Advanced features, with examples"), VaultScreen.lp(dp(24)))
+            TOPICS.forEachIndexed { i, t -> if (t.adv) b.addView(topicRow(i, t), VaultScreen.lp(dp(10))) }
         }
 
         private fun topicRow(i: Int, t: Topic): View = LinearLayout(act).apply {
@@ -289,6 +395,21 @@ object HowToUse {
                 tip.addView(header("Tip"))
                 tip.addView(VaultScreen.tv(act, t.tip, 14f, R.color.mg_text).apply { setLineSpacing(0f, 1.15f) }, VaultScreen.lp(dp(6)))
                 b.addView(tip, VaultScreen.lp(dp(12)))
+            }
+            if (t.examples.isNotEmpty()) {
+                b.addView(header(if (t.examples.size == 1) "Example" else "Examples"), VaultScreen.lp(dp(22)))
+                for (e in t.examples) {
+                    val code = e.startsWith("CODE:")
+                    val ex = LinearLayout(act).apply {
+                        orientation = LinearLayout.VERTICAL
+                        background = VaultScreen.box(act, 16, R.color.mg_surface_variant)
+                        setPadding(dp(14), dp(12), dp(14), dp(12))
+                    }
+                    ex.addView(VaultScreen.tv(act, if (code) e.removePrefix("CODE:") else e, if (code) 12.5f else 14f, R.color.mg_text).apply {
+                        if (code) { typeface = Typeface.MONOSPACE; setTextIsSelectable(true) } else setLineSpacing(0f, 1.15f)
+                    })
+                    b.addView(ex, VaultScreen.lp(dp(10)))
+                }
             }
             val nav = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL }
             if (i > 0) nav.addView(VaultScreen.btn(act, "Previous", false) { openIdx = i - 1; render(true) },

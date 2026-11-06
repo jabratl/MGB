@@ -1,3 +1,9 @@
+0.0.202 (V15 MODIFY: guide with examples + advanced topics)
+- HowToUse.kt only: every topic can now show "Example" boxes (real tasks with the exact menu / settings path). Home is split into Basics (6) and "Advanced features, with examples" (11).
+- NEW advanced topics: Userscripts (header, @match / @exclude / @run-at, copyable code example), Ad blocker and filters, Download settings (quality, subtitles, .ts to .mp4, folder, engine limits), Scheduled downloads and Followed manga, Site settings and permissions, Passwords and email alias, Vault (with examples), Backup and restore, Extensions and extras.
+- Settings paths in the text were checked against SettingsScreen.kt (e.g. Export data = Data and backup, Download engine = Grabber and buttons > Engine).
+- All text is English. Needs 0.0.201 (V14) applied first. NOT touched: any other file, logic, CI.
+
 0.0.201 (V14 BUILD: "How to use" guide for new users)
 - NEW HowToUse.kt: full-screen guide (dark + light, mg_* tokens, 560dp max width, Reduce motion respected). Home = Quick start (3 steps) + 10 topics (Browse and tabs, Menu and Command Center, Bookmarks and history, Downloads and Grabber, Saved pages, Player, Privacy and security, Vault, Settings and backup, Extensions and extras). Each topic = numbered steps + tip + Previous / Next. Plain text, no images. State in the object, Dialog rebuilt on open (rotation safe).
 - First start only: one dialog "New to Thazir?" (Show me / Not now), pref mgb_ui howto_seen, shown 2.5 s after a cold start (not after a rotation/recreate).
