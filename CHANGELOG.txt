@@ -1,3 +1,11 @@
+0.0.264 (C2 PARTIAL: focus mode)
+- Why: fewer distractions on social sites. Extras > Tabs and data > switch "Focus mode" (sm_focus, default OFF) hides Reels, promoted posts and suggestion boxes on Facebook, Instagram, Reddit, X, Pinterest and LinkedIn.
+- How: NEW SocialFocus.kt (object SocialFocus: on / setOn, css(id) from one map CSS, display:none!important rules, no single quote / backslash in a rule). SocialMode.inject: the css string gets SocialFocus.css(p.id) when ON, placed BEFORE Site fix so a person's own CSS line wins. Same style tag as the other site CSS (no new script, no new hook in TabManager).
+- Not built from C2: X "For you" -> Following (needs a click script), per-site switches (one global switch), Reddit popular nav.
+- Files: SocialFocus.kt (new), SocialMode.kt (1 line), SocialScreen.kt (switch row + summary), SettingsScreen.kt (RESET + sm_focus), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES.
+- Could break: OFF = nothing added. ON: every selector is an ASSUMPTION about live sites; a rule can hide too much (for example Instagram Explore link) or stop working after a site change: switch OFF or edit one line in SocialFocus.CSS.
+- NOT tested: Gradle build (CI), device, live sites (all selectors).
+
 0.0.263 (D5 PARTIAL: app-like error screen on social sites)
 - Why: a social page without internet showed the white system error page. Social sites page > Extras > Tabs and data > switch "App-like error screen" (sm_err, default OFF): a small page in the app colours with "No connection", the site name, a short reason and a "Try again" button.
 - How: NEW SocialError.kt (object SocialError: on / setOn, show(ctx, view, request, code, isExt)). TabManager.onReceivedError: ONE line after the existing Diag line. Only main-frame errors with code HOST_LOOKUP / CONNECT / TIMEOUT / IO on a social site (Social ON + site switch ON, not an extension tab). Page = loadDataWithBaseURL(url, html, ..., historyUrl = url) with colours from R.color.mg_* (dark + light follow the phone); Try again = location.replace(original address). Certificate errors, http 4xx / 5xx and other sites are untouched.

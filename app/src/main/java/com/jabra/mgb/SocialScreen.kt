@@ -193,6 +193,8 @@ object SocialScreen {
                 null, { SocialClean.on(act) }) { on -> SocialClean.setOn(act, on) }
             switchRow(extra, R.drawable.ic_lock, "Lock social tabs", "Asks for fingerprint / face / screen lock when a social tab is in front and you were away 1 minute or more. Needs a screen lock on the phone. Not used while App lock is ON",
                 null, { SocialLock.on(act) }) { on -> SocialLock.setOn(act, on) }
+            switchRow(extra, R.drawable.ic_shield, "Focus mode (Facebook, Instagram, Reddit, X, Pinterest, LinkedIn)", "Hides Reels, promoted posts and suggestion boxes on these sites. Applies from the next page load; site changes can break it (Site fix can add more)",
+                null, { SocialFocus.on(act) }) { on -> SocialFocus.setOn(act, on) }
             switchRow(extra, R.drawable.ic_info, "App-like error screen", "On a social site without internet, shows a clean No connection page with a Try again button instead of the system error page",
                 null, { SocialError.on(act) }) { on -> SocialError.setOn(act, on) }
             lateinit var tlTv: TextView // 0.0.261 (C3)
@@ -575,6 +577,7 @@ object SocialScreen {
                 .append(", clean links: ").append(yn(SocialClean.on(act)))
                 .append(", lock: ").append(yn(SocialLock.on(act)))
                 .append(", error screen: ").append(yn(SocialError.on(act)))
+                .append(", focus mode: ").append(yn(SocialFocus.on(act)))
                 .append(", time limit: ").append(SocialTime.label(act)).append("\n\n")
             for (p in SocialProfiles.all) {
                 sb.append(p.label).append(": ").append(yn(SocialProfiles.siteOn(act, p.id)))
