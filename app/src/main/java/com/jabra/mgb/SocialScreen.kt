@@ -166,6 +166,10 @@ object SocialScreen {
                 null, { SocialMode.barsOn(act) }) { on -> SocialMode.setBarsOn(act, on); SocialBars.sync(act, BookmarksScreen.tabsRef?.active) }
             switchRow(extra, R.drawable.ic_shield, "Ask before closing a social tab", "On the first page of a social site, Back shows \"Press Back again to close\" so one slip does not close your feed",
                 null, { SocialMode.backOn(act) }) { on -> SocialMode.setBackOn(act, on) }
+            switchRow(extra, R.drawable.ic_screen, "Bigger buttons (Reddit, X, LinkedIn)", "Makes the small like / reply / vote buttons at least 44 px so they are easy to hit (experimental, applies from the next page load)",
+                null, { SocialMode.bigOn(act) }) { on -> SocialMode.setBigOn(act, on) }
+            switchRow(extra, R.drawable.ic_screen, "Splash when opening from a shortcut", "Shows the site letter and name for a moment when a home-screen shortcut opens it (off with Reduce motion)",
+                null, { SocialMode.splashOn(act) }) { on -> SocialMode.setSplashOn(act, on) }
             col.addView(extra, LinearLayout.LayoutParams(MATCH, WRAP))
             siteRows.add(extra)
 
@@ -182,6 +186,11 @@ object SocialScreen {
                 }
                 col.addView(c, LinearLayout.LayoutParams(MATCH, WRAP))
             }
+
+            col.addView(sectionLabel("Chat comfort")) // 0.0.243 (A9) + 0.0.244 (A8)
+            val chatC = chatCard()
+            col.addView(chatC, LinearLayout.LayoutParams(MATCH, WRAP))
+            siteRows.add(chatC)
 
             col.addView(sectionLabel("Site fix")) // 0.0.236 (U2)
             val fixC = card()
@@ -229,6 +238,46 @@ object SocialScreen {
         }
 
         /** 0.0.229 (P5): blur card = 3 choices (Off / Flagged only / All until tap) + strength slider 4..24 px. Prefs: SocialBlur. */
+        /** 0.0.243 (A9) chat size chips 100 / 125 / 150 / 175 % + 0.0.244 (A8) keyboard switch. Size applies from the next page load of a chat site. */
+        private fun chatCard(): LinearLayout {
+            val c = card()
+            c.addView(TextView(act).apply {
+                text = "Chat size"; textSize = 15f; setTextColor(act.getColor(R.color.mg_text))
+                setPadding(dp(16), dp(12), dp(16), 0)
+            }, LinearLayout.LayoutParams(MATCH, WRAP))
+            val seg = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(10), dp(8), dp(10), dp(4)) }
+            val chips = ArrayList<TextView>()
+            fun paint() {
+                val cur = SocialMode.chatScale(act)
+                for ((i, t) in chips.withIndex()) {
+                    val sel = SocialMode.chatSizes[i] == cur
+                    t.setTextColor(act.getColor(if (sel) R.color.mg_on_primary else R.color.mg_text))
+                    t.background = round(act.getColor(if (sel) R.color.mg_primary else R.color.mg_surface_variant), 14, 1f,
+                        act.getColor(if (sel) R.color.mg_primary else R.color.mg_outline))
+                    t.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                }
+            }
+            for ((i, v) in SocialMode.chatSizes.withIndex()) {
+                val t = TextView(act).apply {
+                    text = "$v%"; textSize = 12f; maxLines = 1; gravity = Gravity.CENTER; isClickable = true
+                    contentDescription = "Chat size $v percent"
+                    setPadding(dp(4), 0, dp(4), 0)
+                    setOnClickListener { it.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK); SocialMode.setChatScale(act, v); paint() }
+                }
+                chips.add(t)
+                seg.addView(t, LinearLayout.LayoutParams(0, dp(44), 1f).apply { if (i > 0) marginStart = dp(6) })
+            }
+            paint()
+            c.addView(seg, LinearLayout.LayoutParams(MATCH, WRAP))
+            c.addView(TextView(act).apply {
+                text = "Bigger text and buttons in chat sites (Facebook chat, Messenger, Discord, WhatsApp Web, Telegram Web, Snapchat). 100% = as before. Applies from the next page load; a very large size can break a site layout."
+                textSize = 12f; setTextColor(act.getColor(R.color.mg_text_dim)); setPadding(dp(16), dp(4), dp(16), dp(8))
+            }, LinearLayout.LayoutParams(MATCH, WRAP))
+            switchRow(c, R.drawable.ic_screen, "Keep message box above keyboard", "In chat sites the box you tap is scrolled into view when the keyboard opens (applies from the next page load)",
+                null, { SocialMode.kbOn(act) }) { on -> SocialMode.setKbOn(act, on) }
+            return c
+        }
+
         private fun blurCard(): LinearLayout {
             val c = card()
             val seg = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(10), dp(8), dp(10), dp(4)) }

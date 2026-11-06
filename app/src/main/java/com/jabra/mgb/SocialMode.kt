@@ -70,6 +70,22 @@ object SocialMode {
     private const val K_BACK = "sm_back" // 0.0.241 (A3): first page of a social tab asks before closing (default ON)
     fun backOn(c: Context): Boolean = sp(c).getBoolean(K_BACK, true)
     fun setBackOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_BACK, v).apply() }
+    private const val K_SPLASH = "sm_splash" // 0.0.242 (A4): splash when a pinned shortcut opens the browser (default ON)
+    fun splashOn(c: Context): Boolean = sp(c).getBoolean(K_SPLASH, true)
+    fun setSplashOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_SPLASH, v).apply() }
+    // 0.0.243 (A9): chat size for CHAT sites (Facebook chat, Messenger, Discord, WhatsApp / Telegram Web, Snapchat); 100 = old behaviour byte for byte
+    private const val K_CS = "sm_cs"
+    val chatSizes = listOf(100, 125, 150, 175)
+    fun chatScale(c: Context): Int = sp(c).getInt(K_CS, 100).let { if (it in chatSizes) it else 100 }
+    fun setChatScale(c: Context, v: Int) { sp(c).edit().putInt(K_CS, if (v in chatSizes) v else 100).apply() }
+    // 0.0.244 (A8): keep the focused message box above the soft keyboard on CHAT sites (default ON)
+    private const val K_KB = "sm_kb"
+    fun kbOn(c: Context): Boolean = sp(c).getBoolean(K_KB, true)
+    fun setKbOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_KB, v).apply() }
+    // 0.0.245 (A5): bigger touch targets on Reddit / X / LinkedIn (default OFF: selectors are assumptions)
+    private const val K_BIG = "sm_big"
+    fun bigOn(c: Context): Boolean = sp(c).getBoolean(K_BIG, false)
+    fun setBigOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_BIG, v).apply() }
 
     /** Per-site switch (0.0.228, P4): thin wrappers over SocialProfiles (key sm_s_<id>, not set = ON). */
     fun siteOn(c: Context, id: String): Boolean = SocialProfiles.siteOn(c, id)
@@ -153,6 +169,30 @@ object SocialMode {
         "fix();var o=new MutationObserver(fix);o.observe(document.documentElement,{childList:true,subtree:true});" +
         "setTimeout(function(){o.disconnect();},8000);}catch(e){}})();"
 
+    // 0.0.243 (A9): same as VIEWPORT_JS but the page is laid out (device width / scale) CSS px wide and shown at that zoom, so text + buttons are bigger.
+    // %S% = scale (1.25 / 1.5 / 1.75). screen.width = device width in CSS px; re-checked on resize (rotation).
+    private const val VIEWPORT_SCALED_JS = "(function(){try{if(window.__mgSv)return;window.__mgSv=1;var S=%S%;" +
+        "var f=function(){return 'width='+Math.round((screen.width||window.innerWidth)/S)+', initial-scale='+S;};" +
+        "var fix=function(){var c=f();var m=document.querySelector('meta[name=viewport]');" +
+        "if(!m){m=document.createElement('meta');m.name='viewport';(document.head||document.documentElement).appendChild(m);}" +
+        "if(m.getAttribute('content')!==c)m.setAttribute('content',c);};" +
+        "fix();var o=new MutationObserver(fix);o.observe(document.documentElement,{childList:true,subtree:true});" +
+        "setTimeout(function(){o.disconnect();},8000);window.addEventListener('resize',fix);}catch(e){}})();"
+
+    // 0.0.244 (A8): when a text box gets focus (never a password box) scroll it to the middle of the shrunken page after the keyboard is up. Guard window.__mgSk.
+    private const val KEYBOARD_JS = "(function(){try{if(window.__mgSk)return;window.__mgSk=1;" +
+        "var ok=function(t){if(!t)return false;if(t.tagName==='TEXTAREA')return true;if(t.tagName==='INPUT')return t.type!=='password';return !!t.isContentEditable;};" +
+        "var go=function(t){try{t.scrollIntoView({block:'center',behavior:'auto'});}catch(x){}};" +
+        "document.addEventListener('focusin',function(e){var t=e.target;if(!ok(t))return;setTimeout(function(){go(t)},300);setTimeout(function(){go(t)},700);},true);" +
+        "if(window.visualViewport){visualViewport.addEventListener('resize',function(){var a=document.activeElement;if(ok(a))setTimeout(function(){go(a)},100);});}" +
+        "}catch(e){}})();"
+
+    private fun viewportJs(ctx: Context, again: Boolean): String {
+        val sc = chatScale(ctx)
+        val js = if (sc == 100) VIEWPORT_JS else VIEWPORT_SCALED_JS.replace("%S%", (sc / 100.0).toString())
+        return if (again) "window.__mgSv=0;" + js else js
+    }
+
     // "Open app" banner: a button or link with that text inside a small fixed / sticky bar. Looks for 40 s, then stops.
     // 0.0.226: the app names in the text come from the site row (SocialProfiles.Profile.appWords).
     // 0.0.235 (U1): again = true restarts the 40 s scan after an in-page route change (counter window.__mgSbN, timer window.__mgSbI).
@@ -210,12 +250,15 @@ object SocialMode {
         if (view == null || handDesktop || !on(ctx)) return
         val p = SocialProfiles.of(url)
         when (kindFor(ctx, url)) {
-            Kind.CHAT -> view.evaluateJavascript(if (again) "window.__mgSv=0;" + VIEWPORT_JS else VIEWPORT_JS, null)
+            Kind.CHAT -> { // 0.0.243 (A9): chat size; 0.0.244 (A8): keyboard scroll
+                view.evaluateJavascript(viewportJs(ctx, again), null)
+                if (kbOn(ctx)) view.evaluateJavascript(KEYBOARD_JS, null)
+            }
             Kind.FEED, Kind.INSTA -> view.evaluateJavascript(bannerJs(p?.appWords ?: emptyList(), if (p != null) SocialProfiles.fixWords(ctx, p.id) else emptyList(), again), null)
             Kind.NONE -> return
         }
         if (intOn(ctx)) view.evaluateJavascript(if (again) "window.__mgSi=0;" + INTERSTITIAL_JS else INTERSTITIAL_JS, null) // 0.0.237 (U3)
-        val css = ((p?.css ?: "") + " " + (if (p != null) SocialProfiles.fixCss(ctx, p.id) else "")).trim() // 0.0.236 (U2): built-in + Site fix
+        val css = ((p?.css ?: "") + " " + (if (p != null && bigOn(ctx)) SocialProfiles.bigCss(p.id) else "") + " " + (if (p != null) SocialProfiles.fixCss(ctx, p.id) else "")).trim() // 0.0.236 (U2): built-in + 0.0.245 (A5) big targets + Site fix (last = wins)
         if (css.isNotEmpty()) view.evaluateJavascript(cssJs(css), null)
         SocialBlur.inject(ctx, view, p?.id) // 0.0.229 (P5): sensitive-media blur (mode OFF = only removes an old blur)
         SocialBadge.injectSaver(ctx, view) // 0.0.231 (P7): data saver (switch OFF = nothing)

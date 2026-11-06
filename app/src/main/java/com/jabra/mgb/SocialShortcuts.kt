@@ -35,6 +35,7 @@ object SocialShortcuts {
         intent.removeExtra(EXTRA) // a recreate (rotation, theme) must not open the tab again
         val p = id?.let { SocialProfiles.byId(it) } ?: return true
         if (!SocialProfiles.siteOn(act, p.id)) SocialProfiles.setSiteOn(act, p.id, true)
+        SocialSplash.show(act, p.label) // 0.0.242 (A4): short cover while the page loads
         SocialMode.open(act, tabs, p.startUrl)
         return true
     }

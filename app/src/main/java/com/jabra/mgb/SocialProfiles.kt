@@ -159,6 +159,17 @@ object SocialProfiles {
     fun cleanCss(raw: String): String = raw.replace(Regex("[\\r\\n\\u2028\\u2029]+"), " ")
         .replace(Regex("(?i)@import|url\\s*\\("), "").replace("<", "").trim().take(600)
 
+    /**
+     * 0.0.245 (A5): optional bigger touch targets (>= 44 px) for the small action buttons of a few sites. Selectors are ASSUMPTIONS about the live
+     * pages and WILL need small fixes (the person can override them with Site fix). One line of CSS per site, no quotes / backslashes inside.
+     */
+    private val BIG_CSS = mapOf(
+        "reddit" to "shreddit-post button,shreddit-post [role=button],shreddit-comment-action-row button{min-width:44px;min-height:44px}",
+        "x" to "[data-testid=reply],[data-testid=retweet],[data-testid=unretweet],[data-testid=like],[data-testid=unlike],[data-testid=bookmark]{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}",
+        "linkedin" to "button[aria-label*=Like],button[aria-label*=Comment],button[aria-label*=Repost],button[aria-label*=Send],.social-actions-button,.feed-shared-social-action-bar button{min-width:44px;min-height:44px}"
+    )
+    fun bigCss(id: String): String = BIG_CSS[id] ?: ""
+
     fun fixWords(c: Context, id: String): List<String> = cleanWords(fixObj(c, id)?.optString("w", "") ?: "")
     fun fixCss(c: Context, id: String): String = cleanCss(fixObj(c, id)?.optString("c", "") ?: "")
     fun hasFix(c: Context, id: String): Boolean = fixWords(c, id).isNotEmpty() || fixCss(c, id).isNotEmpty()

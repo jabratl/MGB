@@ -1,3 +1,27 @@
+0.0.245 (A5 BUILD: bigger buttons on Reddit, X, LinkedIn)
+- Why: the like / reply / vote buttons of these sites are small on a phone. Switch "Bigger buttons (Reddit, X, LinkedIn)" (Social sites page > Tabs and data, default OFF, key sm_big) adds one CSS line per site that makes them at least 44 px. Applies from the next page load; Site fix can override it.
+- Files: SocialProfiles.kt (BIG_CSS + bigCss), SocialMode.kt (sm_big, inject css), SocialScreen.kt (switch row), SettingsScreen.kt (RESET + sm_big), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: nothing with the switch OFF. ON: selectors are guesses about the live pages; a site may look off (switch OFF).
+- NOT tested: Gradle build (CI), device, live sites.
+
+0.0.244 (A8 BUILD: message box stays above the keyboard in chat sites)
+- Why: on desktop-fit chat sites the box you tap could stay behind the soft keyboard. A page script now scrolls the focused text box (never a password box) to the middle after the keyboard is up. Switch "Keep message box above keyboard" (Social sites page > Chat comfort, default ON, key sm_kb).
+- Files: SocialMode.kt (KEYBOARD_JS, sm_kb, inject), SocialScreen.kt, SettingsScreen.kt (RESET), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: nothing with Social sites OFF or the switch OFF; ON: a site may scroll a little when you tap its box.
+- NOT tested: Gradle build (CI), device, landscape, live sites.
+
+0.0.243 (A9 BUILD: chat size)
+- Why: chat sites are desktop pages squeezed to phone width, so buttons / text are small. Social sites page > Chat comfort > Chat size 100 / 125 / 150 / 175 % (key sm_cs, default 100 = exactly as before) lays the page out narrower and shows it zoomed, so everything is bigger. Applies from the next page load.
+- Files: SocialMode.kt (VIEWPORT_SCALED_JS, sm_cs, viewportJs), SocialScreen.kt (card Chat comfort), SettingsScreen.kt (RESET + sm_cs), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: nothing at 100 %. Large sizes can break a site layout (go back to 100 %).
+- NOT tested: Gradle build (CI), device, live chat sites, rotation.
+
+0.0.242 (A4 BUILD: splash when a home-screen shortcut opens a social site)
+- Why: feel like an app. A pinned social shortcut now shows the site letter circle + name for 0.7 s over the loading page, then fades out. Switch "Splash when opening from a shortcut" (Social sites page > Tabs and data, default ON, key sm_splash). Skipped with Reduce motion.
+- Files: NEW SocialSplash.kt, SocialShortcuts.kt (1 line), SocialMode.kt (sm_splash), SocialScreen.kt (switch row), SettingsScreen.kt (RESET + sm_splash), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: nothing for normal opens (only the shortcut intent path calls it); switch OFF or Reduce motion = nothing shown.
+- NOT tested: Gradle build (CI), device, launcher start.
+
 0.0.241 (A3 BUILD: ask before closing a social tab)
 - Why: Back already goes back inside a site first; at the first page it closed the tab at once. Now on a social tab the first Back shows "Press Back again to close" and the second Back (within 2 s) closes as before. Switch "Ask before closing a social tab" (Social sites page > Tabs and data, default ON, key sm_back).
 - Files: NEW SocialBack.kt, SocialMode.kt (sm_back), MainActivity.kt (1 branch in the back rule), SocialScreen.kt (switch row), SettingsScreen.kt (RESET + sm_back), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.
