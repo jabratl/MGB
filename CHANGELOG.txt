@@ -1,3 +1,10 @@
+0.0.222 (A12 FIX: diagnose report showed empty "failed:" job lines and hid where a crash happened)
+- Root cause 1: DiagReport read the failed job text from "error" / "why", but V77 (background.js trackJob) stores it in "text". So "Queue / jobs" printed "failed:" with no reason, and the rule engine (token-expired, convert-limit, dup-file, subtitle-fail) never saw the job errors.
+- Root cause 2: a crash event keeps its stack in Diag.Event.extra, but the report printed only the message line ("IndexOutOfBoundsException Empty list ... index 0"), so the crash cannot be located.
+- DiagReport.kt: new jobErr() (text, then error, then why) used in the failed-job lines and in DiagRules facts; new crashFrames() adds the first 2 stack lines + app frames (com.jabra.mgb, max 6, masked) under a crash line in "Recent errors".
+- Could break: nothing in downloads (report only). More rules can fire now because job errors are really read (e.g. a cancelled job text "Cancelled" is now visible in the list).
+- Not fixed (NEXT): the crash itself (EmptyList.get(0) on main at 19:27) - send the next diagnose report, it will show the file and line. 403 on ugska.midnightvoyage.site (segments named .ico / .webp / .jpg / .html, header modes rotate without effect) - see NEXT in HANDOFF.
+
 0.0.221 (A11 FIX: HLS 403 on animepahe - Referer of the CDN request was the top page, not the kwik.cx player)
 - Root cause (reasoned from the diagnose log, not yet proven on device): Sniffer.kt records the headers the player sent per host. The WebView gives no Referer for the player iframe request, so Sniffer filled in the TOP page url (animepahe.pw) while the Origin header was the player's (kwik.cx). The recorded rule beats the generic header modes (priority 2 vs 1), so all 4 modes sent animepahe.pw + Origin kwik.cx -> owocdn 403 every time.
 - Sniffer.kt: Referer fallback is now the request's Origin (+ "/", what a browser sends cross-site) before the tab url.

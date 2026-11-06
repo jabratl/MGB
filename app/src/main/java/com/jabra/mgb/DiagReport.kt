@@ -182,7 +182,7 @@ object DiagReport {
         val failedJobs = jobs.filter { it.optString("state") == "error" || it.optString("state") == "failed" }
         val jl = ArrayList<String>()
         jl.add("V77 jobs: " + (if (jobs.isEmpty()) "none" else states.entries.joinToString(", ") { it.key + " " + it.value }))
-        for (j in failedJobs.take(3)) jl.add("  - failed: " + Diag.mask(j.optString("error").ifBlank { j.optString("why") }.take(120)) + " " + Diag.maskUrl(j.optString("url")))
+        for (j in failedJobs.take(3)) jl.add("  - failed: " + Diag.mask(jobErr(j).take(120)) + " " + Diag.maskUrl(j.optString("url")))
         val dFail5 = Diag.countSince("download", now - FIVE_MIN, null)
         if (dFail5 > 0) jl.add("Download failures logged in the last 5 min: $dFail5")
         for (e in Diag.recent(3, "download", false)) jl.add(fmtEvent(e))
@@ -204,7 +204,7 @@ object DiagReport {
         // ---- Recent native errors
         val errs = Diag.recent(20, null, true)
         secs.add(Section("errors", "Device", "Recent errors", if (errs.any { it.ts >= now - FIVE_MIN }) WARN else INFO,
-            if (errs.isEmpty()) listOf("No errors logged") else errs.map { fmtEvent(it) }))
+            if (errs.isEmpty()) listOf("No errors logged") else errs.flatMap { listOf(fmtEvent(it)) + crashFrames(it) }))
 
         // ---- verdict (S86: rule engine, DiagRules.kt)
         val x = DiagRules.Facts()
@@ -255,7 +255,7 @@ object DiagReport {
             }
             x.mgCodes = cnt; x.mgCodeNotes = note
         }
-        x.jobErrors = failedJobs.map { Diag.mask(it.optString("error").ifBlank { it.optString("why") }).lowercase() }
+        x.jobErrors = failedJobs.map { Diag.mask(jobErr(it)).lowercase() }
         x.failedJobUrls = failedJobs.map { Diag.maskUrl(it.optString("url")) } +
             Diag.recent(30, "download", false).filter { it.ts >= now - TEN_MIN && it.msg.startsWith("failed ") }.map { Diag.maskUrl(it.extra) }
         x.runningJobs = jobs.count { it.optString("state") == "run" }
@@ -281,6 +281,17 @@ object DiagReport {
         } catch (_: Throwable) { null }
         val t = at(y) ?: return null
         return if (t > now + 24 * 60 * 60 * 1000L) at(y - 1) else t   // Dec lines read in Jan
+    }
+
+    /** 0.0.222: V77 jobs keep the failure text in "text" (background.js trackJob); "error" / "why" stay as old fallbacks. */
+    private fun jobErr(j: JSONObject): String = j.optString("text").ifBlank { j.optString("error") }.ifBlank { j.optString("why") }
+
+    /** 0.0.222: a crash event carries its stack in e.extra; the report now shows the first frame(s) + the app frames, so the crash can be found. */
+    private fun crashFrames(e: Diag.Event): List<String> {
+        if (e.tag != "crash") return emptyList()
+        val at = e.extra.lines().map { it.trim() }.filter { it.startsWith("at ") }
+        val keep = at.withIndex().filter { (i, l) -> i < 2 || l.contains("com.jabra.mgb") }.map { it.value }.take(6)
+        return keep.map { "      " + Diag.mask(it.take(160)) }
     }
 
     private fun fmtEvent(e: Diag.Event): String {
