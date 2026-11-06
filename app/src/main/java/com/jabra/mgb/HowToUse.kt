@@ -155,7 +155,7 @@ object HowToUse {
             ), true),
         Topic(R.drawable.ic_download, "Download settings", "Quality, folder and speed",
             listOf(
-                "Settings > Downloads > Download quality sets the best video height you want by default.",
+                "Settings > Downloads > Download quality sets the best video height you want by default, up to 8K. Preferred video format picks MP4 or WebM when a stream offers both (no conversion).",
                 "Subtitles and file names: choose subtitle languages and the format, for example en and SRT.",
                 "Convert .ts to .mp4 turns streaming pieces into a normal video file when a download finishes.",
                 "Download folder lets you pick a folder (for example on an SD card). Sub-folders keeps files in sub-folders instead of one long list.",

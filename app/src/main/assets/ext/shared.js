@@ -22,6 +22,7 @@ const DEFAULTS = {
   siteRules: '',           // one per line: domain = css selector of the page images
   requestDelayMs: 0,       // pause between page/chapter requests (some sites block fast scrapers)
   maxHeight: 0,            // preferred max video height for "best" (0 = highest available)
+  preferContainer: 'any', // D3: DASH video pick: any | mp4 | webm (a preference between equal heights, never a conversion)
   notify: true,            // desktop notification when downloads finish
   blockAds: true,          // ignore ad videos / ad banners / sponsored links
   mergeAV: true,           // video + separate audio -> ONE mp4 (re-packaged, not re-encoded)
@@ -481,11 +482,11 @@ function parseAttrs(s) {
 // "Quality label" of a stream variant (1080, 720, 480, 360, 240...): what people mean by "720p". Read from RESOLUTION (cinematic crops such as
 // 1920x800 still count as 1080), else from a name / address that says "720p", else guessed from the bandwidth. est = true when guessed.
 function stdLabel(w, h, name, url, bw) {
-  const fromV = (v) => (v >= 1800 ? 2160 : v >= 1260 ? 1440 : v >= 900 ? 1080 : v >= 600 ? 720 : v >= 420 ? 480 : v >= 300 ? 360 : v >= 200 ? 240 : 144);
+  const fromV = (v) => (v >= 3600 ? 4320 : v >= 1800 ? 2160 : v >= 1260 ? 1440 : v >= 900 ? 1080 : v >= 600 ? 720 : v >= 420 ? 480 : v >= 300 ? 360 : v >= 200 ? 240 : 144);
   w = +w || 0; h = +h || 0;
   if (w || h) return { lh: fromV(w && h > w ? w : Math.max(h, Math.round(w * 9 / 16))), est: false };
   const t = String(name || '') + ' ' + String(url || '').split('?')[0];
-  let m = /(?:^|[^0-9])(2160|1440|1080|720|480|360|240|144)\s*p(?![a-z0-9])/i.exec(t) || /(?:^|[\s\/_.-])(2160|1440|1080|720|480|360|240|144)(?=[\/_.-]|$)/.exec(t);
+  let m = /(?:^|[^0-9])(4320|2160|1440|1080|720|480|360|240|144)\s*p(?![a-z0-9])/i.exec(t) || /(?:^|[\s\/_.-])(4320|2160|1440|1080|720|480|360|240|144)(?=[\/_.-]|$)/.exec(t);
   if (m) return { lh: +m[1], est: false };
   bw = +bw || 0;
   if (!bw) return { lh: 0, est: true };
@@ -1036,7 +1037,7 @@ function cmpStreams(a, b) {
 
 // V74o: sites do not only offer 1080/720/480... (donghuastream: 536p, 352p, 216p). A height close to a standard one keeps the standard name,
 // any other height is shown as it is, so the button says what you really get.
-const STD_H = [2160, 1440, 1080, 720, 480, 360, 240, 144];
+const STD_H = [4320, 2160, 1440, 1080, 720, 480, 360, 240, 144];
 function stdNear(h) { return STD_H.find((s) => Math.abs(h - s) <= Math.max(4, s * 0.02)) || 0; }
 function isStdH(h) { return !!stdNear(+h || 0); }
 // the height used to compare / cap / pick qualities: the real height when it is not a standard one (536), else the standard label (lh).
@@ -1050,7 +1051,7 @@ function qLabel(h, bw) {
   if (h > 0) {
     const band = h >= 2000 ? 'Ultra HD' : h >= 1400 ? 'Quad HD' : h >= 1000 ? 'Full HD' : h >= 700 ? 'HD' : h >= 450 ? 'Standard' : 'Data saver';
     const s = stdNear(h);
-    return [s === 2160 ? '4K' : (s || h) + 'p', band];
+    return [s === 4320 ? '8K' : s === 2160 ? '4K' : (s || h) + 'p', band];
   }
   return [bw ? (bw / 1e6).toFixed(1) + ' Mbps' : 'Default', bw >= 3e6 ? 'High' : bw >= 1e6 ? 'Medium' : 'Low'];
 }

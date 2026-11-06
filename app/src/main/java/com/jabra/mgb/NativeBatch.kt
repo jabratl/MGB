@@ -125,8 +125,8 @@ object NativeBatch {
             .setItems(items) { _, i ->
                 when (i) {
                     0 -> {
-                        val v = intArrayOf(0, 2160, 1440, 1080, 720, 480, 360)
-                        val n = arrayOf("Best available", "Up to 2160p (4K)", "Up to 1440p", "Up to 1080p", "Up to 720p", "Up to 480p", "Up to 360p")
+                        val v = intArrayOf(0, 4320, 2160, 1440, 1080, 720, 480, 360)
+                        val n = arrayOf("Best available", "Up to 4320p (8K)", "Up to 2160p (4K)", "Up to 1440p", "Up to 1080p", "Up to 720p", "Up to 480p", "Up to 360p")
                         choice(act, "Video quality (best up to)", n, v.indexOf(DetectedPanel.maxQ()).let { if (it < 0) 0 else it },
                             { k -> ChromeBridge.storageSet("sync", JSONObject().put("maxHeight", v[k])) }, again)
                     }

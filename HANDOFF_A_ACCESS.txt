@@ -1,0 +1,176 @@
+THAZIR (internal project MGB) - ACCESSIBILITY + ADDRESS BAR ARROWS: AUDIT + STEP PLAN (A1-A4)
+Planning baseline: Thazir-main.zip at appVersionName 0.0.203 (CHANGELOG top entry = 0.0.203, V16 vault hide + selection)
+STATUS: A1 [x] (0.0.204) A2 [x] (0.0.205) A3 [x] (0.0.206) A4 [x] (0.0.207)  ALL DONE
+Next = A1. This file REPLACES the root HANDOFF.txt (Vault plan V1-V16 is finished; its copy is HANDOFF_VAULT.txt in the context zip, keep it in the repo).
+
+ASSUMPTIONS (1 line each)
+- Package com.jabra.mgb, Kotlin, Android native Views in code (no Compose), WebView browser, minSdk 24, compileSdk 34. No new Gradle deps. All UI text English.
+- "Accessibility" = a NEW full-screen page in the style of AppearanceScreen (not a copy of another browser's page). Features taken from the owner's two screenshots, only those the browser does not have yet.
+- Address bar arrows = Back and Forward buttons INSIDE the bar pill, each switched ON/OFF by the user in Appearance > Customize address bar. Default OFF (bar stays as today: home, address, tabs, menu).
+- Force enable zoom defaults OFF, Simplified view suggestion defaults OFF, touchpad swipe defaults OFF (calm defaults; owner can switch on).
+
+====================================================================================================
+0. REQUEST + AUDIT RESULT (what exists today, from grep only)
+====================================================================================================
+OWNER ASKED (screenshots = "Accessibility" page of another browser): Default zoom (slider 50..., +/- buttons, % label), Preview card, Saved zoom for sites,
+ Show zoom option in main menu (switch), Force enable zoom (switch), Simplified view for web pages (switch, notify when an article can be shown simplified),
+ Captions (opens caption settings), Swipe between pages using a touchpad (switch). Add them IF Thazir lacks them, in a UNIQUE Thazir way.
+ Plus: Appearance > address bar: manual ON/OFF for Next / Previous (arrow) buttons.
+
+WHAT THAZIR ALREADY HAS
+- TextZoom.kt (55 lines): per-SITE text size only, 50..250 %, prefs file "mgb_zoom" (host -> percent; 100 removes the key). get(ctx,host) / set(ctx,host,v) public.
+  Applied in TabManager.onPageStarted (~l560): view.settings.textZoom = TextZoom.get(host). Menu row "Text size" (MainActivity ~l240, dialog = TextZoom.dialog) and Site settings (SiteSettings.kt ~l219-272, uses TextZoom.get/set with 50 + progress*10).
+  => MISSING: a DEFAULT zoom for all sites, preview card, +/- buttons, list of saved site zooms, a switch to hide the "Text size" menu row (MenuCustom has per-row on/off: MenuCustom.on/setOn(ctx,key)).
+- WebView: builtInZoomControls = true, displayZoomControls = false, useWideViewPort, loadWithOverviewMode (TabManager ~l439). Pinch zoom works except on sites with viewport user-scalable=no.
+  => MISSING: Force enable zoom (viewport override).
+- Reader view exists: PageInfo.reader(act, tab) (PageInfo.kt ~l242, injects #mgb-reader overlay; menu row "Reader view", also Page info > Show reader). => MISSING: the automatic "Simplified view available" suggestion.
+- Captions: only video-player subtitle options (Settings > Player, Downloads subtitle languages). => MISSING: a Captions row for the system caption style (Settings.ACTION_CAPTIONING_SETTINGS).
+- Touchpad: nothing. BarGestures.kt handles swipes on the bar only. => MISSING.
+- Address bar (res/layout/activity_main.xml, id bottom_bar, 52dp pill, bg_bar_pill): children in order btn_home (44dp), btn_engine (28dp, gone), btn_shield (34dp), url_bar (weight 1, 44dp, bg_url_field), btn_tabs (34dp), btn_menu (40dp).
+  Back / Forward live ONLY in the 3-dot menu sheet (MainActivity ~l207-208: MenuSheet.Act ic_back / ic_forward, tabs.canBack(cur) / tabs.canFwd(cur), tabs.back(cur) / tabs.fwd(cur)).
+  Home button can be set to act as Back (AppearancePrefs.HOME_ACTIONS = home, back, newtab, refresh, bookmarks, extensions). => MISSING: real arrow buttons + ON/OFF.
+- Bar position top/bottom: MainActivity ~l51-60 moves bottom_bar to index 0 when AppearancePrefs.barTop; compact bar = height 44dp (ap_bar_compact). Live updates while Appearance is open: AppearanceScreen.onChange = { applyHomeIcon(); refreshUrlField() } (MainActivity l113).
+- AppearanceScreen.kt (701 lines): pages rootPage / tabsPage / wallpaperPage / barPage (l310-370: Preview, Bar position tiles, Home button chips, Behaviour toggles Compact bar / Auto-hide / Full URL / Swipe fullscreen / Swipe tabs). Helpers: card(), sectionLabel(t) (violet dash), toggleRow(parent, icon, label, hint, get, set) with ThazirSwitch, navRow(parent, icon, label, value){}, tileChoice, chipChoice, tick(v) haptic, rippleBg, barPreview()/updatePreview() (mini bar drawn in code), openPage(key,title), fill(), goBack().
+  Prefs: AppearancePrefs.kt (file mgb_ui; keys ap_*; one get/set pair per key). Settings "Reset to default" per card = RESET map in SettingsScreen.kt (~l87-100): only listed mgb_ui keys are removed -> every NEW key must be added to the right list ("general" holds the ap_* keys).
+- Settings entry style: SettingsScreen category(...) + Row(icon,title,value,hint){}; search keyword table ~l182-205 and hint table ~l108-165; Command Center reg(icon,title,sub,keywords){}; HowToUse.kt guide (TOPICS list, adv=true topics) - update it when a feature is added.
+
+KNOWN RISKS (decide in the step, note in RESULT)
+- 360dp width: bar content today = 4+44+34(shield)+url+34+40+4. Two arrows (2 x 36) leave the url field ~108dp. Rule: both arrows ON and screen width < 400dp -> arrows 32dp and the engine badge stays hidden; url field min 96dp.
+- Per-site zoom vs default zoom: TextZoom.set removes the key at 100. With a default of 150 a site could never be pinned to 100. Step A2 changes the rule: remove the key only when value == default.
+- Touchpad two-finger swipe reaches Android views as MotionEvent.ACTION_SCROLL with AXIS_HSCROLL only on some devices / Android versions. Best effort: if the owner's device sends nothing, keep the switch but say so in the hint (decision rule in A3).
+- Force zoom changes page layout on web apps that block zoom on purpose: default OFF, plus a per-site opt-out (A3).
+
+====================================================================================================
+1. PROJECT SUMMARY
+====================================================================================================
+Android WebView browser, Kotlin, Material 3 DayNight NoActionBar, ~33k Kotlin lines in app/src/main/java/com/jabra/mgb/ (flat package). compileSdk 34, minSdk 24, Java 17, allowBackup=false.
+Vault feature (V1-V16) and How to use guide (V14-V15) are done; do not touch Vault*.kt. Settings screen has accordion + glide animation (V13): new Settings rows must keep the same pattern.
+CI: .github/workflows/build.yml unzips root-level *_vNNN.zip patches in version order and builds. Never touch it.
+
+FILE MAP (this plan only)
+- AppearancePrefs.kt (prefs keys) | AppearanceScreen.kt (barPage + rootPage) | MainActivity.kt (bar wiring, menu rows, onPageInfo l410, applyHomeIcon l177, onChange l113)
+- res/layout/activity_main.xml (bar children) | TabManager.kt (onPageStarted ~l546, onPageFinished ~l573, settings ~l439, canBack/canFwd l889) | TextZoom.kt | SiteSettings.kt (site zoom UI)
+- MenuCustom.kt (menu row list + on/off) | SettingsScreen.kt (RESET map, rows) | CommandCenter.kt (reg) | HowToUse.kt | PageInfo.kt (reader) | BarGestures.kt (gesture style) | TabPrefs.kt (TabPrefs.reduce) | Util.kt | ThazirSwitch.kt
+NEW FILES PLANNED: AccessScreen.kt (A2, full-screen Accessibility page) | ZoomTools.kt (A3: force-zoom JS + site opt-out + touchpad helper) | SimpleHint.kt (A4: article detector + pill)
+
+NEW PREF KEYS (file mgb_ui, add to RESET "general" list unless noted)
+ ap_nav_back (bool, false) | ap_nav_fwd (bool, false) | ap_nav_hide (bool, false: hide an unavailable arrow instead of dimming) | ap_zoom_def (int 50..250, 100) | ap_force_zoom (bool, false) | ap_touchpad (bool, false) | ap_simple_hint (bool, false)
+ mgb_zoom keeps per-site zoom; per-site opt-outs: mgb_zoom key "noforce:<host>" is NOT allowed (mixes types) -> use a separate prefs file "mgb_zoom_opt".
+
+====================================================================================================
+2. DESIGN RULES (audited from current code; the older plan text may still say rose - tokens below are the truth)
+====================================================================================================
+====================================================================================================
+Tokens (res/values/colors.xml LIGHT | values-night/colors.xml DARK) - use ONLY via R.color.mg_*:
+ mg_bg #F8F8FC | #0B0D13   mg_surface #FFFFFF | #141722   mg_surface_variant #F0F1F7 | #202435
+ mg_primary #5947C7 (violet) | #B6A8FF   mg_on_primary #FFFFFF | #211B3A   mg_text #191A24 | #F0EFF8   mg_text_dim #626477 | #B0B2C2
+ mg_outline #D9DCE7 | #34384A   mg_error #D93025 | #FF7B72   mg_success #1E9E5A | #4CD08A   mg_toggle_on = mg_primary   mg_toggle_thumb #FFFFFF | #211B3A
+ thazir_icon_bg #1B1630; bool mg_light_bars (true light / false dark). Theme.MGB parent Theme.Material3.DayNight.NoActionBar maps colorPrimary/Surface/OnSurface/Outline/Error and
+ SurfaceContainer* to mg_*. Never hardcode a light-only colour; fetch with act.getColor(R.color.mg_x) at build time.
+Fonts: system sans only. Titles Typeface.DEFAULT_BOLD or sans-serif-medium. Sizes seen: sheet title 20sp bold; subtitle 12sp dim; group header 11sp bold mg_primary, uppercase, letterSpacing 0.08.
+No bundled fonts, no custom font resources. Spacing in dp via Util.dp(ctx,n): sheet padding 14/16/14/18; screens 14-20 horizontal; rows >=52 min height; settings header ~56; search field ~48.
+Shapes: cards = GradientDrawable fill mg_surface, cornerRadius 20dp, stroke 1dp mg_outline; controls 12-16dp; pills fully rounded. Elevation subtle - rely on outline + surface contrast, no glow.
+Components (reuse, do not reinvent): BottomSheetDialog sheets (ToolsSheet, MenuSheet), MaterialAlertDialogBuilder dialogs, full-screen Dialog (AppLock, BookmarksScreen), card rows with 24dp icon + title + dim info
++ chevron (ToolsSheet items), MaterialButton, accordion categories in Settings. Touch targets >=44dp (40 minimum). Icons: reuse ic_lock ic_shield ic_folder ic_bookmark ic_history ic_save ic_download
+ic_trash ic_check ic_close ic_more ic_back ic_search ic_open ic_share ic_info ic_add ic_chevron ic_play ic_edit ic_list. No emoji as icons.
+Motion: short (150-250ms), must check TabPrefs.reduce(ctx) and skip when ON. Dark and light are both first-class (resource qualifiers + UiMode). Orientation/screenSize config changes are handled in manifest -
+dialogs must survive rotation (build from scratch on each open, keep state in the object, not in views).
+Breakpoints: no native sw*dp system. Phone-first; use match_parent + max width cap (e.g. 560dp centered) for wide screens/landscape so rows do not stretch.
+
+
+THAZIR SIGNATURE FOR THESE STEPS (restrained)
+- Accessibility page = same chrome as AppearanceScreen (full-screen Dialog, header with back arrow, sectionLabel with violet dash, 20dp cards with hairline outline, ThazirSwitch rows, 52dp min row height).
+- "Comfort preview" card: shows ORIGINAL sample text (a short invented paragraph, not text from another product) at the chosen zoom; title / sub-title / body in three sizes; updates live while the slider moves; no animation when Reduce motion is ON.
+- Zoom control: round 48dp - / + buttons (outline mg_outline, icon mg_primary), slider with a tick every 10 %, centre label "125 %", small "Reset to 100 %" link that appears only when the value is not 100. Haptic CLOCK_TICK per 10 % step (AppearanceScreen.tick).
+- Saved zoom for sites = list of site chips (host, percent, tap to change, X to reset) + "Reset all" - never a blank page: empty state is one plain sentence.
+- Bar arrows: 36dp icon buttons, same touch ripple as btn_home, ic_back / ic_forward tinted mg_text; unavailable = alpha 0.38 (or hidden when ap_nav_hide) so the url field does not jump; contentDescription "Back" / "Forward"; long-press = tooltip text only (no new menu in this plan).
+- Simplified-view pill: small rounded pill (fill mg_surface, 1dp mg_outline, text 13sp mg_text, violet reader icon), shown 6 s then gone; never covers the bar.
+
+====================================================================================================
+3. VERSION + CHANGELOG + PATCH CONVENTION
+====================================================================================================
+- Version: app/build.gradle.kts val appVersionName = "0.0.203" now. Each step +1 (A1 -> 0.0.204, A2 -> 0.0.205, A3 -> 0.0.206, A4 -> 0.0.207). Confirm the current value before editing; never overwrite a newer project.
+- CHANGELOG.txt (root): prepend an entry, first line "0.0.204 (A1 MODIFY: short title)" then "- " bullet lines (what changed, files, what was NOT touched), blank line, older entries.
+- Patch ZIP: changed/added files only, root folder Thazir-main/, exact repo paths, name Thazir_A<n>_v0_0_<NNN>.zip, include app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt. Never .github, never unchanged files.
+- Handoff file name: HANDOFF_Thazir_<step>_<version>.txt (also copy to Thazir-main/HANDOFF.txt inside the zip).
+- Checks available in the chat sandbox (no Gradle): XML well-formed, Kotlin brace/paren balance (strip strings/char literals/comments first), single-match patch audit, changed-files scope, duplicate resource/view id check, no "/*" inside a Kotlin comment (nested comment opener broke CI before).
+  Real compile = CI. Always write "NOT tested: Gradle build (CI), device render 360/1280dp, dark/light, rotation, TalkBack" unless really done.
+
+====================================================================================================
+4. STANDING RULES (every step)
+====================================================================================================
+1. ONE step per chat. Read this file, FILES.txt, then ONLY the files that step lists (grep + line ranges for big ones: TabManager, SettingsScreen, MainActivity, AppearanceScreen).
+2. Patch only: minimal targeted edits, keep identifiers / ids / handlers / file names. New logic goes in NEW files; existing files get small hooks.
+3. Every step leaves the app compiling and working. Hooks are added only when the code they call exists.
+4. Do not change: Vault*.kt, Vault.kt, PasswordStore, DownloadService/Downloader, CI workflow, extension bridge (EngineHost/ChromeBridge/ExtApi), Backup JSON shape.
+5. New prefs: add the key to AppearancePrefs (get/set pair) AND to the SettingsScreen RESET "general" list in the same step.
+6. Every UI step: dark + light, Reduce motion (TabPrefs.reduce), 360dp portrait, landscape, rotation-safe dialogs (rebuilt from scratch, state in object). State in RESULT what was only reasoned.
+7. SESSION GUARD: no new sub-task after ~80%; compiling checkpoint by 85%; hard stop 90%. If a step is cut, mark it [~] with the exact leftovers and deliver the zip anyway (as "A<n>b").
+8. Final chat message <= 10 lines: done / zip name / next kickoff line.
+
+====================================================================================================
+5. STEP PLAN  ([ ] todo  [~] partial  [x] done)   size = % of ONE chat session, estimate
+====================================================================================================
+[ ] A1  MODIFY  M (~40%)  Address bar Back / Forward arrows with ON/OFF in Appearance
+    Goal: two optional arrow buttons inside the bar pill; user switches each on/off in Appearance > Customize address bar; works top and bottom bar, compact bar, 360dp.
+    Add (view ids): res/layout/activity_main.xml: ImageView btn_back + btn_fwd (36dp, gone by default) between btn_home and btn_shield; contentDescription "Back"/"Forward".
+    Modify: AppearancePrefs.kt (navBack/navFwd/navHide get/set), AppearanceScreen.kt barPage (new section label "Navigation arrows": toggleRow Back arrow, toggleRow Forward arrow, toggleRow "Hide when not available"; updatePreview/barPreview draws the arrows; call AppearanceScreen.onChange?.invoke()),
+            MainActivity.kt (find views next to btnHome l70; applyNavArrows(): visibility by prefs, size rule for narrow width, enabled/alpha from tabs.canBack/canFwd; click = tabs.back(cur) / tabs.fwd(cur); call it from applyHomeIcon(), onPageInfo (l410) and tab switch; add to the onChange lambda l113),
+            SettingsScreen.kt (RESET "general": ap_nav_back, ap_nav_fwd, ap_nav_hide), app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+    Read-only: TabManager.kt (canBack/canFwd l889-892 only), BarGestures.kt (must still work: swipe on the bar), UiMode.kt, colors/themes, ic_back / ic_forward.
+    Depends: none.  Design: see section 2 "Bar arrows".
+    Checks: no duplicate ids; bar top + bottom; compact bar (44dp); both arrows ON at 360dp keeps url field >= 96dp; arrows follow tab switch and page load; Home action "back" still works; Reduce motion has no effect needed (no animation).
+    Not in this step: long-press history list on the arrows, reload arrow.
+
+[ ] A2  BUILD  M (~50%)  Accessibility page: default zoom, preview, saved zoom for sites, menu toggle
+    Goal: AccessScreen.kt = new full-screen page with Default zoom (slider + - buttons + live preview), Saved zoom for sites (list + reset), "Show Text size in main menu" switch; opened from Appearance root, Settings and Command Center.
+    Add: AccessScreen.kt (reuse the helper style of AppearanceScreen: copy the small private helpers it needs, do not make AppearanceScreen internals public unless 1-line change; say so in RESULT).
+    Modify: AppearancePrefs.kt (zoomDef get/set 50..250), TextZoom.kt (get(): fallback to zoomDef; set(): remove the key only when value == default; keep signatures), TabManager.kt (onPageStarted l560 already calls TextZoom.get - check only; no edit unless needed),
+            AppearanceScreen.kt (rootPage: one navRow "Accessibility" -> AccessScreen.open(act)), MenuCustom.kt (use MenuCustom.on/setOn for key "Text size"; add Entry only if missing), SettingsScreen.kt (Row "Accessibility" in General, search keywords, RESET list: ap_zoom_def),
+            CommandCenter.kt (reg "Accessibility"), HowToUse.kt (topic "Accessibility" with examples), build.gradle.kts, CHANGELOG, HANDOFF.
+    Read-only: SiteSettings.kt (its zoom slider keeps working: it calls TextZoom.get/set; check l219-272 after the TextZoom change), MainActivity.kt (menu row l240 only), ThazirSwitch.kt, AppearanceScreen.kt helpers, Util.kt.
+    Depends: none (A1 not required).  Design: section 2 "Accessibility page", "Comfort preview", "Zoom control", "Saved zoom".
+    Checks: default 100 changes nothing for existing users; default 150 applies on next page load (and to open tab on "Apply now" snackbar? decide: live apply to active tab via settings.textZoom); per-site 100 can be pinned when default != 100; list shows only hosts in mgb_zoom; Reset all removes only mgb_zoom keys; rotation; dark/light.
+
+[ ] A3  BUILD  M (~45%)  Force enable zoom + touchpad swipe + captions row
+    Goal: three more rows on the Accessibility page: Force enable zoom (viewport override, per-site opt-out), Swipe between pages using a touchpad (two-finger horizontal scroll = back / forward), Captions (opens the system caption settings).
+    Add: ZoomTools.kt (FORCE_JS string, inject(view), optOut(ctx,host)/setOptOut in prefs "mgb_zoom_opt"; TouchpadNav helper: onScroll(event) -> back / forward with a 300 ms debounce and threshold).
+    Modify: TabManager.kt (onPageFinished ~l573: one line evaluateJavascript(ZoomTools.FORCE_JS) when ap_force_zoom && !tab.isExt && host not opted out; settings.setSupportZoom(true) already implied by builtInZoomControls - verify), MainActivity.kt (one hook: generic motion on the web container for TouchpadNav when ap_touchpad),
+            AppearancePrefs.kt (forceZoom, touchpad), AccessScreen.kt (3 rows; Captions row = startActivity(Intent(Settings.ACTION_CAPTIONING_SETTINGS)) in try/catch with a toast fallback), SiteSettings.kt (ONE switch "Force zoom on this site" only if trivial, else list under NEXT), SettingsScreen.kt (RESET: ap_force_zoom, ap_touchpad), HowToUse.kt (examples), build.gradle.kts, CHANGELOG, HANDOFF.
+    Read-only: BarGestures.kt (gesture style), PageInfo.kt not needed, TabManager.kt settings block l430-445.
+    Depends: A2 (AccessScreen.kt).  Design: same rows (ThazirSwitch); Captions row = navRow with chevron, hint "Opens Android caption style (size, colour, background)".
+    FORCE_JS rule: rewrite the viewport meta so user-scalable=yes and maximum-scale >= 5; also watch late-added meta tags with a MutationObserver that disconnects after 5 s; never touch pages with no viewport meta.
+    DECISION RULE (touchpad): if no ACTION_SCROLL / AXIS_HSCROLL arrives on a test device the switch stays, hint says "Works with touchpads that send horizontal scroll"; record it in RESULT.
+    Checks: force zoom OFF = zero behaviour change; JS has no syntax error (run it through node --check on a scratch .js copy); extension pages and private tabs rules; opt-out survives restart; no touchpad hook cost when OFF.
+
+[ ] A4  BUILD  M (~45%)  Simplified view suggestion + final polish and QA
+    Goal: when a page looks like an article, show a small pill "Simplified view" (switch in Accessibility, default OFF); tap = existing PageInfo.reader(act, tab). Then polish: guide text, reset, audit.
+    Add: SimpleHint.kt (JS article detector: >= 3 paragraphs and >= 600 characters of text inside article / main / body p, returns true/false; pill View built in code; per-page once; auto hide after 6 s; per-site "Not on this site" via long-press, stored in prefs "mgb_simple_opt").
+    Modify: TabManager.kt (onPageFinished: one line SimpleHint.check(...) when ap_simple_hint && !priv? (private tabs allowed) && !isExt && url http(s) && !reader already open), AccessScreen.kt (switch "Simplified view for web pages" + hint text), AppearancePrefs.kt (simpleHint), SettingsScreen.kt (RESET ap_simple_hint), HowToUse.kt (final text for the whole Accessibility topic + A1 arrows example), build.gradle.kts, CHANGELOG, HANDOFF (mark A1-A4 done + final RESULT).
+    Read-only: PageInfo.kt (reader l242), AppearancePrefs.snackAnchor (where to place the pill), MainActivity.kt (anchor view), TabPrefs.reduce.
+    Depends: A3 (AccessScreen rows), PageInfo.reader exists.  Design: section 2 "Simplified-view pill".
+    Checks: pill never covers the bar (top and bottom bar); no pill on the speed dial / extension pages / non-articles; detector JS node --check; one detector run per page load (no loop on SPA title changes); dark/light; audit that every new key is in RESET and AppearancePrefs; Vault*.kt unchanged.
+
+DEPENDENCY CHAIN: A1 (independent) ; A2 -> A3 -> A4.  Suggested order: A1, A2, A3, A4.
+If a session is lost mid-step the next chat re-runs the SAME step from the last delivered zip (steps are small enough to redo).
+
+====================================================================================================
+6. PROGRESS / RESULT LOG (append newest at top; fill after each step)
+====================================================================================================
+(newest first)
+V18 | 0.0.209 | FIX Back from a Settings sub screen. Files: SettingsScreen.kt, AppearanceScreen.kt, MainActivity.kt, build.gradle.kts, CHANGELOG.txt, HANDOFF.txt. Assumption: the target screens (DownloadsScreen, DiagScreen, Backup.closedTabs, SavedPages, ExtListScreen, HowToUse) are dialogs / activities that can open over Settings; only HowToUse was read. NOT tested: Gradle build (CI), device. Check on device: each of the 8 rows, Back returns to Settings at the same scroll spot; open a page from Saved pages / Recently closed tabs closes Settings; theme change from Appearance still restarts and reopens Appearance. Leftovers: other screens that call dismiss() themselves (not in Settings) not reviewed.
+V17 | 0.0.208 | Vault bookmarks: VaultItems.kt (Folders... multi-tick dialog + All folders, Hide asks "selected only / with folders"), HowToUse.kt, build.gradle.kts, CHANGELOG.txt, HANDOFF.txt. Checked: Kotlin balance, single-match patches, VaultStore API only used as before (hiddenFolders, setFolderHidden, updateItem). NOT tested: Gradle build (CI), device, dark/light, rotation (dialogs are system dialogs), Undo after folder hide. Leftovers: no select for bookmarks without a folder as a group; hiding a folder also hides its unselected bookmarks (dialog says the total).
+A3+A4 | 0.0.207 (A3 = 0.0.206, A4 = 0.0.207, delivered in one zip) | Files: ZoomTools.kt (NEW), SimpleHint.kt (NEW), AccessScreen.kt, TabManager.kt (1 hook line), MainActivity.kt (motion hook), SiteSettings.kt (Force zoom row), AppearancePrefs.kt, SettingsScreen.kt (RESET + keywords), HowToUse.kt, build.gradle.kts, CHANGELOG.txt, HANDOFF.txt. Checked: Kotlin balance (TabManager has a pre-existing +1 paren in the checker, same as the 0.0.203 file, delta equal), node --check on FORCE_JS and DETECT_JS, all new prefs keys in AppearancePrefs + RESET, no "/*" in comments, Vault*.kt untouched. NOT tested: Gradle build (CI), device render 360/1280dp, dark/light, rotation, TalkBack, a real touchpad (decision rule: switch stays, hint says it needs horizontal scroll), force zoom on real sites, pill position near FloatingDl. Leftovers (NEXT, untouched): touchpad swipe also fires when the page can scroll sideways; simplified-view detector is simple (no SPA re-check); menu row Text size value is not default-aware; long-press history list on bar arrows.
+A2 | 0.0.205 | Files: AccessScreen.kt (NEW), TextZoom.kt, SiteSettings.kt, AppearancePrefs.kt, AppearanceScreen.kt (root row), SettingsScreen.kt (row, RESET ap_zoom_def, hint, keywords), CommandCenter.kt, HowToUse.kt, build.gradle.kts, CHANGELOG.txt, HANDOFF.txt. AppearanceScreen helpers NOT made public: the small helpers were copied into AccessScreen (as the plan allows). Menu row already honours MenuCustom.on("Text size"), no MainActivity edit. Checked: Kotlin paren/brace/bracket balance on all changed .kt, no "/*" in comments, drawables used exist (ic_edit, ic_add, ic_close, ic_back). NOT tested: Gradle build (CI), device render 360/1280dp, dark/light, rotation, TalkBack. Reasoned only: live apply to the open tab, 560dp cap, preview scaling at 250 %. Leftovers: menu row value shows % only when != 100 (not default-aware); long default sizes not checked on tiny screens. Next: A3.
+A1 | 0.0.204 | Files: activity_main.xml, AppearancePrefs.kt, MainActivity.kt, AppearanceScreen.kt, SettingsScreen.kt, build.gradle.kts, CHANGELOG.txt, HANDOFF.txt. Checked: Kotlin paren/brace balance, layout XML well-formed, no duplicate ids, RESET list has ap_nav_*. NOT tested: Gradle build (CI), device render 360/1280dp, dark/light, rotation, TalkBack. Reasoned only: narrow rule (<400dp both arrows = 32dp, no engine badge, url min 96dp). Leftovers: long-press history list, reload arrow (not in this step). Next: A2.
+PLAN | 0.0.203 | Planning only. No project code changed. Files: this HANDOFF + Thazir-context.zip (+ FILES.txt).
+RESULT template: step id | version | files changed | what was checked | NOT tested | leftovers / next risks
+
+====================================================================================================
+7. EXACT KICKOFF LINE FOR THE NEXT CHAT (attach Thazir-context.zip, or the full repo zip at 0.0.203, plus any patch zips delivered so far)
+====================================================================================================
+PROJECT: Thazir. Step: A3. Mode: BUILD. Prev version: 0.0.205. Attached: HANDOFF.txt + Thazir-context.zip + Thazir_A1_v0_0_204.zip + Thazir_A2_v0_0_205.zip (copy over context in version order).
+Goal: Back / Forward arrow buttons inside the address bar with ON/OFF switches in Appearance > Customize address bar. Context: Done: V1-V16. Next: A2.
+Read HANDOFF.txt first and follow its plan + DESIGN RULES. Patch only, stop by 85% (hard 90%), return Thazir_A1_v0_0_204.zip + updated HANDOFF.
+
+For later steps use: "PROJECT: Thazir. Step: A<n>. Mode: <mode>. Prev version: <previous>. Attached: HANDOFF.txt + Thazir-context.zip + patch zips so far (copy them over the context in version order). Goal: <goal line from the plan>."

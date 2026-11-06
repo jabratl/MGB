@@ -1,3 +1,10 @@
+0.0.210 (D3 MODIFY: quality up to 8K + preferred video format)
+- Found in grep: 1440p and 4K already existed (options page, batch options, per-page quality list). Added what was missing: 8K (4320p) in Settings > Download quality, batch options, options page and the quality labels (shared.js stdLabel / STD_H / qLabel, FloatingDl label).
+- New preferContainer setting (any / mp4 / webm, default any = as before). downloader.js: preferBox() filters DASH video reps by mime, no match = list unchanged; WebM is ignored when a separate audio must be joined (the join writes mp4). Options page row + Settings row "Preferred video format" (QualityPrefs.kt, NEW).
+- "Ask each time": a Choose quality sheet already opens for every single stream, so no new picker was added.
+- HowToUse.kt: one line. Reset: engine Reset uses DEFAULTS, so preferContainer resets with it.
+- Not touched: Downloader / DownloadService, Vault*, CI, extension bridge.
+
 0.0.209 (V18 FIX: Back in a Settings sub screen returns to Settings)
 - Root cause: Settings rows called dismiss() before opening the sub screen, so Back had nothing to return to and landed in the browser.
 - SettingsScreen.kt: Settings now stays open underneath for Appearance, Accessibility, Downloads, Report center, Recently closed tabs, Saved pages, Extensions and How to use (the dismiss() calls are removed). New isShowing(). Rows that already opened on top (Vault, Site settings, Ad blocker, Userscripts, Scheduled downloads, Download engine, Grabber settings...) are unchanged.

@@ -877,7 +877,7 @@ function parseMpd(text, mpdUrl) {
       const mime = (get('mimeType') || get('contentType')).toLowerCase();
       const type = mime.startsWith('video') ? 'video' : mime.startsWith('audio') ? 'audio' : '';
       if (!type) continue;
-      const rep = { id: r.getAttribute('id'), bw: parseInt(r.getAttribute('bandwidth'), 10) || 0, h: parseInt(get('height'), 10) || 0, lh: stdLabel(parseInt(get('width'), 10) || 0, parseInt(get('height'), 10) || 0, '', '', parseInt(r.getAttribute('bandwidth'), 10) || 0).lh, type, lang: get('lang') };
+      const rep = { id: r.getAttribute('id'), bw: parseInt(r.getAttribute('bandwidth'), 10) || 0, h: parseInt(get('height'), 10) || 0, lh: stdLabel(parseInt(get('width'), 10) || 0, parseInt(get('height'), 10) || 0, '', '', parseInt(r.getAttribute('bandwidth'), 10) || 0).lh, type, mime, lang: get('lang') };
       const rBase = baseOf(r, aBase);
       const tpl = kid(r, 'SegmentTemplate') || kid(as, 'SegmentTemplate');
       const list = kid(r, 'SegmentList') || kid(as, 'SegmentList');
@@ -915,12 +915,22 @@ function parseMpd(text, mpdUrl) {
   return reps;
 }
 
+// D3: prefer mp4 or webm video reps. Only a filter: no match = the list as it was. WebM + a separate audio rep is ignored (the join step writes mp4).
+function preferBox(list, hasAudio) {
+  const p = String((SET && SET.preferContainer) || 'any');
+  if (p !== 'mp4' && p !== 'webm') return list;
+  if (p === 'webm' && hasAudio && SET.mergeAV !== false) return list;
+  const m = list.filter((r) => String(r.mime || '').includes(p));
+  return m.length ? m : list;
+}
+
 async function runDash(text) {
   $('#options').textContent = '';
   $('#cancel').hidden = false; $('#pause').hidden = false;
   const reps = parseMpd(text, SRC);
-  const vids = reps.filter((r) => r.type === 'video').sort((a, b) => (b.h - a.h) || (b.bw - a.bw));
+  let vids = reps.filter((r) => r.type === 'video').sort((a, b) => (b.h - a.h) || (b.bw - a.bw));
   const auds = reps.filter((r) => r.type === 'audio').sort((a, b) => b.bw - a.bw);
+  vids = preferBox(vids, auds.length > 0); // D3: container preference (any = unchanged)
   const v = (WANT !== 'best' && vids.find((r) => r.id === WANT)) || capH(vids);
   const files = [];
   LAST = () => runDash(text); RUNNING = true; setState('run', 'Downloading');

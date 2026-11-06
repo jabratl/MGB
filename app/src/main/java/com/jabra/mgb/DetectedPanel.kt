@@ -320,8 +320,8 @@ object DetectedPanel {
     fun maxQLabel(): String = maxQ().let { if (it > 0) "up to ${it}p" else "Best available" }
 
     fun maxQDialog(act: Activity, done: () -> Unit) {
-        val vals = intArrayOf(0, 1080, 720, 480, 360)
-        val names = arrayOf("Best available", "Up to 1080p", "Up to 720p", "Up to 480p", "Up to 360p")
+        val vals = intArrayOf(0, 4320, 2160, 1440, 1080, 720, 480, 360)
+        val names = arrayOf("Best available", "Up to 4320p (8K)", "Up to 2160p (4K)", "Up to 1440p", "Up to 1080p", "Up to 720p", "Up to 480p", "Up to 360p")
         val cur = vals.indexOf(maxQ()).let { if (it < 0) 0 else it }
         MaterialAlertDialogBuilder(act)
             .setTitle("Download quality")

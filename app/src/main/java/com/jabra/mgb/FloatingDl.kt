@@ -281,7 +281,7 @@ class FloatingDl(
     }
 
     private fun stdNear(h: Int): Int {
-        for (s in intArrayOf(144, 240, 360, 480, 540, 576, 720, 1080, 1440, 2160)) if (abs(h - s) <= s / 12) return s
+        for (s in intArrayOf(144, 240, 360, 480, 540, 576, 720, 1080, 1440, 2160, 4320)) if (abs(h - s) <= s / 12) return s
         return 0
     }
 
@@ -293,7 +293,7 @@ class FloatingDl(
                 h >= 700 -> "HD"; h >= 450 -> "Standard"; else -> "Data saver"
             }
             val s = stdNear(h)
-            return Pair(if (s == 2160) "4K" else (if (s > 0) s else h).toString() + "p", band)
+            return Pair(if (s == 4320) "8K" else if (s == 2160) "4K" else (if (s > 0) s else h).toString() + "p", band)
         }
         return Pair(
             if (bw > 0) String.format("%.1f Mbps", bw / 1e6) else "Default",
