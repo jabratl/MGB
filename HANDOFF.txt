@@ -1,6 +1,6 @@
 THAZIR (project MGB) - DOWNLOADER IDEAS PLAN D1-D6 (idea source: UVD GUI, GPLv3 -> IDEAS ONLY, NO UVD CODE)
-Baseline: Thazir-main at 0.0.209. STATUS: D3 [x] (0.0.210)  D5 [x] (0.0.211)  D2 [x] (0.0.211)  D1 [ ]  D4 [ ]  D6 [ ]
-Order: D3, D5, D2, D1, D4, D6.   Next = D1.
+Baseline: Thazir-main at 0.0.209. STATUS: D3 [x] (0.0.210)  D5 [x] (0.0.211)  D2 [x] (0.0.211)  D1 [x] (0.0.212)  D4 [ ]  D6 [ ]
+Order: D3, D5, D2, D1, D4, D6.   Next = D4.
 Old plan (Accessibility A1-A4, all done) is kept as HANDOFF_A_ACCESS.txt. DESIGN RULES (colour tokens mg_*, 20dp cards, dark+light, Reduce motion,
 rotation-safe dialogs, 560dp cap) are in section 2 of HANDOFF_A_ACCESS.txt: read only that section when UI is added.
 
@@ -31,13 +31,18 @@ PLAN (unchanged from owner; size S/M)
 D3 Quality + format presets (S)  DONE 0.0.210.
 D5 DONE 0.0.211. Series / playlist organizer (S-M): auto subfolder + "01 - title" on batch; Plex naming wins; new NameIndex.kt; Sub-folders switch compatible.
 D2 DONE 0.0.211. Download rules (M): Wi-Fi only, pause on metered, pause on low battery, stop on low storage; blocked job waits in Sched ("Waiting for Wi-Fi"). New DlRules.kt. Check before start only.
-D1 Link inbox (S): share / clipboard link -> small card "Download this link?" -> Paste links / sniffer. New LinkInbox.kt + 1 hook MainActivity (+ manifest filter). Default OFF.
+D1 DONE 0.0.212. Link inbox (S): share / clipboard link -> small card "Download this link?" -> Paste links / sniffer. New LinkInbox.kt + 1 hook MainActivity (+ manifest filter). Default OFF.
 D4 Audio only download (M): file menu + batch "Audio only"; separate audio stream else MediaExtractor + MediaMuxer .m4a. No MP3.
 D6 Control + recovery (M): Stop all / Pause all / Resume all (incl. merge/join); expired link -> new link from source page and resume.
 RULES (every step): new logic in new file, 1-3 line hooks; new pref default = old behaviour; new key in Reset list + HowToUse line; grep the listed files FIRST, shrink or skip the step if it exists.
 Checks available: node --check changed .js, brace balance, single-match patches, duplicate ids, JSON valid. NOT possible in sandbox: Gradle (CI), device render.
 
 LOG (newest first)
+D1 | 0.0.212 | Files: LinkInbox.kt (NEW), AndroidManifest.xml (SEND text/plain filter on MainActivity), MainActivity.kt (onCreate 1 line, new onNewIntent, new onWindowFocusChanged, import Intent), SettingsScreen.kt (1 row + reset key li_on), HowToUse.kt, build.gradle.kts, CHANGELOG.txt, HANDOFF.
+   Checked: Kotlin brace/paren balance (LinkInbox 0/0, others unchanged), manifest XML well-formed, single-match patches, outer color val renamed to avoid shadowing by TextView.text.
+   NOT tested: Gradle build (CI) - LinkInbox.kt never compiled; device; Share from another app; clipboard read on Android 10+ (needs focus, hook is onWindowFocusChanged); dark/light; 360/1280dp; rotation; TalkBack.
+   Reasoned only: card route = tabs.newTab(url) (sniffer). Paste links route not used (private in NativeBatch). A link on the clipboard that was copied from MGB itself also triggers the card once. Share is not gated by the clipboard dedupe.
+   NEXT (not touched): Paste-links route for page lists; card for several links.
 D5+D2 | 0.0.211 (one zip) | Files: shared.js (buildFileName + DEFAULTS), options.html (batchOrganize checkbox), NameIndex.kt (NEW), DlRules.kt (NEW), EngineApi.kt (1 line hook), Sched.kt (1 line), MainActivity.kt (1 line DlRules.init), SettingsScreen.kt (2 rows + 4 reset keys in "downloads"), HowToUse.kt, build.gradle.kts, CHANGELOG.txt, HANDOFF.
    Checked: node --check shared.js; buildFileName run in node (off / on / single / Plex / {index}+{series} templates all as designed); Kotlin brace/paren balance unchanged; single-match patches.
    NOT tested: Gradle build (CI) - DlRules.kt and NameIndex.kt never compiled; device; dark/light; real Wi-Fi / battery / low storage; Reset to default on device.
@@ -50,6 +55,6 @@ D3 | 0.0.210 | Files: shared.js, downloader.js, options.html (assets/ext), Quali
    NEXT (not touched): ask-each-time for Download all; container pref for plain file variants.
 
 KICKOFF FOR NEXT CHAT
-PROJECT: Thazir. Step: D1. Mode: BUILD. Prev version: 0.0.211 (D5+D2). Attached: HANDOFF.txt + Thazir-D-context.zip (copy Thazir_D5_D2_v0_0_211.zip over it first).
-Goal: link inbox card (Share / clipboard video link -> Download this link?), default OFF. Context: Done: D3, D5, D2. Next: D4, D6.
+PROJECT: Thazir. Step: D4. Mode: BUILD. Prev version: 0.0.212 (D1). Attached: HANDOFF.txt + Thazir-D-context.zip (copy Thazir_D1_v0_0_212.zip over it first).
+Goal: "Audio only" download in file menu and batch (separate audio stream, else .m4a via MediaExtractor + MediaMuxer; no MP3). Context: Done: D3, D5, D2, D1. Next: D6.
 Read HANDOFF.txt first and follow its plan. If this prompt conflicts, follow this prompt and note it in 1 line.

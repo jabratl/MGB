@@ -1,6 +1,7 @@
 package com.jabra.mgb
 
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import android.view.KeyEvent
@@ -159,6 +160,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         onBackPressedDispatcher.addCallback(this, backCb)
 
         if (!tabs.restoreSession()) tabs.newTab(TabManager.HOME_PAGE) // S13
+        LinkInbox.fromIntent(this, tabs, intent) // D1
         else if (AppearancePrefs.startPage(this)) tabs.newTab(TabManager.HOME_PAGE) // A8: restored tabs + a fresh home tab selected
         UpdateManager.autoCheck(this)
         CrashLog.showLast(this) // FIX
@@ -463,6 +465,16 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         AutoDiag.stop() // S87.2
         AdBlock.flushTotal() // S68
         super.onStop()
+    }
+
+    override fun onNewIntent(intent: Intent) { // D1: Share while the browser is already open
+        super.onNewIntent(intent)
+        LinkInbox.fromIntent(this, tabs, intent)
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) { // D1: clipboard can only be read with focus
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) LinkInbox.fromClipboard(this, tabs)
     }
 
     override fun onResume() {
