@@ -162,6 +162,8 @@ object SocialScreen {
                 null, { SocialMode.intOn(act) }) { on -> SocialMode.setIntOn(act, on) }
             switchRow(extra, R.drawable.ic_screen, "Full screen on social sites", "Hides the address bar and phone bars on social pages. Tap the small handle or press Back to show them",
                 null, { SocialMode.fullOn(act) }) { on -> SocialMode.setFullOn(act, on); if (!on) SocialFull.sync(act, BookmarksScreen.tabsRef?.active) }
+            switchRow(extra, R.drawable.ic_screen, "Match phone bars to the site", "Status bar and navigation bar take the colour of the social site (back to normal on other pages)",
+                null, { SocialMode.barsOn(act) }) { on -> SocialMode.setBarsOn(act, on); SocialBars.sync(act, BookmarksScreen.tabsRef?.active) }
             col.addView(extra, LinearLayout.LayoutParams(MATCH, WRAP))
             siteRows.add(extra)
 

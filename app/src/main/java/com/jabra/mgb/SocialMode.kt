@@ -64,6 +64,9 @@ object SocialMode {
     private const val K_FULL = "sm_full"
     fun fullOn(c: Context): Boolean = sp(c).getBoolean(K_FULL, false)
     fun setFullOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_FULL, v).apply() }
+    private const val K_BARS = "sm_bars" // 0.0.240 (A2): phone bar colour follows the site (default ON)
+    fun barsOn(c: Context): Boolean = sp(c).getBoolean(K_BARS, true)
+    fun setBarsOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_BARS, v).apply() }
 
     /** Per-site switch (0.0.228, P4): thin wrappers over SocialProfiles (key sm_s_<id>, not set = ON). */
     fun siteOn(c: Context, id: String): Boolean = SocialProfiles.siteOn(c, id)
@@ -213,6 +216,7 @@ object SocialMode {
         if (css.isNotEmpty()) view.evaluateJavascript(cssJs(css), null)
         SocialBlur.inject(ctx, view, p?.id) // 0.0.229 (P5): sensitive-media blur (mode OFF = only removes an old blur)
         SocialBadge.injectSaver(ctx, view) // 0.0.231 (P7): data saver (switch OFF = nothing)
+        SocialBars.read(ctx, view) // 0.0.240 (A2): site colour for the phone bars (switch OFF = returns at once)
     }
 
     // ---- 0.0.235 (U1): in-page navigation (history.pushState / popstate): no page load, so ensure() and the page scripts did not run ----

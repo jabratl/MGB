@@ -1,3 +1,9 @@
+0.0.240 (A2 BUILD: phone bars take the site colour)
+- Why: a social tab should feel like an app. Switch "Match phone bars to the site" (Social sites page > Tabs and data, default ON, key sm_bars): on a social page the status bar and navigation bar get the colour of the site (its theme-color meta tag, read after the page loads; fallback = app background). Other pages, other tabs, Desktop-by-hand or switch OFF = original bar colours again.
+- Files: NEW SocialBars.kt, SocialMode.kt (sm_bars + 1 line in inject), MainActivity.kt (2 hook lines next to SocialFull.sync), SocialScreen.kt (switch row), SettingsScreen.kt (RESET + sm_bars), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: nothing with Social sites OFF or the switch OFF (sync restores / returns at once). ON: bar icons flip light / dark by colour; a site with an odd theme-color can look off (turn the switch OFF).
+- NOT tested: Gradle build (CI), device, 360 / 1280 dp, dark + light, rotation, live sites.
+
 0.0.239 (FIX: build error in HowToUse.kt line 160)
 - Root cause: the 0.0.237 HowToUse phrase had plain double quotes inside the Kotlin text ("Use the app", "Staying in the browser", "Not now"), which ended the string early (CI: Unresolved reference: Not / now). Fix: the quotes are escaped (\") in that phrase.
 - Files: HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF. This zip also carries every file changed since 0.0.234 (U1 0.0.235, U2 0.0.236, U3 0.0.237, A1 0.0.238), so one copy updates the repo.

@@ -442,6 +442,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         findViewById<View>(R.id.bottom_bar).visibility = View.VISIBLE // S33
         refreshAll(tab)
         SocialFull.sync(this, tab) // 0.0.238 (A1)
+        SocialBars.sync(this, tab) // 0.0.240 (A2)
         GroupStrip.refresh() // S13
         floating.poke() // S11
     }
@@ -450,6 +451,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         if (tab === tabs.active) {
             refreshAll(tab)
             SocialFull.sync(this, tab) // 0.0.238 (A1): returns at once when the switch is OFF
+            SocialBars.sync(this, tab) // 0.0.240 (A2)
             GroupStrip.refresh() // S13
             if (tab.progress >= 100) floating.poke() // S11
         }
