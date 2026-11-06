@@ -175,6 +175,8 @@ object SocialScreen {
             actionRow(extra, R.drawable.ic_open, "Choose links Thazir opens (Android)", "Opens Android settings: Open by default, then allow the social sites") { SocialLinks.openAndroidSettings(act) }
             switchRow(extra, R.drawable.ic_screen, "Own window per site (experimental)", "Shortcut and Open button start each site in its own window, so Recent apps shows one card per site",
                 null, { SiteWindow.on(act) }) { on -> SiteWindow.setOn(act, on) }
+            switchRow(extra, R.drawable.ic_shield, "Extra site fixes (Instagram, Reddit, X, LinkedIn)", "Hides more app prompts and sign-up layers on these sites (applies from the next page load; Site fix can add more)",
+                null, { SocialMode.dfixOn(act) }) { on -> SocialMode.setDfixOn(act, on) }
             col.addView(extra, LinearLayout.LayoutParams(MATCH, WRAP))
             siteRows.add(extra)
 

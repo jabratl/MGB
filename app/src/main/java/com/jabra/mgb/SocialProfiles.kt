@@ -170,6 +170,21 @@ object SocialProfiles {
     )
     fun bigCss(id: String): String = BIG_CSS[id] ?: ""
 
+    // 0.0.249 (A10): built-in extra site fixes (same two parts as Site fix: button texts to hide with their bar, one CSS line). ASSUMPTIONS about live pages;
+    // switch sm_dfix (SocialMode.dfixOn). New site = one line in each map. No quotes / backslashes in the CSS.
+    private val EXTRA_WORDS = mapOf(
+        "instagram" to listOf("not now"), // add-to-home / notification prompt bar
+        "reddit" to listOf("not now", "maybe later"), // app sheet that offers a way out
+        "x" to listOf("not now"),
+        "linkedin" to listOf("not now", "skip")
+    )
+    private val EXTRA_CSS = mapOf(
+        "x" to "[data-testid=BottomBar]{display:none!important}", // logged-out sign up / log in bar (flicker)
+        "linkedin" to ".contextual-sign-in-modal{display:none!important}" // guest sign-up layer
+    )
+    fun extraWords(id: String): List<String> = EXTRA_WORDS[id] ?: emptyList()
+    fun extraCss(id: String): String = EXTRA_CSS[id] ?: ""
+
     fun fixWords(c: Context, id: String): List<String> = cleanWords(fixObj(c, id)?.optString("w", "") ?: "")
     fun fixCss(c: Context, id: String): String = cleanCss(fixObj(c, id)?.optString("c", "") ?: "")
     fun hasFix(c: Context, id: String): Boolean = fixWords(c, id).isNotEmpty() || fixCss(c, id).isNotEmpty()

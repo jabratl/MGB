@@ -84,6 +84,9 @@ object SocialMode {
     fun setKbOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_KB, v).apply() }
     // 0.0.245 (A5): bigger touch targets on Reddit / X / LinkedIn (default OFF: selectors are assumptions)
     private const val K_BIG = "sm_big"
+    private const val K_DFIX = "sm_dfix" // 0.0.249 (A10): built-in extra site fixes (default ON)
+    fun dfixOn(c: Context): Boolean = sp(c).getBoolean(K_DFIX, true)
+    fun setDfixOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_DFIX, v).apply() }
     fun bigOn(c: Context): Boolean = sp(c).getBoolean(K_BIG, false)
     fun setBigOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_BIG, v).apply() }
 
@@ -254,11 +257,11 @@ object SocialMode {
                 view.evaluateJavascript(viewportJs(ctx, again), null)
                 if (kbOn(ctx)) view.evaluateJavascript(KEYBOARD_JS, null)
             }
-            Kind.FEED, Kind.INSTA -> view.evaluateJavascript(bannerJs(p?.appWords ?: emptyList(), if (p != null) SocialProfiles.fixWords(ctx, p.id) else emptyList(), again), null)
+            Kind.FEED, Kind.INSTA -> view.evaluateJavascript(bannerJs(p?.appWords ?: emptyList(), if (p != null) (if (dfixOn(ctx)) SocialProfiles.extraWords(p.id) else emptyList()) + SocialProfiles.fixWords(ctx, p.id) else emptyList(), again), null)
             Kind.NONE -> return
         }
         if (intOn(ctx)) view.evaluateJavascript(if (again) "window.__mgSi=0;" + INTERSTITIAL_JS else INTERSTITIAL_JS, null) // 0.0.237 (U3)
-        val css = ((p?.css ?: "") + " " + (if (p != null && bigOn(ctx)) SocialProfiles.bigCss(p.id) else "") + " " + (if (p != null) SocialProfiles.fixCss(ctx, p.id) else "")).trim() // 0.0.236 (U2): built-in + 0.0.245 (A5) big targets + Site fix (last = wins)
+        val css = ((p?.css ?: "") + " " + (if (p != null && bigOn(ctx)) SocialProfiles.bigCss(p.id) else "") + " " + (if (p != null && dfixOn(ctx)) SocialProfiles.extraCss(p.id) else "") + " " + (if (p != null) SocialProfiles.fixCss(ctx, p.id) else "")).trim() // 0.0.236 (U2): built-in + 0.0.245 (A5) big targets + Site fix (last = wins)
         if (css.isNotEmpty()) view.evaluateJavascript(cssJs(css), null)
         SocialBlur.inject(ctx, view, p?.id) // 0.0.229 (P5): sensitive-media blur (mode OFF = only removes an old blur)
         SocialBadge.injectSaver(ctx, view) // 0.0.231 (P7): data saver (switch OFF = nothing)
