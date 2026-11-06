@@ -1,3 +1,9 @@
+0.0.219 (A9 FIX: Vault crash after Restore / Delete from a folder list + smarter Hide)
+- Root cause: the folder chip in the vault Bookmarks list is a position in bmFolders(). Restore (move) or Delete of the last bookmarks of that folder removes the folder, the chip index stays > 0, and vaultItems() did bmFolders()[chip - 1] on a shorter list -> IndexOutOfBoundsException (VaultItems.kt:349, via restoreDialog -> listPage -> fill).
+- VaultItems.kt: new fixChip() (runs in listPage() and vaultItems()) finds the chip folder again by name (chipName) and falls back to All if it is gone; the index read is now getOrNull. The chip also follows its folder when other folders appear / vanish (before it could silently point to a different folder).
+- VaultItems.kt: new "Unhide all (N)" link next to "Hide hidden again" (only while Show hidden is ON and All is selected). It unhides every hidden bookmark and folder in one tap, with Undo.
+- Could break: nothing in data (no format change, no new pref). Chip switches to All after the folder it showed is emptied.
+
 0.0.218 (A8 FIX: Extract audio never overwrites or mis-names a file)
 - Root cause: AudioExtract used the video title + ".m4a" as is. Android 9 and lower: a file with the same name in Downloads/MGB was silently overwritten. Android 10+: MediaStore renamed the new file ("x (1).m4a") but the toast still said "Saved x.m4a".
 - AudioExtract.kt: new uniqueName() looks for the name in Downloads/MGB (MediaStore query on 10+, File.exists on 9-) and uses "name (2).m4a", "(3)" ... up to 99. The toast now shows the real name. Extraction logic unchanged.

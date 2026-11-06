@@ -38,6 +38,12 @@ RULES (every step): new logic in new file, 1-3 line hooks; new pref default = ol
 Checks available: node --check changed .js, brace balance, single-match patches, duplicate ids, JSON valid. NOT possible in sandbox: Gradle (CI), device render.
 
 LOG (newest first)
+A9 | 0.0.219 | FIX (owner asked; HANDOFF said Vault* untouchable, this prompt wins). Files: VaultItems.kt, build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+   Root cause: folder chip = list position; Restore / Delete emptied the folder, chip stayed > 0, bmFolders()[chip - 1] crashed (VaultItems.kt:349).
+   Fix: fixChip() + chipName (chip follows folder name, else All) + getOrNull. Added "Unhide all (N)" (+ Undo) in the hide row.
+   Checked: Kotlin brace/paren balance 290/290 and 1224/1224; single-match patches.
+   NOT tested: Gradle build (CI); device; Restore / Delete the last bookmark of a folder chip; Unhide all + Undo; dark/light; 360/1280dp.
+   NEXT (not touched): per-folder hidden count on chips; auto re-hide when the app goes to background; picker chip (pChip) is already bounds-checked, no change needed; Hide from the long-press menu of a single row.
 A8 | 0.0.218 | Files: AudioExtract.kt (uniqueName() + 1 line), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
    Checked: Kotlin brace/paren balance; single-match patch; no new pref / UI.
    NOT tested: Gradle build (CI); device; extracting the same file twice on Android 9 and Android 10+; MediaStore query with RELATIVE_PATH LIKE.

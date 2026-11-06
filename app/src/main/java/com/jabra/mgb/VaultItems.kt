@@ -155,6 +155,7 @@ object VaultItems {
 
     private var query = ""
     private var chip = 0
+    private var chipName = "" // 0.0.219: folder the chip points to, so the chip follows the folder (not a stale position)
     private var selecting = false
     private var showHidden = false // V16: hidden bookmarks / folders stay out of the list until this is ON (reset on every open)
     private val sel = LinkedHashSet<String>()
@@ -343,10 +344,19 @@ object VaultItems {
 
     private fun clock(t: Long) = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(t))
 
+    /** 0.0.219: the folder chip is a position in bmFolders(). After Restore / Delete / Hide the folder can vanish or move: re-find it by name, else go back to All. */
+    private fun fixChip() {
+        if (chip <= 0) return
+        if (type != "bm") { chip = 0; return }
+        val i = bmFolders().indexOf(chipName)
+        chip = if (i >= 0) i + 1 else 0
+    }
+
     private fun vaultItems(): List<JSONObject> {
+        fixChip()
         val q = query.trim().lowercase()
         var l = shownAll().sortedByDescending { it.optLong("time") }
-        if (type == "bm" && chip > 0) { val f = bmFolders()[chip - 1]; l = l.filter { it.optString("folder") == f } }
+        if (type == "bm" && chip > 0) { val f = bmFolders().getOrNull(chip - 1); if (f != null) l = l.filter { it.optString("folder") == f } }
         if (q.isNotEmpty()) l = l.filter { it.optString("title").lowercase().contains(q) || it.optString("url").lowercase().contains(q) || it.optString("folder").lowercase().contains(q) }
         return l
     }
@@ -402,6 +412,22 @@ object VaultItems {
         }
     }
 
+    /** 0.0.219: one tap brings every hidden bookmark and folder back. Undo hides exactly those again. */
+    private fun unhideAll(a: Activity) {
+        val ids = VaultStore.items("bm").filter { it.optBoolean("hidden") }.map { it.optString("id") }
+        val folders = VaultStore.hiddenFolders().toList()
+        val n = hiddenCount()
+        if (ids.isEmpty() && folders.isEmpty()) return
+        for (id in ids) { val o = VaultStore.item(id) ?: continue; o.put("hidden", false); VaultStore.updateItem(a, o) }
+        for (f in folders) VaultStore.setFolderHidden(a, f, false)
+        chip = 0; listPage()
+        bar(a, "Unhid all ($n)", "Undo") {
+            for (id in ids) { val o = VaultStore.item(id) ?: continue; o.put("hidden", true); VaultStore.updateItem(a, o) }
+            for (f in folders) VaultStore.setFolderHidden(a, f, true)
+            chip = 0; listPage()
+        }
+    }
+
     private fun hideFolder(a: Activity, folder: String, hide: Boolean) {
         VaultStore.setFolderHidden(a, folder, hide)
         chip = 0; listPage()
@@ -440,6 +466,7 @@ object VaultItems {
     private fun listPage() {
         val a = act ?: return
         page = "list"
+        fixChip()
         val ui = shell(a)
         val info = VaultScreen.tv(a, "", 12f, R.color.mg_text_dim)
         if (selecting) {
@@ -453,12 +480,13 @@ object VaultItems {
         if (selecting) ui.head.addView(selectTools(a), lp(dp(a, 2)))
         if (type == "bm" && bmFolders().isNotEmpty()) {
             val hf = VaultStore.hiddenFolders()
-            ui.head.addView(chips(a, listOf("All") + bmFolders().map { if (hf.contains(it)) "$it (hidden)" else it }, chip) { chip = it; limit = PAGE; listPage() }, lp(dp(a, 4)))
+            ui.head.addView(chips(a, listOf("All") + bmFolders().map { if (hf.contains(it)) "$it (hidden)" else it }, chip) { chip = it; chipName = bmFolders().getOrNull(it - 1) ?: ""; limit = PAGE; listPage() }, lp(dp(a, 4)))
         }
         if (type == "bm" && !selecting) { // V16: hide controls
             val hc = hiddenCount()
             val r = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
             if (hc > 0 || showHidden) r.addView(VaultScreen.link(a, if (showHidden) "Hide hidden again" else "Show hidden ($hc)") { showHidden = !showHidden; chip = 0; listPage() }, LinearLayout.LayoutParams(WRAP, dp(a, 44)))
+            if (showHidden && hc > 0 && chip == 0) r.addView(VaultScreen.link(a, "Unhide all ($hc)") { unhideAll(a) }, LinearLayout.LayoutParams(WRAP, dp(a, 44)))
             if (chip > 0) {
                 val f = bmFolders().getOrNull(chip - 1)
                 if (f != null) {
