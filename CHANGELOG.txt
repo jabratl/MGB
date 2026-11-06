@@ -1,3 +1,17 @@
+0.0.258 (U5 BUILD: settings summary for bug reports)
+- Why: when a social site looks wrong, one screenshot / copy should show what is set. Social sites page > Page layout card > row "Why does a site look wrong?" opens a text box: master + global switches (separate logins, share FB + Messenger, extra fixes, bigger buttons, skip Use-the-app, full screen, calmer touch, keep tabs alive) and one line per site (on / off, layout, page type, login profile, own Site fix yes / no). Button Copy puts the text on the clipboard.
+- Scope: settings only. It does NOT read the page or count how often a script ran (the planned "banner script ran" counter is NOT built).
+- Files: SocialScreen.kt (row + summaryDialog), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF. No pref, no SocialMode change.
+- Could break: nothing (read only).
+- NOT tested: Gradle build (CI), device, dialog with long text at 360 dp, dark + light.
+
+0.0.257 (U4 BUILD: page layout per site)
+- Why: when Facebook / Reddit / X change how they behave, the person can flip the layout of one site without a new APK. Social sites page > new card "Page layout": one row per site, tap = Auto -> Phone page -> Desktop fit -> Auto (key sm_ua_<id>, Auto = key removed). Phone page = mobile user agent + Open-app bar script (like the feed sites). Desktop fit = desktop user agent + phone-width viewport (like the chat sites). Applies after a reload of the site.
+- How: one place only, SocialMode.kindFor (every hook already goes through it: ensure, blockApp, inject, onRoute), so TabManager is untouched. Instagram "Phone page" behaves like the feed rule, not the Instagram one (Kind.INSTA is only the Auto result).
+- Files: SocialMode.kt (kindFor override, uaNames, uaMode, setUaMode), SocialScreen.kt (card + info line), SettingsScreen.kt (RESET list + sm_ua_<id> for all sites), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: nothing in Auto (same result as before). A wrong choice makes a site look wrong: tap until Auto.
+- NOT tested: Gradle build (CI), device, live sites, rows at 360 / 1280 dp, dark + light.
+
 0.0.256 (B3 BUILD: share one login for Facebook and Messenger)
 - Why: with "Keep social logins separate" ON, Facebook and Messenger each had their own login (social_facebook, social_messenger), so you had to log in twice. New switch "Share Facebook and Messenger login" (Social sites page > Logins, default OFF, key sm_fbshare): Messenger tabs use the Facebook profile, so one login covers both. Applies to tabs opened from now on; log in once more.
 - Forget logins (B2) follows it: forgetting Facebook or Messenger removes the shared login and any old separate Messenger profile. hasProfile / forget / forgetAll now take a Context (SocialScreen calls updated).

@@ -216,6 +216,22 @@ object SocialScreen {
             col.addView(fixC, LinearLayout.LayoutParams(MATCH, WRAP))
             siteRows.add(fixC)
 
+            col.addView(sectionLabel("Page layout")) // 0.0.257 (U4)
+            val uaC = card()
+            for (p in SocialProfiles.all) {
+                lateinit var uaTv: TextView
+                fun uaHint() = SocialMode.uaNames[SocialMode.uaMode(act, p.id)] + " (tap to change)"
+                val row = actionRow(uaC, R.drawable.ic_desktop, p.label, uaHint()) {
+                    SocialMode.setUaMode(act, p.id, (SocialMode.uaMode(act, p.id) + 1) % SocialMode.uaNames.size)
+                    uaTv.text = uaHint()
+                    Util.toast(act, p.label + ": " + SocialMode.uaNames[SocialMode.uaMode(act, p.id)] + ". Reload the site")
+                }
+                uaTv = ((row as LinearLayout).getChildAt(1) as LinearLayout).getChildAt(1) as TextView
+            }
+            actionRow(uaC, R.drawable.ic_info, "Why does a site look wrong?", "Shows the settings that apply to every site. Copy it for a bug report") { summaryDialog() }
+            col.addView(uaC, LinearLayout.LayoutParams(MATCH, WRAP))
+            siteRows.add(uaC)
+
             col.addView(sectionLabel("Logins")) // 0.0.234 (P9)
             val sep = card()
             val supported = SocialMode.sepSupported()
@@ -253,6 +269,7 @@ object SocialScreen {
                     "\"Continue with Google\" is often blocked in a browser tab. Use email and password.\n\n" +
                     "A site may show a security check after the browser identity changes. Hiding the Open-app bars depends on the live " +
                     "site and may need a small fix when the site changes.\n\n" +
+                    "Page layout: if a site looks wrong, tap its row to switch between Auto, Phone page and Desktop fit, then reload the site.\n\n" +
                     "Site fix: type a button text or a line of CSS when a site changes and an Open-app bar comes back. It is only stored on this phone.\n\n" +
                     "A site that is switched off here opens like any other page."
                 textSize = 12f
@@ -480,6 +497,41 @@ object SocialScreen {
             row.addView(txt, LinearLayout.LayoutParams(0, WRAP, 1f))
             parent.addView(row, LinearLayout.LayoutParams(MATCH, WRAP))
             return row
+        }
+
+        /** 0.0.258 (U5): plain-text summary of the settings per site (no page is read). Copy button for a bug report. */
+        private fun summaryDialog() {
+            fun yn(v: Boolean) = if (v) "on" else "off"
+            val sb = StringBuilder()
+            sb.append("Social sites: ").append(yn(SocialMode.on(act))).append("\n")
+            sb.append("Separate logins: ").append(if (SocialMode.sepSupported()) yn(SocialMode.sepOn(act)) else "not supported")
+                .append(", share Facebook + Messenger: ").append(yn(SocialMode.shareOn(act))).append("\n")
+            sb.append("Extra site fixes: ").append(yn(SocialMode.dfixOn(act)))
+                .append(", bigger buttons: ").append(yn(SocialMode.bigOn(act)))
+                .append(", skip Use-the-app screens: ").append(yn(SocialMode.intOn(act)))
+                .append(", full screen: ").append(yn(SocialMode.fullOn(act)))
+                .append(", calmer touch: ").append(yn(SocialMode.touchOn(act)))
+                .append(", keep tabs alive: ").append(yn(SocialKeep.on(act))).append("\n\n")
+            for (p in SocialProfiles.all) {
+                sb.append(p.label).append(": ").append(yn(SocialProfiles.siteOn(act, p.id)))
+                    .append(", layout ").append(SocialMode.uaNames[SocialMode.uaMode(act, p.id)])
+                    .append(" (page type ").append(SocialMode.kind(p.startUrl).name.lowercase()).append(")")
+                    .append(", login ").append(SocialMode.profileName(act, p.startUrl) ?: "normal")
+                    .append(", own fix ").append(if (SocialProfiles.hasFix(act, p.id)) "yes" else "no").append("\n")
+            }
+            val text = sb.toString().trim()
+            MaterialAlertDialogBuilder(act)
+                .setTitle("Settings summary")
+                .setMessage(text)
+                .setPositiveButton("Close", null)
+                .setNeutralButton("Copy") { _, _ ->
+                    try {
+                        (act.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                            .setPrimaryClip(android.content.ClipData.newPlainText("Thazir social settings", text))
+                        Util.toast(act, "Copied")
+                    } catch (_: Throwable) { }
+                }
+                .show()
         }
 
         /** 0.0.251 (B2): list of sites, tap one = ask, then SocialMode.forget. */

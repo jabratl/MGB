@@ -160,8 +160,14 @@ object SocialMode {
     private fun kindFor(ctx: Context, url: String?): Kind {
         val p = SocialProfiles.of(url) ?: return Kind.NONE
         if (!SocialProfiles.siteOn(ctx, p.id)) return Kind.NONE
-        return kind(url)
+        val k = kind(url)
+        if (k == Kind.NONE) return k
+        return when (uaMode(ctx, p.id)) { 1 -> Kind.FEED; 2 -> Kind.CHAT; else -> k } // 0.0.257 (U4): per-site override
     }
+    /** 0.0.257 (U4): page layout per site. 0 = Auto (as the site profile says), 1 = Phone page, 2 = Desktop fit (like the chat sites). Key sm_ua_<id>. */
+    val uaNames = listOf("Auto", "Phone page", "Desktop fit")
+    fun uaMode(c: Context, id: String): Int = sp(c).getInt("sm_ua_" + id, 0).coerceIn(0, 2)
+    fun setUaMode(c: Context, id: String, v: Int) { sp(c).edit().apply { if (v <= 0) remove("sm_ua_" + id) else putInt("sm_ua_" + id, v) }.apply() }
 
     // WebViews whose user agent this file changed (so a page of another site gets the default back, nothing else is reset)
     private val applied = WeakHashMap<WebView, Boolean>()
