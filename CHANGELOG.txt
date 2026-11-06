@@ -1,3 +1,11 @@
+0.0.214 (D6 MODIFY: control all + new link after a failure)
+- Grep first: per-job Pause / Resume / Cancel, DownloadsApi.pauseAll / resumeAll (browser downloads) and the batch Stop already existed; the job list in Downloads had no "all" buttons.
+- DlControl.kt (NEW): Pause all / Resume all / Stop all for the running jobs (same job-pause / job-cancel messages, plus batch-stop per page so a batch stops queuing episodes). Buttons appear above "Downloading" when 2 or more jobs run (DownloadsScreen, 1 block). Failed jobs with an episode page or source page get "New link": batch-episodes again for an episode (the engine looks for a fresh link), else the source page opens in a new tab.
+- downloader.js: the joining of video + audio now honours Pause (gate() in the progress callback) and Cancel; a cancel is no longer swallowed by the "save as two files" fallback (3 catch lines).
+- background.js job-cancel: a queued job that has not started is dropped (before, Cancel left it in the queue).
+- HowToUse.kt: 1 line. No new settings, nothing to reset. Per-site Referer / User-Agent stays NEXT.
+- Not touched: Downloader, DownloadService, Vault*, CI, extension bridge.
+
 0.0.213 (D4 BUILD: audio only download)
 - Grep first: the player already had Audio only (playback), but no audio-only download. DASH / HLS audio parts were already handled by downloader.js, so the engine does the work.
 - downloader.js: AUDIO_ONLY() = variant "audio" or the new setting audioOnly (default OFF). DASH: only the best audio representation is saved (.m4a, no ".audio" in the name). HLS with a separate audio track: new runAudioOnly() downloads only the audio playlist. HLS without a separate audio track keeps saving the video and shows a hint to use Extract audio. Live streams are unchanged.

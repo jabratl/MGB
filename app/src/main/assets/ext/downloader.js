@@ -505,7 +505,7 @@ async function mergeAndSave(v, a, suffix) {
   if (!vp || !ap) { dbg('dl', `cannot merge: video is ${v.ext}, audio is ${a.ext}`); return null; }
   status('Merging video and audio...');
   const t0 = Date.now();
-  const blob = await mergeMedia(vp, ap, async (f) => { convProgress('Merging video and audio...', f, t0); await sleep(0); });
+  const blob = await mergeMedia(vp, ap, async (f) => { convProgress('Merging video and audio...', f, t0); await sleep(0); await gate(); });
   const saved = await save(blob, 'mp4', suffix || (ALLMODE ? QH : ''));
   for (const r of [v, a]) { dropWhenSaved(r.dk, LAST_DL_ID); if (r.rk) { delete RES[r.rk]; delete RES[r.rk + 'init']; } }
   return saved;
@@ -684,7 +684,7 @@ async function runLive(plUrl, text, audioTrack) {
   const vk = plUrl + '#video', ak = audioTrack ? audioTrack.uri + '#audio' : '';
   let merged = null;
   if (a && SET.mergeAV !== false) {
-    try { merged = await mergeAndSave(v, a, ''); } catch (e) { dbg('dl', 'live merge failed, saving video and audio as two files: ' + (e.message || e)); }
+    try { merged = await mergeAndSave(v, a, ''); } catch (e) { if (e && e.message === 'Cancelled') throw e; dbg('dl', 'live merge failed, saving video and audio as two files: ' + (e.message || e)); }
   }
   if (merged) SAVED[vk] = SAVED[ak] = merged;
   else {
@@ -712,7 +712,7 @@ async function runVideo(plUrl, text, audioTrack) {
     const a = await downloadSegments(await audioPl(), 'Audio');
     let merged = null;
     try { merged = await mergeAndSave(v, a, clipSuffix()); }
-    catch (e) { dbg('dl', 'merge failed, saving video and audio as two files: ' + (e.message || e)); }
+    catch (e) { if (e && e.message === 'Cancelled') throw e; dbg('dl', 'merge failed, saving video and audio as two files: ' + (e.message || e)); }
     if (merged) SAVED[vk] = SAVED[ak] = merged;
     else { SAVED[vk] = await saveSegments(v, clipSuffix(), false); SAVED[ak] = await saveSegments(a, 'audio ' + audioTrack.name, true); }
   }
@@ -966,10 +966,10 @@ async function runDash(text) {
       for (const g of got) pcs.push(g.blob ? [g.blob] : await piecesOf({ ...g.r, ext: 'mp4' }));
       status('Merging video and audio...');
       const t0 = Date.now();
-      const out = await mergeMedia(pcs[0], pcs[1], async (f) => { convProgress('Merging video and audio...', f, t0); await sleep(0); });
+      const out = await mergeMedia(pcs[0], pcs[1], async (f) => { convProgress('Merging video and audio...', f, t0); await sleep(0); await gate(); });
       merged = await save(out, 'mp4', '');
       for (const g of got) if (g.r) { dropWhenSaved(g.r.dk, LAST_DL_ID); if (g.r.rk) { delete RES[g.r.rk]; delete RES[g.r.rk + 'init']; } }
-    } catch (e) { dbg('dl', 'merge failed, saving video and audio as two files: ' + (e.message || e)); }
+    } catch (e) { if (e && e.message === 'Cancelled') throw e; dbg('dl', 'merge failed, saving video and audio as two files: ' + (e.message || e)); }
     if (merged) { SAVED[skOf(v, '')] = SAVED[skOf(auds[0], 'audio')] = merged; mergedAll = true; }
     else for (const g of got) {
       const sk = skOf(g.rep, g.suffix);

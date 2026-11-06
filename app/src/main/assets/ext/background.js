@@ -1345,6 +1345,8 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
   }
   if (msg.type === 'job-cancel') {
     chrome.runtime.sendMessage({ type: 'cancel-job', key: msg.key }).catch(() => {});
+    const qi = jobQueue.findIndex((j) => j.key === msg.key); // D6: a queued job that has not started yet is dropped
+    if (qi >= 0) { jobQueue.splice(qi, 1); delete jobState[msg.key]; trackJob(msg.key, { state: 'error', text: 'Cancelled' }); }
     for (const [id, a] of active) if (a.key === msg.key) { chrome.downloads.cancel(id).catch(() => {}); active.delete(id); trackJob(msg.key, { state: 'error', text: 'Cancelled' }); }
     return;
   }

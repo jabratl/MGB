@@ -287,6 +287,11 @@ object DownloadsScreen {
             val running = jobs.filter { it.optString("state") == "run" }
             val other = jobs.filter { it.optString("state") != "run" }
             if (running.isNotEmpty()) box.addView(section("Downloading (${running.size})"))
+            if (running.size > 1) box.addView(actionRow().apply { // D6
+                if (running.any { !it.optBoolean("paused") }) addView(button("Pause all") { DlControl.pauseAll(running) })
+                if (running.any { it.optBoolean("paused") }) addView(button("Resume all", true) { DlControl.resumeAll(running) })
+                addView(button("Stop all") { DlControl.stopAll(running) })
+            })
             for (j in running) box.addView(jobRow(j))
             if (other.isNotEmpty()) box.addView(section("Finished"))
             for (j in other) box.addView(jobRow(j))
@@ -396,6 +401,7 @@ object DownloadsScreen {
                 if (state != "done") actions.addView(button("Why?") { // S86: explain this failure
                     DiagScreen.open(act, null, -1, j.optString("text").ifBlank { j.optString("error") }, j.optString("url"))
                 })
+                if (state != "done" && DlControl.canRefresh(j)) actions.addView(button("New link") { DlControl.refresh(act, j) { dismiss() } }) // D6
                 actions.addView(button("Remove") {
                     EngineApi.send(JSONObject().put("type", "job-remove").put("key", key))
                     main.postDelayed({ sig = ""; render() }, 400)

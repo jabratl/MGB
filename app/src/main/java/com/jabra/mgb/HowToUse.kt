@@ -155,6 +155,7 @@ object HowToUse {
             ), true),
         Topic(R.drawable.ic_download, "Download settings", "Quality, folder and speed",
             listOf(
+                "Downloads: with two or more running downloads, Pause all, Resume all and Stop all appear above the list (they also stop the joining of video and audio and queued downloads). A failed download, for example with an expired link, has a New link button that looks for a fresh link in its episode or source page. ",
                 "Audio only: in Files detected tap Download on a stream and choose Audio only, or switch on Settings > Downloads > Audio only downloads (also for batches). It works when the stream has a separate audio track. For a saved video, Downloads > file menu > Extract audio (.m4a) copies its AAC audio (no MP3, no re-encoding). ",
                 "Link inbox (Settings > Downloads, OFF by default): share a video link to MGB, or copy one and come back, and a card asks Download this link? Open loads it in a new tab where the Files detected panel finds the video. ",
                 "Download rules (Settings > Downloads) hold a new download until you are on Wi-Fi, off metered data or charged, or stop it when storage is low. Batch: folder and number saves a batch as Show/01 - title. ",
