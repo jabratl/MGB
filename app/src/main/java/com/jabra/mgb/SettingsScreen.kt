@@ -65,6 +65,9 @@ object SettingsScreen {
         try { s.dismiss() } catch (_: Exception) { }
     }
 
+    /** V18: true while the Settings dialog is on screen (sub screens open on top of it, Back returns here). */
+    fun isShowing(): Boolean = current?.isShowing == true
+
     private class Screen(private val act: Activity) :
         Dialog(act, com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar) {
 
@@ -859,8 +862,8 @@ object SettingsScreen {
             }
             category("general", R.drawable.ic_settings, "General", "Theme, search, pages, display", listOf(
                 Sub("Appearance"),
-                Row(R.drawable.ic_theme, "Appearance", UiMode.label(act)) { dismiss(); AppearanceScreen.open(act) }, // APPEARANCE A2
-                Row(R.drawable.ic_edit, "Accessibility", AppearancePrefs.zoomDef(act).takeIf { it != 100 }?.let { "$it %" } ?: "") { dismiss(); AccessScreen.open(act) { SettingsScreen.open(act) } }, // A2
+                Row(R.drawable.ic_theme, "Appearance", UiMode.label(act)) { AppearanceScreen.open(act) }, // APPEARANCE A2; V18: Settings stays underneath, Back returns to it
+                Row(R.drawable.ic_edit, "Accessibility", AppearancePrefs.zoomDef(act).takeIf { it != 100 }?.let { "$it %" } ?: "") { AccessScreen.open(act) }, // A2; V18: Settings stays underneath
                 Sub("Browsing"),
                 Row(R.drawable.ic_search, "Search engine", Util.engineName(act)) {
                     val names = Util.ENGINES.map { it.first }
@@ -908,11 +911,11 @@ object SettingsScreen {
             ))
             category("downloads", R.drawable.ic_download, "Downloads", "Library, quality, files", listOf( // S64: arranged by what you do
                 Sub("Library"),
-                Row(R.drawable.ic_download, "Downloads", "", "Files saved on this phone") { dismiss(); DownloadsScreen.open(act) },
+                Row(R.drawable.ic_download, "Downloads", "", "Files saved on this phone") { DownloadsScreen.open(act) }, // V18
                 Row(R.drawable.ic_book, "Novel grabber", "", "Web novels and chapters to EPUB, DOCX, TXT") { ext("novel/studio.html") }, // N1
                 Row(R.drawable.ic_list, "Queue", "", "Running, waiting and failed jobs") { ext("queue.html") },
                 Row(R.drawable.ic_history, "Download history", "", "Everything Grabber saved") { ext("history.html") },
-                Row(R.drawable.ic_info, "Report center", "", "Why something does not work: report, copy, share") { dismiss(); DiagScreen.open(act, null, -1) }, // S85
+                Row(R.drawable.ic_info, "Report center", "", "Why something does not work: report, copy, share") { DiagScreen.open(act, null, -1) }, // S85, V18
                 Row(R.drawable.ic_list, "Report log size", DiagScreen.logSizeText(), "Events kept for the report (no page text)"), // S85
                 Row(R.drawable.ic_close, "Clear report log", "", "Delete the diagnose log and the Grabber log") { DiagScreen.askClearLog(act) { fill() } }, // S85
                 Row(R.drawable.ic_info, "Auto Diagnose pill", if (AutoDiag.on(act)) "ON" else "OFF", "Small Diagnose button after a tab crash, a download that fails twice or an empty grabber") { // S87.2
@@ -1075,8 +1078,8 @@ object SettingsScreen {
                 Row(R.drawable.ic_share, "Export data") { Backup.exportData(act) },
                 Row(R.drawable.ic_download, "Import data") { Backup.importData(act) },
                 Sub("Clear data"),
-                Row(R.drawable.ic_history, "Recently closed tabs") { dismiss(); Backup.closedTabs(act, tabs) },
-                Row(R.drawable.ic_folder, "Saved pages", "${PageSave.count(act)} pages") { dismiss(); tabs?.let { SavedPages.open(act, it) } }, // T4
+                Row(R.drawable.ic_history, "Recently closed tabs") { Backup.closedTabs(act, tabs) }, // V18
+                Row(R.drawable.ic_folder, "Saved pages", "${PageSave.count(act)} pages") { tabs?.let { SavedPages.open(act, it) } }, // T4, V18
                 Row(R.drawable.ic_trash, "Clear browsing history") {
                     confirm("Clear all browsing history?", "Clear") { Bookmarks.clearHistory(); Util.toast(act, "History cleared") }
                 },
@@ -1109,7 +1112,7 @@ object SettingsScreen {
                 Row(R.drawable.ic_list, "My email aliases") { EmailAlias.manage(act) }
             ))
             category("extensions", R.drawable.ic_folder, "Extensions", "Add, turn on or off, remove", listOf( // S1
-                Row(R.drawable.ic_folder, "Extensions", ExtListScreen.summary(act), "Add .zip or .crx files") { dismiss(); ExtListScreen.open(act) },
+                Row(R.drawable.ic_folder, "Extensions", ExtListScreen.summary(act), "Add .zip or .crx files") { ExtListScreen.open(act) }, // V18
                 Row(R.drawable.ic_code, "Userscripts", "${Userscripts.count(act)} scripts", "Your own scripts on pages") { UserscriptsScreen.open(act) { fill() } }, // T7
                 Row(R.drawable.ic_code, "Run userscripts", if (Userscripts.masterOn(act)) "ON" else "OFF") { // T7
                     Userscripts.setMaster(act, !Userscripts.masterOn(act)); Userscripts.refreshAll(act)
@@ -1123,7 +1126,7 @@ object SettingsScreen {
                 }
             ))
             category("about", R.drawable.ic_info, "About", "Updates, engine, version", listOf(
-                Row(R.drawable.ic_info, "How to use", "", "A short guide for new users") { dismiss(); HowToUse.open(act) }, // V14
+                Row(R.drawable.ic_info, "How to use", "", "A short guide for new users") { HowToUse.open(act) }, // V14, V18
                 Row(R.drawable.ic_reload, "Check for updates") { UpdateManager.check(act, false) },
                 Row(R.drawable.ic_info, "Engine status") { EngineHost.showStatus(act) },
                 Row(R.drawable.ic_info, "Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")

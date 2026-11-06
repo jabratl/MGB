@@ -63,7 +63,7 @@ object AppearanceScreen {
     }
 
     /** Set right before act.recreate(): the new Activity opens this screen again (called from MainActivity.onCreate). */
-    fun markReopen() { reopen = true }
+    fun markReopen() { reopen = true; SettingsScreen.closeAll() } // V18: Settings may sit under this screen; close it before the Activity is recreated
 
     fun reopenPending(act: Activity) {
         if (!reopen) return
@@ -161,7 +161,7 @@ object AppearanceScreen {
                 fill()
             } else {
                 dismiss()
-                SettingsScreen.open(act)
+                if (!SettingsScreen.isShowing()) SettingsScreen.open(act) // V18: Settings is still underneath when we came from it
             }
         }
 

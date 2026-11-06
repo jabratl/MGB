@@ -430,6 +430,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     }
 
     override fun onActiveChanged(tab: TabManager.Tab?) {
+        SettingsScreen.closeAll() // V18: a tab was opened / switched (e.g. from Saved pages or Recently closed): Settings underneath closes
         FindBar.close() // S21
         BarGestures.exit(this) // A6: a tab change leaves page fullscreen
         findViewById<View>(R.id.bottom_bar).visibility = View.VISIBLE // S33

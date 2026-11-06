@@ -1,3 +1,10 @@
+0.0.209 (V18 FIX: Back in a Settings sub screen returns to Settings)
+- Root cause: Settings rows called dismiss() before opening the sub screen, so Back had nothing to return to and landed in the browser.
+- SettingsScreen.kt: Settings now stays open underneath for Appearance, Accessibility, Downloads, Report center, Recently closed tabs, Saved pages, Extensions and How to use (the dismiss() calls are removed). New isShowing(). Rows that already opened on top (Vault, Site settings, Ad blocker, Userscripts, Scheduled downloads, Download engine, Grabber settings...) are unchanged.
+- AppearanceScreen.kt: Back from the Appearance root only reopens Settings when Settings is not already open (Command Center path unchanged). markReopen() closes Settings first, so a theme / bar-position restart does not leave a window under the old Activity.
+- MainActivity.kt: onActiveChanged closes Settings (a tab was opened or switched, e.g. from Saved pages or Recently closed tabs), so Settings never stays over the page.
+- Not touched: the sub screens themselves, Vault*, CI.
+
 0.0.208 (V17 MODIFY: Vault bookmarks - folder multi-select, hide with folders)
 - VaultItems.kt: selection tool "Folder..." is now "Folders...": a tick list (folder name + bookmark count). Tick folders one by one to select their bookmarks, un-tick a fully selected folder to remove them, or tap All folders. Apply / Cancel.
 - VaultItems.kt: Hide with a selection that has folders asks: "Only the selected bookmarks" or "Selected bookmarks and their folder(s)" (shows how many bookmarks the folders hold). Undo opens only the folders that action hid. Selection without folders hides at once as before. Unhide unchanged.
