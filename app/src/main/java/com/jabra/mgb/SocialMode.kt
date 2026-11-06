@@ -49,6 +49,33 @@ object SocialMode {
         if (!SocialProfiles.siteOn(c, p.id)) return null
         return "social_" + p.id
     }
+    /** 0.0.251 (B2): "Forget social logins". DONE = profile deleted, CLEARED = profile was in use by an open tab, so its cookies + site data were wiped instead, NONE = nothing saved, UNSUPPORTED = no multi-profile. */
+    enum class Forgot { DONE, CLEARED, NONE, UNSUPPORTED }
+    /** true when site [id] has its own saved login data (profile social_<id> exists). */
+    fun hasProfile(id: String): Boolean = try { sepSupported() && ProfileStore.getInstance().getProfile("social_" + id) != null } catch (_: Throwable) { false }
+    fun forget(id: String): Forgot {
+        if (!sepSupported()) return Forgot.UNSUPPORTED
+        return try {
+            val store = ProfileStore.getInstance()
+            val name = "social_" + id
+            val pr = store.getProfile(name)
+            if (pr == null) Forgot.NONE
+            else try {
+                if (store.deleteProfile(name)) Forgot.DONE else Forgot.NONE
+            } catch (_: IllegalStateException) { // a tab is still using the profile: wipe it instead of deleting
+                pr.cookieManager.removeAllCookies(null)
+                pr.cookieManager.flush()
+                pr.webStorage.deleteAllData()
+                Forgot.CLEARED
+            }
+        } catch (_: Throwable) { Forgot.NONE }
+    }
+    /** Forget every social site; returns how many sites had saved data. */
+    fun forgetAll(): Int {
+        var n = 0
+        for (p in SocialProfiles.all) { val had = hasProfile(p.id); val r = forget(p.id); if (had && (r == Forgot.DONE || r == Forgot.CLEARED)) n++ }
+        return n
+    }
     /** Cookie header for [u] from the profile that a tab on [tabUrl] uses (SocialNsfw re-downloads pictures with the page's cookies). */
     fun cookies(c: Context, tabUrl: String, u: String): String? = try {
         val cm = profileName(c, tabUrl)?.let { ProfileStore.getInstance().getProfile(it)?.cookieManager }

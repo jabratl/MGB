@@ -219,6 +219,10 @@ object SocialScreen {
                 else "Not supported on this phone",
                 null, { supported && SocialMode.sepOn(act) }) { on -> if (supported) SocialMode.setSepOn(act, on) }
             if (!supported) sepRow.alpha = 0.5f else siteRows.add(sepRow)
+            if (supported) { // 0.0.251 (B2): forget saved social logins (not dimmed: works even with Social sites OFF)
+                actionRow(sep, R.drawable.ic_trash, "Forget logins of one site", "Pick a site, its saved login and site data are removed") { forgetPick() }
+                actionRow(sep, R.drawable.ic_trash, "Forget all social logins", "Removes the saved logins of every social site") { forgetAllAsk() }
+            }
             col.addView(sep, LinearLayout.LayoutParams(MATCH, WRAP))
 
             col.addView(sectionLabel("Home"))
@@ -233,6 +237,7 @@ object SocialScreen {
                 text = "The AI picture check is experimental: it needs a model file inside the app, it can miss things or blur harmless pictures, and it does not see video.\n\n" +
                     "No push notifications or sounds, no badge on the launcher icon: a browser tab cannot receive them when it is closed. The unread number on tab cards only updates while the tab is open.\n\n" +
                     "Separate logins: a tab that is already open keeps the cookies it has; a link that leaves a social site stays in that tab's profile.\n\n" +
+                    "Forget logins removes the saved login of a site that has its own login. Normal tabs keep theirs.\n\n" +
                     "\"Continue with Google\" is often blocked in a browser tab. Use email and password.\n\n" +
                     "A site may show a security check after the browser identity changes. Hiding the Open-app bars depends on the live " +
                     "site and may need a small fix when the site changes.\n\n" +
@@ -463,6 +468,43 @@ object SocialScreen {
             row.addView(txt, LinearLayout.LayoutParams(0, WRAP, 1f))
             parent.addView(row, LinearLayout.LayoutParams(MATCH, WRAP))
             return row
+        }
+
+        /** 0.0.251 (B2): list of sites, tap one = ask, then SocialMode.forget. */
+        private fun forgetPick() {
+            val ps = SocialProfiles.all
+            val names = Array(ps.size) { i -> ps[i].label + (if (SocialMode.hasProfile(ps[i].id)) "  (has saved login)" else "  (nothing saved)") }
+            MaterialAlertDialogBuilder(act)
+                .setTitle("Forget logins of")
+                .setItems(names) { _, i -> forgetOneAsk(ps[i]) }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+        private fun forgetOneAsk(p: SocialProfiles.Profile) {
+            MaterialAlertDialogBuilder(act)
+                .setTitle("Forget " + p.label + " login?")
+                .setMessage("You will have to log in to " + p.label + " again in the tabs that use its own login. Normal tabs are not touched. A tab that is open on it should be reloaded.")
+                .setPositiveButton("Forget") { _, _ ->
+                    when (SocialMode.forget(p.id)) {
+                        SocialMode.Forgot.DONE -> Util.toast(act, p.label + " login forgotten")
+                        SocialMode.Forgot.CLEARED -> Util.toast(act, p.label + " login forgotten. Reload its open tab")
+                        SocialMode.Forgot.NONE -> Util.toast(act, "Nothing saved for " + p.label)
+                        SocialMode.Forgot.UNSUPPORTED -> Util.toast(act, "Not supported on this phone")
+                    }
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+        private fun forgetAllAsk() {
+            MaterialAlertDialogBuilder(act)
+                .setTitle("Forget all social logins?")
+                .setMessage("Every social site that has its own login is logged out. Normal tabs are not touched. Open social tabs should be reloaded.")
+                .setPositiveButton("Forget all") { _, _ ->
+                    val n = SocialMode.forgetAll()
+                    Util.toast(act, if (n == 0) "Nothing was saved" else "Forgot logins of " + n + " site" + (if (n == 1) "" else "s"))
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
         }
 
         private fun fixHint(p: SocialProfiles.Profile): String =
