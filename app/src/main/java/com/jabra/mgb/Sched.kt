@@ -50,6 +50,7 @@ object Sched {
                     .setNegativeButton("Back") { _, _ -> again() }.show()
             }
         }
+        DlRules.listInto(act, names, runs, again) // D2: jobs waiting for Wi-Fi / battery
         if (names.isEmpty()) { names.add("Nothing scheduled. Open a page with videos, then TOOLS > Scheduled downloads."); runs.add { } }
         MaterialAlertDialogBuilder(act).setTitle("Scheduled downloads")
             .setItems(names.toTypedArray()) { _, i -> runs[i]() }

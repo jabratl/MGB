@@ -155,6 +155,7 @@ object HowToUse {
             ), true),
         Topic(R.drawable.ic_download, "Download settings", "Quality, folder and speed",
             listOf(
+                "Download rules (Settings > Downloads) hold a new download until you are on Wi-Fi, off metered data or charged, or stop it when storage is low. Batch: folder and number saves a batch as Show/01 - title. ",
                 "Settings > Downloads > Download quality sets the best video height you want by default, up to 8K. Preferred video format picks MP4 or WebM when a stream offers both (no conversion).",
                 "Subtitles and file names: choose subtitle languages and the format, for example en and SRT.",
                 "Convert .ts to .mp4 turns streaming pieces into a normal video file when a download finishes.",

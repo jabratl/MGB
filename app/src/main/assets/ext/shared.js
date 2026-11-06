@@ -22,6 +22,7 @@ const DEFAULTS = {
   siteRules: '',           // one per line: domain = css selector of the page images
   requestDelayMs: 0,       // pause between page/chapter requests (some sites block fast scrapers)
   maxHeight: 0,            // preferred max video height for "best" (0 = highest available)
+  batchOrganize: false,    // D5: batch items go in a sub-folder named after the show / page, file name gets "01 - " (Plex naming wins)
   preferContainer: 'any', // D3: DASH video pick: any | mp4 | webm (a preference between equal heights, never a conversion)
   notify: true,            // desktop notification when downloads finish
   blockAds: true,          // ignore ad videos / ad banners / sponsored links
@@ -435,9 +436,13 @@ function libraryPlan(v) {
 // settings + info -> "Folder/Name.suffix.ext"
 function buildFileName(S, v, ext) {
   const lib = S.libraryMode === 'plex' && !['pages', 'image', 'audio'].includes(v.kind) ? libraryPlan(v) : null;
-  const base = lib ? sanitize(lib.base) : sanitize(applyTemplate(S.nameTemplate || '{title}', v));
+  // D5: batch organizer (OFF by default). Needs an index + a show / page name, so single downloads and Plex-named episodes are never touched.
+  const org = S.batchOrganize === true && !lib && v.index && v.book && !['pages', 'image'].includes(v.kind);
+  let base = lib ? sanitize(lib.base) : sanitize(applyTemplate(S.nameTemplate || '{title}', v));
+  if (org && !/\{index\}/.test(S.nameTemplate || '')) base = String(v.index).padStart(2, '0') + ' - ' + base;
   const sub = /\{\w+\}/.test(S.subfolder || '') ? applyTemplate(S.subfolder, v) : (S.subfolder || '');
-  const folder = [...sub.split(/[\\/]/).map((x) => sanitize(x, 50)).filter((x) => x && x !== 'media'), ...(lib ? lib.folder.split('/') : [])].join('/');
+  const orgDir = org && !/\{(series|book)\}/.test(S.subfolder || '') ? [sanitize(seriesBase(v.book), 50)] : [];
+  const folder = [...sub.split(/[\\/]/).map((x) => sanitize(x, 50)).filter((x) => x && x !== 'media'), ...orgDir.filter((x) => x), ...(lib ? lib.folder.split('/') : [])].join('/');
   const suf = v.suffix ? '.' + sanitize(v.suffix, 30) : '';
   return (folder ? folder + '/' : '') + base + suf + '.' + ext;
 }

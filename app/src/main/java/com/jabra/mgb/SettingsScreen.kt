@@ -92,7 +92,7 @@ object SettingsScreen {
             "general" to listOf("night", "dark_pages", "engine", "tr_lang", "hide_bar", "pull_refresh", "rotate_browser",
                 "ap_bar_pos", "ap_home_action", "ap_full_url", "ap_swipe_fs", "ap_swipe_tabs", "ap_wp_dim", "ap_undo_toast", "ap_start_page", "ap_bar_compact", "ap_nav_back", "ap_nav_fwd", "ap_nav_hide", "ap_zoom_def", "ap_force_zoom", "ap_touchpad", "ap_simple_hint"), // A9, A11, A1, A2: + Appearance keys
             "tabs" to listOf("swipe_close", "close_confirm", "reduce_motion", "tab_suspend_min"),
-            "downloads" to listOf("auto_diag"),
+            "downloads" to listOf("auto_diag", "dr_wifi", "dr_metered", "dr_batt", "dr_store"), // D2: download rules
             "grabber" to listOf("web_play", "v77_backup", "v77_prev_mode", "dl_mode", "native_btn", "video_btn"),
             "player" to listOf("pl_gestures", "pl_hold_speed", "pl_hold_slide", "pl_dtap_sec", "pl_seek_sens", "pl_vol_boost", "pl_bright", "pl_fit_default",
                 "pl_speed_keep", "pl_speed_last", "pl_speeds", "pl_quality_cap", "pl_repeat", "pl_sub_size", "pl_sub_bg", "pl_sub_pos", "sub_size", "sub_color", "bg_audio"),
@@ -933,7 +933,9 @@ object SettingsScreen {
                 Row(R.drawable.ic_folder, "Sub-folders in the chosen folder", if (DownloadFolder.subfolders(act)) "ON" else "OFF") {
                     DownloadFolder.setSubfolders(act, !DownloadFolder.subfolders(act))
                     fill()
-                }
+                },
+                Row(R.drawable.ic_folder, "Batch: folder and number", if (NameIndex.on()) "ON" else "OFF", "Show folder and 01 - title for batches") { NameIndex.toggle(act) { fill() } },
+                Row(R.drawable.ic_download, "Download rules", DlRules.summary(act), "Wi-Fi only, battery, storage. Checked before a download starts") { DlRules.dialog(act) { fill() } }
             ))
             category("grabber", R.drawable.ic_settings, "Grabber and buttons", "Engine, buttons, player", listOf(
                 Sub("V77 backup"), // S65

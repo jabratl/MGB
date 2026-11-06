@@ -23,6 +23,7 @@ object EngineApi {
     }
 
     fun send(msg: JSONObject) {
+        if (DlRules.hold(msg)) return // D2: rules checked before a download starts
         val c = engineCtx() ?: return
         ChromeBridge.request(c, msg, sender()) { }
     }
