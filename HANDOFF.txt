@@ -1,342 +1,260 @@
-THAZIR / MGB — BROWSER REDESIGN & FEATURE ROADMAP
-Planning baseline: uploaded Thazir-main.zip (project identity MGB)
-Audit date: 2026-11-05 | Source app version: 0.0.174 | Current: 0.0.183
-STATUS: PLANNING ONLY. No source code was modified for this handoff.
+THAZIR (internal project MGB) - VAULT FEATURE: AUDIT + STEP PLAN
+Planning baseline: Thazir-main.zip, appVersionName 0.0.185 (CHANGELOG top entry = 0.0.185)
+STATUS: V1 + V2 DONE (merged in one chat by owner request, cumulative zip 0.0.187). Next = V3.
+This file REPLACES the old root HANDOFF.txt (UI roadmap: S1-S5, S7, S10 done, rest skipped by owner;
+that roadmap is finished). Old copies stay in the repo as HANDOFF_OLD.txt / HANDOFF_PLAYER.txt.
 
-ASSUMPTIONS
-- “MGB-main.zip” and “Thazir-main.zip” refer to the same project; the uploaded archive is named Thazir-main.zip and its top-level directory is Thazir-main/.
-- Product identity shown to users is Thazir; package/namespace remains com.jabra.mgb and internal MGB identifiers remain unchanged unless a later explicit migration is planned.
-- Direction = Hybrid: minimal luxury + restrained futuristic details. Keep existing Material 3 native Android implementation; no Compose migration.
-- First priority is coherent UI polish, then small standalone features. No backend/provider credentials are assumed.
-- Source audit used file-tree and targeted grep/snippet inspection. Large Kotlin files were not read end-to-end; implementation chats must inspect only relevant functions and nearby code.
+ASSUMPTIONS (1 line each)
+- Step ids are V1..V12 (Vault) so they do not clash with the old S1-S14 ids used in CHANGELOG.
+- Package/namespace stays com.jabra.mgb; Android native Views built in code (no Compose); no new Gradle deps needed.
+- The vault holds: bookmarks, history, saved pages (.mht), downloaded files. Passwords stay in PasswordStore (not part of this plan).
+- "Survives app update" = automatic (filesDir/prefs are kept by Android on update). "Survives uninstall" needs data OUTSIDE app storage.
 
+====================================================================================================
+0. THE ONE HARD FACT THAT SHAPES THE WHOLE DESIGN (read first)
+====================================================================================================
+Android deletes app-private storage (filesDir, SharedPreferences, Android Keystore keys) on uninstall and the app
+gets NO callback / cannot show a dialog at uninstall time. So:
+ (a) The vault container must live in a USER-PICKED shared folder (SAF tree uri, ACTION_OPEN_DOCUMENT_TREE). That
+     folder survives uninstall. Always write-through there; never keep the only copy in filesDir.
+ (b) The container key cannot depend on the Keystore alone (Keystore key dies with the app). Use envelope encryption:
+     random DEK (256-bit) wrapped by a KEK derived from the user's vault passphrase (PBKDF2-HMAC-SHA256), plus a second
+     wrap by a one-time RECOVERY KEY. Keystore/biometric only as a per-install quick-unlock wrap of the same DEK.
+     After reinstall: user picks the folder again + enters passphrase (or recovery key). Documented in UI.
+ (c) "Choose what to delete permanently / what to keep on device" cannot run at uninstall. It runs BEFORE uninstall in an
+     "Exit / Uninstall prep" wizard (V9). Per category 3 choices: KEEP encrypted in vault folder | EXPORT readable copy to a
+     plain folder | DELETE permanently (wipe). If the user just uninstalls without the wizard, nothing is lost: the encrypted
+     container is already outside the app and stays (default = keep).
+ (d) Existing object Vault (Vault.kt) is a small Keystore AES helper used by PasswordStore + EmailAlias (encrypt/decrypt/unlock).
+     DO NOT rename or change it. New code uses new names: VaultCrypto, VaultStore, VaultScreen, VaultItems, VaultFiles, VaultExit...
+ (e) minSdk 24: SAF tree works on all supported versions. Android 11+ blocks picking the root of Downloads/Documents; the picker
+     UI must tell the user to create/choose a sub folder (e.g. "ThazirVault"). Do not use MediaStore for the container
+     (ownership is lost after reinstall).
+
+====================================================================================================
 1. PROJECT SUMMARY
-Thazir (internal project MGB) is an Android WebView browser built in Kotlin with native Views and Material 3 DayNight NoActionBar. It includes a native speed-dial HomeView, multi-tab manager and switcher, bookmarks/history, privacy/ad blocking, native download and media detection flows, built-in Media3 player, extension compatibility/runtime bridge, userscripts, saved pages, translation hooks, password/site permissions, appearance customization, backup and diagnostics.
+====================================================================================================
+Android WebView browser, Kotlin, Material 3 DayNight NoActionBar, ~32k Kotlin lines in
+app/src/main/java/com/jabra/mgb/ (flat package). compileSdk 34, minSdk 24, targetSdk 34, Java 17, allowBackup=false.
+Permissions today: INTERNET, ACCESS_NETWORK_STATE, REQUEST_INSTALL_PACKAGES. FileProvider authority ${applicationId}.fileprovider
+(res/xml/file_paths.xml has only <cache-path name="updates" path="updates/"/>). Deps incl. material 1.12.0, biometric 1.1.0,
+media3 1.3.1, okhttp 4.12.0. CI: .github/workflows/build.yml unzips root-level *_vNNN.zip patches in version order, builds APK. Do not touch it.
 
-Build facts (verified from app/build.gradle.kts):
-- appVersionName = 0.0.174
-- namespace/applicationId = com.jabra.mgb
-- compileSdk 34; minSdk 24; targetSdk 34
-- Java/Kotlin target 17; Gradle wrapper/build workflow uses Gradle 8.7 in CI.
-- CI workflow: .github/workflows/build.yml; accepts root-level versioned ZIP patches, applies them, builds APK, publishes release. Do not change this workflow in UI feature steps.
-- Current archive top folder: Thazir-main/ (preserve this exact folder structure in future patch ZIPs unless repo owner changes it).
+FILE MAP (only what this plan touches)
+- MainActivity.kt (474 lines): onCreate (AppLock.onCreate ~l157, Backup.auto ~l160), 3-dot menu rows ~l200-241, onStart/onStop/onDestroy AppLock hooks ~l419-447.
+  Menu API: MenuSheet.Quick(icon,"Label"){...}  and  MenuSheet.Item("Title", iconRes, [bool], ["info"]){...} (see Passwords/Saved pages rows ~l218-220).
+- SettingsScreen.kt (1121 lines): category("privacy", R.drawable.ic_shield, "Privacy and security", ...) ~l1012; category("data", ic_folder, "Data and backup", ...) ~l1048;
+  rows = Row(icon,title,[value],[hint]){action}, Sub("Heading"). Read targeted ranges only.
+- Bookmarks.kt (399): object Bookmarks. class Item(title,url,time,folder=""), class Home(title,url,folder=""). Files in filesDir: mgb_bookmarks.json, mgb_history.json
+  (max 500), mgb_folders.json, mgb_home.json. API: bookmarks(), isBookmarked(url), addBookmark(title,url), removeBookmark(url), folders(), addFolder(name), removeFolder,
+  setFolder(url,folder), history(), addHistory(title,url), removeHistory(time,url), clearHistory(), exportHtml(), importText(text):Int, backupJson(withBm,withHome,withHist), backupMerge(...).
+- BookmarksScreen.kt (565): enum Mode{BOOKMARKS,HISTORY}; open(host, mode, tabs); multi-select exists (openSelected ~l333). Hook point for "Move to vault".
+- PageSave.kt (161): saved pages = filesDir/saved_pages/<id>.mht + index.json. class Entry(id,title,url,time,size). MAX=100. API: file(ctx,id), list(ctx), add, rename, remove(ctx,id), removeAll,
+  fileUrl(ctx,id)="file://"+path, isSaved(ctx,url), open(act,tabs,entry), save(act,tab). SavedPages.kt (170): list screen, menu(e) uses ToolsSheet.Item rows (Share/Rename/Delete).
+  PageSave uses allowFileAccess=true on its WebView (l82); all other WebViews have it false.
+- DownloadsApi.kt (682): class DlItem(id,url){referrer, rel, filename, uri(content:// or path), mime, state, fileSize, start, end, exists,...}. Persisted as JSON string in prefs
+  ("items"). API seen: openFile(act,id), shareFile(act,id), deleteFile(id):Boolean. EngineApi.history(): List<JSONObject> = finished downloads (used by DownloadsScreen/MediaLibrary).
+  DownloadService.kt: Downloader publishes finished files to public Downloads (MediaStore on API29+, else getExternalFilesDir) or to a SAF tree (DownloadFolder.publish). Part files filesDir/dl/<id>.part.
+- DownloadsScreen.kt (454): file menu rows ~l131-155 (Open in File Manager, Share, Rename, Remove from list, Delete). Hook point for "Move to vault".
+- DownloadFolder.kt (154) + BrowserExtras.kt (375): SAF folder pick + persistable permission code. BrowserExtras.pickFolder(done) launches tree picker; DownloadFolder.onPicked(c,uri) takes persistable
+  permission and stores tree uri; findChild/childDir/publish show how to create docs under a tree with DocumentsContract. REUSE the patterns, but the vault gets its OWN prefs ("mgb_vault") and its own tree uri.
+- AppLock.kt (198): prefs "mgb_lock", delays 0/1min/5min, BiometricPrompt, full-screen Dialog, FLAG_SECURE while locked. Pattern for lock UI + delays.
+- Vault.kt (75): Keystore helper (see 0(d)). Util.kt: dp(ctx,v), toast(ctx,msg), fmtBytes(b), host(url), fmtDuration. TabPrefs.reduce(ctx) = Reduce motion (key reduce_motion in mgb_ui).
+- ToolsSheet.kt: ToolsSheet.show(act,title,subtitle,List<Group(title,List<Item(icon,title,info,action)>)>) bottom sheet. PlayerActivity.start(ctx, uri, title) plays any Uri (content:// ok) - used by V8.
+- Backup.kt: Export/Import JSON (bookmarks, home, history, settings, closed tabs). Vault data is NOT added to Export data (it is its own container).
+- res: colors.xml / values-night/colors.xml / themes.xml (tokens below); drawables ic_*.xml (24dp vectors). New icon needed: ic_vault.xml (V3).
 
-2. HIGH-LEVEL FILE MAP
-Native browser shell:
-- app/src/main/java/com/jabra/mgb/MainActivity.kt — activity lifecycle, address bar actions, bottom bar wiring, menu, listeners, browser integration.
-- app/src/main/res/layout/activity_main.xml — web container, progress indicator, bottom address/navigation pill and view IDs.
-- HomeView.kt — native speed-dial home, bookmark tiles/folders, recent visits, search pill, wallpaper/scrim.
-- TabManager.kt — WebView tabs, tab lifecycle/suspension, navigation, session save/restore, page events and WebView clients.
-- TabSwitcher.kt + GroupStrip.kt — visual tab grid, groups, snapshots, close/undo and group strip.
-- Bookmarks.kt + BookmarksScreen.kt + Favicons.kt — bookmark/history data and UI.
+NEW FILES PLANNED (all in com.jabra.mgb)
+VaultCrypto.kt (V1) | VaultStore.kt (V2) | VaultScreen.kt (V3) | VaultItems.kt (V4: shared list UI + bookmarks, V5 history) | VaultFiles.kt (V6 pages, V7 files) |
+VaultPlay.kt + provider (V8) | VaultExit.kt (V9) | VaultRestore.kt (V10) | res/drawable/ic_vault.xml (V3)
 
-Appearance / navigation:
-- SettingsScreen.kt — searchable category settings UI; large (~1,099 lines), inspect targeted regions only.
-- AppearanceScreen.kt + AppearancePrefs.kt + UiMode.kt + Wallpaper.kt — dedicated appearance pages, persisted options, theme selection and home wallpaper.
-- BarGestures.kt — current bar swipe/fullscreen/tab gestures.
-- TabPrefs.kt — tab preferences/helpers.
-- colors.xml + values-night/colors.xml + themes.xml — native light/dark theme tokens.
-- bg_bar_pill.xml and res/drawable/ic_*.xml — address bar background and vector icons.
+KEY DATA SHAPES (design contract - V1/V2 must implement exactly; later steps only consume)
+- Container folder (SAF tree, user chosen, e.g. ThazirVault/):
+    vault.hdr   JSON {v:1, kdf:"PBKDF2WithHmacSHA256", iter:N(>=310000), salt:b64, wrapPass:b64(iv+gcm(DEK)), wrapRec:b64, recSalt:b64, check:b64, created:ms}
+    index.enc   AES-GCM(DEK) of JSON {v:1, items:[...], folders:[...]}  (written as index.tmp then swapped; keep index.bak = previous)
+    d/<16hex>.bin  chunked AES-GCM stream: header(magic "THV1", chunk=64KiB, nonce prefix 8B) then per-chunk (ctr in nonce) so random access / streaming works
+- Item (VaultItems): {id:16hex, type:"bm"|"hist"|"page"|"file", title, url, time, folder, size, mime, orig:{name,rel,uri?}, blob:"d/<id>.bin"|null, flags}
+  bm/hist keep data inside index (no blob). page/file have a blob. Filenames on disk are random ids; titles live only inside encrypted index.
+- State machine VaultStore.state: NONE (no vault) | FOLDER_MISSING (permission/folder gone - NEVER auto-create a new empty vault) | LOCKED | UNLOCKED.
+- Prefs "mgb_vault": tree uri string, quick-unlock wrap (Keystore, per install), autolock idx, hide-recents flag, fail count/lockout time, last index version.
+- Update safety: header v and index v fields + migrate() in VaultStore; never drop unknown JSON fields (copy-through) so a newer file opened by older app is not corrupted.
 
-Tools / page features:
-- ToolsSheet.kt + MenuSheet.kt — native tool and overflow sheets.
-- FindBar.kt, Translate.kt, PageSave.kt, SavedPages.kt — find, translation, offline .mht save/open and saved page library.
-- PrivacyGuard.kt, SiteSettings.kt — privacy dashboard and per-site permissions.
-- Backup.kt + BrowserExtras.kt — browser data backup/import/export and Android document/image pickers.
+====================================================================================================
+2. DESIGN RULES (audited from current code, not from the old HANDOFF - the old text still says rose, which is outdated)
+====================================================================================================
+Tokens (res/values/colors.xml LIGHT | values-night/colors.xml DARK) - use ONLY via R.color.mg_*:
+ mg_bg #F8F8FC | #0B0D13   mg_surface #FFFFFF | #141722   mg_surface_variant #F0F1F7 | #202435
+ mg_primary #5947C7 (violet) | #B6A8FF   mg_on_primary #FFFFFF | #211B3A   mg_text #191A24 | #F0EFF8   mg_text_dim #626477 | #B0B2C2
+ mg_outline #D9DCE7 | #34384A   mg_error #D93025 | #FF7B72   mg_success #1E9E5A | #4CD08A   mg_toggle_on = mg_primary   mg_toggle_thumb #FFFFFF | #211B3A
+ thazir_icon_bg #1B1630; bool mg_light_bars (true light / false dark). Theme.MGB parent Theme.Material3.DayNight.NoActionBar maps colorPrimary/Surface/OnSurface/Outline/Error and
+ SurfaceContainer* to mg_*. Never hardcode a light-only colour; fetch with act.getColor(R.color.mg_x) at build time.
+Fonts: system sans only. Titles Typeface.DEFAULT_BOLD or sans-serif-medium. Sizes seen: sheet title 20sp bold; subtitle 12sp dim; group header 11sp bold mg_primary, uppercase, letterSpacing 0.08.
+No bundled fonts, no custom font resources. Spacing in dp via Util.dp(ctx,n): sheet padding 14/16/14/18; screens 14-20 horizontal; rows >=52 min height; settings header ~56; search field ~48.
+Shapes: cards = GradientDrawable fill mg_surface, cornerRadius 20dp, stroke 1dp mg_outline; controls 12-16dp; pills fully rounded. Elevation subtle - rely on outline + surface contrast, no glow.
+Components (reuse, do not reinvent): BottomSheetDialog sheets (ToolsSheet, MenuSheet), MaterialAlertDialogBuilder dialogs, full-screen Dialog (AppLock, BookmarksScreen), card rows with 24dp icon + title + dim info
++ chevron (ToolsSheet items), MaterialButton, accordion categories in Settings. Touch targets >=44dp (40 minimum). Icons: reuse ic_lock ic_shield ic_folder ic_bookmark ic_history ic_save ic_download
+ic_trash ic_check ic_close ic_more ic_back ic_search ic_open ic_share ic_info ic_add ic_chevron ic_play ic_edit ic_list. No emoji as icons.
+Motion: short (150-250ms), must check TabPrefs.reduce(ctx) and skip when ON. Dark and light are both first-class (resource qualifiers + UiMode). Orientation/screenSize config changes are handled in manifest -
+dialogs must survive rotation (build from scratch on each open, keep state in the object, not in views).
+Breakpoints: no native sw*dp system. Phone-first; use match_parent + max width cap (e.g. 560dp centered) for wide screens/landscape so rows do not stretch.
 
-Downloads / media:
-- DlEngine.kt, DownloadsScreen.kt, DownloadService.kt, DownloadFolder.kt, FloatingDl.kt, Sniffer.kt — download controls, service, folders, detected media.
-- WebPlay.kt + WebVideo.kt — media link routing and in-page video integration.
-- PlayerActivity.kt, PlayerPanel.kt, PlayerPrefs.kt, PlayerQueue.kt, PlayerSubs.kt — Media3 player and playback preferences. PlayerActivity.kt is large; inspect targeted functions only.
-- assets/ext/{downloader,player,popup}.* — extension-side downloader/player UI. Keep native and extension surfaces consistent if both are touched.
+VAULT UNIQUENESS (Thazir signature, keep restrained)
+- "Sealed" look: calm deep surface, ONE violet accent, small violet dash section markers (same as Appearance screens), a round "seal ring" on the vault home that shows lock state and the auto-lock
+  countdown (ring simply fills/empties; static when Reduce motion). Items show a tiny "sealed" lock chip, not big badges. Four category tiles (Bookmarks, History, Saved pages, Files) each with count + size.
+- Unlock moment = one short haptic tick + ring closes/opens (skipped under Reduce motion). Empty states are short plain sentences, no illustrations.
+- New icon ic_vault.xml must be a 24dp vector in the same stroke style as ic_shield/ic_lock (keyhole in shield). Name stays "Vault" in UI.
+- Wording: plain, honest. Never claim "uninstall-proof" for data kept only in the app; always say where data lives (the folder name) and what survives.
 
-Extension bridge (read-only context unless a step explicitly needs integration):
-- EngineHost.kt, ContentInjector.kt, ExtApi.kt, ChromeBridge.kt — local extension origin, injection and browser API bridge. Do not casually alter these during visual-only work.
+====================================================================================================
+3. FEATURE SET (what "usual vault features" means here)
+====================================================================================================
+Core: set up (folder + passphrase + recovery key shown once), unlock (passphrase, biometric quick-unlock), auto-lock (immediately / 1 / 5 min / when app leaves), hide from recents (FLAG_SECURE),
+failed-attempt backoff (lockout grows), lock now button, change passphrase (re-wrap DEK only, no re-encrypt), regenerate recovery key, integrity check ("Verify vault"), storage usage per category,
+search inside vault, folders for bookmarks, move TO vault / restore FROM vault (per item and multi-select) with "keep a copy" vs "move", secure wipe, panic wipe,
+export readable copy per category, restore from vault after reinstall, and the Exit / Uninstall-prep wizard with per-category Keep / Export / Delete.
+Not planned (say so if asked): cloud sync, decoy vault, passwords in this vault, vault inside incognito.
 
-3. VERIFIED KEY IDS / FUNCTIONS / DATA SHAPES
-Main layout IDs (activity_main.xml):
-- web_container: FrameLayout hosting active WebView.
-- progress: LinearProgressIndicator.
-- bottom_bar: current floating address/navigation pill.
-- btn_home, btn_engine, btn_shield, url_bar, btn_tabs, btn_menu: primary controls. btn_engine and btn_shield may be hidden depending on state.
-- Current layout is vertical: web area with weight 1, then bottom_bar. MainActivity can move bottom_bar to top when ap_bar_pos = top.
+====================================================================================================
+4. VERSION + CHANGELOG + PATCH CONVENTION
+====================================================================================================
+- Version lives in app/build.gradle.kts: val appVersionName = "0.0.185". Each step bumps +1 (V1 -> 0.0.186, V2 -> 0.0.187 ...). Before editing, confirm the current value equals the expected
+  previous version; never overwrite a newer project. If two zips share one version, merge into one cumulative zip with the next number.
+- CHANGELOG.txt (root): prepend an entry, format exactly: first line "0.0.186 (V1 BUILD: short title)" then "- " bullet lines (what changed, which files, what was NOT touched), blank line, older entries.
+- Patch ZIP: changed files only, original root folder Thazir-main/, name Thazir_V<n>_v0_0_<NNN>.zip (CI sorts by the _v... part). Include build.gradle.kts, CHANGELOG.txt and this HANDOFF.txt (progress updated).
+  Never include .github or unchanged files.
+- Checks available in the chat sandbox (no Gradle there): XML well-formed, Kotlin brace/paren balance, single-match patch audit, changed-files scope, unused/duplicate id check, resource-name parity light/dark.
+  Real compile = CI. Always write "NOT tested: Gradle build (CI), device render, TalkBack" in the RESULT block unless actually done.
 
-Core classes / methods (re-check exact signatures and surrounding code before patching):
-- MainActivity: homeClick(), showMenu(), openSite(url), submitUrl(), refreshUrlField(), refreshAll(tab), refreshShield(). It owns the URL EditText and primary control references.
-- HomeView: refresh(), showTop(), applyWallpaper(); constructor receives Context and callbacks/data from TabManager. Keep current callback contract unless deliberately migrated in a contained step.
-- TabManager: Tab data class (id, web, openerId, lastActive, suspended, savedState, url, title, progress, pending, home, keepUrl, desktop, priv, savedPage); all(), byId(id), newTab(url, openerId=0, select=true, priv=false, lazy=false), switchTo(tab), close(tab), saveSession(), restoreSession(), goHome(), showSwitcher(), active, HOME_PAGE="about:home", MAX_TABS=30.
-- TabSwitcher: show(activity, tabManager), group/export/import helpers, snap(tab), onChanged callback. Tab groups are currently represented as name -> collection of tab IDs and session JSON export/import.
-- AppearancePrefs uses SharedPreferences file "mgb_ui". Existing keys include ap_bar_pos (bottom/top), ap_home_action (home/back/newtab/refresh/bookmarks/extensions), ap_full_url, ap_swipe_fs, ap_swipe_tabs, ap_wp_dim (0..80), ap_undo_toast, ap_start_page, ap_bar_compact. Do not rename existing keys.
-- UiMode: night key (0 System / 1 Light / 2 Dark), dark_pages key.
-- Wallpaper file: filesDir/wallpaper.jpg; wallpaper is not included in current backup.
-- PageSave: .mht files under app-private files; metadata Entry has id/title/url/date/size-like fields (inspect class before use). PageSave.save(activity, tab), list(context), open(activity,tabs,entry), remove/rename.
-- Downloads/media: detected item data is JSON-oriented through extension bridge/ChromeBridge; native download state lives across DlEngine / DownloadService / DownloadsScreen. Inspect actual queue/storage schema before adding a unified library; do not invent a second source of truth.
-- Player entry: WebPlay.play(context,url,title?,referer?,ua?) routes media URLs to PlayerActivity; player queue/subtitle preferences are separate modules.
-- Backup: current Backup operates on "mgb_ui" and selected app data; new preferences should be added to the existing backup shape only after checking import/export migration behaviour.
-- ToolsSheet.show(activity,title,subtitle,groups) is the existing native tools-sheet entry point.
+====================================================================================================
+5. STANDING RULES (every step)
+====================================================================================================
+1. ONE step per chat. Start by reading this file, then FILES.txt, then ONLY the files that step lists (grep + line ranges for big ones: SettingsScreen, MainActivity, DownloadsApi, PlayerActivity).
+2. Patch only: minimal targeted edits, keep identifiers/behaviour. New logic goes in NEW Vault* files; existing files get 1-3 small hook edits. Never rewrite a whole existing file.
+3. Every step must leave the app compiling and working. Hooks are added only when the code they call exists (that is why order matters).
+4. Do not change: Vault.kt signatures, PasswordStore, DownloadService/Downloader internals, CI workflow, extension bridge (EngineHost/ChromeBridge/ExtApi), Backup JSON shape.
+5. No secrets in logs/toasts/crash logs. Never log passphrase, DEK, recovery key, item titles/urls. Zero-fill byte arrays after use where practical.
+6. Writes to the container: write new -> verify -> swap; keep .bak of index; if anything fails, keep old data and show a plain error. Never delete originals until the vault copy is read back and verified.
+7. SESSION GUARD: stop starting new sub-tasks at ~80% of the session; finish a compiling checkpoint by 85%; hard stop 90%. If a step is cut, set it to [~] with a RESULT note listing the exact
+   remaining sub-tasks (the step can then be re-run as "V<n>b" with that list). Deliver the patch zip BEFORE 90% even if partial, as long as it compiles.
+8. Final message of each step: <= 8 lines (done / zip name / next kickoff line). Update this file's progress boxes + RESULT block.
+9. Both dark and light + Reduce motion + 360dp portrait + landscape must be considered in every UI step (state in RESULT what was only reasoned, not run).
 
-4. DESIGN RULES — BASELINE AUDIT
-Native app:
-- Framework: Theme.Material3.DayNight.NoActionBar; native Android Views built mostly programmatically. Existing layout XML is limited and should stay limited. No Jetpack Compose migration in this plan.
-- Font: system sans-serif. Titles/labels commonly use Typeface.create("sans-serif-medium", ...); no bundled custom font resources found. Keep this to avoid added assets and font licensing/weight problems.
-- Light palette (values/colors.xml): mg_bg #FFFFFF; mg_surface #F5F5F7; mg_surface_variant #ECEDF0; mg_primary #D93A5C (rose); mg_on_primary #FFFFFF; mg_text #14171C; mg_text_dim #5F6673; mg_outline #DCDFE5; mg_error #D93025; mg_success #1E9E5A; mg_toggle_on #5B4BD6; mg_toggle_thumb #FFFFFF.
-- Dark palette (values-night/colors.xml): mg_bg #0A0C10; mg_surface #14171C; mg_surface_variant #1F232A; mg_primary #F2708A; mg_on_primary #3A0A15; mg_text #ECEFF4; mg_text_dim #98A0AE; mg_outline #2A2F38; mg_error #FF7B72; mg_success #4CD08A; mg_toggle_on #9A8CFF; mg_toggle_thumb #FFFFFF.
-- Theme maps Material 3 primary/surface/on-surface/outline/error and surface-container roles to mg_* tokens; status/navigation bars follow light/dark bool mg_light_bars.
-- Brand signals already present: rose primary in native app, violet toggle/selection, icon background #1B1630. Prior A11 appearance work adds small violet dash section markers and restrained haptic/press feedback. Do not abruptly replace every token without checking contrast and existing icon/state semantics.
-- Existing screen spacing is mostly 14–20dp horizontal padding; settings headers ~56dp; search fields ~48dp; row minimum heights ~52dp; cards use 12–16dp corner radii; bottom bar 52dp default / 44dp compact; bar outer margins 10dp and vertical margins 6–8dp. Other dialogs/cards use 20–24dp radii. Treat these as observed ranges, not rigid universal constants.
-- Touch targets: common controls 40–48dp; prefer >=44dp for primary touch actions. Respect system insets/cutouts and keyboard resize.
-- Corners: rounded cards and pills; existing bottom bar drawable is a pill. Keep elevation/shadows subtle; use outline and surface contrast before strong shadow/glow.
-- Icons: existing vector drawables in res/drawable, mostly 24dp. Reuse exact icons where semantically appropriate; add vector XML only if missing. Avoid emoji as primary app icons.
-- Animation: native View animations/animators already used. Existing Reduce motion setting exists; new motion must respect it. Keep normal transitions short and restrained (~150–250ms as design target, not a current global constant).
-- Dark/light: both are first-class and implemented via resource qualifiers + UiMode. Every new native surface must use themed resources/context and be tested in both modes; never hardcode a light-only surface.
-- Responsive: native app primarily phone-first; AndroidManifest handles orientation/screenSize/smallestScreenSize/screenLayout/keyboardHidden/uiMode config changes. No meaningful swNNNdp resource breakpoint system was found. Extension web UI has CSS media breakpoints at 360/400/420/520/760px and coarse pointer >=44px; reduce-motion CSS exists in theme.css. Do not assume native UI already has tablet breakpoints.
-- Extension web theme CSS (assets/ext/theme.css) uses 4/8/12/16/24px spacing tokens; 10/14/20px radius tokens; compact font scale 11/12/13.5/16/20px; tap token 40px (44px for coarse pointer); dark default palette with light override. CSS uses system font stack unless page-specific serif/monospace preview is intentional.
+====================================================================================================
+6. STEP PLAN  ([ ] todo  [~] partial  [x] done)   size = % of ONE chat session, estimate
+====================================================================================================
+Order is strict. Each step ends in a working app. No step is L (>60%).
 
-Target direction for future redesign (design note, not current implementation):
-- Hybrid minimal + futuristic; retain Thazir's violet identity as the primary signature accent, with restrained neutral surfaces. Existing rose primary is legacy; S1 must migrate tokens carefully and test all native surfaces. Do not blanket-apply glow/glassmorphism.
-- Obsidian/deep neutral dark surfaces, calm off-white light surfaces, violet accent and soft-violet selected states; keep error/success semantic colors independent.
-- Prefer consistent 16–20dp cards, 12–16dp controls, clear hierarchy, compact labels, predictable spacing and 44dp+ touch areas.
-- Home screen should be calm and customizable, not a dense widget wall. Address bar stays the main navigation affordance. Tabs should prioritize readable previews and quick close/switch. Settings should expose category + search and concise summaries.
-- Use actual labels and accessible content descriptions; preserve screen-reader focus order, contrast and text scaling. Avoid decorative animation that blocks navigation.
+[x] V1  BUILD  M (~40%)  Crypto core, no UI
+    Goal: VaultCrypto.kt = envelope key management + streaming encryption, fully self-contained.
+    Add: VaultCrypto.kt (PBKDF2 derive KEK, random DEK, wrap/unwrap by passphrase and by recovery key, header JSON build/parse, AES-GCM string enc/dec, chunked stream
+         encrypt/decrypt with random access readAt(offset), secure-wipe helper, recovery-key generator/formatter, constant-time compare).
+    Modify: app/build.gradle.kts (version), CHANGELOG.txt, HANDOFF.txt. Read-only: Vault.kt, Util.kt.
+    Depends: none.  Design: none (no UI).
+    Checks: balance/syntax; document byte layout in file header comment; add an internal selfTest() (round-trip, wrong key fails, tamper fails, offset read) callable later from V11 "Verify vault".
 
-5. IMPLEMENTATION STANDING RULES
-1. Planning baseline is version 0.0.174. Before each BUILD/MODIFY/FIX step, confirm current appVersionName equals the expected previous version. Never overwrite a newer project.
-2. One step per chat. Do not start the next step in the same chat, even if time remains.
-3. Session guard: stop work by 85% of available session/context budget; absolute hard stop at 90%. If not finished, stop safely and report exact remaining work. Never rush past checks.
-4. Patch only. Do not rewrite whole files or replace large classes wholesale. Make minimal targeted edits around existing functions; preserve working behaviour and identifiers.
-5. Modify only files listed for the active step unless a genuinely required dependency is discovered. If scope expands, stop and split/replan rather than silently adding files.
-6. Read only the listed read-only context files and targeted sections of large files. Do not dump/read large Kotlin files fully. Use grep/rg, line ranges and focused snippets.
-7. Each step must leave the project compiling and usable. No half-wired menu items or dead UI. Feature flags/entry points appear only when the feature works.
-8. After each step: run available static checks/build (CI or local equivalent), inspect diff, verify no unrelated changes, update appVersionName +1, prepend CHANGELOG.txt entry, update HANDOFF progress [x] and RESULT block, create changed-files-only patch ZIP with original Thazir-main/ root.
-9. Patch ZIP must contain only changed files for that step, not the full context. Name convention: Thazir_Sn_v0_0_NNN.zip (NNN = new version number); preserve workflow's root ZIP application convention. Do not include .github unless a step explicitly changes workflow.
-10. Do not change applicationId/namespace/package, persisted preference keys, backup schema, extension origin, or public bridge contracts without a separate migration plan.
-11. For new preferences: use existing "mgb_ui" only if semantically appropriate; prefix new keys (e.g. thz_reader_*) and add explicit backup/import compatibility where needed. Do not store secrets in SharedPreferences/plain source.
-12. No external API key in APK/source. Companion requires a secure proxy or user-supplied provider configuration and a privacy disclosure; no provider choice is assumed.
-13. Test matrix: light/dark, small phone (360–390dp), typical phone (400–440dp), landscape/large width where applicable, keyboard open, long text, empty/loading/error states, TalkBack labels, and existing feature regression.
-14. Avoid adding dependencies unless a step proves they are needed. If dependency changes are unavoidable, isolate and explain them.
-15. Do not promise Chrome/Chromium feature parity: the browser engine is Android WebView and extension APIs are shimmed/partial.
+[x] V2  BUILD  M (~45%)  Container + index + state machine
+    Goal: VaultStore.kt binds a SAF folder, creates/opens vault.hdr + index.enc, exposes state, unlock/lock, index load/save, blob read/write streams, migration, FOLDER_MISSING handling.
+    Add: VaultStore.kt. Modify: build.gradle.kts, CHANGELOG, HANDOFF. Read-only: VaultCrypto.kt (from V1 patch), DownloadFolder.kt, BrowserExtras.kt (pickFolder/treeLauncher + how result arrives), Util.kt.
+    Depends: V1.  Design: none yet.
+    Notes: need own folder picker callback path (do NOT reuse DownloadFolder prefs). If BrowserExtras needs a second launcher it is a tiny edit there (add to Modify and say so in RESULT).
+    Checks: all SAF calls on a background thread; index writes debounced + serialized; no vault data in filesDir except per-install quick-unlock wrap; state never silently resets to NONE.
 
-6. FULL STEP PLAN
-All sizes are per single chat/session: S ~20–25%, M ~30–45%. No L steps are allowed. Every step is independently buildable and leaves the app working. The step plan assumes the previous listed step has been applied.
+[ ] V3  BUILD  M (~50%)  Vault shell UI: setup, unlock, home
+    Goal: user can create a vault (folder + passphrase + recovery key + optional biometric), lock/unlock, see 4 empty category tiles; entry points exist.
+    Add: VaultScreen.kt, res/drawable/ic_vault.xml. Modify: MainActivity.kt (one MenuSheet.Item "Vault" + onStop hook for auto-lock), SettingsScreen.kt (one Row in Privacy and security),
+         build.gradle.kts, CHANGELOG, HANDOFF. Read-only: ToolsSheet.kt, MenuSheet.kt, AppLock.kt, TabPrefs.kt, Vault.kt, colors/themes, ic_* drawables.
+    Depends: V2.  Design: full-screen Dialog like AppLock/BookmarksScreen; seal ring + 4 tiles (see VAULT UNIQUENESS); passphrase min length + strength hint; recovery key shown once with copy/share
+         and a "I saved it" checkbox before continue; honest text about reinstall.
+    Checks: rotation safe; FLAG_SECURE when "hide from recents" on; no secret in toasts; both themes.
 
-[S1] Design token alignment — Hybrid Thazir palette
-Goal: unify native light/dark colors around restrained violet identity without breaking semantic colors.
-Mode: MODIFY | Size: S (~20–25%).
-Modify: app/src/main/res/values/colors.xml; app/src/main/res/values-night/colors.xml; app/src/main/res/values/themes.xml only if a token mapping is required.
-Read-only context: MainActivity.kt; SettingsScreen.kt; AppearanceScreen.kt; ThazirSwitch.kt; res/drawable/bg_bar_pill.xml; app/src/main/res/values/strings.xml.
-Dependencies: none; baseline v0.0.174 -> target v0.0.175.
-Design note: preserve mg_* resource names, maintain separate error/success, check text contrast; unify primary and selected-control accents around violet, with a neutral premium light palette and a softer near-black dark palette. Do not recolor every asset in this step.
-Checks: assembleDebug/CI; inspect all token references; light/dark screenshots of home, settings, dialogs, switch; status/navigation bar icon contrast; no hardcoded color regressions.
+[ ] V4  BUILD  M (~50%)  Bookmarks in the vault
+    Goal: move/copy bookmarks (and folders) into the vault and restore them; vault bookmark list with search and open-in-tab.
+    Add: VaultItems.kt (shared item model, list UI, multi-select, search; used again in V5-V7). Modify: BookmarksScreen.kt (menu/multi-select: "Move to vault" / "Copy to vault"),
+         VaultScreen.kt (tile -> list), build.gradle.kts, CHANGELOG, HANDOFF. Read-only: Bookmarks.kt, Favicons.kt, TabManager.kt (open url API only), VaultStore.kt.
+    Depends: V3.  Design: list rows same as BookmarksScreen rows; sealed chip; undo snackbar-style toast after move.
+    Checks: move = add to vault, verify, THEN Bookmarks.removeBookmark; copy keeps original; duplicates by url merged; Home pins untouched.
 
-[S2] Home screen — hierarchy and customization polish
-Goal: redesign HomeView into a calm signature dashboard with clear search, favorite shortcuts and recent activity.
-Mode: MODIFY | Size: M (~35–40%).
-Modify: app/src/main/java/com/jabra/mgb/HomeView.kt; add a new vector drawable only if required.
-Read-only context: MainActivity.kt; TabManager.kt; Bookmarks.kt; Favicons.kt; Wallpaper.kt; AppearancePrefs.kt; colors.xml + values-night/colors.xml.
-Dependencies: S1.
-Design note: keep existing bookmark/folder editing, wallpaper/dim, recent row, search callback and add-tile behaviours. Do not add weather/news network widgets. Make sections optional/compact only if the existing data contract supports it.
-Checks: home with 0/1/many bookmarks; folders/edit mode; wallpaper on/off; recent empty/populated; search focus; dark/light; small width; tap target and scroll behaviour.
+[ ] V5  BUILD  M (~35%)  History in the vault
+    Goal: move/copy history entries (single, selected, date range, all) into vault; vault history list (grouped by day, search); optional toggle "Send history to vault instead of browser" (off by default).
+    Add: history section in VaultItems.kt. Modify: BookmarksScreen.kt (history mode menu), VaultScreen.kt, Bookmarks.kt ONLY IF a tiny hook is needed for the optional toggle (state in RESULT), build.gradle.kts, CHANGELOG, HANDOFF.
+    Read-only: Bookmarks.kt. Depends: V4.  Design: day group headers 11sp primary uppercase.
+    Checks: history cap in app is 500 - vault has no cap but index size is watched (warn above ~5 MB, V11 handles compaction); private tabs never write to vault history.
 
-[S3] Address bar — premium navigation pill
-Goal: refine address bar hierarchy, URL/domain display, loading/privacy/search states and touch actions.
-Mode: MODIFY | Size: M (~35–40%).
-Modify: app/src/main/res/layout/activity_main.xml; app/src/main/res/drawable/bg_bar_pill.xml; MainActivity.kt; AppearancePrefs.kt only if a genuinely new preference is needed.
-Read-only context: AppearanceScreen.kt; BarGestures.kt; Util.kt; TabManager.kt; PageInfo.kt; PrivacyGuard.kt; all existing bar icon vectors.
-Dependencies: S1.
-Design note: preserve IDs btn_home, btn_engine, btn_shield, url_bar, btn_tabs, btn_menu and top/bottom/compact bar options. Do not redesign TabSwitcher in this step. Keep keyboard resize and scroll hide/show intact.
-Checks: URL typing/submission, search query, focus/keyboard, progress, HTTPS/privacy state, long URL, home blank URL, top/bottom and compact mode, rotation/insets.
+[ ] V6  BUILD  M (~45%)  Saved pages in the vault
+    Goal: encrypt saved .mht pages into the vault, list, open offline, restore.
+    Add: VaultFiles.kt (blob import/export helpers + saved-page part). Modify: SavedPages.kt (menu row "Move to vault"), VaultScreen.kt, build.gradle.kts, CHANGELOG, HANDOFF.
+    Read-only: PageSave.kt, VaultStore.kt, VaultCrypto.kt.
+    Depends: V3 (V4 for shared list UI).  Design: same rows; size shown with Util.fmtBytes.
+    Open path: decrypt to cacheDir/vault_tmp/<random>.mht, load with PageSave-style file:// WebView (allowFileAccess is already true only there), wipe temp on close/onStop and at app start. Move = import, verify read-back, then PageSave.remove.
+    Checks: temp wipe on every path (back, crash restart); PageSave.MAX unaffected.
 
-[S4] Tab switcher — visual refresh
-Goal: make tab cards easier to scan, search and manage while preserving tab groups and undo.
-Mode: MODIFY | Size: M (~35–45%).
-Modify: TabSwitcher.kt; GroupStrip.kt only if the switcher integration needs a small companion adjustment.
-Read-only context: TabManager.kt; TabPrefs.kt; Backup.kt (closed tabs/session); colors/tokens; sheet_tabs.xml; MainActivity.kt.
-Dependencies: S1; S3 recommended but not required.
-Design note: preserve tab IDs, snapshot cache, group JSON shape, close/undo semantics, private tab distinction, suspended/older tabs and max-tab limit. No new persistent schema unless separately migrated.
-Checks: 0/1/many tabs; grouped/ungrouped; private; suspended; restore; close/undo; swipe close; long titles; low-memory snapshots; portrait/landscape; accessibility.
+[ ] V7  BUILD  M (~55%)  Downloaded files into the vault
+    Goal: "Move to vault" for finished downloads: stream-encrypt the file into d/<id>.bin with progress/cancel; vault Files list; Open / Share (via temp decrypt) / Export out / Delete.
+    Add: file part in VaultFiles.kt (progress worker thread + notification-free first version, cancel, free-space check). Modify: DownloadsScreen.kt (menu row near Delete ~l148), res/xml/file_paths.xml (cache-path "vault_tmp"),
+         VaultScreen.kt, build.gradle.kts, CHANGELOG, HANDOFF. Read-only: DownloadsApi.kt (DlItem.uri/mime/rel, deleteFile), EngineApi.kt, DownloadFolder.kt, Util.kt, VaultCrypto.kt.
+    Depends: V6.  Design: progress row inside a ToolsSheet-style card; never block UI thread.
+    Rules: read source via DlItem.uri (content:// or path); after verified import offer "Delete original" via DownloadsApi.deleteFile(id) (user choice, default = ask); original file untouched until verified.
+    Checks: large-file memory (stream only, 64 KiB chunks); handles missing/moved source; low-storage message; works with SAF download folder and MediaStore downloads.
 
-[S5] Settings — information architecture polish
-Goal: simplify Settings navigation and make category cards, search, summaries and Appearance entry feel consistent.
-Mode: MODIFY | Size: M (~35–45%).
-Modify: SettingsScreen.kt; AppearanceScreen.kt only where shared visual language or navigation handoff requires it.
-Read-only context: AppearancePrefs.kt; UiMode.kt; Backup.kt; TabPrefs.kt; PrivacyGuard.kt; SiteSettings.kt; DownloadsScreen.kt; DlEngine.kt; ExtListScreen.kt; UserscriptsScreen.kt.
-Dependencies: S1–S4 for consistent design, but can be implemented after S1.
-Design note: keep all current setting keys, search keywords, reset scopes, restart behaviour and feature destinations. Large SettingsScreen is targeted-edit only; no wholesale rewrite.
-Checks: every existing row opens/toggles correct feature; search all categories; reset each category; restart-required flows; backup/import; light/dark; no orphaned setting.
+[ ] V8  BUILD  M (~45%)  Play vault media without a plain copy
+    Goal: open vault videos/audio in the existing player with seeking, no full decrypted copy on disk (API26+); API24-25 fall back to temp decrypt + wipe.
+    Add: VaultPlay.kt (ContentProvider that serves a seekable proxy file descriptor via StorageManager.openProxyFileDescriptor + readAt from VaultCrypto; image/pdf viewer = open via temp + FileProvider).
+    Modify: AndroidManifest.xml (provider entry, not exported, grantUriPermissions), VaultScreen.kt/VaultFiles.kt (play action), build.gradle.kts, CHANGELOG, HANDOFF.
+    Read-only: PlayerActivity.kt ONLY the companion start(ctx, uri, title) at ~l90-110 (file is 1718 lines - do not read more), VaultCrypto.kt, VaultFiles.kt.
+    Depends: V7.  Design: no new player UI; reuse PlayerActivity. DECISION RULE: if Media3 cannot read the provider uri with seeking, fall back to temp decrypt for ALL versions and record it.
+    Checks: provider not exported; uri grants revoked; locked vault => provider returns nothing; tmp wipe.
 
-[S6] Smart Reader Mode — first new reading feature
-Goal: provide a focused reading view for the current page with typography, width, theme and read-aloud entry point.
-Mode: BUILD | Size: M (~35–40%).
-Add: ReaderMode.kt.
-Modify: MainActivity.kt; ToolsSheet.kt; optionally TabManager.kt only for a narrow active-tab helper.
-Read-only context: Translate.kt; FindBar.kt; TabManager.kt; BrowserExtras.kt; SavedPages.kt; colors/tokens; activity_main.xml.
-Dependencies: S1–S3.
-Design note: start with safe DOM extraction/readability heuristic and a reversible overlay/native reader view; do not destroy the original page. Reader must fail gracefully on unsupported pages, login forms and extension pages. Text-to-speech can be a separate follow-up if it grows beyond this step.
-Checks: article, blog, cluttered page, image-heavy page, unsupported/login page, long article, font/width/theme changes, back/restore original page, TalkBack.
+[ ] V9  BUILD  M (~55%)  Exit / Uninstall-prep wizard  (the owner's key request)
+    Goal: one screen listing categories (Bookmarks, History, Saved pages, Files + their counts/sizes). Per category choose: KEEP encrypted in vault folder | EXPORT readable copy | DELETE permanently.
+    Add: VaultExit.kt. Modify: VaultScreen.kt (button "Exit vault / Prepare for uninstall"), build.gradle.kts, CHANGELOG, HANDOFF. Read-only: VaultStore.kt, VaultFiles.kt, VaultItems.kt, Bookmarks.kt (exportHtml), Util.kt.
+    Depends: V4-V7.  Design: cards per category with a 3-way segmented choice; default = KEEP; a red "Delete permanently" choice requires a typed confirmation word; summary screen before run; progress + final report.
+    Export formats: bookmarks -> bookmarks.html (Bookmarks.exportHtml style), history -> history.csv/json, pages -> .mht, files -> original names. Export target = a plain folder the user picks (new SAF pick, separate from vault).
+    Delete = overwrite header/blobs where possible then delete documents, remove index entries; verify; report. Wipe-everything option removes vault.hdr last. Honest note shown: "Android cannot run this at uninstall; do it before."
+    Checks: dry-run summary matches counts; cancel-safe (partial runs leave a consistent index); never touches the normal Downloads folder or non-vault files.
 
-[S7] Thazir Command Center — universal action launcher
-Goal: add one searchable palette to launch browser actions and jump to tabs/bookmarks/downloads/settings.
-Mode: BUILD | Size: M (~35–40%).
-Add: CommandCenter.kt.
-Modify: MainActivity.kt; ToolsSheet.kt only for entry-point integration.
-Read-only context: TabManager.kt; TabSwitcher.kt; Bookmarks.kt; BookmarksScreen.kt; DownloadsScreen.kt; SettingsScreen.kt; AppearanceScreen.kt; ExtTray.kt/ExtListScreen.kt; Util.kt.
-Dependencies: S1–S5.
-Design note: local command registry only; do not parse arbitrary commands or execute scripts. Use clear prefixes/sections, recent actions only if privacy-safe, keyboard and touch navigation.
-Checks: command search, no-result state, open tab, new tab, bookmark, download, settings destination, keyboard navigation, private mode behaviour, no accidental destructive action.
+[ ] V10 BUILD  S (~30%)  Reinstall detection + Restore + uninstall shortcut
+    Goal: on a fresh install (state NONE) offer "I already have a vault - pick folder", unlock with passphrase or recovery key, re-create per-install quick-unlock, optional "Restore into browser" per category; button to open Android's uninstall screen after the wizard.
+    Add: VaultRestore.kt (or part of VaultScreen). Modify: VaultScreen.kt, AndroidManifest.xml (uses-permission REQUEST_DELETE_PACKAGES, only if the uninstall shortcut is kept), build.gradle.kts, CHANGELOG, HANDOFF.
+    Read-only: VaultStore.kt, VaultExit.kt. Depends: V9.  Design: same setup dialog styling; plain 3-line explanation of what was kept.
+    Checks: wrong folder (no vault.hdr) gives a clear message and creates nothing; newer-version header refuses politely.
 
-[S8] Screenshot Studio — page capture tools
-Goal: provide viewport/full-page capture with preview, share/save and optional annotation entry point.
-Mode: BUILD | Size: M (~35–40%).
-Add: ScreenshotStudio.kt.
-Modify: MainActivity.kt; ToolsSheet.kt; BrowserExtras.kt only if Android save/share picker wiring is required.
-Read-only context: TabManager.kt; PageInfo.kt; PageSave.kt; Backup.kt; manifest/extra manifest; activity_main.xml.
-Dependencies: S1–S3.
-Design note: capture active WebView only; full-page capture must be bounded to avoid OOM. Annotation can be limited to crop/markup basics; redact/blur is not promised in v1. Never capture private app UI without explicit user action.
-Checks: viewport and tall page; very long page cap; images/lazy loading; permission/save cancellation; share; rotation; memory pressure; private page handling.
+[ ] V11 MODIFY M (~45%)  Security + usual-features hardening
+    Goal: Vault settings page: change passphrase, regenerate recovery key, auto-lock delay, biometric quick-unlock toggle, hide-from-recents toggle, failed-attempt backoff, "Verify vault" (V1 selfTest + header/index/blob existence scan), index size/compaction, lock-now.
+    Add: settings section in VaultScreen.kt (split to VaultSettings.kt if the file passes ~700 lines). Modify: SettingsScreen.kt (summary text on the existing Row only), build.gradle.kts, CHANGELOG, HANDOFF.
+    Read-only: AppLock.kt (delay labels pattern), VaultStore.kt, VaultCrypto.kt. Depends: V3 (best after V10).
+    Checks: backoff survives restart (stored in prefs, wall-clock safe); change passphrase = re-wrap only, interrupted change leaves old wrap valid.
 
-[S9] Gesture Studio — discoverable custom gestures
-Goal: expose a small safe set of configurable browser gestures with conflict detection and reset.
-Mode: MODIFY | Size: M (~35–40%).
-Modify: BarGestures.kt; AppearancePrefs.kt; AppearanceScreen.kt; MainActivity.kt only for dispatch wiring.
-Read-only context: TabManager.kt; TabSwitcher.kt; existing gesture prefs; UiMode/Reduce motion; activity_main.xml.
-Dependencies: S3–S5.
-Design note: start with existing bar swipe gestures and add a few non-conflicting actions. Do not intercept page/WebView gestures globally. Keep defaults unchanged and provide reset/preview.
-Checks: every gesture mapping; conflict prevention; disabled/default state; top/bottom bar; fullscreen video; scroll; keyboard; reduce motion; accessibility alternative.
+[ ] V12 MODIFY S (~30%)  Integration polish + final QA
+    Goal: "Move to vault" parity everywhere it makes sense (tab bookmark dialog, Command Center entry "Vault"), update-migration test notes, a11y labels/content descriptions, dark/light/landscape review, docs.
+    Modify: CommandCenter.kt (one entry), MainActivity.kt (only if a row label/order needs change), build.gradle.kts, CHANGELOG, HANDOFF (mark all done + final RESULT).
+    Read-only: Backup.kt (add one line in Export dialog hint that vault is separate - only if trivial), VaultScreen.kt, PageInfo.kt not needed.
+    Depends: V11.  Checks: full file-scope audit of all vault hooks; confirm Vault.kt/PasswordStore unchanged vs baseline.
 
-[S10] Thazir Media Library — unified media hub
-Goal: present detected, queued, downloaded and recently played media in one native library view.
-Mode: BUILD | Size: M (~35–45%).
-Add: MediaLibrary.kt.
-Modify: ToolsSheet.kt; MainActivity.kt only for navigation entry if needed.
-Read-only context: DlEngine.kt; DownloadsScreen.kt; DownloadService.kt; DownloadFolder.kt; FloatingDl.kt; Sniffer.kt; WebPlay.kt; PlayerActivity.kt; PlayerQueue.kt; PlayerPrefs.kt; assets/ext/downloader.html/js and player.html/js.
-Dependencies: S1; media source-of-truth audit is mandatory before coding.
-Design note: reuse existing download/player records and IDs. Do not create duplicate downloads, copy media files, or imply all streams are downloadable. Distinguish detected vs queued vs completed vs history.
-Checks: empty/loading/error; detected item open; download queue; completed file open/share/delete; player history; subtitle association; refresh; storage permission/cancellation; no duplicate records.
+DEPENDENCY CHAIN: V1 -> V2 -> V3 -> V4 -> V5 ; V3 -> V6 -> V7 -> V8 ; V4..V7 -> V9 -> V10 ; V3 -> V11 ; V11 -> V12.
+If a session is lost mid-step the next chat re-runs the SAME step from the last delivered zip (steps are small enough to redo).
 
-[S11] Thazir Spaces — data model and tab membership
-Goal: introduce named logical workspaces and persist each tab's Space membership without breaking session restore.
-Mode: BUILD | Size: M (~35–45%).
-Add: Spaces.kt.
-Modify: TabManager.kt; Backup.kt only if new Space metadata must be included in export/import.
-Read-only context: TabSwitcher.kt; GroupStrip.kt; Bookmarks.kt; TabPrefs.kt; AppearancePrefs.kt; existing session JSON save/restore functions.
-Dependencies: S4.
-Design note: v1 Spaces are logical workspaces, not isolated security profiles. Do not claim cookie/history/password isolation; WebView profile is currently shared for non-private tabs. Preserve existing tab group data separately from Space IDs.
-Checks: create/rename/delete Space; default Space; tab membership; move tabs; close/reopen; restore session; backup import/export; migration of all existing tabs to default Space.
+====================================================================================================
+7. PROGRESS / RESULT LOG (append newest at top; fill after each step)
+====================================================================================================
+(newest first)
+V1+V2 | 0.0.187 (V1 = 0.0.186 included) | NEW VaultCrypto.kt (412 lines), NEW VaultStore.kt (447 lines); MODIFIED BrowserExtras.kt (+pickVaultFolder, own launcher registered last), app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+  Checked: brace/paren balance (BrowserExtras has the same -1 paren as baseline = text in a comment/string), single-match patch audit, changed-files scope, no edit to Vault.kt / PasswordStore / DownloadFolder / Backup.
+  NOT tested: Gradle build (CI) - no Kotlin compiler in the chat sandbox, so FIRST ACTION of V3 chat: if the CI build of 0.0.187 failed, fix compile errors in VaultCrypto/VaultStore before anything else; selfTest() never run on a device; SAF behaviour on real providers (rename/createDocument names, FileChannel positional read) unverified.
+  API CONTRACT for V3+ (all BLOCKING calls must run on a background thread):
+    VaultStore.state(ctx) / check(ctx) -> State{NONE,FOLDER_MISSING,LOCKED,UNLOCKED};  bind(ctx, uri):Boolean;  unbind(ctx)
+    create(ctx, pass:CharArray):Res(ok,msg,recovery);  unlock(ctx, pass);  unlockRecovery(ctx, key);  unlockWithKey(ctx, dek);  lock(ctx);  isUnlocked()
+    autoLockMs(ctx)/setAutoLockMs(ctx, ms) (default 120000);  onAppStop(ctx) / onAppStart(ctx)  <- V3 wires these into MainActivity.onStop/onStart
+    items(type?) / item(id) / count(type) / bytes(type) / addItem(ctx, JSONObject) / updateItem / removeItem(ctx,id,withBlob) / folders() / addFolder(ctx,name) / flush(ctx)
+    openBlobOut(ctx,id):VaultCrypto.BlobWriter (close() to finish)  openBlobIn(ctx,id):BlobReader? (readAt/copyTo/plainSize/close)  deleteBlob / blobExists
+    currentHeader() / writeHeader(ctx, header) for V11;  lastError (user-safe text).  Per-install quick-unlock wrap is NOT built yet (V3: wrap VaultStore DEK with Keystore via the existing Vault.encrypt idea; DEK getter must be added to VaultStore then - say so in RESULT).
+    VaultCrypto.pbkdf2/create/openPass/openRecovery/rewrapPass/newRecovery/encStr/decStr/selfTest(); normRecovery() for typed keys.
+    Item JSON fields: id,type(bm|hist|page|file),title,url,time,folder,size,mime,blob("<id>.bin" or ""),orig{name,rel}.
+  Note for V3: "Create vault" must call VaultStore.check first; PBKDF2 (250k iterations) takes ~1 s on phones - show a progress state.
+RESULT template: step id | version | files changed | what was checked | NOT tested | leftovers/next risks
 
-[S12] Thazir Spaces — switcher and workspace UI
-Goal: add an accessible Space selector and workspace-specific tab filtering to the browser UI.
-Mode: MODIFY | Size: M (~35–40%).
-Modify: MainActivity.kt; TabSwitcher.kt; GroupStrip.kt; ToolsSheet.kt only if needed for a workspace action.
-Read-only context: Spaces.kt; TabManager.kt; HomeView.kt; Bookmarks.kt; colors/tokens; activity_main.xml.
-Dependencies: S11.
-Design note: clear active Space indicator; no hidden tabs/data loss; allow switching back to all spaces if useful. Avoid overloading tab groups with workspace semantics.
-Checks: switch Spaces with active tab; empty Space; many Spaces; move tab; private tab; group interactions; restore and backup; small-screen selector.
+====================================================================================================
+8. EXACT KICKOFF LINE FOR THE NEXT CHAT (attach MGB-context.zip + any patch zips delivered so far)
+====================================================================================================
+START V3 ONLY - Vault shell UI (setup, unlock, home, entry points), baseline appVersionName 0.0.187 (merge Thazir_V2_v0_0_187.zip over MGB-context.zip first). Read HANDOFF.txt and FILES.txt first, only the files FILES.txt lists for V3 plus VaultCrypto.kt/VaultStore.kt from the patch, check the CI build of 0.0.187 compiled (fix compile errors first if not), do not modify Vault.kt, patch only, stop by 85% session (hard stop 90%), return a changed-files-only ZIP named Thazir_V3_v0_0_188.zip.
 
-[S13] Offline Reading Library — saved-page experience
-Goal: improve the existing .mht saved-page library with reading status, collections/search and clear offline availability states.
-Mode: MODIFY | Size: M (~35–40%).
-Modify: SavedPages.kt; PageSave.kt; optionally BookmarksScreen.kt only if a shared navigation link is required.
-Read-only context: TabManager.kt; Backup.kt; BrowserExtras.kt; HomeView.kt; colors/tokens.
-Dependencies: S1, S5, S6.
-Design note: preserve existing .mht storage and file format; do not silently re-download or convert existing saved pages. Keep saved content local and clearly label unavailable assets.
-Checks: existing saved page open; new save; rename/delete; corrupted/missing file; search/collection; backup expectations; low storage; private page behaviour.
-
-[S14] Thazir Companion — safe assistant foundation (provider-gated)
-Goal: define a page-context assistant panel and provider-neutral request boundary without embedding secrets or pretending AI works before backend setup.
-Mode: BUILD | Size: M (~35–40%).
-Add: CompanionPanel.kt; CompanionProvider.kt (interface/data contracts).
-Modify: MainActivity.kt; ToolsSheet.kt only for entry point.
-Read-only context: TabManager.kt; ContentInjector.kt; EngineHost.kt; Translate.kt; ReaderMode.kt; privacy/settings UI; app/build.gradle.kts.
-Dependencies: S6, S7. Live provider integration is gated on a secure proxy or user-configured endpoint and explicit privacy policy.
-Design note: request only user-selected/current-page context, show exactly what is sent, allow cancel/clear, redact obvious secrets where feasible, never hardcode API keys. First step may ship disabled until provider configured. No automatic page scraping/upload.
-Checks: disabled/no-provider state; page context opt-in; cancel; long text limit; private tab disabled by default; network failure; no secret in APK/logs; clear conversation.
-
-7. EXACT KICKOFF LINE FOR NEXT CHAT
-START S10 ONLY — Thazir Media Library, baseline appVersionName 0.0.183. OWNER DECISION: only S7 and S10 are wanted; S6, S8, S9, S11-S14 are SKIPPED (do not start them). S1-S5 and S7 are complete; this HANDOFF is authoritative. S10 hard rule: do NOT break any existing download/player/detected-media feature. Do the mandatory media source-of-truth audit first (DlEngine / DownloadsScreen / DownloadService / Sniffer / PlayerQueue), reuse existing records and IDs, add MediaLibrary.kt as a read-only hub plus one entry point (3-dot menu row in MainActivity, like Command Center; ToolsSheet only if needed). No schema, preference-key, backup or bridge changes. Patch only, stop by 85% session (hard stop 90%), build/check, return a changed-files-only ZIP.
-
-8. PROGRESS / RESULT LOG
-[x] S1 — complete (0.0.175; native light/dark design tokens aligned)
-[x] S2 — complete (0.0.176; home hierarchy and responsive shortcuts polish)
-[x] S3 — complete (0.0.178; address bar pill, inset URL field, lock cue)
-[x] S4 — complete (0.0.179; tab cards outline/ring, header, a11y labels)
-[x] S5 — complete (0.0.180; settings card/search consistency, a11y state)
-[x] FIX — 0.0.181 (S3 hardening + S3/S4/S5 merged into one zip)
-[x] FIX — 0.0.182 (S3 CI error: android:compoundDrawablePadding -> android:drawablePadding)
-[-] S6 — SKIPPED by owner decision
-[x] S7 — complete (0.0.183; Command Center sheet, menu entry)
-[-] S8 — SKIPPED by owner decision
-[-] S9 — SKIPPED by owner decision
-[x] S10 — complete (0.0.185; Media Library sheet, menu entry; + Clear button on Settings RECENT chips)
-[-] S11 — SKIPPED by owner decision
-[-] S12 — SKIPPED by owner decision
-[-] S13 — SKIPPED by owner decision
-[-] S14 — SKIPPED by owner decision / provider-gated
-
-RESULT (S10 + Settings RECENT Clear, 0.0.185):
-- Extra owner request: SettingsScreen.kt recentRow() got a "Clear" button that removes only mgb_ui key recent_settings, then fill(). No new keys, Reset scopes and backup untouched. Cumulative zip contains S10 (0.0.184) + this.
-- NOT tested: Gradle build (CI), device render, TalkBack.
-- Known S10 gaps (not fixed): detected rows ignore DetectedPanel's removed keys; no subtitle association; Continue watching sorted by name.
-
-RESULT (S10 implementation, 0.0.184):
-- Baseline 0.0.183. Added MediaLibrary.kt (read-only hub); MainActivity.kt got one menu row ("Media Library", after Command Center, calls MediaLibrary.show(this, tabs)); build.gradle.kts + CHANGELOG + HANDOFF updated. ToolsSheet.kt not needed.
-- Source-of-truth audit: downloads jobs = storage.session mgJobs via EngineApi.jobs(); saved files = storage.local mgHist via EngineApi.history() (id + time); detected = engine "get-state" for the tab (rec.items: key/kind/url/label/size/info.protected/hidden), the same call DetectedPanel uses; player history = SharedPreferences "mgb_resume" (uri -> position ms, only unfinished videos, no titles stored). DownloadsApi (DlItem by id) owns open/share/show/delete. No second store was created.
-- Behaviour: finished jobs are not listed (they are Saved files), so no duplicate rows. Delete/rename stay in Downloads. Resume rows only exist for videos left unfinished; there is no full played-history list because the player stores none.
-- Checks: brace/paren balance; all R.drawable refs exist; called APIs verified by grep (EngineApi, DownloadsApi, DownloadsScreen, DetectedPanel.open, MenuSheet.Item/showLink, WebPlay.play, PlayerScreen.open, Util, TabManager.active/isExt). NOT tested: Gradle build (CI), device render 360/1280 dp, dark/light, TalkBack, storage-permission/cancel paths.
-- NOT done / candidates: subtitle association (no native record links a subtitle to a media item), rendering detected items from background tabs, Customise-menu toggle for the row.
-
-RESULT (S7 implementation, 0.0.183):
-- Baseline 0.0.182 (S6 skipped by owner). Added CommandCenter.kt; MainActivity.kt got one menu row ("Command Center", first row of general card, calls CommandCenter.show(this, tabs)); build.gradle.kts + CHANGELOG + HANDOFF updated. ToolsSheet.kt not needed (entry point is the 3-dot menu).
-- Sheet: search field + sections Actions / Open tabs / Bookmarks / History / Go to-Web. Prefixes > @ * #. Enter runs highlighted first row. Local registry only, no destructive commands, no stored recents, history hidden on a private tab, private IME flag on private tab. No new prefs/keys/ids; backup untouched.
-- Checks: brace/paren balance; all R.drawable refs exist; called APIs verified by grep (TabManager, Bookmarks, BookmarksScreen, DownloadsScreen, SavedPages, ExtTray, PrivacyGuard, PasswordStore, HttpsOnly, FindBar, Backup, Settings/AppearanceScreen). NOT tested: Gradle build (CI), device render 360/1280 dp, dark/light, TalkBack, keyboard-open behaviour.
-- NEXT/notes: "Command Center" is not listed in MenuCustom.GENERAL, so it cannot be hidden from Customise menu (always shown); add an Entry there later if wanted. No hardware shortcut (Ctrl+K) yet.
-
-RESULT (FIX, 0.0.182):
-- Root cause (from CI log): AAPT 'attribute android:compoundDrawablePadding not found' at activity_main.xml url_bar. Correct XML attribute is android:drawablePadding. One-word fix.
-- Checks: XML well-formed; grep shows no other compoundDrawablePadding in res/. NOT tested: Gradle build (CI), device render, dark/light, TalkBack.
-
-RESULT (FIX + MERGE, 0.0.181):
-- Root cause: CI error text for S3 not provided; static audit of S3 diff found no missing symbol/resource (Util.dp, ic_lock, ic_pl_lock_open, mg_* tokens exist; no duplicate XML attrs/ids). Hardened setUrlLock (explicit types, ContextCompat) and removed leftover dim spans on focus.
-- Merged S3+S4+S5 files into one zip. Checks: XML well-formed; no duplicate ids; Kotlin brace/paren balance. NOT tested: Gradle build (CI), device render 360/1280 dp, dark/light, TalkBack.
-- If CI still fails on S3, paste the first 'e:' / 'error:' line.
-
-RESULT (S5 implementation, 0.0.180):
-- Edited only SettingsScreen.kt (3 small spots) + version/CHANGELOG/HANDOFF. Card/Backup radius 24->20dp, search pill hairline, header content description + expanded/collapsed state. Deliberately conservative: IA (categories, summaries, search, reset, Recent) already existed; no keys/rows/destinations touched.
-- Checks: brace/paren balance, single-match patch audit, scope audit. NOT tested: Gradle build (CI), device render light/dark, TalkBack, search/reset regression.
-- Not done: AppearanceScreen.kt visual alignment (radii), reordering categories. Candidates for later.
-
-RESULT (S4 implementation, 0.0.179):
-- Edited only TabSwitcher.kt (card, groupCard, groupRow) + version/CHANGELOG/HANDOFF. Visual only: outline/ring, calmer current-tab header, 36dp close target, content descriptions. No data, group JSON, gesture or undo changes.
-- Checks: brace/paren balance, single-match patch audit, changed-files scope. NOT tested: Gradle build (CI), device render (portrait/landscape, dark/light), TalkBack, swipe-close/undo regression.
-- Not done (kept in scope): host line under title, tab-count/selection summary, GroupStrip tweaks. Candidate for later.
-
-RESULT (S3 implementation, 0.0.178):
-- Baseline 0.0.177 (S2 zip merged over MGB-context 0.0.174). Added bg_url_field.xml (new, needed so the layout can use a focus-state background); edited activity_main.xml, MainActivity.kt, build.gradle.kts, CHANGELOG, HANDOFF.
-- Bar: 3dp elevation, inset URL capsule, violet focus ring, lock/open-lock cue, dimmed path in Full URL mode. IDs, sizes, bar position, compact bar, scroll-hide, keyboard resize untouched.
-- Checks: XML well-formed; duplicate-id scan; Kotlin brace/paren balance; R.* refs exist. NOT tested: Gradle build (CI), device render at 360/1280 dp, dark/light screenshots, TalkBack.
-- Next (S4): tab switcher. Open notes: PageInfo.kt READER_JS old dark bg; btn_tabs outlined button style and btn_shield 34dp width not touched.
-
-RESULT (S2 implementation):
-- Baseline 0.0.175 updated to 0.0.176.
-- Modified only HomeView.kt for the start-page redesign; app/build.gradle.kts, CHANGELOG.txt, and this HANDOFF were updated as required.
-- Home header is compact and left-aligned with greeting, Thazir wordmark, supporting line, and a clearer search pill. Added a distinct shortcuts section, responsive 3–5-column grid, improved edit affordance, recently-visited label, and empty-pinned-shortcuts guidance.
-- Preserved bookmark/folder editing and selection, add-tile/address flows, wallpaper and dim scrim, history-derived recent row, search callback, private-tab behaviour, and ad-block status line. No new data keys, network widgets, or drawable assets.
-- Static checks completed: Kotlin delimiter/structure sanity; modified-file scope audit; version/changelog consistency; patch ZIP path/content audit. Runtime/visual device checks and Gradle build remain unverified because this environment has no Gradle installation or wrapper and cannot fetch Gradle 8.7.
-- S3 was not started.
-
-RESULT (S1 implementation):
-- Baseline 0.0.174 updated to 0.0.175.
-- Updated only values/colors.xml and values-night/colors.xml for the design-token palette; Theme.MGB mappings, all mg_* resource names, system-bar icon mode, and UI behaviour were preserved.
-- Light palette: off-white canvas, white surfaces, subtle cool neutral variant, deep violet primary/selected accent, high-contrast dark text.
-- Dark palette: near-black canvas, layered charcoal/navy surfaces, lighter violet primary/selected accent, high-contrast light text.
-- Error and success semantic colors were retained unchanged; no drawable, icon, screen layout, or feature behaviour was recolored or changed.
-- CHANGELOG.txt and app/build.gradle.kts updated; this HANDOFF progress/result log updated.
-- Checks completed: XML parsing; resource-name parity between light/dark sets; mg_* reference audit; calculated text/accent contrast checks; patch ZIP content/path audit.
-- Build could not be executed in this environment: the archive contains no Gradle wrapper, no system Gradle is installed, and network access is unavailable to install Gradle 8.7. CI build remains required.
-- No S2 work was started.
-
-RESULT (S1 FIX + S2 merge, 0.0.177):
-- S2 zip arrived with the same version number (0.0.176) as the S1 contrast-fix zip; merged both into one cumulative 0.0.177 zip (S1 tokens + contrast fixes + S2 HomeView).
-- Dark-mode bugs fixed: switch thumb (2.1:1), DlFly badge icon, FloatingDl button icon (hard white on light violet).
-- S2 HomeView.kt reviewed: compiles logically (no leftover uses of removed variable h, imports present), spannable wordmark index OK, edit pencil clear of header. Note: 360dp phones now show 3 shortcut columns (was 4) by design.
-- Open note: PageInfo.kt READER_JS still uses old dark bg #0A0C10 (align when next touched).
-- Build not run here; CI build still required. Next step S3 baseline = 0.0.177.
+For later steps use: "START V<n> ONLY - <step title>, baseline appVersionName <previous version>. Read HANDOFF.txt and FILES.txt first, only the files listed for V<n>, patch only, stop by 85% (hard 90%), return Thazir_V<n>_v0_0_<NNN>.zip." (merge earlier patch zips over MGB-context.zip first, in version order)

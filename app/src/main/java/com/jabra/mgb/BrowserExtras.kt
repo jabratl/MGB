@@ -43,6 +43,8 @@ object BrowserExtras {
     private var csvText: String? = null // S40
     private var treeLauncher: ActivityResultLauncher<Uri?>? = null // S49
     private var treeDone: (() -> Unit)? = null // S49
+    private var vaultTreeLauncher: ActivityResultLauncher<Uri?>? = null // V2
+    private var vaultTreeDone: ((Uri) -> Unit)? = null // V2
     private var extLauncher: ActivityResultLauncher<Array<String>>? = null // S1 (multi-extension)
     private var extDone: ((Uri) -> Unit)? = null // S1
     private var imgLauncher: ActivityResultLauncher<Array<String>>? = null // A7 (wallpaper)
@@ -141,6 +143,21 @@ object BrowserExtras {
             imgDone = null
             if (uri != null) cb?.invoke(uri)
         }
+        // V2: vault folder picker. Registered last so the keys of the launchers above stay the same. Does NOT touch DownloadFolder.
+        vaultTreeLauncher = a.registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            val cb = vaultTreeDone
+            vaultTreeDone = null
+            if (uri != null) cb?.invoke(uri)
+        }
+    }
+
+    /** V2: let the user pick the vault folder (system folder picker). The result goes to [done] only, no download setting changes. */
+    fun pickVaultFolder(done: (Uri) -> Unit) {
+        val l = vaultTreeLauncher
+        val a = act
+        if (l == null || a == null) return
+        vaultTreeDone = done
+        try { l.launch(null) } catch (e: Exception) { vaultTreeDone = null; Util.toast(a, "No folder picker found") }
     }
 
     /** A7: let the user pick an image (home wallpaper). */

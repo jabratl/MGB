@@ -1,3 +1,14 @@
+0.0.187 (V2 BUILD: Vault container + index + lock state)
+- VaultStore.kt (new, no UI): binds a user-picked SAF folder (persistable permission, separate prefs "mgb_vault", never touches the download folder setting), creates/opens vault.hdr + index.enc (+ index.bak), states NONE / FOLDER_MISSING / LOCKED / UNLOCKED (a missing folder or permission never creates a new empty vault), unlock by passphrase / recovery key / quick-unlock key, lock() wipes the key, auto-lock delay helpers (onAppStop / onAppStart, wired in V3), item + folder API on a JSON index (add / update / remove / count / bytes), debounced index save with write-tmp, read-back verify, swap with .bak and rollback, encrypted blob streams in d/<id>.bin (write stream, seekable reader, delete), schema migrate() hook, header re-write helper for V11.
+- BrowserExtras.kt: one extra folder-picker launcher (registered last) + pickVaultFolder(done). Nothing else changed.
+- Includes 0.0.186 (V1). Nothing is shown to the user yet: no menu row, no settings, no preference of the existing app changed. Vault.kt, PasswordStore and Backup untouched.
+- app/build.gradle.kts: 0.0.187.
+
+0.0.186 (V1 BUILD: Vault crypto core)
+- VaultCrypto.kt (new, no UI): envelope keys (random DEK wrapped by PBKDF2-HMAC-SHA256 passphrase key and by a recovery key, so the vault can be reopened after reinstall), header JSON build/parse, AES-GCM string encrypt/decrypt, chunked AES-GCM blob writer + random-access reader (64 KiB chunks, last-chunk flag detects truncation), recovery key generator, selfTest().
+- PBKDF2 runs over javax.crypto.Mac so API 24-25 work. Existing Vault object (Keystore helper) is not used or changed.
+- app/build.gradle.kts: 0.0.186.
+
 0.0.185 (S10 + Settings: Clear for the RECENT chips)
 - SettingsScreen.kt recentRow(): the RECENT header now has a "Clear" button (44dp touch target, content description "Clear recent settings"). It removes only the existing mgb_ui key recent_settings and redraws; the row disappears when the list is empty. Nothing else is touched: no new key, no Reset scope change, no backup change, no setting values changed.
 - Includes everything from 0.0.184 (S10 Media Library), so no earlier zip is needed.
