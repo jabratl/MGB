@@ -191,6 +191,7 @@ object HowToUse {
             ), "Android deletes app data when you uninstall. Your vault stays only because it lives in your own folder.",
             listOf(
                 "Bookmarks > select rows > More > Move to vault. They leave the browser list and appear in Vault > Bookmarks.",
+                "Hide private bookmarks: in Vault > Bookmarks press and hold one, tap Hide. Or pick a folder chip and tap Hide folder. They disappear from the list until you tap Show hidden.",
                 "Changing phone: before you leave, Vault > Prepare for uninstall > Keep all. On the new phone install Thazir, Vault > I already have a vault."
             ), true),
         Topic(R.drawable.ic_save, "Backup and restore", "Move to a new phone safely",

@@ -1,6 +1,6 @@
 THAZIR (internal project MGB) - VAULT FEATURE: AUDIT + STEP PLAN
 Planning baseline: Thazir-main.zip, appVersionName 0.0.185 (CHANGELOG top entry = 0.0.185)
-STATUS: V15 DONE (0.0.202 guide examples + advanced topics). V14 DONE (0.0.201 How to use guide). V13 DONE (0.0.200 Settings animation). V1-V12 DONE (V12c = 0.0.199: CommandCenter entry, tab bookmark dialog "To vault", Backup hint). Plan finished; only optional items below remain. (zip 0.0.199; zip 0.0.198; zip 0.0.197 = V11 + V12 part; V10 zip 0.0.196; V9 = 0.0.195; V8 = 0.0.194; V7 = 0.0.193; V6 = 0.0.192; V4b = 0.0.191) (V1+V2 zip 0.0.187; V3 zip 0.0.188; V4+V5 merged in one chat, zip 0.0.190 = V4 0.0.189 included). Next = real-device QA of the Vault (see NOT tested lists) + CI check of 0.0.199.
+STATUS: V16 DONE (0.0.203 vault bookmark hide + selection tools). V15 DONE (0.0.202 guide examples + advanced topics). V14 DONE (0.0.201 How to use guide). V13 DONE (0.0.200 Settings animation). V1-V12 DONE (V12c = 0.0.199: CommandCenter entry, tab bookmark dialog "To vault", Backup hint). Plan finished; only optional items below remain. (zip 0.0.199; zip 0.0.198; zip 0.0.197 = V11 + V12 part; V10 zip 0.0.196; V9 = 0.0.195; V8 = 0.0.194; V7 = 0.0.193; V6 = 0.0.192; V4b = 0.0.191) (V1+V2 zip 0.0.187; V3 zip 0.0.188; V4+V5 merged in one chat, zip 0.0.190 = V4 0.0.189 included). Next = real-device QA of the Vault (see NOT tested lists) + CI check of 0.0.199.
 CONTEXT ZIP: Thazir_Context_V10-V12_v0_0_195.zip (state 0.0.195) + patch zip Thazir_V10_v0_0_196.zip copied over it (new VaultRestore.kt, edits in VaultScreen/VaultStore/VaultExit/AndroidManifest) - attach BOTH instead of the full repo zip; see FILES.txt inside.
 This file REPLACES the old root HANDOFF.txt (UI roadmap: S1-S5, S7, S10 done, rest skipped by owner;
 that roadmap is finished). Old copies stay in the repo as HANDOFF_OLD.txt / HANDOFF_PLAYER.txt.
@@ -238,6 +238,12 @@ If a session is lost mid-step the next chat re-runs the SAME step from the last 
 7. PROGRESS / RESULT LOG (append newest at top; fill after each step)
 ====================================================================================================
 (newest first)
+V16 | 0.0.203 | MODIFIED VaultItems.kt (showHidden, isHid/shownAll/hiddenCount, hideSelected, hideFolder, selectFolderDialog, selectTools, list/foot/fill hooks), VaultStore.kt (hiddenFolders, setFolderHidden), HowToUse.kt (1 line), app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+  Assumption: "hide" = hide bookmarks and bookmark folders inside the vault list; "selection" = All / None / Invert / Folder... plus Hide / Unhide on the selection.
+  Checked: brace/paren/bracket balance (3 .kt), single-match patches, every helper used exists (bar, plural, link, btn, chips, VaultStore.item/updateItem), index keeps field "hfolders" (migrate keeps unknown keys).
+  NOT tested: Gradle build (CI), device render 360/1280dp, dark/light, rotation, TalkBack, Undo after hide, hidden folder chip count on a real vault, selection with 150+ rows ("Show more").
+  Limits: only type "bm" can be hidden; hidden items are still restored / exported / counted in tiles; Unhide of a bookmark also unhides its folder; Show hidden resets on every open.
+  NEXT (not done): PIN/biometric to Show hidden, hide in History / Saved pages / Files, "Move to folder" for selected vault bookmarks, create / rename vault folders.
 V15 | 0.0.202 | MODIFIED HowToUse.kt (Topic gets examples + adv, home split Basics / Advanced, Example boxes, CODE: monospace), app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
   Checked: brace/paren/bracket balance, 17 topics all with the right constructor shape, every Settings path grepped in SettingsScreen.kt (category + row names), Userscripts header rules read from Userscripts.kt.
   NOT tested: Gradle build (CI), device render 360/1280dp, dark/light, long example text wrapping, selecting the code example, TalkBack.

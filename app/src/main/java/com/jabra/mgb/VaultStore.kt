@@ -393,6 +393,29 @@ object VaultStore {
         return true
     }
 
+    /** V16: names of bookmark folders the user hid inside the vault (list only; the data stays sealed). */
+    @Synchronized fun hiddenFolders(): Set<String> {
+        val a = index?.optJSONArray("hfolders") ?: return emptySet()
+        return (0 until a.length()).map { a.optString(it) }.toSet()
+    }
+
+    fun setFolderHidden(c: Context, name: String, on: Boolean): Boolean {
+        val n = name.trim()
+        if (n.isEmpty()) return false
+        synchronized(this) {
+            val idx = index ?: return false
+            val old = idx.optJSONArray("hfolders")
+            val keep = ArrayList<String>()
+            if (old != null) for (i in 0 until old.length()) { val s = old.optString(i); if (s != n) keep.add(s) }
+            if (on) keep.add(n)
+            val a = org.json.JSONArray()
+            for (s in keep) a.put(s)
+            idx.put("hfolders", a)
+        }
+        saveSoon(c)
+        return true
+    }
+
     // ---------- saving the index ----------
 
     private fun saveSoon(c: Context) {

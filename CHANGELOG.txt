@@ -1,3 +1,11 @@
+0.0.203 (V16 MODIFY: Vault bookmarks - hide + selection tools)
+- VaultItems.kt (bookmark list): Hide / Unhide for selected bookmarks (button in the selection bar, with Undo); Hide folder / Unhide folder under a folder chip; "Show hidden (n)" / "Hide hidden again" switch. Hidden bookmarks and hidden folders stay out of the list, the folder chips, the search and the counts until Show hidden is ON; it resets every time the list is opened. Hidden rows are tagged "hidden - " when shown.
+- Selection tools (all vault lists): All / None / Invert under the top bar while selecting; bookmarks also get "Folder..." (select every bookmark of a folder). Press and hold still starts selecting; "Select all shown" icon kept.
+- VaultStore.kt: hiddenFolders() / setFolderHidden() - folder names kept in the encrypted index (field "hfolders"); item flag "hidden" kept on the bookmark. Old vaults open unchanged, older apps keep unknown fields.
+- HowToUse.kt: one Vault example line for Hide.
+- Honest limit: Hide only keeps things out of the list inside the already unlocked vault; it is not a second lock. Restore / Export / Exit wizard still include hidden bookmarks. Vault tile counts show the total.
+- NOT touched: Vault.kt, PasswordStore, VaultCrypto, Bookmarks.kt, CI.
+
 0.0.202 (V15 MODIFY: guide with examples + advanced topics)
 - HowToUse.kt only: every topic can now show "Example" boxes (real tasks with the exact menu / settings path). Home is split into Basics (6) and "Advanced features, with examples" (11).
 - NEW advanced topics: Userscripts (header, @match / @exclude / @run-at, copyable code example), Ad blocker and filters, Download settings (quality, subtitles, .ts to .mp4, folder, engine limits), Scheduled downloads and Followed manga, Site settings and permissions, Passwords and email alias, Vault (with examples), Backup and restore, Extensions and extras.

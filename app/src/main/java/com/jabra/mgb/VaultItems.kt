@@ -156,6 +156,7 @@ object VaultItems {
     private var query = ""
     private var chip = 0
     private var selecting = false
+    private var showHidden = false // V16: hidden bookmarks / folders stay out of the list until this is ON (reset on every open)
     private val sel = LinkedHashSet<String>()
     private var limit = PAGE
 
@@ -183,7 +184,7 @@ object VaultItems {
         if (a.isFinishing || a.isDestroyed || dlg?.isShowing == true) return
         if (!VaultStore.isUnlocked()) return
         act = a; type = t; onClose = closed
-        query = ""; chip = 0; selecting = false; sel.clear(); limit = PAGE
+        query = ""; chip = 0; selecting = false; sel.clear(); limit = PAGE; showHidden = false
         val d = object : Dialog(a, android.R.style.Theme_Black_NoTitleBar_Fullscreen) {
             @Suppress("OVERRIDE_DEPRECATION")
             override fun onBackPressed() { back() }
@@ -344,13 +345,75 @@ object VaultItems {
 
     private fun vaultItems(): List<JSONObject> {
         val q = query.trim().lowercase()
-        var l = VaultStore.items(type).sortedByDescending { it.optLong("time") }
+        var l = shownAll().sortedByDescending { it.optLong("time") }
         if (type == "bm" && chip > 0) { val f = bmFolders()[chip - 1]; l = l.filter { it.optString("folder") == f } }
         if (q.isNotEmpty()) l = l.filter { it.optString("title").lowercase().contains(q) || it.optString("url").lowercase().contains(q) || it.optString("folder").lowercase().contains(q) }
         return l
     }
 
-    private fun bmFolders(): List<String> = VaultStore.items("bm").map { it.optString("folder") }.filter { it.isNotEmpty() }.distinct().sorted()
+    private fun bmFolders(): List<String> = shownAll().map { it.optString("folder") }.filter { it.isNotEmpty() }.distinct().sorted()
+
+    // ---------- V16: hide + selection helpers ----------
+
+    /** A bookmark is hidden by its own flag or because its folder is hidden. */
+    private fun isHid(o: JSONObject) = o.optBoolean("hidden") || (o.optString("folder").isNotEmpty() && VaultStore.hiddenFolders().contains(o.optString("folder")))
+
+    /** Items of this list that are allowed on screen now (hidden ones only when Show hidden is ON). Only bookmarks can be hidden. */
+    private fun shownAll(): List<JSONObject> {
+        val l = VaultStore.items(type)
+        return if (type == "bm" && !showHidden) l.filter { !isHid(it) } else l
+    }
+
+    private fun hiddenCount(): Int = if (type == "bm") VaultStore.items("bm").count { isHid(it) } else 0
+
+    private fun hideSelected(a: Activity, hide: Boolean) {
+        val ids = ArrayList(sel)
+        if (ids.isEmpty()) return
+        val folders = HashSet<String>()
+        var n = 0
+        for (id in ids) {
+            val o = VaultStore.item(id) ?: continue
+            val fo = o.optString("folder")
+            if (!hide && fo.isNotEmpty()) folders.add(fo)
+            if (o.optBoolean("hidden") != hide) { o.put("hidden", hide); VaultStore.updateItem(a, o) }
+            n++
+        }
+        if (!hide) for (f in folders) VaultStore.setFolderHidden(a, f, false) // unhiding a bookmark also opens its folder
+        selecting = false; sel.clear(); chip = 0; listPage()
+        bar(a, (if (hide) "Hid " else "Unhid ") + plural(n), "Undo") {
+            for (id in ids) { val o = VaultStore.item(id) ?: continue; o.put("hidden", !hide); VaultStore.updateItem(a, o) }
+            for (f in folders) VaultStore.setFolderHidden(a, f, true)
+            chip = 0; listPage()
+        }
+    }
+
+    private fun hideFolder(a: Activity, folder: String, hide: Boolean) {
+        VaultStore.setFolderHidden(a, folder, hide)
+        chip = 0; listPage()
+        bar(a, (if (hide) "Folder hidden: " else "Folder shown: ") + folder, "Undo") { VaultStore.setFolderHidden(a, folder, !hide); chip = 0; listPage() }
+    }
+
+    private fun selectFolderDialog(a: Activity) {
+        val fs = bmFolders()
+        if (fs.isEmpty()) { Util.toast(a, "No folders here"); return }
+        MaterialAlertDialogBuilder(a).setTitle("Select a folder")
+            .setItems(fs.toTypedArray()) { _, i ->
+                val f = fs[i]
+                sel.addAll(shownAll().filter { it.optString("folder") == f }.map { it.optString("id") })
+                selecting = sel.isNotEmpty(); listPage()
+            }.setNegativeButton("Cancel", null).show()
+    }
+
+    /** All / None / Invert / Folder... shown under the top bar while selecting. */
+    private fun selectTools(a: Activity): View {
+        val r = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        fun add(t: String, run: () -> Unit) = r.addView(VaultScreen.link(a, t) { run() }, LinearLayout.LayoutParams(WRAP, dp(a, 44)))
+        add("All") { sel.addAll(vaultItems().map { it.optString("id") }); listPage() }
+        add("None") { sel.clear(); listPage() }
+        add("Invert") { val shown = vaultItems().map { it.optString("id") }.toSet(); val keep = shown.filter { !sel.contains(it) }; sel.clear(); sel.addAll(keep); listPage() }
+        if (type == "bm" && bmFolders().isNotEmpty()) add("Folder...") { selectFolderDialog(a) }
+        return r
+    }
 
     private fun listPage() {
         val a = act ?: return
@@ -365,8 +428,23 @@ object VaultItems {
             ui.head.addView(topBar(a, title(), listOf(icon(a, R.drawable.ic_add, if (type == "file") "Add from downloads" else "Add from browser", R.color.mg_primary) { pick(a) })), lp())
         }
         ui.head.addView(search(a, when (type) { "bm" -> "Search bookmarks"; "page" -> "Search saved pages"; "file" -> "Search files"; else -> "Search history" }, query) { query = it; limit = PAGE; fill(a, ui, info) }, lp(dp(a, 8), MATCH, dp(a, 48)))
+        if (selecting) ui.head.addView(selectTools(a), lp(dp(a, 2)))
         if (type == "bm" && bmFolders().isNotEmpty()) {
-            ui.head.addView(chips(a, listOf("All") + bmFolders(), chip) { chip = it; limit = PAGE; listPage() }, lp(dp(a, 4)))
+            val hf = VaultStore.hiddenFolders()
+            ui.head.addView(chips(a, listOf("All") + bmFolders().map { if (hf.contains(it)) "$it (hidden)" else it }, chip) { chip = it; limit = PAGE; listPage() }, lp(dp(a, 4)))
+        }
+        if (type == "bm" && !selecting) { // V16: hide controls
+            val hc = hiddenCount()
+            val r = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            if (hc > 0 || showHidden) r.addView(VaultScreen.link(a, if (showHidden) "Hide hidden again" else "Show hidden ($hc)") { showHidden = !showHidden; chip = 0; listPage() }, LinearLayout.LayoutParams(WRAP, dp(a, 44)))
+            if (chip > 0) {
+                val f = bmFolders().getOrNull(chip - 1)
+                if (f != null) {
+                    val hidden = VaultStore.hiddenFolders().contains(f)
+                    r.addView(VaultScreen.link(a, if (hidden) "Unhide folder" else "Hide folder") { hideFolder(a, f, !hidden) }, LinearLayout.LayoutParams(WRAP, dp(a, 44)))
+                }
+            }
+            if (r.childCount > 0) ui.head.addView(r, lp())
         }
         if (type == "hist") {
             ui.head.addView(VaultScreen.switchRow(a, "Send history to vault", "While the vault is open, new history moves here when you leave the app. Off by default.", VaultStore.histAuto(a)) { on ->
@@ -388,17 +466,22 @@ object VaultItems {
         if (type == "bm" || type == "page" || type == "file") {
             r.addView(VaultScreen.btn(a, if (type == "file") "Export" else "Restore", true) { restoreDialog(a) }.apply { isEnabled = has }, LinearLayout.LayoutParams(0, dp(a, 48), 1f).apply { marginEnd = dp(a, 6) })
         }
+        if (type == "bm") {
+            val allHid = has && sel.all { id -> VaultStore.item(id)?.let { isHid(it) } == true }
+            r.addView(VaultScreen.btn(a, if (allHid) "Unhide" else "Hide", false) { hideSelected(a, !allHid) }.apply { isEnabled = has }, LinearLayout.LayoutParams(0, dp(a, 48), 1f).apply { marginStart = dp(a, 6) })
+        }
         r.addView(VaultScreen.btn(a, "Delete", false) { deleteDialog(a) }.apply { isEnabled = has }, LinearLayout.LayoutParams(0, dp(a, 48), 1f).apply { marginStart = if (type == "bm" || type == "page" || type == "file") dp(a, 6) else 0 })
         ui.foot.addView(r, lp())
     }
 
     private fun fill(a: Activity, ui: Ui, info: TextView) {
         ui.list.removeAllViews()
-        val all = VaultStore.items(type).size
+        val all = shownAll().size
         val l = vaultItems()
-        info.text = (if (query.isBlank() && chip == 0) plural(all) else "${l.size} of ${plural(all)}") + " - sealed in " + VaultScreen.folderLabel(a)
+        val hc = hiddenCount()
+        info.text = (if (query.isBlank() && chip == 0) plural(all) else "${l.size} of ${plural(all)}") + (if (!showHidden && hc > 0) " - $hc hidden" else "") + " - sealed in " + VaultScreen.folderLabel(a)
         if (l.isEmpty()) {
-            ui.list.addView(empty(a, if (all == 0) (when (type) { "bm" -> "No bookmarks in the vault yet. Tap + to add some from the browser."; "page" -> "No saved pages in the vault yet. Tap + to add some from Saved pages."; "file" -> "No files in the vault yet. Tap + to add some from your downloads."; else -> "No history in the vault yet. Tap + to add some from the browser." }) else "Nothing matches."))
+            ui.list.addView(empty(a, if (all == 0 && hc > 0 && !showHidden) "Everything here is hidden. Tap Show hidden to see it." else if (all == 0) (when (type) { "bm" -> "No bookmarks in the vault yet. Tap + to add some from the browser."; "page" -> "No saved pages in the vault yet. Tap + to add some from Saved pages."; "file" -> "No files in the vault yet. Tap + to add some from your downloads."; else -> "No history in the vault yet. Tap + to add some from the browser." }) else "Nothing matches."))
             return
         }
         if (!selecting && all > 0) ui.list.addView(VaultScreen.tv(a, "Tap to open. Press and hold to select.", 12f, R.color.mg_text_dim), lp(dp(a, 4)))
@@ -415,7 +498,7 @@ object VaultItems {
                 "hist" -> clock(t) + " - " + host
                 "page" -> host + " - " + SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(t)) + " - " + Util.fmtBytes(o.optLong("size"))
                 "file" -> SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(t)) + " - " + Util.fmtBytes(o.optLong("size")) + (if (host.isNotEmpty() && o.optString("url").startsWith("http")) " - " + host else "")
-                else -> (if (o.optString("folder").isNotEmpty()) o.optString("folder") + " - " else "") + host
+                else -> (if (showHidden && isHid(o)) "hidden - " else "") + (if (o.optString("folder").isNotEmpty()) o.optString("folder") + " - " else "") + host
             }
             val title = o.optString("title").ifBlank { host }
             ui.list.addView(row(a, title, sub, if (selecting) sel.contains(id) else null, true, {
