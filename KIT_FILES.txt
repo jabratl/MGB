@@ -1,8 +1,7 @@
-THAZIR KIT 0.0.272 - full current versions. Use with HANDOFF+Thazir+0.0.272.txt.
+THAZIR KIT 0.0.278 - full current versions. Use with HANDOFF+Thazir+0.0.278.txt.
 Not in kit: drawables (ic_*), other Kotlin files: ask for exactly that file.
 
   238426  CHANGELOG.txt
-   81358  HANDOFF+Thazir+0.0.267.txt
    28355  HANDOFF_A_ACCESS.txt
     2992  app/build.gradle.kts
     4540  app/src/main/AndroidManifest.xml
@@ -67,3 +66,7 @@ Not in kit: drawables (ic_*), other Kotlin files: ask for exactly that file.
   (new in 0.0.269) app/src/main/java/com/jabra/mgb/SocialFixIO.kt
   (new in 0.0.271) app/src/main/java/com/jabra/mgb/SocialExt.kt
   (new in 0.0.272) app/src/main/java/com/jabra/mgb/SocialDock.kt
+  (new in 0.0.275) app/src/main/java/com/jabra/mgb/SocialDark.kt
+  (new in 0.0.276) app/src/main/java/com/jabra/mgb/SocialSlot.kt
+  (new in 0.0.277) app/src/main/java/com/jabra/mgb/SocialProbe.kt
+  (new in 0.0.278) app/src/main/java/com/jabra/mgb/SocialPip.kt

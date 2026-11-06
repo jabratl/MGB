@@ -1,3 +1,21 @@
+0.0.278 (D8 PART: picture-in-picture for social video; leftovers triaged)
+- Why: watch a social video in a small floating window while using another app. While a social video is full screen, pressing Home puts it in a picture-in-picture window. Extras > switch "Video in a small window" (OFF by default, needs Android 8+).
+- How: NEW SocialPip.kt (pref sm_pip; enter() only when the switch is ON, the phone supports it, TabManager.inFullscreen is true, the active tab is a social site with its switch ON; any error = nothing happens). MainActivity: new onUserLeaveHint (1 line + super). AndroidManifest: android:supportsPictureInPicture="true" on MainActivity (configChanges already had screenSize / smallestScreenSize / screenLayout / orientation). SocialScreen switch row + summary line. SettingsScreen RESET + sm_pip. HowToUse phrase.
+- Triage (the person asked: skip what is not important, keep session safe): NOT built on purpose = D2 pinch-zoom off (chat sites need zoom, risk), C2 extra focus rules (selectors are guesses), D5 start-screen colour, C3 per-site limits / lock screen, U6 self test (U5 Check open pages already shows the same), D4 overlay browser (big), C1 pinned icons, C5 second dock icon. The plan is functionally complete; the next real step is the device test round.
+- Checked: odd-quote scan of ALL 62 Kotlin files = 0 hits (the class of bug that broke 0.0.275), brace / paren / bracket balance of the 5 changed Kotlin files = 0, single-match patch audit (6 patches), API names (TabManager.inFullscreen / active, Tab.isExt / url, SocialProfiles.of / siteOn, SocialMode.on).
+- Files: SocialPip.kt (new), MainActivity.kt, AndroidManifest.xml, SocialScreen.kt, SettingsScreen.kt, HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES.
+- Could break: nothing with the switch OFF. If the CI build fails, the first places to look are SocialPip.kt (PictureInPictureParams / Rational) and the new onUserLeaveHint in MainActivity.
+- NOT tested: Gradle build (CI), device (Home while a Reddit / X / Facebook video is full screen; phones without PiP; rotation; closing the small window).
+- Pre-existing, not touched: raw brace count of Bookmarks.kt (+1), Diag.kt (-1), TabBookmarks.kt (-1) is not zero (braces inside strings, files unchanged since before the social plan).
+
+0.0.277 (U5 LEFTOVER: live script counter + page check; FIX of 0.0.275 guide text)
+- FIX: HowToUse.kt (0.0.275) had a phrase with unescaped double quotes inside a Kotlin string ("This picture is fine"), which does not compile. The quotes are removed. If the CI build of 0.0.275 / 0.0.276 failed, this patch is the fix.
+- Why: "Why does a site look wrong?" could not say whether the page scripts really ran. Now each site line shows how often the scripts started since the app started, and a new button "Check open pages" asks the open social pages (read-only script) which of our scripts left their flag, the page width and phone / desktop page.
+- How: NEW SocialProbe.kt (note / line / check, memory only, nothing stored or sent). SocialMode.inject: 1 line (p != null). SocialScreen.summaryDialog: per-site counter text + button Check open pages + result dialog with Copy. HowToUse phrase.
+- Files: SocialProbe.kt (new), SocialMode.kt, SocialScreen.kt, HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES.
+- Could break: nothing visible; the counter counts script starts (several per page load), not page loads.
+- NOT tested: Gradle build (CI; watch return inside synchronized in SocialProbe.line and the captured var pending in check), device.
+
 0.0.276 (C5: account slots)
 - Why: use two accounts of one site (e.g. two Facebook or X accounts) side by side. Privacy > Logins > row "Account per site": each site uses Account 1 (as before) or Account 2 for NEW tabs; Account 2 = own login profile social_<id>_2.
 - How: NEW SocialSlot.kt (pref sm_slot_<id>, absent = Account 1). SocialMode: pname() adds the slot suffix, new allNames() so hasProfile / forget cover both accounts. TabManager: saveSession also saves the login profile name per tab (pref "tp"), restoreSession keeps it only for Account 2 names (everything else = old logic). SocialScreen row + slotDialog + summary. SettingsScreen RESET + SocialSlot.keys. HowToUse phrase.

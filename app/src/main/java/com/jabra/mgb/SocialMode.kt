@@ -315,6 +315,7 @@ object SocialMode {
             Kind.FEED, Kind.INSTA -> view.evaluateJavascript(bannerJs(p?.appWords ?: emptyList(), if (p != null) (if (dfixOn(ctx)) SocialProfiles.extraWords(p.id) else emptyList()) + SocialProfiles.fixWords(ctx, p.id) else emptyList(), again), null)
             Kind.NONE -> return
         }
+        if (p != null) SocialProbe.note(p.id, kindFor(ctx, url).name.lowercase(), view) // 0.0.277 (U5): live script counter
         if (intOn(ctx)) view.evaluateJavascript(if (again) "window.__mgSi=0;" + INTERSTITIAL_JS else INTERSTITIAL_JS, null) // 0.0.237 (U3)
         val css = ((p?.css ?: "") + " " + (if (p != null && touchOn(ctx)) TOUCH_CSS else "") + " " + (if (p != null && bigOn(ctx)) SocialProfiles.bigCss(p.id) else "") + " " + (if (p != null && dfixOn(ctx)) SocialProfiles.extraCss(p.id) else "") + " " + (if (p != null && SocialFocus.on(ctx)) SocialFocus.css(p.id) else "") + " " + (if (p != null) SocialProfiles.fixCss(ctx, p.id) else "")).trim() // 0.0.236 (U2): built-in + 0.0.245 (A5) big targets + Site fix (last = wins)
         if (css.isNotEmpty()) view.evaluateJavascript(cssJs(css), null)

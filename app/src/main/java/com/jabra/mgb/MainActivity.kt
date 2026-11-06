@@ -471,6 +471,11 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     // ---------- lifecycle ----------
 
+    override fun onUserLeaveHint() { // 0.0.278 (D8): Home while a social video is full screen = small floating window
+        if (::tabs.isInitialized) SocialPip.enter(this, tabs)
+        super.onUserLeaveHint()
+    }
+
     override fun onStart() {
         super.onStart()
         AppLock.onStart(this) // S45: lock again after the chosen delay
