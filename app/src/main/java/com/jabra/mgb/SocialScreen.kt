@@ -157,6 +157,12 @@ object SocialScreen {
                 col.addView(c, LinearLayout.LayoutParams(MATCH, WRAP))
             }
 
+            col.addView(sectionLabel("Home"))
+            val home = card() // 0.0.230 (P6): not dimmed, a shortcut turns Social sites ON when tapped
+            actionRow(home, R.drawable.ic_add, "Add a site to the phone home screen", "Icon opens it in a Social tab") { SocialShortcuts.pickPin(act) }
+            actionRow(home, R.drawable.ic_add, "Add tiles to the browser Home page", "Tick the sites you want") { SocialShortcuts.pickTiles(act) }
+            col.addView(home, LinearLayout.LayoutParams(MATCH, WRAP))
+
             col.addView(sectionLabel("Good to know"))
             val info = card()
             info.addView(TextView(act).apply {
@@ -267,6 +273,30 @@ object SocialScreen {
             skipClose = true
             SettingsScreen.closeAll()
             dismiss()
+        }
+
+        /** Plain tap row (>= 56 dp): icon + label + hint + chevron-less, whole row is the touch target. */
+        private fun actionRow(parent: LinearLayout, icon: Int, label: String, hint: String, onTap: () -> Unit) {
+            val row = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(56)
+                setPadding(dp(14), dp(6), dp(12), dp(6))
+                isClickable = true
+                rippleBg(this)
+                setOnClickListener { onTap() }
+            }
+            row.addView(ImageView(act).apply {
+                setImageResource(icon)
+                setColorFilter(act.getColor(R.color.mg_text_dim))
+            }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(14) })
+            val txt = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+            txt.addView(TextView(act).apply { text = label; textSize = 15f; setTextColor(act.getColor(R.color.mg_text)) })
+            txt.addView(TextView(act).apply {
+                text = hint; textSize = 12f; setTextColor(act.getColor(R.color.mg_text_dim)); setPadding(0, dp(2), 0, 0)
+            })
+            row.addView(txt, LinearLayout.LayoutParams(0, WRAP, 1f))
+            parent.addView(row, LinearLayout.LayoutParams(MATCH, WRAP))
         }
 
         private fun sectionLabel(t: String) = TextView(act).apply {

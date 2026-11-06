@@ -164,6 +164,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         if (!tabs.restoreSession()) tabs.newTab(TabManager.HOME_PAGE) // S13
         else if (AppearancePrefs.startPage(this)) tabs.newTab(TabManager.HOME_PAGE) // A8: restored tabs + a fresh home tab selected
         LinkInbox.fromIntent(this, tabs, intent) // D1
+        if (savedInstanceState == null) SocialShortcuts.fromIntent(this, tabs, intent) // 0.0.230 (P6): home-screen shortcut
         UpdateManager.autoCheck(this)
         CrashLog.showLast(this) // FIX
         AppLock.onCreate(this) // S45: lock screen at cold start (if ON)
@@ -472,6 +473,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     override fun onNewIntent(intent: Intent) { // D1: Share while the browser is already open
         super.onNewIntent(intent)
         LinkInbox.fromIntent(this, tabs, intent)
+        SocialShortcuts.fromIntent(this, tabs, intent) // 0.0.230 (P6)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) { // D1: clipboard can only be read with focus

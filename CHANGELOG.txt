@@ -1,3 +1,13 @@
+0.0.230 (P6 BUILD: home-screen shortcuts + Home tiles for social sites)
+- Why: open a social site with one tap from the phone home screen or the browser Home page, already in Social mode.
+- New SocialShortcuts.kt: pin(act, profile) asks the launcher for a pinned shortcut (name + violet letter icon, explicit intent to MainActivity, action com.jabra.mgb.SOCIAL_OPEN + site id, flags CLEAR_TOP / SINGLE_TOP so the running browser is reused). fromIntent() switches that site + Social sites ON and opens its start page in a new tab; handled once (action + extra cleared, so a rotation does not open it again). pickPin() = list of sites, pickTiles() = tick sites, added as normal Home tiles (Bookmarks.addHome, no new store; already-added sites are marked).
+- MainActivity.kt: 2 lines (cold start guarded by savedInstanceState == null, and onNewIntent). SocialScreen.kt: new "Home" card with 2 rows (Add a site to the phone home screen / Add tiles to the browser Home page), 56 dp rows, not dimmed by the master switch. HowToUse: one phrase.
+- No AndroidManifest change (explicit intent, no intent-filter). HomeView / TabManager untouched. No new pref, RESET list unchanged.
+- Could break: nothing while you do not use the new rows. Launchers without pin support show a toast. If Social sites is OFF, Home tiles open as normal pages (toast says so); the home-screen shortcut turns it ON. Home tiles show after the Home page is rebuilt (open a new Home tab).
+- Verified against the real SocialProfiles.kt (P1): all, byId(id): Profile?, Profile.id / label / startUrl, siteOn(ctx,id), setSiteOn(ctx,id,v) exist with these signatures. SocialProfiles.kt itself is unchanged.
+- Checked: brace + paren balance, no nested comment opener, patch scope, hooks match once, every SocialProfiles call matches the real file.
+- NOT tested: Gradle build (CI), device, launcher pin dialog, cold start + warm start of the shortcut, 360 / 1280 dp look, dark + light, rotation.
+
 0.0.229 (P5 BUILD: sensitive media blur on social sites)
 - Why: blur pictures / videos on social pages until you tap them (work, public places, kids nearby).
 - New SocialBlur.kt: prefs sm_blur (0 Off / 1 Flagged only / 2 All until tap, default Off) and sm_blur_px (4-24, default 12); one page script (CSS blur class, tap = show that item even under an overlay, "Reveal all (N)" pill, MutationObserver + load / scroll for infinite scroll, items under 64 px never blurred, inline background-image included). Flagged = site selector (reddit, x, tumblr, bluesky) or post text with NSFW / sensitive / 18+ / mature.
