@@ -1,3 +1,15 @@
+0.0.239 (FIX: build error in HowToUse.kt line 160)
+- Root cause: the 0.0.237 HowToUse phrase had plain double quotes inside the Kotlin text ("Use the app", "Staying in the browser", "Not now"), which ended the string early (CI: Unresolved reference: Not / now). Fix: the quotes are escaped (\") in that phrase.
+- Files: HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF. This zip also carries every file changed since 0.0.234 (U1 0.0.235, U2 0.0.236, U3 0.0.237, A1 0.0.238), so one copy updates the repo.
+- Could break: nothing (text only). Added-line scan for the same mistake in all changed Kotlin files found none.
+- NOT tested: Gradle build (CI) after this fix, device.
+
+0.0.238 (A1 BUILD: full screen social tab)
+- Why: a social tab should feel like an app. Switch "Full screen on social sites" (Social sites page > Tabs and data, default OFF, key sm_full): while the active tab is on a social site the page goes fullscreen with the existing page-fullscreen of the swipe gesture (address bar + phone bars hidden, small handle at the bar position). Tap the handle or press Back = bars show and stay until you leave that site. A non-social page, another tab or switch OFF brings the bars back (only if this switch hid them).
+- Files: NEW SocialFull.kt, SocialMode.kt (sm_full), SocialScreen.kt (switch row), SettingsScreen.kt (RESET + sm_full), MainActivity.kt (2 hook lines: onPageInfo + onActiveChanged), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: nothing with the switch OFF (sync returns at once). ON: Back shows the bars first (existing fullscreen back rule), a second Back goes back in the page. System bars come back for a moment with an edge swipe (existing behaviour). Keyboard: the address bar is hidden, so type an address after showing the bar.
+- NOT tested: Gradle build (CI), device, gesture / handle on 360 / 1280 dp, dark + light, rotation, notch / cutout phones, tab switching between a social and a normal tab.
+
 0.0.237 (U3 MODIFY: skip "Use the app" screens)
 - Why: Facebook / Messenger / Instagram / Reddit sometimes cover the page with a full-screen "Use the app / Chats on mobile browsers are not available / Go to <app>" layer with a small "Staying in the browser" or "Not now" link. A page script now taps that link for you. Switch "Skip Use the app screens" (Social sites page > Tabs and data, default ON, key sm_int).
 - Files: SocialMode.kt (INTERSTITIAL_JS, sm_int, inject runs it; again after in-page routes), SocialScreen.kt (switch row), SettingsScreen.kt (RESET list + sm_int), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.

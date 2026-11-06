@@ -160,6 +160,8 @@ object SocialScreen {
                 null, { SocialBadge.saveOn(act) }) { on -> SocialBadge.setSaveOn(act, on) }
             switchRow(extra, R.drawable.ic_shield, "Skip \"Use the app\" screens", "Taps \"Staying in the browser\" or \"Not now\" on a full-screen app nag (applies from the next page load)",
                 null, { SocialMode.intOn(act) }) { on -> SocialMode.setIntOn(act, on) }
+            switchRow(extra, R.drawable.ic_screen, "Full screen on social sites", "Hides the address bar and phone bars on social pages. Tap the small handle or press Back to show them",
+                null, { SocialMode.fullOn(act) }) { on -> SocialMode.setFullOn(act, on); if (!on) SocialFull.sync(act, BookmarksScreen.tabsRef?.active) }
             col.addView(extra, LinearLayout.LayoutParams(MATCH, WRAP))
             siteRows.add(extra)
 

@@ -441,6 +441,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         BarGestures.exit(this) // A6: a tab change leaves page fullscreen
         findViewById<View>(R.id.bottom_bar).visibility = View.VISIBLE // S33
         refreshAll(tab)
+        SocialFull.sync(this, tab) // 0.0.238 (A1)
         GroupStrip.refresh() // S13
         floating.poke() // S11
     }
@@ -448,6 +449,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     override fun onPageInfo(tab: TabManager.Tab) {
         if (tab === tabs.active) {
             refreshAll(tab)
+            SocialFull.sync(this, tab) // 0.0.238 (A1): returns at once when the switch is OFF
             GroupStrip.refresh() // S13
             if (tab.progress >= 100) floating.poke() // S11
         }

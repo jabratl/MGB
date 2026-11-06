@@ -60,6 +60,11 @@ object SocialMode {
     fun intOn(c: Context): Boolean = sp(c).getBoolean(K_INT, true)
     fun setIntOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_INT, v).apply() }
 
+    /** 0.0.238 (A1): "Full screen on social sites" (default OFF), used by SocialFull. */
+    private const val K_FULL = "sm_full"
+    fun fullOn(c: Context): Boolean = sp(c).getBoolean(K_FULL, false)
+    fun setFullOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_FULL, v).apply() }
+
     /** Per-site switch (0.0.228, P4): thin wrappers over SocialProfiles (key sm_s_<id>, not set = ON). */
     fun siteOn(c: Context, id: String): Boolean = SocialProfiles.siteOn(c, id)
     fun setSiteOn(c: Context, id: String, v: Boolean) { SocialProfiles.setSiteOn(c, id, v) }
