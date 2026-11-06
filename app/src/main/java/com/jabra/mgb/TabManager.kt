@@ -606,6 +606,7 @@ class TabManager(
 
         override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
             tab.url = url ?: tab.url
+            if (!tab.isExt && !tab.savedPage && view != null && url != null && SocialMode.onRoute(ctx, view, url, tab.desktop)) container.post { view.stopLoading(); view.loadUrl(url) } // 0.0.235 (U1)
             listener.onPageInfo(tab)
         }
     }

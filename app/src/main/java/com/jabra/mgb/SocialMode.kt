@@ -2,6 +2,7 @@ package com.jabra.mgb
 
 import android.content.Context
 import android.net.Uri
+import android.os.SystemClock
 import android.webkit.CookieManager
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -25,7 +26,9 @@ import java.util.WeakHashMap
  *    on a social page are not opened: you stay in the browser.
  *  - A small script hides the "Open app / Use the app / Get Messenger" banner (fixed bar, found by its text).
  * Not possible in a browser: background notifications / push (that is what the real Lite app has).
- * Hooks in TabManager: shouldOverrideUrlLoading (ensure, blockApp), onPageStarted (ensure), onProgressChanged + onPageFinished (inject).
+ * Hooks in TabManager: shouldOverrideUrlLoading (ensure, blockApp), onPageStarted (ensure), onProgressChanged + onPageFinished (inject),
+ * doUpdateVisitedHistory (onRoute, 0.0.235: in-page navigation such as pushState on Facebook / Instagram / Reddit / X).
+ * 0.0.236: a per-site "Site fix" (extra banner texts + CSS, SocialProfiles.fixWords / fixCss) is added to the built-in ones.
  */
 object SocialMode {
     private const val KEY = "sm_on"
@@ -136,20 +139,26 @@ object SocialMode {
 
     // "Open app" banner: a button or link with that text inside a small fixed / sticky bar. Looks for 40 s, then stops.
     // 0.0.226: the app names in the text come from the site row (SocialProfiles.Profile.appWords).
+    // 0.0.235 (U1): again = true restarts the 40 s scan after an in-page route change (counter window.__mgSbN, timer window.__mgSbI).
+    // 0.0.236 (U2): phrases = extra whole button texts typed by the person (Site fix), compared in lower case.
     private val bannerCache = HashMap<String, String>()
-    private fun bannerJs(words: List<String>): String {
+    private fun bannerJs(words: List<String>, phrases: List<String> = emptyList(), again: Boolean = false): String {
         val w = words.filter { it.matches(Regex("[a-z0-9]+")) }
-        val key = w.joinToString("|")
+        val key = w.joinToString("|") + "#" + phrases.joinToString("|") + "#" + again
         return bannerCache.getOrPut(key) {
             val names = if (w.isEmpty()) "" else "( " + w.joinToString("| ") + ")?"
-            "(function(){try{if(window.__mgSb)return;window.__mgSb=1;" +
-            "var re=/^(open|use|get|install|continue in|open in)( the)?" + names + "( app)?$/i;var n=0;" +
+            val ex = org.json.JSONArray(phrases).toString()
+            "(function(){try{" +
+            "var re=/^(open|use|get|install|continue in|open in)( the)?" + names + "( app)?$/i;var ex=" + ex + ";" +
             "var scan=function(){var l=document.querySelectorAll('a,button,[role=button]');" +
-            "for(var i=0;i<l.length;i++){var e=l[i];var t=(e.textContent||'').trim();if(t.length>40||!re.test(t))continue;" +
+            "for(var i=0;i<l.length;i++){var e=l[i];var t=(e.textContent||'').trim();if(t.length>40||!(re.test(t)||ex.indexOf(t.toLowerCase())>=0))continue;" +
             "var p=e;for(var d=0;d<8&&p&&p!==document.body;d++,p=p.parentElement){var cs=getComputedStyle(p);" +
             "if(cs.position==='fixed'||cs.position==='sticky'){var r=p.getBoundingClientRect();" +
             "if(r.height<window.innerHeight*0.4&&(p.innerText||'').length<200){p.style.setProperty('display','none','important');}break;}}}};" +
-            "scan();var iv=setInterval(function(){scan();if(++n>40)clearInterval(iv);},1000);}catch(e){}})();"
+            "var tick=function(){scan();if(++window.__mgSbN>40){clearInterval(window.__mgSbI);window.__mgSbI=0;}};" +
+            (if (again) "if(window.__mgSb){window.__mgSbN=0;scan();if(!window.__mgSbI)window.__mgSbI=setInterval(tick,1000);return;}"
+             else "if(window.__mgSb)return;") +
+            "window.__mgSb=1;window.__mgSbN=0;scan();window.__mgSbI=setInterval(tick,1000);}catch(e){}})();"
         }
     }
 
@@ -161,17 +170,46 @@ object SocialMode {
     }
 
     /** Runs the page scripts for this address (each one guards itself, so calling it many times is fine). */
-    fun inject(ctx: Context, view: WebView?, url: String?, handDesktop: Boolean) {
+    fun inject(ctx: Context, view: WebView?, url: String?, handDesktop: Boolean, again: Boolean = false) {
         if (view == null || handDesktop || !on(ctx)) return
         val p = SocialProfiles.of(url)
         when (kindFor(ctx, url)) {
-            Kind.CHAT -> view.evaluateJavascript(VIEWPORT_JS, null)
-            Kind.FEED, Kind.INSTA -> view.evaluateJavascript(bannerJs(p?.appWords ?: emptyList()), null)
+            Kind.CHAT -> view.evaluateJavascript(if (again) "window.__mgSv=0;" + VIEWPORT_JS else VIEWPORT_JS, null)
+            Kind.FEED, Kind.INSTA -> view.evaluateJavascript(bannerJs(p?.appWords ?: emptyList(), if (p != null) SocialProfiles.fixWords(ctx, p.id) else emptyList(), again), null)
             Kind.NONE -> return
         }
-        if (p != null && p.css.isNotEmpty()) view.evaluateJavascript(cssJs(p.css), null)
+        val css = ((p?.css ?: "") + " " + (if (p != null) SocialProfiles.fixCss(ctx, p.id) else "")).trim() // 0.0.236 (U2): built-in + Site fix
+        if (css.isNotEmpty()) view.evaluateJavascript(cssJs(css), null)
         SocialBlur.inject(ctx, view, p?.id) // 0.0.229 (P5): sensitive-media blur (mode OFF = only removes an old blur)
         SocialBadge.injectSaver(ctx, view) // 0.0.231 (P7): data saver (switch OFF = nothing)
+    }
+
+    // ---- 0.0.235 (U1): in-page navigation (history.pushState / popstate): no page load, so ensure() and the page scripts did not run ----
+    private val lastKey = WeakHashMap<WebView, String>()
+    private val lastRe = WeakHashMap<WebView, Long>()
+    private val flips = WeakHashMap<WebView, ArrayList<Long>>()
+    private fun routeKey(url: String): String = try { val u = Uri.parse(url); (u.host ?: "") + (u.path ?: "") } catch (_: Exception) { url }
+
+    /**
+     * Called from TabManager.doUpdateVisitedHistory (every address change, also in-page ones). true = the user agent changed (Facebook feed -> chat,
+     * Instagram feed -> /direct/ ...): the caller loads the address again. false = nothing to load; when only the path changed, the banner / viewport
+     * scripts are started again (blur, data saver and CSS guard themselves). Loop guard: at most 2 user agent flips per 15 s per tab, then this does nothing.
+     */
+    fun onRoute(ctx: Context, view: WebView, url: String, handDesktop: Boolean): Boolean {
+        if (handDesktop || !on(ctx) || !url.startsWith("http", true)) return false
+        val now = SystemClock.uptimeMillis()
+        val key = routeKey(url)
+        val prev = lastKey.put(view, key)
+        val fl = flips.getOrPut(view) { ArrayList() }
+        fl.removeAll { now - it > 15000L }
+        if (fl.size >= 2) return false
+        if (ensure(ctx, view, url, false)) { fl.add(now); return true }
+        if (prev == null || prev == key) return false
+        if (kindFor(ctx, url) == Kind.NONE) return false
+        if (now - (lastRe[view] ?: 0L) < 1200L) return false
+        lastRe[view] = now
+        inject(ctx, view, url, false, true)
+        return false
     }
 
     /** Command Center shortcut: switch Social mode ON (the person asked for a social page) and open it in a new tab. */

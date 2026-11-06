@@ -143,6 +143,35 @@ object SocialProfiles {
         c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).edit().putBoolean(key(id), v).apply()
     }
 
+    // ---- 0.0.236 (U2): "Site fix" = extra banner texts + CSS typed by the person for one site. Key sm_x_<id> = JSON {"w": "a, b", "c": "css"}; not set = built-in only ----
+    private fun fixKey(id: String) = "sm_x_$id"
+    private fun fixObj(c: Context, id: String): org.json.JSONObject? = try {
+        val s = c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).getString(fixKey(id), null)
+        if (s.isNullOrBlank()) null else org.json.JSONObject(s)
+    } catch (_: Exception) { null }
+
+    /** Cleaned extra banner texts (lower case, letters / digits / space / a few marks, max 40 chars, max 10). Safe to put into a script. */
+    fun cleanWords(raw: String): List<String> = raw.split(',', '\n', ';')
+        .map { it.replace(Regex("[^\\p{L}\\p{N} '\u2019.!?&-]"), "").trim().replace(Regex("\\s+"), " ").take(40).lowercase() }
+        .filter { it.isNotEmpty() }.distinct().take(10)
+
+    /** One line of CSS, max 600 chars; no @import / url( (nothing is loaded from outside) and no "<". */
+    fun cleanCss(raw: String): String = raw.replace(Regex("[\\r\\n\\u2028\\u2029]+"), " ")
+        .replace(Regex("(?i)@import|url\\s*\\("), "").replace("<", "").trim().take(600)
+
+    fun fixWords(c: Context, id: String): List<String> = cleanWords(fixObj(c, id)?.optString("w", "") ?: "")
+    fun fixCss(c: Context, id: String): String = cleanCss(fixObj(c, id)?.optString("c", "") ?: "")
+    fun hasFix(c: Context, id: String): Boolean = fixWords(c, id).isNotEmpty() || fixCss(c, id).isNotEmpty()
+    /** Saves the cleaned values; both empty = key removed. */
+    fun setFix(c: Context, id: String, words: String, css: String) {
+        val w = cleanWords(words).joinToString(", ")
+        val s = cleanCss(css)
+        val e = c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).edit()
+        if (w.isEmpty() && s.isEmpty()) e.remove(fixKey(id)) else e.putString(fixKey(id), org.json.JSONObject().put("w", w).put("c", s).toString())
+        e.apply()
+    }
+    fun clearFix(c: Context, id: String) { setFix(c, id, "", "") }
+
     /** All schemes of all sites (a link of any social app is not opened from any social page, as in 0.0.224). */
     val allSchemes: Set<String> by lazy { all.flatMap { it.schemes }.toSet() }
     val allIntentPkgs: List<String> by lazy { all.flatMap { it.intentPkgs }.distinct() }

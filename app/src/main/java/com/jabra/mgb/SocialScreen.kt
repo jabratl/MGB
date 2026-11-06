@@ -12,7 +12,9 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.View
+import android.text.InputType
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -21,10 +23,12 @@ import android.content.res.ColorStateList
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.graphics.ColorUtils
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 /**
  * SOCIAL SITES PAGE (0.0.228, P4): full-screen page (same chrome as Appearance): master switch (SocialMode.on), one switch row per
  * site of SocialProfiles.all (key sm_s_<id>) with an "Open" pill, and a short "what does not work" text.
+ * 0.0.236 (U2): card "Site fix" = per site extra banner texts + CSS (SocialProfiles.setFix, key sm_x_<id>) in a small edit dialog.
  * Entry: Settings > General > Social sites. Back = Settings again. State lives in the prefs, so a rotation just rebuilds the page.
  */
 object SocialScreen {
@@ -171,6 +175,16 @@ object SocialScreen {
                 col.addView(c, LinearLayout.LayoutParams(MATCH, WRAP))
             }
 
+            col.addView(sectionLabel("Site fix")) // 0.0.236 (U2)
+            val fixC = card()
+            for (p in SocialProfiles.all) {
+                lateinit var hintTv: TextView
+                val row = actionRow(fixC, R.drawable.ic_settings, p.label, fixHint(p)) { fixDialog(p) { hintTv.text = fixHint(p) } }
+                hintTv = ((row as LinearLayout).getChildAt(1) as LinearLayout).getChildAt(1) as TextView
+            }
+            col.addView(fixC, LinearLayout.LayoutParams(MATCH, WRAP))
+            siteRows.add(fixC)
+
             col.addView(sectionLabel("Logins")) // 0.0.234 (P9)
             val sep = card()
             val supported = SocialMode.sepSupported()
@@ -196,6 +210,7 @@ object SocialScreen {
                     "\"Continue with Google\" is often blocked in a browser tab. Use email and password.\n\n" +
                     "A site may show a security check after the browser identity changes. Hiding the Open-app bars depends on the live " +
                     "site and may need a small fix when the site changes.\n\n" +
+                    "Site fix: type a button text or a line of CSS when a site changes and an Open-app bar comes back. It is only stored on this phone.\n\n" +
                     "A site that is switched off here opens like any other page."
                 textSize = 12f
                 setTextColor(act.getColor(R.color.mg_text_dim))
@@ -359,7 +374,7 @@ object SocialScreen {
         }
 
         /** Plain tap row (>= 56 dp): icon + label + hint + chevron-less, whole row is the touch target. */
-        private fun actionRow(parent: LinearLayout, icon: Int, label: String, hint: String, onTap: () -> Unit) {
+        private fun actionRow(parent: LinearLayout, icon: Int, label: String, hint: String, onTap: () -> Unit): View {
             val row = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -380,6 +395,45 @@ object SocialScreen {
             })
             row.addView(txt, LinearLayout.LayoutParams(0, WRAP, 1f))
             parent.addView(row, LinearLayout.LayoutParams(MATCH, WRAP))
+            return row
+        }
+
+        private fun fixHint(p: SocialProfiles.Profile): String =
+            if (SocialProfiles.hasFix(act, p.id)) "Your fix is on" else "Hide an Open-app bar or an element yourself"
+
+        /** 0.0.236 (U2): edit dialog. Words = extra texts of the Open-app button (comma separated), CSS = one line. Save / Clear / Cancel; applies from the next page load. */
+        private fun fixDialog(p: SocialProfiles.Profile, onDone: () -> Unit) {
+            val box = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), dp(4)) }
+            fun lab(t: String) = TextView(act).apply {
+                text = t; textSize = 12f; setTextColor(act.getColor(R.color.mg_text_dim)); setPadding(0, dp(10), 0, dp(4))
+            }
+            fun field(h: String, v: String) = EditText(act).apply {
+                hint = h; setText(v); textSize = 14f; minLines = 2; maxLines = 6
+                gravity = Gravity.TOP or Gravity.START
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                setTextColor(act.getColor(R.color.mg_text)); setHintTextColor(act.getColor(R.color.mg_text_dim))
+                background = round(act.getColor(R.color.mg_surface_variant), 12, 1f, act.getColor(R.color.mg_outline))
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+            }
+            box.addView(lab("Extra Open-app button texts, separated by commas. Built-in app names: " +
+                (if (p.appWords.isEmpty()) "none" else p.appWords.joinToString(", ")) + "."))
+            val w = field("Try the app, Open " + p.label, SocialProfiles.fixWords(act, p.id).joinToString(", "))
+            box.addView(w, LinearLayout.LayoutParams(MATCH, WRAP))
+            box.addView(lab("CSS to hide something (one line, no url or @import)."))
+            val c = field(".promo-bar{display:none!important}", SocialProfiles.fixCss(act, p.id))
+            box.addView(c, LinearLayout.LayoutParams(MATCH, WRAP))
+            box.addView(lab("Applies from the next page load of this site. Empty = built-in only. Clear removes your fix."))
+            MaterialAlertDialogBuilder(act)
+                .setTitle(p.label + " fix")
+                .setView(ScrollView(act).apply { addView(box) })
+                .setPositiveButton("Save") { _, _ ->
+                    SocialProfiles.setFix(act, p.id, w.text.toString(), c.text.toString())
+                    Util.toast(act, "Saved. Reload the site page")
+                    onDone()
+                }
+                .setNeutralButton("Clear") { _, _ -> SocialProfiles.clearFix(act, p.id); onDone() }
+                .setNegativeButton("Cancel", null)
+                .show()
         }
 
         private fun sectionLabel(t: String) = TextView(act).apply {
