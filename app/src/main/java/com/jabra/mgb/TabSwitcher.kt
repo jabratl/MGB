@@ -1470,6 +1470,20 @@ object TabSwitcher {
                 setTextColor(fg)
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             }, LinearLayout.LayoutParams(0, WRAP, 1f))
+            val unread = if (t.home) 0 else SocialBadge.count(act, t.url, t.title) // 0.0.231 (P7): unread number from the page title
+            if (unread > 0) {
+                head.addView(TextView(act).apply {
+                    gravity = Gravity.CENTER
+                    text = SocialBadge.label(unread)
+                    textSize = 10f
+                    typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+                    setTextColor(c(R.color.mg_on_primary))
+                    background = round(c(R.color.mg_primary), 9)
+                    minWidth = dp(18)
+                    setPadding(dp(5), 0, dp(5), 0)
+                    contentDescription = "$unread unread"
+                }, LinearLayout.LayoutParams(WRAP, dp(18)).apply { marginEnd = dp(4) })
+            }
             if (selecting) {
                 head.addView(TextView(act).apply {
                     gravity = Gravity.CENTER

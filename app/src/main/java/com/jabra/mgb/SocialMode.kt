@@ -149,6 +149,7 @@ object SocialMode {
         }
         if (p != null && p.css.isNotEmpty()) view.evaluateJavascript(cssJs(p.css), null)
         SocialBlur.inject(ctx, view, p?.id) // 0.0.229 (P5): sensitive-media blur (mode OFF = only removes an old blur)
+        SocialBadge.injectSaver(ctx, view) // 0.0.231 (P7): data saver (switch OFF = nothing)
     }
 
     /** Command Center shortcut: switch Social mode ON (the person asked for a social page) and open it in a new tab. */

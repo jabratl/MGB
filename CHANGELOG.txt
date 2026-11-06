@@ -1,3 +1,13 @@
+0.0.231 (P7 BUILD: unread number on tab cards + data saver for social sites)
+- Why: see at a glance which social tab has something new, and stop videos from autoplaying (data / battery).
+- New SocialBadge.kt: prefs sm_badge (default ON) and sm_save (default OFF). Unread number is read from the page title ("(3) Facebook", "[3] ...", 1-3 digits) and drawn as a small violet pill on the tab switcher card; only for social sites that are ON. No push, only while the tab exists.
+- Data saver page script (window.__mgSs): no autoplay, preload=none, a video that starts without your tap is paused; a video you start plays normally. Runs only on social pages through SocialMode.inject (+1 line).
+- TabSwitcher.kt: pill in card() header (hidden when count is 0). SocialScreen.kt: new "Tabs and data" card (2 switches). SettingsScreen.kt: RESET list + SocialBadge.keys. HowToUse: one phrase.
+- Deviation from the plan: TabManager untouched (the badge is derived from tab.title when the card is drawn, no stored count).
+- Could break: nothing while Social sites is OFF. Title formats of live sites are assumptions; data saver may not stop a site's own player in every case. Data saver OFF applies on the next page load.
+- Checked: node --check of the saver script, brace + paren balance, no nested comment opener, patch scope.
+- NOT tested: Gradle build (CI), device, live sites, 360 / 1280 dp look, dark + light, rotation.
+
 0.0.230 (P6 BUILD: home-screen shortcuts + Home tiles for social sites)
 - Why: open a social site with one tap from the phone home screen or the browser Home page, already in Social mode.
 - New SocialShortcuts.kt: pin(act, profile) asks the launcher for a pinned shortcut (name + violet letter icon, explicit intent to MainActivity, action com.jabra.mgb.SOCIAL_OPEN + site id, flags CLEAR_TOP / SINGLE_TOP so the running browser is reused). fromIntent() switches that site + Social sites ON and opens its start page in a new tab; handled once (action + extra cleared, so a rotation does not open it again). pickPin() = list of sites, pickTiles() = tick sites, added as normal Home tiles (Bookmarks.addHome, no new store; already-added sites are marked).

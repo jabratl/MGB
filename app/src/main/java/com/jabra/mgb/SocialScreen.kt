@@ -143,6 +143,15 @@ object SocialScreen {
             col.addView(blur, LinearLayout.LayoutParams(MATCH, WRAP))
             siteRows.add(blur)
 
+            col.addView(sectionLabel("Tabs and data")) // 0.0.231 (P7)
+            val extra = card()
+            switchRow(extra, R.drawable.ic_info, "Unread number on tab cards", "Shows the \"(3)\" of the page title in the tab list",
+                null, { SocialBadge.badgeOn(act) }) { on -> SocialBadge.setBadgeOn(act, on) }
+            switchRow(extra, R.drawable.ic_shield, "Data saver", "Stops video autoplay on social pages (applies from the next page load)",
+                null, { SocialBadge.saveOn(act) }) { on -> SocialBadge.setSaveOn(act, on) }
+            col.addView(extra, LinearLayout.LayoutParams(MATCH, WRAP))
+            siteRows.add(extra)
+
             val feeds = SocialProfiles.all.filter { it.defaultKind != SocialMode.Kind.CHAT }
             val chats = SocialProfiles.all.filter { it.defaultKind == SocialMode.Kind.CHAT }
             for ((title, list) in listOf("Feed sites" to feeds, "Chat sites (desktop page, fits the phone)" to chats)) {
@@ -166,7 +175,7 @@ object SocialScreen {
             col.addView(sectionLabel("Good to know"))
             val info = card()
             info.addView(TextView(act).apply {
-                text = "No push notifications, sounds or badge: a browser tab cannot receive them when it is closed.\n\n" +
+                text = "No push notifications or sounds, no badge on the launcher icon: a browser tab cannot receive them when it is closed. The unread number on tab cards only updates while the tab is open.\n\n" +
                     "\"Continue with Google\" is often blocked in a browser tab. Use email and password.\n\n" +
                     "A site may show a security check after the browser identity changes. Hiding the Open-app bars depends on the live " +
                     "site and may need a small fix when the site changes.\n\n" +
