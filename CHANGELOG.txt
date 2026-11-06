@@ -1,3 +1,12 @@
+0.0.225 (P1 MODIFY: Social sites now come from a table, SocialProfiles.kt)
+- Why: so the next steps (Reddit, X, Pinterest, Discord ...) are one new row each, not new code.
+- New SocialProfiles.kt: rows Facebook, Messenger, Instagram (host, page kind by path, app schemes, app packages, start page) + per-site switch key sm_s_<id> in mgb_ui (not set = ON, follows Social sites sm_on).
+- SocialMode.kt: kind(), blockApp() read the table; ensure() / inject() / blockApp() skip a site whose own switch is OFF. kind() is still public with the same result. UA logic, scripts, constants, open() unchanged.
+- Not touched: TabManager (all 0.0.224 hooks keep the same calls), CommandCenter, SettingsScreen, HowToUse. No UI yet (the per-site switch page = P4).
+- Behaviour: same as 0.0.224. One detail kept on purpose: an app link of ANY listed social app is blocked on ANY social page (as before), because blockApp uses the union of all rows.
+- Could break: nothing while Social sites is OFF. ON: only if a host regex differs from the old code (checked: facebook.com / fb.com, *.messenger.com, *.instagram.com, same chat paths).
+- NOT tested: Gradle build (CI), device, live Facebook / Instagram pages.
+
 0.0.224 (NEW: Social sites - Facebook, Messenger chat and Instagram without the Desktop site switch)
 - Why: Facebook's mobile site has no chat (it pushes the Messenger app), and the desktop site that has chat is tiny on a phone. Facebook / Instagram also show "Open app" banners and app redirects.
 - New SocialMode.kt (switch Settings > General > Social sites, key sm_on, default OFF = old behaviour). Chat pages (facebook.com/messages, messenger.com): desktop user agent + width=device-width viewport. Other Facebook pages and Instagram: mobile user agent without the WebView marker. The user agent follows each page address, a tab put in Desktop site by hand is not touched, other sites get the default user agent back.

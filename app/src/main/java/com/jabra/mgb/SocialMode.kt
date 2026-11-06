@@ -7,7 +7,7 @@ import android.webkit.WebView
 import java.util.WeakHashMap
 
 /**
- * SOCIAL MODE (0.0.224): Facebook, Messenger chat and Instagram in a normal tab, without the Desktop site switch.
+ * SOCIAL MODE (0.0.224; 0.0.225: sites come from SocialProfiles.kt, per-site switch sm_s_<id>): Facebook, Messenger chat and Instagram in a normal tab, without the Desktop site switch.
  *
  * Why it is needed: Facebook's mobile site has no chat (it sends you to the Messenger app), and Facebook / Instagram show
  * "Open app" banners and app redirects. The real chat only opens for a desktop user agent, but a desktop page is tiny on a phone.
@@ -38,20 +38,18 @@ object SocialMode {
     const val IG_HOME = "https://www.instagram.com/"
     const val IG_DM = "https://www.instagram.com/direct/inbox/"
 
-    private val FB_HOSTS = Regex("(^|\\.)(facebook\\.com|fb\\.com)$")
-    private val CHAT_PATH = Regex("^/(messages|messenger|messenger_media)(/|$)")
-
-    /** Which kind of page this address is. Only https pages count. */
+    /** Which kind of page this address is (table: SocialProfiles). Only https pages count. Ignores the per-site switch. */
     fun kind(url: String?): Kind {
-        if (url == null || !url.startsWith("https://", true)) return Kind.NONE
-        val u = try { Uri.parse(url) } catch (_: Exception) { return Kind.NONE }
-        val h = (u.host ?: return Kind.NONE).lowercase()
-        return when {
-            h == "messenger.com" || h.endsWith(".messenger.com") -> Kind.CHAT
-            FB_HOSTS.containsMatchIn(h) -> if (CHAT_PATH.containsMatchIn(u.path ?: "")) Kind.CHAT else Kind.FEED
-            h == "instagram.com" || h.endsWith(".instagram.com") -> Kind.INSTA
-            else -> Kind.NONE
-        }
+        val p = SocialProfiles.of(url) ?: return Kind.NONE
+        val path = try { Uri.parse(url).path ?: "" } catch (_: Exception) { "" }
+        return p.kindOf(path)
+    }
+
+    /** Same as [kind] but NONE when the person switched this site off (SocialProfiles.siteOn). */
+    private fun kindFor(ctx: Context, url: String?): Kind {
+        val p = SocialProfiles.of(url) ?: return Kind.NONE
+        if (!SocialProfiles.siteOn(ctx, p.id)) return Kind.NONE
+        return kind(url)
     }
 
     // WebViews whose user agent this file changed (so a page of another site gets the default back, nothing else is reset)
@@ -75,7 +73,7 @@ object SocialMode {
     fun ensure(ctx: Context, view: WebView, url: String, handDesktop: Boolean): Boolean {
         if (handDesktop || !on(ctx) || !url.startsWith("http", true)) return false
         val s = view.settings
-        val k = kind(url)
+        val k = kindFor(ctx, url)
         if (k == Kind.NONE) {
             if (applied.remove(view) == null) return false
             s.userAgentString = null // default again
@@ -91,12 +89,12 @@ object SocialMode {
 
     /** true = this link opens a Facebook / Messenger / Instagram app and the tab is on a social page: do not open it. */
     fun blockApp(ctx: Context, tabUrl: String, u: Uri): Boolean {
-        if (!on(ctx) || kind(tabUrl) == Kind.NONE) return false
+        if (!on(ctx) || kindFor(ctx, tabUrl) == Kind.NONE) return false
         val s = u.scheme?.lowercase() ?: return false
-        if (s == "fb" || s == "fb-messenger" || s == "fb-messenger-public" || s == "fb-messenger-share" || s == "instagram" || s == "fbapi" || s == "fbauth2") return true
+        if (s in SocialProfiles.allSchemes) return true
         if (s == "intent" || s == "market") {
             val t = u.toString()
-            return t.contains("com.facebook.") || t.contains("com.instagram.")
+            return SocialProfiles.allIntentPkgs.any { t.contains(it) }
         }
         return false
     }
@@ -123,7 +121,7 @@ object SocialMode {
     /** Runs the page scripts for this address (each one guards itself, so calling it many times is fine). */
     fun inject(ctx: Context, view: WebView?, url: String?, handDesktop: Boolean) {
         if (view == null || handDesktop || !on(ctx)) return
-        when (kind(url)) {
+        when (kindFor(ctx, url)) {
             Kind.CHAT -> view.evaluateJavascript(VIEWPORT_JS, null)
             Kind.FEED, Kind.INSTA -> view.evaluateJavascript(BANNER_JS, null)
             Kind.NONE -> {}
