@@ -217,8 +217,6 @@ object SocialScreen {
                 null, { SocialDock.on(act) }) { on -> SocialDock.setOn(act, on) } // 0.0.272 (C1)
             switchRow(extra, R.drawable.ic_info, "Ask before leaving a social site", "A tapped link to another site shows a small sheet: Open in new tab (the feed stays), Open here or Cancel. Facebook and Instagram link wrappers are looked through",
                 null, { SocialExt.on(act) }) { on -> SocialExt.setOn(act, on) } // 0.0.271 (D4)
-            switchRow(extra, R.drawable.ic_info, "Video in a small window", if (SocialPip.supported(act)) "While a social video is full screen, pressing Home puts it in a small floating window (picture-in-picture). Only for social tabs" else "Not supported on this phone (needs Android 8 or newer)",
-                null, { SocialPip.on(act) }) { on -> SocialPip.setOn(act, on) } // 0.0.278 (D8)
             lateinit var mtTv: TextView // 0.0.267 (C6)
             fun mtHint() = (if (SocialMute.count(act) == 0) "No words yet" else SocialMute.count(act).toString() + " word(s)") + " (tap to edit). Posts with these words are hidden on Facebook, Instagram, Reddit, X, LinkedIn. Stays on the phone"
             val mtRow = actionRow(extra, R.drawable.ic_info, "Muted words", mtHint()) {
@@ -716,7 +714,6 @@ object SocialScreen {
                 .append(", data saver plus: ").append(yn(SocialSave2.on(act))).append(" (").append(SocialSave2.blocked).append(" videos blocked)")
                 .append(", muted words: ").append(SocialMute.count(act))
                 .append(", ask before leaving: ").append(yn(SocialExt.on(act)))
-                .append(", small video window: ").append(yn(SocialPip.on(act)))
                 .append(", dock: ").append(yn(SocialDock.on(act)))
                 .append(", blur per site: ").append(SocialBlur.siteOverrides(act)).append(" own")
                 .append(", account 2 on: ").append(SocialSlot.overrides(act)).append(" site(s)")
