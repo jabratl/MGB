@@ -396,6 +396,9 @@ object DownloadsApi {
         try { a.startActivity(intent) } catch (e: Exception) { Util.toast(a, "No app can open this file") }
     }
 
+    /** D4: content uri of a finished file (null = not complete / not found). */
+    fun sourceUri(id: Int): Uri? = synchronized(items) { items[id] }?.let { contentUri(it) }
+
     /** S66: share a finished file with another app. */
     fun shareFile(a: Activity, id: Int) {
         val i = synchronized(items) { items[id] }

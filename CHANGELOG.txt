@@ -1,3 +1,10 @@
+0.0.213 (D4 BUILD: audio only download)
+- Grep first: the player already had Audio only (playback), but no audio-only download. DASH / HLS audio parts were already handled by downloader.js, so the engine does the work.
+- downloader.js: AUDIO_ONLY() = variant "audio" or the new setting audioOnly (default OFF). DASH: only the best audio representation is saved (.m4a, no ".audio" in the name). HLS with a separate audio track: new runAudioOnly() downloads only the audio playlist. HLS without a separate audio track keeps saving the video and shows a hint to use Extract audio. Live streams are unchanged.
+- DetectedPanel.kt: row "Audio only (separate audio stream)" in the stream Download sheet (1 line). Settings > Downloads > Audio only downloads (QualityPrefs.kt) switches it on for Download all and batches. Options page checkbox. Reset: engine Reset uses DEFAULTS.
+- AudioExtract.kt (NEW): Downloads > file menu > "Extract audio (.m4a)" for a saved mp4 / m4v / mov / 3gp / mkv / ts. MediaExtractor + MediaMuxer copy the AAC track into Downloads/MGB, no re-encoding. Non-AAC audio (WebM / Opus) is refused with a message. No MP3 (Android has no built-in encoder). DownloadsApi.sourceUri() (new, 1 line) gives the content uri.
+- Not touched: Downloader, DownloadService, Vault*, CI, extension bridge.
+
 0.0.212 (D1 BUILD: link inbox)
 - LinkInbox.kt (NEW): a link shared to MGB (Share > MGB, text/plain) or a video-looking link on the clipboard (media file or a known video site) shows a small card "Download this link?" in the web area (never over the bar, no fade with Reduce motion, auto-hides after 12 s). Open = new tab (the normal sniffer / Files detected panel takes over), Dismiss = gone; the same clipboard text is not offered twice. Switch Settings > Downloads > Link inbox, default OFF: OFF = nothing is read and Share does nothing. Key li_on is in the Downloads Reset list.
 - Hooks: AndroidManifest (one SEND text/plain intent-filter on MainActivity), MainActivity (onCreate 1 line, new onNewIntent, new onWindowFocusChanged), SettingsScreen (1 row + reset key), HowToUse (1 line).

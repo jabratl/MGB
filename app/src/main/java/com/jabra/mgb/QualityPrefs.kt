@@ -17,6 +17,16 @@ object QualityPrefs {
 
     fun containerLabel(): String = NAMES[VALS.indexOf(container()).let { if (it < 0) 0 else it }]
 
+    fun audioOnlyOn(): Boolean = try { ChromeBridge.sync.get("audioOnly").optBoolean("audioOnly", false) } catch (e: Exception) { false }
+
+    /** D4: engine setting audioOnly (default OFF). Per file: the "Audio only" row in the file menu. */
+    fun toggleAudioOnly(act: Activity, done: () -> Unit) {
+        val next = !audioOnlyOn()
+        try { ChromeBridge.storageSet("sync", JSONObject().put("audioOnly", next)) } catch (e: Exception) { /* engine not ready */ }
+        Util.toast(act, "Audio only downloads: " + (if (next) "ON" else "OFF"))
+        done()
+    }
+
     fun containerDialog(act: Activity, done: () -> Unit) {
         val cur = VALS.indexOf(container()).let { if (it < 0) 0 else it }
         MaterialAlertDialogBuilder(act)

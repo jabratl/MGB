@@ -155,6 +155,7 @@ object HowToUse {
             ), true),
         Topic(R.drawable.ic_download, "Download settings", "Quality, folder and speed",
             listOf(
+                "Audio only: in Files detected tap Download on a stream and choose Audio only, or switch on Settings > Downloads > Audio only downloads (also for batches). It works when the stream has a separate audio track. For a saved video, Downloads > file menu > Extract audio (.m4a) copies its AAC audio (no MP3, no re-encoding). ",
                 "Link inbox (Settings > Downloads, OFF by default): share a video link to MGB, or copy one and come back, and a card asks Download this link? Open loads it in a new tab where the Files detected panel finds the video. ",
                 "Download rules (Settings > Downloads) hold a new download until you are on Wi-Fi, off metered data or charged, or stop it when storage is low. Batch: folder and number saves a batch as Show/01 - title. ",
                 "Settings > Downloads > Download quality sets the best video height you want by default, up to 8K. Preferred video format picks MP4 or WebM when a stream offers both (no conversion).",

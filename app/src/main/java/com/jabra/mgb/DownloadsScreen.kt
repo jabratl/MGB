@@ -144,6 +144,7 @@ object DownloadsScreen {
                 dismiss() // close Downloads, then open the page in a new tab
                 TabsApi.openTab(src)
             })
+            if (id > 0 && title.substringAfterLast('.', "").lowercase() in setOf("mp4", "m4v", "mov", "3gp", "mkv", "ts")) rows.add(MenuSheet.Item("Extract audio (.m4a)", R.drawable.ic_download) { AudioExtract.run(act, DownloadsApi.sourceUri(id), title) }) // D4
             if (id > 0) rows.add(MenuSheet.Item("Rename", R.drawable.ic_edit) { renameFile(h) })
             if (id > 0) { // V7
                 rows.add(MenuSheet.Item("Move to vault", R.drawable.ic_vault) { toVault(h, true) })

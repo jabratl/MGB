@@ -1152,6 +1152,7 @@ object DetectedPanel {
                 }
                 val rows = ArrayList<SRow>()
                 if (pageSubs > 0 || subsOn()) rows.add(subRow)
+                rows.add(SRow(0, "Audio only (separate audio stream)") { val sb = subEff(); startJob(e, "audio"); subThis = null; toast("Audio download started" + (if (sb) " (subtitle too)" else "")) }) // D4
                 for (i in names.indices) rows.add(SRow(0, names[i]) { val sb = subEff(); startJob(e, vals[i]); subThis = null; toast("Download started" + (if (sb) " (subtitle too)" else "")) })
                 sheet("Choose quality" + (if (dur > 0) "  ·  " + durLabel(dur) else ""), null, rows)
             } else if (e.kind != "subtitle" && pageSubs > 0) {

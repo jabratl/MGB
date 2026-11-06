@@ -1,6 +1,6 @@
 THAZIR (project MGB) - DOWNLOADER IDEAS PLAN D1-D6 (idea source: UVD GUI, GPLv3 -> IDEAS ONLY, NO UVD CODE)
-Baseline: Thazir-main at 0.0.209. STATUS: D3 [x] (0.0.210)  D5 [x] (0.0.211)  D2 [x] (0.0.211)  D1 [x] (0.0.212)  D4 [ ]  D6 [ ]
-Order: D3, D5, D2, D1, D4, D6.   Next = D4.
+Baseline: Thazir-main at 0.0.209. STATUS: D3 [x] (0.0.210)  D5 [x] (0.0.211)  D2 [x] (0.0.211)  D1 [x] (0.0.212)  D4 [x] (0.0.213)  D6 [ ]
+Order: D3, D5, D2, D1, D4, D6.   Next = D6.
 Old plan (Accessibility A1-A4, all done) is kept as HANDOFF_A_ACCESS.txt. DESIGN RULES (colour tokens mg_*, 20dp cards, dark+light, Reduce motion,
 rotation-safe dialogs, 560dp cap) are in section 2 of HANDOFF_A_ACCESS.txt: read only that section when UI is added.
 
@@ -32,12 +32,17 @@ D3 Quality + format presets (S)  DONE 0.0.210.
 D5 DONE 0.0.211. Series / playlist organizer (S-M): auto subfolder + "01 - title" on batch; Plex naming wins; new NameIndex.kt; Sub-folders switch compatible.
 D2 DONE 0.0.211. Download rules (M): Wi-Fi only, pause on metered, pause on low battery, stop on low storage; blocked job waits in Sched ("Waiting for Wi-Fi"). New DlRules.kt. Check before start only.
 D1 DONE 0.0.212. Link inbox (S): share / clipboard link -> small card "Download this link?" -> Paste links / sniffer. New LinkInbox.kt + 1 hook MainActivity (+ manifest filter). Default OFF.
-D4 Audio only download (M): file menu + batch "Audio only"; separate audio stream else MediaExtractor + MediaMuxer .m4a. No MP3.
+D4 DONE 0.0.213. Audio only download (M): file menu + batch "Audio only"; separate audio stream else MediaExtractor + MediaMuxer .m4a. No MP3.
 D6 Control + recovery (M): Stop all / Pause all / Resume all (incl. merge/join); expired link -> new link from source page and resume.
 RULES (every step): new logic in new file, 1-3 line hooks; new pref default = old behaviour; new key in Reset list + HowToUse line; grep the listed files FIRST, shrink or skip the step if it exists.
 Checks available: node --check changed .js, brace balance, single-match patches, duplicate ids, JSON valid. NOT possible in sandbox: Gradle (CI), device render.
 
 LOG (newest first)
+D4 | 0.0.213 | Files: downloader.js, shared.js (DEFAULTS audioOnly), options.html (checkbox) in assets/ext; AudioExtract.kt (NEW), QualityPrefs.kt (audioOnly switch), DetectedPanel.kt (1 row), DownloadsApi.kt (sourceUri, 1 line), DownloadsScreen.kt (1 menu row), SettingsScreen.kt (1 row), HowToUse.kt, build.gradle.kts, CHANGELOG.txt, HANDOFF.
+   Checked: node --check downloader.js + shared.js OK; Kotlin brace/paren balance unchanged (new file 0/0); single-match patches.
+   NOT tested: Gradle build (CI) - AudioExtract.kt never compiled; device; real DASH / HLS stream with separate audio; MediaMuxer on a real mp4; Android 9 and lower save path (public Downloads needs storage permission); dark/light.
+   Reasoned only: HLS audio-only uses the group of the best video variant; muxed HLS / plain mp4 files cannot be audio-only on the engine side (hint + Extract audio). No audio-only toggle inside the batch dialog itself: the global setting covers batches (NEXT: per-batch switch). Extracted file is not added to the Downloads list (written straight to MediaStore).
+   NEXT (not touched): per-batch audio switch; extract for several files; .m4a added to history list.
 D1 | 0.0.212 | Files: LinkInbox.kt (NEW), AndroidManifest.xml (SEND text/plain filter on MainActivity), MainActivity.kt (onCreate 1 line, new onNewIntent, new onWindowFocusChanged, import Intent), SettingsScreen.kt (1 row + reset key li_on), HowToUse.kt, build.gradle.kts, CHANGELOG.txt, HANDOFF.
    Checked: Kotlin brace/paren balance (LinkInbox 0/0, others unchanged), manifest XML well-formed, single-match patches, outer color val renamed to avoid shadowing by TextView.text.
    NOT tested: Gradle build (CI) - LinkInbox.kt never compiled; device; Share from another app; clipboard read on Android 10+ (needs focus, hook is onWindowFocusChanged); dark/light; 360/1280dp; rotation; TalkBack.
@@ -55,6 +60,7 @@ D3 | 0.0.210 | Files: shared.js, downloader.js, options.html (assets/ext), Quali
    NEXT (not touched): ask-each-time for Download all; container pref for plain file variants.
 
 KICKOFF FOR NEXT CHAT
-PROJECT: Thazir. Step: D4. Mode: BUILD. Prev version: 0.0.212 (D1). Attached: HANDOFF.txt + Thazir-D-context.zip (copy Thazir_D1_v0_0_212.zip over it first).
-Goal: "Audio only" download in file menu and batch (separate audio stream, else .m4a via MediaExtractor + MediaMuxer; no MP3). Context: Done: D3, D5, D2, D1. Next: D6.
+PROJECT: Thazir. Step: D6. Mode: MODIFY. Prev version: 0.0.213 (D4). Attached: HANDOFF.txt + Thazir-D-context.zip (copy Thazir_D4_v0_0_213.zip over it first).
+Goal: Stop all / Pause all / Resume all in the queue UI (incl. merge/join), expired link -> new link from the source page and resume. Per-site Referer/UA stays NEXT.
+Context: Done: D3, D5, D2, D1, D4. Grep first: DownloadsApi.pauseAll/resumeAll, ExtBackground.stopAll, DownloadsScreen buttons, DiagRules token-expired, background.js item.ref / rec.pageUrl.
 Read HANDOFF.txt first and follow its plan. If this prompt conflicts, follow this prompt and note it in 1 line.

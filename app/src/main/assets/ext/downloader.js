@@ -13,6 +13,7 @@ function capH(list) { // best variant that fits the preferred max height (list i
   return list.find((x) => L(x) && L(x) <= cap) || list.filter((x) => L(x)).pop() || list[0];
 }
 let SET = { ...DEFAULTS };
+const AUDIO_ONLY = () => WANT === 'audio' || SET.audioOnly === true; // D4
 let cancelled = false, paused = false;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let t0 = Date.now(), totalBytes = 0, lastReport = 0;
@@ -730,6 +731,17 @@ async function runVideo(plUrl, text, audioTrack) {
   if (uniq.length > 1 && !ALLMODE) mergeHint(uniq.map((f) => f.split('/').pop()), uniq[0].includes('/') ? uniq[0].slice(0, uniq[0].lastIndexOf('/') + 1) : '');
 }
 
+// D4: HLS with a separate audio track: only the audio playlist is downloaded and saved as audio (no video data).
+async function runAudioOnly(track) {
+  $('#options').textContent = '';
+  $('#cancel').hidden = false; $('#pause').hidden = false;
+  PLURL = track.uri;
+  RUNNING = true; setState('run', 'Downloading'); cancelled = false;
+  const a = await downloadSegments(clipPl(parseMedia(await (await fetchRetry(track.uri)).text(), track.uri)), 'Audio');
+  SAVED[track.uri + '#audio'] = await saveSegments(a, '', true);
+  finish('Finished: audio saved. Check your Downloads folder.');
+}
+
 function startVariant(v, audios, all = []) {
   const fn = async () => {
     LAST = ALLMODE ? LAST : fn;
@@ -755,7 +767,10 @@ function startVariant(v, audios, all = []) {
       const group = audios.filter((a) => a.group === pick.audio);
       const want = document.getElementById('wantAudio');
       const useAudio = ALLMODE ? ALLAUDIO : (want ? want.checked : true);
-      const track = useAudio && group.length ? (group.find((a) => a.def) || group[0]) : null;
+      const aOnly = AUDIO_ONLY(); // D4
+      const track = (useAudio || aOnly) && group.length ? (group.find((a) => a.def) || group[0]) : null;
+      if (aOnly && track && !isLivePl(t)) { await runAudioOnly(track); return true; }
+      if (aOnly) HINT = 'This stream has no separate audio track, so the video was saved. Downloads > file menu > Extract audio (.m4a) makes the audio file.';
       await runVideo(pick.url, t, track);
       return true;
     } catch (e) { fail(e); return false; }
@@ -931,7 +946,8 @@ async function runDash(text) {
   let vids = reps.filter((r) => r.type === 'video').sort((a, b) => (b.h - a.h) || (b.bw - a.bw));
   const auds = reps.filter((r) => r.type === 'audio').sort((a, b) => b.bw - a.bw);
   vids = preferBox(vids, auds.length > 0); // D3: container preference (any = unchanged)
-  const v = (WANT !== 'best' && vids.find((r) => r.id === WANT)) || capH(vids);
+  const dashAudioOnly = AUDIO_ONLY() && !!auds[0]; // D4: only the audio representation is downloaded
+  const v = dashAudioOnly ? null : ((WANT !== 'best' && vids.find((r) => r.id === WANT)) || capH(vids));
   const files = [];
   LAST = () => runDash(text); RUNNING = true; setState('run', 'Downloading');
   const skOf = (rep, suffix) => SRC + '#' + rep.id + suffix;
@@ -960,7 +976,7 @@ async function runDash(text) {
       SAVED[sk] = g.blob ? await save(g.blob, g.rep.type === 'audio' ? 'm4a' : 'mp4', g.suffix) : await saveSegments({ ...g.r, ext: 'mp4' }, g.suffix, g.rep.type === 'audio');
     }
   }
-  for (const [rep, suffix] of [[v, ''], [auds[0], 'audio']]) {
+  for (const [rep, suffix] of [[v, ''], [auds[0], dashAudioOnly ? '' : 'audio']]) {
     if (!rep) continue;
     cancelled = false;
     const sk = SRC + '#' + rep.id + suffix;

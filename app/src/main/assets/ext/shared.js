@@ -22,6 +22,7 @@ const DEFAULTS = {
   siteRules: '',           // one per line: domain = css selector of the page images
   requestDelayMs: 0,       // pause between page/chapter requests (some sites block fast scrapers)
   maxHeight: 0,            // preferred max video height for "best" (0 = highest available)
+  audioOnly: false,        // D4: streams are saved as audio only when they carry a separate audio track (DASH / HLS); off = as before
   batchOrganize: false,    // D5: batch items go in a sub-folder named after the show / page, file name gets "01 - " (Plex naming wins)
   preferContainer: 'any', // D3: DASH video pick: any | mp4 | webm (a preference between equal heights, never a conversion)
   notify: true,            // desktop notification when downloads finish
