@@ -575,6 +575,7 @@ class TabManager(
             if (!tab.isExt && view != null) { // S41: text size of this site
                 val z = TextZoom.get(ctx, Util.host(url ?: ""))
                 if (view.settings.textZoom != z) view.settings.textZoom = z
+                SocialDark.apply(ctx, view, url) // 0.0.275 (C8): dark page per social site (no site set = returns at once)
             }
             if (!tab.isExt && !tab.savedPage && view != null) { // S29: per-site switches (T3: not for a saved page, JS stays off)
                 val jsOff = SiteConfig.has(url, SiteConfig.JS_OFF)
@@ -756,6 +757,12 @@ class TabManager(
             }
             rows.add(MenuSheet.Item("Download image", R.drawable.ic_download) { downloadImage(tab, i) })
             if (i.startsWith("http")) rows.add(MenuSheet.Item("Share image address", R.drawable.ic_share) { shareText(i) })
+            if (i.startsWith("http") && SocialNsfw.on(ctx) && SocialMode.on(ctx) && SocialProfiles.of(tab.url) != null) { // 0.0.273 (B7)
+                rows.add(MenuSheet.Item("This picture is fine", R.drawable.ic_check) {
+                    val was = SocialNsfw.markFine(ctx, i)
+                    Util.toast(ctx, if (was) "Marked as fine. Reload the page to see it clear." else "Marked as fine. The AI check will skip it.")
+                })
+            }
         }
         rows.addAll(ExtMenus.rows(tab, l.ifEmpty { null }, i.ifEmpty { null }, null)) // 0.0.116 (S4): chrome.contextMenus of installed extensions
         if (rows.isEmpty()) return

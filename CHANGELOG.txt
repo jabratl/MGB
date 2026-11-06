@@ -1,3 +1,25 @@
+0.0.275 (C8 PART: dark page per social site)
+- Why: one social site looked wrong or too bright with the global "Dark pages" setting. Extras > row "Dark page per site": each site follows the app setting, or is forced Dark / Original (tap cycles, same style as Blur per site).
+- How: NEW SocialDark.kt (pref sm_dk_<id>, absent = same as app; apply() runs UiMode.applyPage on page start, returns at once when no site is set). TabManager.onPageStarted: 1 line inside the textZoom block. SocialScreen: row + darkSitesDialog + summary line. SettingsScreen RESET + SocialDark.keys. HowToUse phrase.
+- Files: SocialDark.kt (new), TabManager.kt, SocialScreen.kt, SettingsScreen.kt, HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES.
+- Could break: nothing when no site is set. Works only with a dark app theme (WebView algorithmic darkening). A tab that moves from a forced site to another site gets the app setting back at the next page start.
+- Not built: picture-in-picture for a playing social video (D8), force dark for non-social sites per site.
+- NOT tested: Gradle build (CI), device.
+
+0.0.274 (D2 PART: dock icon scrolls to top)
+- Why: real apps scroll to the top when you tap the icon of the screen you are on. With "Calmer touch" (sm_touch) ON, tapping the Social dock icon of the site you are already on scrolls the page to the top (smooth, instant when Reduce motion is ON).
+- How: SocialDock.kt only: new scrollTop() (evaluateJavascript, window + document.scrollingElement), called in the icon tap when the target tab is the current tab. No new pref (uses sm_touch).
+- Files: SocialDock.kt, HowToUse.kt (phrase), build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES.
+- Not built: scroll to top by tapping the status-bar area or the tab icon. Inner scrollers that are not the document (some chat sites) may ignore it.
+- NOT tested: Gradle build (CI), device.
+
+0.0.273 (B7: "This picture is fine")
+- Why: the AI picture check sometimes blurs a normal picture. Long-press a picture on a social tab > new row "This picture is fine": its address is remembered (max 300, survives restart) and never blurred again.
+- How: SocialNsfw.kt: markFine / isFine / isBlurred / fineCount, ok set in pref sm_nsfw_ok (added to SocialNsfw.keys, so Settings reset clears it), intercept() skips fine addresses. TabManager.showLinkMenu: 1 row (only when AI check ON + Social mode ON + the tab is a social site). SocialScreen AI card: status + counter refresh every 1.5 s while the page is open, counter shows "N marked fine".
+- Files: SocialNsfw.kt, TabManager.kt, SocialScreen.kt, build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES.
+- Could break: the blurred copy may stay in the WebView cache up to 5 minutes (Cache-Control max-age=300): the toast says "reload the page". A picture whose address changes on every load (signed urls) will be checked again.
+- NOT tested: Gradle build (CI), device (needs the model.tflite).
+
 0.0.272 (C1 PARTIAL: social dock)
 - Why: switch between social sites like apps. Extras > switch "Social dock" (sm_dock, default OFF): slim row above the bottom bar on social tabs, one letter icon per site, tap = that site's tab or open it, red number = unread.
 - How: NEW SocialDock.kt (attach / refresh / sync, same place and style as GroupStrip). MainActivity: 4 one-line hooks (attach, scroll sync, onTabsChanged, onActiveChanged). SocialScreen switch + summary. SettingsScreen RESET + sm_dock. HowToUse phrase.

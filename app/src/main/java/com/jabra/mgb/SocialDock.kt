@@ -95,6 +95,14 @@ object SocialDock {
         if (r.visibility != v) r.visibility = v
     }
 
+    /** 0.0.274 (D2): smooth scroll to the top of the page (window and the main scrolling element; instant when Reduce motion is ON). */
+    private fun scrollTop(a: Activity, t: TabManager.Tab) {
+        val b = if (TabPrefs.reduce(a)) "auto" else "smooth"
+        try {
+            t.web.evaluateJavascript("(function(){try{window.scrollTo({top:0,behavior:'$b'});var e=document.scrollingElement;if(e&&e.scrollTop>0)e.scrollTo({top:0,behavior:'$b'});}catch(x){}})()", null)
+        } catch (_: Throwable) { }
+    }
+
     private fun item(a: Activity, m: TabManager, p: SocialProfiles.Profile, open: Int, badge: Int, active: Boolean): View {
         val f = FrameLayout(a)
         f.addView(TextView(a).apply {
@@ -114,6 +122,7 @@ object SocialDock {
                 val ts = tabsOf(m, p.id)
                 val target = ts.firstOrNull { t -> t.id != cur?.id } ?: ts.firstOrNull()
                 if (target == null) SocialMode.open(a, m, p.startUrl) else if (target.id != cur?.id) m.switchTo(target)
+                else if (SocialMode.touchOn(a)) scrollTop(a, target) // 0.0.274 (D2): tap the icon of the site you are on = back to the top
             }
         }, FrameLayout.LayoutParams(dp(34), dp(34), Gravity.CENTER))
         if (badge > 0) f.addView(TextView(a).apply {

@@ -42,7 +42,8 @@ object SocialNsfw {
     private const val K_ON = "sm_nsfw"
     private const val K_TH = "sm_nsfw_th"
     /** Keys for the SettingsScreen RESET list. */
-    val keys: List<String> = listOf(K_ON, K_TH)
+    private const val K_OK = "sm_nsfw_ok"
+    val keys: List<String> = listOf(K_ON, K_TH, K_OK)
 
     private const val MODEL = "nsfw/model.tflite"
     private const val LABELS = "nsfw/labels.txt"
@@ -69,6 +70,37 @@ object SocialNsfw {
 
     /** Pictures replaced by a blur since the app started (P8b shows it). */
     val blurred = AtomicInteger(0)
+
+    // ---- 0.0.273 (B7): "this picture is fine" = remembered addresses the check must never blur (max 300, newest kept) ----
+    private val okSet = LinkedHashSet<String>()
+    @Volatile private var okLoaded = false
+    private fun okLoad(c: Context) {
+        if (okLoaded) return
+        synchronized(okSet) {
+            if (okLoaded) return
+            sp(c).getString(K_OK, "")?.split('\n')?.forEach { if (it.isNotBlank()) okSet.add(it) }
+            okLoaded = true
+        }
+    }
+    /** true = the person said this picture address is fine. */
+    fun isFine(c: Context, u: String): Boolean { okLoad(c); return synchronized(okSet) { okSet.contains(u) } }
+    /** true = the address is in the blurred cache right now (so the long-press row can say what it did). */
+    fun isBlurred(u: String): Boolean = synchronized(flagged) { flagged.containsKey(u) }
+    /** Remember the address as fine, drop its blurred copy, count it. Returns true when a blurred copy was removed. */
+    fun markFine(c: Context, u: String): Boolean {
+        okLoad(c)
+        val was = synchronized(flagged) { flagged.remove(u) != null }
+        synchronized(seen) { seen[u] = true }
+        synchronized(okSet) {
+            okSet.remove(u); okSet.add(u)
+            while (okSet.size > 300) { val it = okSet.iterator(); it.next(); it.remove() }
+            sp(c).edit().putString(K_OK, okSet.joinToString("\n")).apply()
+        }
+        if (was) { fineCount.incrementAndGet(); if (blurred.get() > 0) blurred.decrementAndGet() }
+        return was
+    }
+    /** Pictures the person marked fine since the app started. */
+    val fineCount = AtomicInteger(0)
 
     // ---- model (loaded once, on the first picture) ----
     private class Model(val interp: Interpreter, val w: Int, val h: Int, val float: Boolean, val unsafe: IntArray)
@@ -159,6 +191,7 @@ object SocialNsfw {
             if (!looksLikePicture(r)) return null
             val u = r.url.toString()
             synchronized(seen) { if (seen[u] == true) return null }
+            if (isFine(ctx, u)) return null // 0.0.273 (B7)
             synchronized(flagged) { flagged[u]?.let { return response(it, "image/jpeg") } }
             if (!modelReady(ctx)) return null
             val m = load(ctx) ?: return null

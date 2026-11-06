@@ -223,6 +223,10 @@ object SocialScreen {
                 muteDialog { mtTv.text = mtHint() }
             }
             mtTv = ((mtRow as LinearLayout).getChildAt(1) as LinearLayout).getChildAt(1) as TextView
+            lateinit var dkTv: TextView // 0.0.275 (C8)
+            fun dkHint() = (if (SocialDark.siteOverrides(act) == 0) "All sites follow the app setting Dark pages" else SocialDark.siteOverrides(act).toString() + " site(s) have their own choice") + " (tap to change). Needs a dark app theme"
+            val dkRow = actionRow(extra, R.drawable.ic_info, "Dark page per site", dkHint()) { darkSitesDialog { dkTv.text = dkHint() } }
+            dkTv = ((dkRow as LinearLayout).getChildAt(1) as LinearLayout).getChildAt(1) as TextView
             actionRow(extra, R.drawable.ic_info, "Site fixes: copy", "Copies your Site fixes (all sites) as text, to keep or to paste on another phone") { // 0.0.269 (C8)
                 val t = SocialFixIO.export(act)
                 if (t == null) Util.toast(act, "No Site fix yet") else { SocialFixIO.copy(act, t); Util.toast(act, "Copied") }
@@ -517,6 +521,31 @@ object SocialScreen {
                 .show()
         }
 
+        /** 0.0.275 (C8): one row per site, tap cycles Same as app setting / Dark / Original. Applies from the next page load of that site. */
+        private fun darkSitesDialog(onDone: () -> Unit) {
+            val box = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), dp(4)) }
+            box.addView(TextView(act).apply {
+                text = "Tap a site to change how its pages are darkened. Dark = darken this site, Original = never darken it. Needs the app theme to be dark. Reload the site after a change."
+                textSize = 12f; setTextColor(act.getColor(R.color.mg_text_dim)); setPadding(0, dp(6), 0, dp(8))
+            })
+            for (p in SocialProfiles.all) {
+                val t = TextView(act).apply {
+                    textSize = 14f; setTextColor(act.getColor(R.color.mg_text)); gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(12), 0, dp(12), 0); isClickable = true
+                    background = round(act.getColor(R.color.mg_surface_variant), 12, 1f, act.getColor(R.color.mg_outline))
+                }
+                fun paint() { t.text = p.label + ": " + SocialDark.siteLabel(SocialDark.siteMode(act, p.id)) }
+                paint()
+                t.setOnClickListener { it.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK); SocialDark.cycleSite(act, p.id); paint(); onDone() }
+                box.addView(t, LinearLayout.LayoutParams(MATCH, dp(48)).apply { bottomMargin = dp(6) })
+            }
+            MaterialAlertDialogBuilder(act)
+                .setTitle("Dark page per site")
+                .setView(ScrollView(act).apply { addView(box) })
+                .setPositiveButton("Done", null)
+                .show()
+        }
+
         /** 0.0.233 (P8b): AI picture check card = switch + Low / Normal / Strict + status + counter. Prefs: SocialNsfw. Pictures only, not video. */
         private fun aiCard(): LinearLayout {
             val c = card()
@@ -537,7 +566,8 @@ object SocialScreen {
                 val ready = SocialNsfw.modelReady(act)
                 status.text = "Model: " + SocialNsfw.status(act)
                 status.setTextColor(act.getColor(if (ready) R.color.mg_text_dim else R.color.mg_error))
-                count.text = SocialNsfw.blurred.get().toString() + " pictures blurred since the app started"
+                count.text = SocialNsfw.blurred.get().toString() + " pictures blurred since the app started" +
+                    (if (SocialNsfw.fineCount.get() > 0) ", " + SocialNsfw.fineCount.get() + " marked fine" else "") // 0.0.273 (B7)
             }
             switchRow(c, R.drawable.ic_shield, "Check pictures with AI", "A model on this phone looks at pictures on social pages and blurs the ones it rates as sensitive",
                 null, { SocialNsfw.on(act) }) { on -> SocialNsfw.setOn(act, on); paint() }
@@ -571,6 +601,14 @@ object SocialScreen {
             c.addView(status, LinearLayout.LayoutParams(MATCH, WRAP))
             c.addView(count, LinearLayout.LayoutParams(MATCH, WRAP))
             paint()
+            // 0.0.273 (B7): live refresh of status + counter while the page is on screen (every 1.5 s, stops when it is closed)
+            count.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+                private val tick = object : Runnable {
+                    override fun run() { if (count.isAttachedToWindow) { paint(); count.postDelayed(this, 1500) } }
+                }
+                override fun onViewAttachedToWindow(v: View) { count.postDelayed(tick, 1500) }
+                override fun onViewDetachedFromWindow(v: View) { count.removeCallbacks(tick) }
+            })
             return c
         }
 
@@ -647,6 +685,7 @@ object SocialScreen {
                 .append(", ask before leaving: ").append(yn(SocialExt.on(act)))
                 .append(", dock: ").append(yn(SocialDock.on(act)))
                 .append(", blur per site: ").append(SocialBlur.siteOverrides(act)).append(" own")
+                .append(", dark page per site: ").append(SocialDark.siteOverrides(act)).append(" own")
                 .append(", blur mode: ").append(SocialBlur.mode(act)).append(" (0 off, 1 flagged, 2 all), strength ").append(SocialBlur.px(act)).append(" px")
                 .append(", AI picture check: ").append(yn(SocialNsfw.on(act))).append(" level ").append(SocialNsfw.level(act))
                 .append(", model: ").append(SocialNsfw.status(act)).append(", ").append(SocialNsfw.blurred.get()).append(" pictures blurred since start")
