@@ -170,6 +170,11 @@ object SocialScreen {
                 null, { SocialMode.bigOn(act) }) { on -> SocialMode.setBigOn(act, on) }
             switchRow(extra, R.drawable.ic_screen, "Splash when opening from a shortcut", "Shows the site letter and name for a moment when a home-screen shortcut opens it (off with Reduce motion)",
                 null, { SocialMode.splashOn(act) }) { on -> SocialMode.setSplashOn(act, on) }
+            switchRow(extra, R.drawable.ic_open, "Open social links from other apps", "A link to a social site sent from another app opens in a Social tab. Also use the button below, Android decides who opens a link",
+                null, { SocialLinks.on(act) }) { on -> SocialLinks.setOn(act, on) }
+            actionRow(extra, R.drawable.ic_open, "Choose links Thazir opens (Android)", "Opens Android settings: Open by default, then allow the social sites") { SocialLinks.openAndroidSettings(act) }
+            switchRow(extra, R.drawable.ic_screen, "Own window per site (experimental)", "Shortcut and Open button start each site in its own window, so Recent apps shows one card per site. Uploads and camera may use the main window",
+                null, { SiteWindow.on(act) }) { on -> SiteWindow.setOn(act, on) }
             col.addView(extra, LinearLayout.LayoutParams(MATCH, WRAP))
             siteRows.add(extra)
 
@@ -424,6 +429,7 @@ object SocialScreen {
             val tabs = BookmarksScreen.tabsRef
             if (tabs == null) { Util.toast(act, "Open a tab first"); return }
             if (!SocialProfiles.siteOn(act, p.id)) SocialProfiles.setSiteOn(act, p.id, true)
+            if (SiteWindow.on(act) && SiteWindow.launch(act, p)) { skipClose = true; SettingsScreen.closeAll(); dismiss(); return } // 0.0.247 (A7)
             SocialMode.open(act, tabs, p.startUrl)
             skipClose = true
             SettingsScreen.closeAll()

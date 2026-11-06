@@ -23,7 +23,8 @@ object SocialShortcuts {
     private const val EXTRA = "mgb_social_id"
 
     private fun intentFor(ctx: Context, id: String): Intent =
-        Intent(ctx, MainActivity::class.java).setAction(ACTION).putExtra(EXTRA, id)
+        if (SiteWindow.on(ctx)) SiteWindow.intentFor(ctx, id) // 0.0.247 (A7): own window per site
+        else Intent(ctx, MainActivity::class.java).setAction(ACTION).putExtra(EXTRA, id)
             // reuse the running browser (onNewIntent) instead of starting a second one
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
 

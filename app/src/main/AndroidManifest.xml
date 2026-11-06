@@ -28,6 +28,51 @@
             </intent-filter>
         </activity>
 
+        <!-- 0.0.246 (A6): link catcher for the social sites. DISABLED until the switch "Open social links from other apps" is ON
+             (SocialLinks.sync enables / disables it). It only forwards the link to MainActivity and finishes. -->
+        <activity
+            android:name=".SocialLinkActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="facebook.com" />
+                <data android:host="*.facebook.com" />
+                <data android:host="fb.com" />
+                <data android:host="messenger.com" />
+                <data android:host="*.messenger.com" />
+                <data android:host="instagram.com" />
+                <data android:host="*.instagram.com" />
+                <data android:host="reddit.com" />
+                <data android:host="*.reddit.com" />
+                <data android:host="x.com" />
+                <data android:host="twitter.com" />
+                <data android:host="*.twitter.com" />
+                <data android:host="pinterest.com" />
+                <data android:host="*.pinterest.com" />
+                <data android:host="threads.net" />
+                <data android:host="*.threads.net" />
+                <data android:host="bsky.app" />
+                <data android:host="tiktok.com" />
+                <data android:host="*.tiktok.com" />
+                <data android:host="linkedin.com" />
+                <data android:host="*.linkedin.com" />
+                <data android:host="tumblr.com" />
+                <data android:host="*.tumblr.com" />
+                <data android:host="discord.com" />
+                <data android:host="*.discord.com" />
+                <data android:host="web.whatsapp.com" />
+                <data android:host="web.telegram.org" />
+                <data android:host="web.snapchat.com" />
+            </intent-filter>
+        </activity>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

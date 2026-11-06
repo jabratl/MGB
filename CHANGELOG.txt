@@ -1,3 +1,16 @@
+0.0.247 (A7 BUILD, experimental: own window per site)
+- Why: feel like an app. Switch "Own window per site (experimental)" (Social sites page > Tabs and data, default OFF, key sm_win): the home-screen shortcut and the Open button start each social site in its own window (separate Android task), so Recent apps shows one card per site (site name + letter icon). The window shows only that site, never restores or saves the main tabs.
+- Files: NEW SiteWindow.kt, MainActivity.kt (siteWin / shared flags; app-wide helpers BrowserExtras, EngineHost, TabsApi, GroupStrip, DlFly, AppearanceScreen.onChange only for the owner window; site window skips session restore + save; own onDestroy path), SocialShortcuts.kt (1 branch in intentFor), SocialScreen.kt (switch row + Open button branch), SettingsScreen.kt (RESET + sm_win), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: nothing with the switch OFF (siteWin false, shared true = old code paths). ON: uploads / camera / permission questions inside a site window use the main window while it is alive (BrowserExtras has ONE owner); main window helpers (extension bridge, group strip) are not bound to the site window.
+- NOT tested: Gradle build (CI), device, launcher shortcut with NEW_DOCUMENT, Recent apps card name / icon, two windows at once, closing the main window first, rotation, 360 / 1280 dp, dark + light.
+
+0.0.246 (A6 BUILD: open social links from other apps)
+- Why: a link to Reddit / X / Facebook ... tapped in another app can open in a Social tab. Switch "Open social links from other apps" (Social sites page > Tabs and data, default OFF, key sm_links) + button "Choose links Thazir opens (Android)" (Android settings > Open by default). Android decides who opens a link: the person must allow the sites there.
+- MANIFEST CHANGE: new invisible activity SocialLinkActivity (VIEW https filter for the social hosts, android:enabled false). SocialLinks.sync enables it only while the switch is ON, so with the switch OFF Thazir is NOT a link handler (old behaviour). It forwards the link to MainActivity (CLEAR_TOP + SINGLE_TOP) and finishes: no second browser window.
+- Files: NEW SocialLinks.kt (object SocialLinks + class SocialLinkActivity), AndroidManifest.xml, MainActivity.kt (2 hook lines), SocialScreen.kt (switch row + action row), SettingsScreen.kt (RESET + sm_links), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: nothing with the switch OFF. ON: Thazir shows in the Open with list for those hosts. Hosts are fixed in the manifest (pinterest .com only, no short links like fb.me / redd.it).
+- NOT tested: Gradle build (CI), device, Android 12+ Open by default page, link from Chrome / Gmail / Messages, cold + warm start, component enable / disable at runtime.
+
 0.0.245 (A5 BUILD: bigger buttons on Reddit, X, LinkedIn)
 - Why: the like / reply / vote buttons of these sites are small on a phone. Switch "Bigger buttons (Reddit, X, LinkedIn)" (Social sites page > Tabs and data, default OFF, key sm_big) adds one CSS line per site that makes them at least 44 px. Applies from the next page load; Site fix can override it.
 - Files: SocialProfiles.kt (BIG_CSS + bigCss), SocialMode.kt (sm_big, inject css), SocialScreen.kt (switch row), SettingsScreen.kt (RESET + sm_big), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.

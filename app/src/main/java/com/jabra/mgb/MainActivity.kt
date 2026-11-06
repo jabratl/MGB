@@ -34,6 +34,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     private lateinit var backCb: OnBackPressedCallback
     private lateinit var floating: FloatingDl // S11
     private var lastNight = 0
+    private var siteWin = false // 0.0.247 (A7): this window is a site window (own task for one social site)
+    private var shared = true // 0.0.247 (A7): this window owns the app-wide helpers (false = a site window while the main window lives)
 
     // S29 FIX: the saved theme must be set BEFORE AppCompat reads it (attachBaseContext). Before, the first start
     // after an update used the system theme for the home screen (white tiles on dark) until Light/Dark was toggled.
@@ -43,6 +45,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        siteWin = SiteWindow.isSite(intent); shared = !siteWin || !SiteWindow.mainUp // 0.0.247 (A7)
+        if (siteWin) SiteWindow.live++ else SiteWindow.mainUp = true
         UiMode.apply(this) // S20: saved theme (System / Light / Dark), before the Activity is created
         AdBlock.init(this) // S19
         DlRules.init(this) // D2
@@ -67,7 +71,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         lastNight = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         Orient.apply(this) // S35: phones keep the browser in portrait (setting: Rotate browser with phone)
         CrashLog.install(this) // FIX: save crash trace for the next start
-        BrowserExtras.init(this) // S14: file chooser + permission launchers (before STARTED)
+        if (shared) BrowserExtras.init(this) // S14 (A7: only the owner window): file chooser + permission launchers (before STARTED)
 
         Util.loadEngine(this) // S33
         urlBar = findViewById(R.id.url_bar)
@@ -80,12 +84,12 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         progress = findViewById(R.id.progress)
         progress.trackColor = android.graphics.Color.TRANSPARENT // S21d: only the accent line, thicker
         progress.trackThickness = (3 * resources.displayMetrics.density).toInt()
-        EngineHost.start(this) // S6: background.js engine (hidden WebView)
+        if (shared) EngineHost.start(this) // S6 (A7: only the owner window): background.js engine (hidden WebView)
         tabs = TabManager(this, findViewById<FrameLayout>(R.id.web_container), this)
-        TabsApi.attach(tabs)
-        GroupStrip.attach(this, tabs); TabSwitcher.onChanged = { GroupStrip.refresh() } // S13
+        if (shared) TabsApi.attach(tabs)
+        if (shared) { GroupStrip.attach(this, tabs); TabSwitcher.onChanged = { GroupStrip.refresh() } } // S13
         BookmarksScreen.tabsRef = tabs // S25
-        TabsApi.onNativePanel = { floating.openSheet() } // MGB S51: Grabber page button -> Files detected! panel
+        if (shared) TabsApi.onNativePanel = { floating.openSheet() } // MGB S51: Grabber page button -> Files detected! panel
         window.decorView.post { DlMode.init(this) } // S54: Smart download buttons on first start
         tabs.onHomeSearch = { // S28
             urlBar.requestFocus()
@@ -121,12 +125,12 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         btnFwd.setOnLongClickListener { NavHistory.show(this, tabs, true) } // A6
         applyHomeIcon() // A3
         applyNavArrows() // A1
-        AppearanceScreen.onChange = { applyHomeIcon(); applyNavArrows(); refreshUrlField(); refreshShield() } // A3: live update while the Appearance screen is open
+        if (shared) AppearanceScreen.onChange = { applyHomeIcon(); applyNavArrows(); refreshUrlField(); refreshShield() } // A3: live update while the Appearance screen is open
         btnTabs.setOnClickListener { tabs.showSwitcher() }
         btnShield.setOnClickListener { PrivacyGuard.show(this, tabs) { refreshShield() } } // S68
         btnEngine.setOnClickListener { EnginePicker.show(this, btnEngine) { refreshShield() } } // S69
         findViewById<ImageView>(R.id.btn_menu).setOnClickListener { showMenu() } // S22
-        DlFly.attach(this, findViewById(R.id.btn_menu)) // S21e
+        if (shared) DlFly.attach(this, findViewById(R.id.btn_menu)) // S21e
         BarGestures.attach(this, tabs) // A6
 
         urlBar.setOnEditorActionListener { _, actionId, event ->
@@ -162,10 +166,12 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         }
         onBackPressedDispatcher.addCallback(this, backCb)
 
-        if (!tabs.restoreSession()) tabs.newTab(TabManager.HOME_PAGE) // S13
+        if (siteWin) SiteWindow.start(this, tabs, intent, savedInstanceState == null) // 0.0.247 (A7): only this site, no session restore
+        else if (!tabs.restoreSession()) tabs.newTab(TabManager.HOME_PAGE) // S13
         else if (AppearancePrefs.startPage(this)) tabs.newTab(TabManager.HOME_PAGE) // A8: restored tabs + a fresh home tab selected
         LinkInbox.fromIntent(this, tabs, intent) // D1
         if (savedInstanceState == null) SocialShortcuts.fromIntent(this, tabs, intent) // 0.0.230 (P6): home-screen shortcut
+        if (savedInstanceState == null) { SocialLinks.sync(this); SocialLinks.fromIntent(this, tabs, intent) } // 0.0.246 (A6): link from another app
         UpdateManager.autoCheck(this)
         CrashLog.showLast(this) // FIX
         AppLock.onCreate(this) // S45: lock screen at cold start (if ON)
@@ -479,6 +485,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         super.onNewIntent(intent)
         LinkInbox.fromIntent(this, tabs, intent)
         SocialShortcuts.fromIntent(this, tabs, intent) // 0.0.230 (P6)
+        SocialLinks.fromIntent(this, tabs, intent) // 0.0.246 (A6)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) { // D1: clipboard can only be read with focus
@@ -489,6 +496,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     override fun onResume() {
         super.onResume()
         backCb.isEnabled = true
+        if (siteWin || SiteWindow.live > 0) BookmarksScreen.tabsRef = tabs // 0.0.247 (A7): the window in front owns the Settings / Open actions
         tabs.active?.web?.onResume()
         floating.start() // S11
     }
@@ -496,11 +504,19 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     override fun onPause() {
         floating.stop() // S11
         tabs.active?.web?.onPause()
-        tabs.saveSession()
+        if (!siteWin) tabs.saveSession() // 0.0.247 (A7): a site window never overwrites the saved tabs
         super.onPause()
     }
 
     override fun onDestroy() {
+        if (!siteWin) SiteWindow.mainUp = false else SiteWindow.live-- // 0.0.247 (A7)
+        if (siteWin && !shared) { // site window while the main window lives: only its own things go
+            floating.stop()
+            if (BookmarksScreen.tabsRef === tabs) BookmarksScreen.tabsRef = null
+            tabs.destroyAll()
+            super.onDestroy()
+            return
+        }
         DlFly.detach() // S21e
         AppearanceScreen.onChange = null // A3
         AppLock.onDestroy() // S45
