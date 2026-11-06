@@ -193,6 +193,13 @@ object SocialScreen {
                 null, { SocialClean.on(act) }) { on -> SocialClean.setOn(act, on) }
             switchRow(extra, R.drawable.ic_lock, "Lock social tabs", "Asks for fingerprint / face / screen lock when a social tab is in front and you were away 1 minute or more. Needs a screen lock on the phone. Not used while App lock is ON",
                 null, { SocialLock.on(act) }) { on -> SocialLock.setOn(act, on) }
+            lateinit var lkTv: TextView // 0.0.265 (D7 delay)
+            fun lkHint() = SocialLock.delayLabel(act) + " (tap to change). The cover shows when you come back to a social tab after this time"
+            val lkRow = actionRow(extra, R.drawable.ic_lock, "Lock social tabs: ask", lkHint()) {
+                SocialLock.cycleDelay(act)
+                lkTv.text = lkHint()
+            }
+            lkTv = ((lkRow as LinearLayout).getChildAt(1) as LinearLayout).getChildAt(1) as TextView
             switchRow(extra, R.drawable.ic_shield, "Focus mode (Facebook, Instagram, Reddit, X, Pinterest, LinkedIn)", "Hides Reels, promoted posts and suggestion boxes on these sites. Applies from the next page load; site changes can break it (Site fix can add more)",
                 null, { SocialFocus.on(act) }) { on -> SocialFocus.setOn(act, on) }
             switchRow(extra, R.drawable.ic_info, "App-like error screen", "On a social site without internet, shows a clean No connection page with a Try again button instead of the system error page",
@@ -575,7 +582,7 @@ object SocialScreen {
                 .append(", calmer touch: ").append(yn(SocialMode.touchOn(act)))
                 .append(", keep tabs alive: ").append(yn(SocialKeep.on(act)))
                 .append(", clean links: ").append(yn(SocialClean.on(act)))
-                .append(", lock: ").append(yn(SocialLock.on(act)))
+                .append(", lock: ").append(yn(SocialLock.on(act))).append(" (").append(SocialLock.delayLabel(act)).append(")")
                 .append(", error screen: ").append(yn(SocialError.on(act)))
                 .append(", focus mode: ").append(yn(SocialFocus.on(act)))
                 .append(", time limit: ").append(SocialTime.label(act)).append("\n\n")

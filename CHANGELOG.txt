@@ -1,3 +1,10 @@
+0.0.265 (D7 delay picker: how long away before the social lock asks)
+- Why: the social lock was fixed at 1 minute. Extras > Tabs and data > new row "Lock social tabs: ask" (sm_lockd, tap cycles Immediately -> After 1 minute (default) -> After 5 minutes).
+- How: SocialLock.kt: DELAYS / DELAY_LABELS arrays, delayIdx / delayLabel / cycleDelay, onStart compares the time away with DELAYS[delayIdx]; the fixed DELAY_MS constant is removed. SocialScreen: action row (same tap-cycle pattern as the time limit row) + summary shows the choice. SettingsScreen RESET + sm_lockd. HowToUse phrase. Default = 1 minute = same behaviour as 0.0.260.
+- Files: SocialLock.kt, SocialScreen.kt, SettingsScreen.kt, HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES (no new file).
+- Could break: Immediately = the cover shows on every return to a social tab (also after a short app switch): choose 1 or 5 minutes if that is annoying.
+- NOT tested: Gradle build (CI), device.
+
 0.0.264 (C2 PARTIAL: focus mode)
 - Why: fewer distractions on social sites. Extras > Tabs and data > switch "Focus mode" (sm_focus, default OFF) hides Reels, promoted posts and suggestion boxes on Facebook, Instagram, Reddit, X, Pinterest and LinkedIn.
 - How: NEW SocialFocus.kt (object SocialFocus: on / setOn, css(id) from one map CSS, display:none!important rules, no single quote / backslash in a rule). SocialMode.inject: the css string gets SocialFocus.css(p.id) when ON, placed BEFORE Site fix so a person's own CSS line wins. Same style tag as the other site CSS (no new script, no new hook in TabManager).

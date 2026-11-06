@@ -20,16 +20,18 @@ import com.google.android.material.button.MaterialButton
 /**
  * BIOMETRIC LOCK FOR SOCIAL TABS (0.0.260, D7). Switch sm_lock (default OFF) in mgb_ui.
  * A full-screen cover + the system fingerprint / face / screen-lock prompt is shown when a SOCIAL tab (Social mode ON, site switch ON)
- * is in front and the app was away for 1 minute or more (also at cold start). Normal tabs are never locked, but while the cover is
+ * is in front and the app was away for the chosen time (Immediately / 1 / 5 minutes, default 1 minute; also at cold start). Normal tabs are never locked, but while the cover is
  * shown nothing else is reachable (Back = leave the app, same as AppLock). Skipped when App lock (S45) is ON: that one already covers everything.
  * Own small code + own pref; Vault* / PasswordStore / AppLock are NOT touched. No screen lock on the phone = the switch cannot be turned ON,
  * and a removed screen lock never traps the person (needs = false).
  */
 object SocialLock {
     private const val KEY = "sm_lock"
-    private const val DELAY_MS = 60_000L
+    private const val K_DELAY = "sm_lockd" // 0.0.265: 0 Immediately, 1 After 1 minute (default), 2 After 5 minutes
+    private val DELAYS = longArrayOf(0L, 60_000L, 300_000L)
+    private val DELAY_LABELS = arrayOf("Immediately", "After 1 minute", "After 5 minutes")
 
-    private var needs = true       // true at cold start and after the person was away DELAY_MS or more
+    private var needs = true       // true at cold start and after the person was away for the chosen delay
     private var leftAt = 0L
     private var dialog: Dialog? = null
     private var prompting = false
@@ -45,6 +47,11 @@ object SocialLock {
         return true
     }
 
+    private fun delayIdx(c: Context): Int = sp(c).getInt(K_DELAY, 1).coerceIn(0, DELAYS.size - 1)
+    fun delayLabel(c: Context): String = DELAY_LABELS[delayIdx(c)]
+    /** One tap = next delay (Immediately -> 1 minute -> 5 minutes -> Immediately). */
+    fun cycleDelay(c: Context) { sp(c).edit().putInt(K_DELAY, (delayIdx(c) + 1) % DELAYS.size).apply() }
+
     private fun isSocial(c: Context, tab: TabManager.Tab?): Boolean {
         if (tab == null || !SocialMode.on(c)) return false
         val p = SocialProfiles.of(tab.url) ?: return false
@@ -54,7 +61,7 @@ object SocialLock {
     /** MainActivity.onStart. */
     fun onStart(act: FragmentActivity, tab: TabManager.Tab?) {
         if (!on(act)) { dismiss(); return }
-        if (!needs && leftAt > 0L && SystemClock.elapsedRealtime() - leftAt >= DELAY_MS) needs = true
+        if (!needs && leftAt > 0L && SystemClock.elapsedRealtime() - leftAt >= DELAYS[delayIdx(act)]) needs = true
         check(act, tab)
     }
 
