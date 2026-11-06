@@ -224,6 +224,11 @@ object SocialScreen {
                 else "Not supported on this phone",
                 null, { supported && SocialMode.sepOn(act) }) { on -> if (supported) SocialMode.setSepOn(act, on) }
             if (!supported) sepRow.alpha = 0.5f else siteRows.add(sepRow)
+            if (supported) { // 0.0.256 (B3)
+                val shareRow = switchRow(sep, R.drawable.ic_shield, "Share Facebook and Messenger login", "One login for both. Applies to tabs opened from now on; log in once more",
+                    null, { SocialMode.shareOn(act) }) { on -> SocialMode.setShareOn(act, on) }
+                siteRows.add(shareRow)
+            }
             if (supported) { // 0.0.251 (B2): forget saved social logins (not dimmed: works even with Social sites OFF)
                 actionRow(sep, R.drawable.ic_trash, "Forget logins of one site", "Pick a site, its saved login and site data are removed") { forgetPick() }
                 actionRow(sep, R.drawable.ic_trash, "Forget all social logins", "Removes the saved logins of every social site") { forgetAllAsk() }
@@ -480,7 +485,7 @@ object SocialScreen {
         /** 0.0.251 (B2): list of sites, tap one = ask, then SocialMode.forget. */
         private fun forgetPick() {
             val ps = SocialProfiles.all
-            val names = Array(ps.size) { i -> ps[i].label + (if (SocialMode.hasProfile(ps[i].id)) "  (has saved login)" else "  (nothing saved)") }
+            val names = Array(ps.size) { i -> ps[i].label + (if (SocialMode.hasProfile(act, ps[i].id)) "  (has saved login)" else "  (nothing saved)") }
             MaterialAlertDialogBuilder(act)
                 .setTitle("Forget logins of")
                 .setItems(names) { _, i -> forgetOneAsk(ps[i]) }
@@ -492,7 +497,7 @@ object SocialScreen {
                 .setTitle("Forget " + p.label + " login?")
                 .setMessage("You will have to log in to " + p.label + " again in the tabs that use its own login. Normal tabs are not touched. A tab that is open on it should be reloaded.")
                 .setPositiveButton("Forget") { _, _ ->
-                    when (SocialMode.forget(p.id)) {
+                    when (SocialMode.forget(act, p.id)) {
                         SocialMode.Forgot.DONE -> Util.toast(act, p.label + " login forgotten")
                         SocialMode.Forgot.CLEARED -> Util.toast(act, p.label + " login forgotten. Reload its open tab")
                         SocialMode.Forgot.NONE -> Util.toast(act, "Nothing saved for " + p.label)
@@ -507,7 +512,7 @@ object SocialScreen {
                 .setTitle("Forget all social logins?")
                 .setMessage("Every social site that has its own login is logged out. Normal tabs are not touched. Open social tabs should be reloaded.")
                 .setPositiveButton("Forget all") { _, _ ->
-                    val n = SocialMode.forgetAll()
+                    val n = SocialMode.forgetAll(act)
                     Util.toast(act, if (n == 0) "Nothing was saved" else "Forgot logins of " + n + " site" + (if (n == 1) "" else "s"))
                 }
                 .setNegativeButton("Cancel", null)

@@ -47,17 +47,22 @@ object SocialMode {
         if (url == null || !on(c) || !sepOn(c) || !sepSupported()) return null
         val p = SocialProfiles.of(url) ?: return null
         if (!SocialProfiles.siteOn(c, p.id)) return null
-        return "social_" + p.id
+        return pname(c, p.id)
     }
+    /** 0.0.256 (B3): "Share Facebook and Messenger login" (default OFF). ON = Messenger tabs use the Facebook profile (social_facebook), so one login covers both. Only matters with "Keep social logins separate" ON. */
+    private const val K_SHARE = "sm_fbshare"
+    fun shareOn(c: Context): Boolean = sp(c).getBoolean(K_SHARE, false)
+    fun setShareOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_SHARE, v).apply() }
+    private fun pname(c: Context, id: String): String = if (id == "messenger" && shareOn(c)) "social_facebook" else "social_" + id
     /** 0.0.251 (B2): "Forget social logins". DONE = profile deleted, CLEARED = profile was in use by an open tab, so its cookies + site data were wiped instead, NONE = nothing saved, UNSUPPORTED = no multi-profile. */
     enum class Forgot { DONE, CLEARED, NONE, UNSUPPORTED }
-    /** true when site [id] has its own saved login data (profile social_<id> exists). */
-    fun hasProfile(id: String): Boolean = try { sepSupported() && ProfileStore.getInstance().getProfile("social_" + id) != null } catch (_: Throwable) { false }
-    fun forget(id: String): Forgot {
-        if (!sepSupported()) return Forgot.UNSUPPORTED
+    /** true when site [id] has saved login data (its own profile, or the shared Facebook one). */
+    fun hasProfile(c: Context, id: String): Boolean = try {
+        sepSupported() && (setOf(pname(c, id), "social_" + id)).any { ProfileStore.getInstance().getProfile(it) != null }
+    } catch (_: Throwable) { false }
+    private fun forgetName(name: String): Forgot {
         return try {
             val store = ProfileStore.getInstance()
-            val name = "social_" + id
             val pr = store.getProfile(name)
             if (pr == null) Forgot.NONE
             else try {
@@ -70,10 +75,20 @@ object SocialMode {
             }
         } catch (_: Throwable) { Forgot.NONE }
     }
+    /** With the Facebook / Messenger share ON, forgetting either one removes the shared login (and an old separate Messenger profile). */
+    fun forget(c: Context, id: String): Forgot {
+        if (!sepSupported()) return Forgot.UNSUPPORTED
+        var best = Forgot.NONE
+        for (n in setOf(pname(c, id), "social_" + id)) {
+            val r = forgetName(n)
+            if (r == Forgot.DONE || (r == Forgot.CLEARED && best == Forgot.NONE)) best = r
+        }
+        return best
+    }
     /** Forget every social site; returns how many sites had saved data. */
-    fun forgetAll(): Int {
+    fun forgetAll(c: Context): Int {
         var n = 0
-        for (p in SocialProfiles.all) { val had = hasProfile(p.id); val r = forget(p.id); if (had && (r == Forgot.DONE || r == Forgot.CLEARED)) n++ }
+        for (p in SocialProfiles.all) { val had = hasProfile(c, p.id); val r = forget(c, p.id); if (had && (r == Forgot.DONE || r == Forgot.CLEARED)) n++ }
         return n
     }
     /** Cookie header for [u] from the profile that a tab on [tabUrl] uses (SocialNsfw re-downloads pictures with the page's cookies). */

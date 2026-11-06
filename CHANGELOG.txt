@@ -1,3 +1,10 @@
+0.0.256 (B3 BUILD: share one login for Facebook and Messenger)
+- Why: with "Keep social logins separate" ON, Facebook and Messenger each had their own login (social_facebook, social_messenger), so you had to log in twice. New switch "Share Facebook and Messenger login" (Social sites page > Logins, default OFF, key sm_fbshare): Messenger tabs use the Facebook profile, so one login covers both. Applies to tabs opened from now on; log in once more.
+- Forget logins (B2) follows it: forgetting Facebook or Messenger removes the shared login and any old separate Messenger profile. hasProfile / forget / forgetAll now take a Context (SocialScreen calls updated).
+- Files: SocialMode.kt (K_SHARE, shareOn / setShareOn, pname, profileName uses it, forget code regrouped into forgetName), SocialScreen.kt (switch row + 3 call updates), SettingsScreen.kt (RESET + sm_fbshare), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: nothing with the switch OFF (pname = social_<id> as before). ON: a Messenger tab opened before keeps its old profile until reopened. Switch does nothing when "Keep social logins separate" is OFF.
+- NOT tested: Gradle build (CI), device, one login on facebook.com and messenger.com (Facebook may still ask for a check), forget with an open tab.
+
 0.0.255 (D2 BUILD: calmer touch on social pages)
 - Why: feel like an app. Switch "Calmer touch on social pages" (Social sites page > Tabs and data, default OFF, key sm_touch): one CSS line added to the site CSS = no grey tap flash (-webkit-tap-highlight-color transparent) and overscroll-behavior contain (no scroll chaining). Applies from the next page load. Pinch-zoom is NOT changed and "tap the top edge = scroll to top" is NOT built (both left out on purpose: risk for chat sites / needs a gesture hook).
 - Files: SocialMode.kt (K_TOUCH, TOUCH_CSS, touchOn / setTouchOn, 1 term in the css line of inject), SocialScreen.kt (switch row), SettingsScreen.kt (RESET + sm_touch), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.
