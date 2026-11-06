@@ -202,6 +202,7 @@ object SettingsScreen {
             "Password generator" to "random strong",
             "Create email alias" to "addy.io mask spam",
             "Extensions" to "addons plugins chrome crx zip",
+            "How to use" to "help guide tutorial tour start new user learn",
             "Check for updates" to "upgrade version new release",
             "Novel grabber" to "epub docx web2epub book",
             "Report center" to "diagnose problem error crash log"
@@ -1119,6 +1120,7 @@ object SettingsScreen {
                 }
             ))
             category("about", R.drawable.ic_info, "About", "Updates, engine, version", listOf(
+                Row(R.drawable.ic_info, "How to use", "", "A short guide for new users") { dismiss(); HowToUse.open(act) }, // V14
                 Row(R.drawable.ic_reload, "Check for updates") { UpdateManager.check(act, false) },
                 Row(R.drawable.ic_info, "Engine status") { EngineHost.showStatus(act) },
                 Row(R.drawable.ic_info, "Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")

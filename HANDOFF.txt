@@ -1,6 +1,6 @@
 THAZIR (internal project MGB) - VAULT FEATURE: AUDIT + STEP PLAN
 Planning baseline: Thazir-main.zip, appVersionName 0.0.185 (CHANGELOG top entry = 0.0.185)
-STATUS: V13 DONE (0.0.200 Settings animation). V1-V12 DONE (V12c = 0.0.199: CommandCenter entry, tab bookmark dialog "To vault", Backup hint). Plan finished; only optional items below remain. (zip 0.0.199; zip 0.0.198; zip 0.0.197 = V11 + V12 part; V10 zip 0.0.196; V9 = 0.0.195; V8 = 0.0.194; V7 = 0.0.193; V6 = 0.0.192; V4b = 0.0.191) (V1+V2 zip 0.0.187; V3 zip 0.0.188; V4+V5 merged in one chat, zip 0.0.190 = V4 0.0.189 included). Next = real-device QA of the Vault (see NOT tested lists) + CI check of 0.0.199.
+STATUS: V14 DONE (0.0.201 How to use guide). V13 DONE (0.0.200 Settings animation). V1-V12 DONE (V12c = 0.0.199: CommandCenter entry, tab bookmark dialog "To vault", Backup hint). Plan finished; only optional items below remain. (zip 0.0.199; zip 0.0.198; zip 0.0.197 = V11 + V12 part; V10 zip 0.0.196; V9 = 0.0.195; V8 = 0.0.194; V7 = 0.0.193; V6 = 0.0.192; V4b = 0.0.191) (V1+V2 zip 0.0.187; V3 zip 0.0.188; V4+V5 merged in one chat, zip 0.0.190 = V4 0.0.189 included). Next = real-device QA of the Vault (see NOT tested lists) + CI check of 0.0.199.
 CONTEXT ZIP: Thazir_Context_V10-V12_v0_0_195.zip (state 0.0.195) + patch zip Thazir_V10_v0_0_196.zip copied over it (new VaultRestore.kt, edits in VaultScreen/VaultStore/VaultExit/AndroidManifest) - attach BOTH instead of the full repo zip; see FILES.txt inside.
 This file REPLACES the old root HANDOFF.txt (UI roadmap: S1-S5, S7, S10 done, rest skipped by owner;
 that roadmap is finished). Old copies stay in the repo as HANDOFF_OLD.txt / HANDOFF_PLAYER.txt.
@@ -238,6 +238,11 @@ If a session is lost mid-step the next chat re-runs the SAME step from the last 
 7. PROGRESS / RESULT LOG (append newest at top; fill after each step)
 ====================================================================================================
 (newest first)
+V14 | 0.0.201 | NEW HowToUse.kt; MODIFIED MainActivity.kt (menu row + one-time offer), MenuCustom.kt (locked entry), CommandCenter.kt (entry), SettingsScreen.kt (About row + search keywords), app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+  Checked: brace/paren/bracket balance (5 .kt), single-match patches, helpers used (VaultScreen.tv/box/btn/link/lp internal, R.style.MgbSettingsWindow from V13, ic_* names exist), step texts match real menu/settings labels read from the code.
+  NOT tested: Gradle build (CI), device render 360/1280dp, dark/light, rotation, TalkBack, first-start dialog on a fresh install, back button from topic page.
+  Assumptions: English text; guide covers features seen in menu + Settings (no screenshots). Menu row is "locked" so Customise cannot hide it.
+  NEXT (not done): Bangla text option; per-screen "?" help buttons; an interactive tour with highlights.
 V13 | 0.0.200 | MODIFIED SettingsScreen.kt (toggle() transition, glide(), window animation, 2 sub-page hooks), app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt; NEW res/anim/mgb_settings_in.xml, res/anim/mgb_settings_out.xml, res/values/mgb_settings_anim.xml.
   Root cause: accordion used Slide(Gravity.TOP) + one 220 ms ChangeBounds = content translated by its full height over the card above, uneven timing vs chevron; sub-pages and the dialog itself appeared instantly (no motion).
   Checked: brace/paren balance, single-match patches, 3 XML well-formed, Slide import fully replaced by Fade, Reduce motion path kept in all 3 places.

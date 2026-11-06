@@ -1,3 +1,9 @@
+0.0.201 (V14 BUILD: "How to use" guide for new users)
+- NEW HowToUse.kt: full-screen guide (dark + light, mg_* tokens, 560dp max width, Reduce motion respected). Home = Quick start (3 steps) + 10 topics (Browse and tabs, Menu and Command Center, Bookmarks and history, Downloads and Grabber, Saved pages, Player, Privacy and security, Vault, Settings and backup, Extensions and extras). Each topic = numbered steps + tip + Previous / Next. Plain text, no images. State in the object, Dialog rebuilt on open (rotation safe).
+- First start only: one dialog "New to Thazir?" (Show me / Not now), pref mgb_ui howto_seen, shown 2.5 s after a cold start (not after a rotation/recreate).
+- Entry points: 3-dot menu row "How to use" (MainActivity.kt, locked ON in MenuCustom.kt so it cannot be hidden), Command Center entry (CommandCenter.kt), Settings > About row + settings-search keywords (SettingsScreen.kt).
+- NOT touched: Vault, Backup, Downloads, CI, existing logic / ids / handlers.
+
 0.0.200 (V13 MODIFY: smoother Settings animation)
 - SettingsScreen.kt toggle(): the category accordion no longer uses Slide(TOP) (content flew in over the card above and janked on tall cards). Now cards glide with ChangeBounds 280 ms while content fades (out 110 ms, in 200 ms after 80 ms), one ease curve (0.2, 0, 0, 1); chevron rotates 260 ms with the same curve; scroll-to-card waits 300 ms.
 - SettingsScreen.kt: opening Settings uses a soft rise + fade window animation (new style MgbSettingsWindow); opening / leaving a sub-page (Downloads, Grabber) glides the body in from the side / back (glide()).

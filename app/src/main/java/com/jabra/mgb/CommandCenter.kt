@@ -216,6 +216,7 @@ object CommandCenter {
         reg(R.drawable.ic_folder, "Saved pages", "Pages saved for offline reading", "offline mht", { SavedPages.open(act, tabs) })
         reg(R.drawable.ic_ext, "Extensions", "Open the extensions tray", "addons plugins", { ExtTray.show(act) })
         reg(R.drawable.ic_vault, "Vault", VaultScreen.summary(act), "secure private encrypted sealed safe", { VaultScreen.open(act) }) // V12c
+        reg(R.drawable.ic_info, "How to use", "A short guide for new users", "help guide tutorial tour start learn", { HowToUse.open(act) }) // V14
         reg(R.drawable.ic_lock, "Passwords", "Saved logins", "credentials login", { (act as? androidx.fragment.app.FragmentActivity)?.let { PasswordStore.screen(it) } })
         reg(R.drawable.ic_theme, "Appearance", "Theme, address bar, home and gestures", "dark light wallpaper look", { AppearanceScreen.open(act) })
         reg(R.drawable.ic_settings, "Settings", "All browser settings", "preferences options", { SettingsScreen.open(act) })

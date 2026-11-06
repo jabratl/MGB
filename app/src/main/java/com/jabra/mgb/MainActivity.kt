@@ -158,6 +158,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         window.decorView.post { PlayerScreen.reopenPending(this) } // S35: player comes back if the Activity was recreated
         window.decorView.post { AppearanceScreen.reopenPending(this) } // APPEARANCE A2: Appearance screen comes back after a theme change
         window.decorView.postDelayed({ Backup.auto(this) }, 10000) // S42: daily auto backup (if ON)
+        if (savedInstanceState == null) window.decorView.postDelayed({ HowToUse.maybeOffer(this) }, 2500) // V14: one-time welcome offer
     }
 
     /** APPEARANCE A3: the left bar button does what Appearance > Address bar says (default = Home, as before). */
@@ -221,6 +222,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Item("Saved pages", R.drawable.ic_folder, true, PageSave.count(this).let { if (it > 0) it.toString() else "" }) { SavedPages.open(this, tabs) }, // T3, T4: screen
             MenuSheet.Item("Novel grabber", R.drawable.ic_book, true, "EPUB · DOCX · TXT") { openExt("novel/studio.html") }, // N1
             MenuSheet.Item("Queue", R.drawable.ic_list) { openExt("queue.html") },
+            MenuSheet.Item("How to use", R.drawable.ic_info, true, "Quick guide") { HowToUse.open(this) }, // V14
             MenuSheet.Item("Report center", R.drawable.ic_info) { DiagScreen.open(this, tabs, -1) } // S85
         )
         val generalEnd = listOf( // 0.0.123 (S14): Settings + Customise menu stay last, pinned extensions sit before them
