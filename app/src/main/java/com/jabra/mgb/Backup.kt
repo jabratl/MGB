@@ -140,7 +140,7 @@ object Backup {
             .setTitle("Export data")
             .setMultiChoiceItems(NAMES, sel) { _, i, on -> sel[i] = on }
             .setPositiveButton("Export") { _, _ ->
-                if (sel.any { it }) BrowserExtras.saveBackup("mgb-backup.json") { build(act, sel) }
+                if (sel.any { it }) { BrowserExtras.saveBackup("mgb-backup.json") { build(act, sel) }; Util.toast(act, "The Vault is not in this file: it stays in its own folder") } // V12c
                 else Util.toast(act, "Nothing selected")
             }
             .setNegativeButton("Cancel", null)

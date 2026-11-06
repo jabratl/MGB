@@ -1,3 +1,10 @@
+0.0.199 (V12c MODIFY: Vault integration polish)
+- CommandCenter.kt: new entry "Vault" (icon ic_vault, shows VaultScreen.summary) before Passwords; opens VaultScreen.
+- TabBookmarks.kt: "Bookmark all tabs" dialog gets a neutral button "To vault": copies the web tabs as vault bookmarks (folder = typed name) via VaultItems.addToVault(move=false). Needs the vault open, else a toast. Browser bookmarks are not touched.
+- Backup.kt: after Export a toast says the Vault is not part of the file (own folder). Backup JSON shape unchanged.
+- SettingsScreen row summary already existed (VaultScreen.summary) - no edit.
+- NOT touched: Vault.kt, PasswordStore, VaultCrypto, other Vault*, CI.
+
 0.0.198 (V12b part: direct VaultCrypto calls)
 - VaultCrypto.kt is now known (rewrapPass(h, dek, newPass), newRecovery(h, dek): Pair<Header,String>, selfTest(): String? where null = OK). The reflection adapter VaultKeyOps (VaultSettings.kt) is removed; VaultStore.changePass / regenRecovery call VaultCrypto directly. No behaviour change except one FIX: the old adapter treated a non-null selfTest() reason (e.g. "dek mismatch") as OK; Verify vault now shows "Crypto self-test: FAILED (<reason>)" for any non-null result (the reasons are fixed texts, never data).
 - Confirmed against the real VaultCrypto: Header.wrapPass is a ByteArray (writeHeader's isNotEmpty() check is valid), openPass / openRecovery / verifyDek signatures match, an empty passphrase throws inside PBKDF2 and is caught by confirmPass.

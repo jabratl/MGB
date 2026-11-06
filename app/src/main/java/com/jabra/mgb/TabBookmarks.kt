@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.text.InputType
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -61,7 +63,21 @@ object TabBookmarks {
                 Util.toast(ctx, if (n == 0) "Nothing new to save" else "$n bookmarks saved")
             }
             .setNegativeButton("Cancel", null)
+            .setNeutralButton("To vault") { _, _ -> toVault(ctx, items, et.text.toString()) } // V12c
             .show()
+    }
+
+    /** V12c: seal these tabs as vault bookmarks (copy only, the browser bookmarks are not touched). Needs the vault open. */
+    private fun toVault(ctx: Context, items: List<Pair<String, String>>, folderName: String) {
+        if (!VaultStore.isUnlocked()) { Util.toast(ctx, "Open the vault first (menu > Vault)"); return }
+        val folder = folderName.trim()
+        val now = System.currentTimeMillis()
+        Util.toast(ctx, "Sealing...")
+        Thread {
+            val src = items.mapIndexed { i, p -> VaultItems.Src(VaultItems.E(p.first, p.second, now + i, folder), { }) }
+            val r = try { VaultItems.addToVault(ctx, "bm", src, false) } catch (e: Exception) { VaultItems.Result(false, msg = "Something went wrong. Nothing was changed.") }
+            Handler(Looper.getMainLooper()).post { Util.toast(ctx, VaultItems.describe("bm", r, false)) }
+        }.start()
     }
 
     /** Returns how many bookmarks were added. An empty new folder is removed again. */
