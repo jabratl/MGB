@@ -1,3 +1,9 @@
+0.0.234 (P9 BUILD: own login per social site)
+- Why: switch "Keep social logins separate" (Social sites page > Logins, default OFF). ON = a new tab on a social site uses its own WebView profile social_<id> (own cookies / storage), so you can use other accounts than in normal tabs. If the WebView has no multi-profile the row says "Not supported on this phone".
+- Files: SocialMode.kt (sm_sep, sepOn / sepSupported / profileName / cookies), TabManager.kt (Tab.socialProfile; newTab + createWebView + doSuspend + clone + session restore pass the profile; popups inherit the opener's), SocialNsfw.kt (picture re-download uses the profile's cookies), SocialScreen.kt (Logins card + info text), SettingsScreen.kt (RESET list + sm_sep), HowToUse.kt, build.gradle.kts, CHANGELOG.
+- Could break: nothing with the switch OFF (profileName = null, createWebView unchanged). ON: tabs created before keep their old cookies; typing a social address inside an existing normal tab keeps that tab's profile; existing logins in normal tabs are not copied (log in once more). Session restore now calls newTab with a profile argument.
+- NOT tested: Gradle build (CI), device, WebViewCompat.setProfile / ProfileStore.getProfile(name).cookieManager calls are from memory of androidx.webkit 1.x (check the version in CI), real logins, 360 / 1280 dp, dark + light, rotation.
+
 0.0.233 (P8b BUILD: AI picture check screen)
 - Why: P8a had the engine but no switch. Social sites page got a card "AI picture check (experimental)": switch, sensitivity Low / Normal / Strict (score limit 0.85 / 0.60 / 0.40), model status line (red when no model), counter of blurred pictures.
 - Files: SocialScreen.kt (aiCard + info text), SocialNsfw.kt (level / setLevel / levelNames / clearCaches; changing the level forgets cached verdicts), HowToUse.kt (one phrase), build.gradle.kts, CHANGELOG. RESET list needs no change (SocialNsfw.keys added in P8a).

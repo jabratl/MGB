@@ -171,6 +171,16 @@ object SocialScreen {
                 col.addView(c, LinearLayout.LayoutParams(MATCH, WRAP))
             }
 
+            col.addView(sectionLabel("Logins")) // 0.0.234 (P9)
+            val sep = card()
+            val supported = SocialMode.sepSupported()
+            val sepRow = switchRow(sep, R.drawable.ic_shield, "Keep social logins separate",
+                if (supported) "Each site gets its own cookies, apart from normal tabs. Applies to tabs opened from now on; log in again once"
+                else "Not supported on this phone",
+                null, { supported && SocialMode.sepOn(act) }) { on -> if (supported) SocialMode.setSepOn(act, on) }
+            if (!supported) sepRow.alpha = 0.5f else siteRows.add(sepRow)
+            col.addView(sep, LinearLayout.LayoutParams(MATCH, WRAP))
+
             col.addView(sectionLabel("Home"))
             val home = card() // 0.0.230 (P6): not dimmed, a shortcut turns Social sites ON when tapped
             actionRow(home, R.drawable.ic_add, "Add a site to the phone home screen", "Icon opens it in a Social tab") { SocialShortcuts.pickPin(act) }
@@ -182,6 +192,7 @@ object SocialScreen {
             info.addView(TextView(act).apply {
                 text = "The AI picture check is experimental: it needs a model file inside the app, it can miss things or blur harmless pictures, and it does not see video.\n\n" +
                     "No push notifications or sounds, no badge on the launcher icon: a browser tab cannot receive them when it is closed. The unread number on tab cards only updates while the tab is open.\n\n" +
+                    "Separate logins: a tab that is already open keeps the cookies it has; a link that leaves a social site stays in that tab's profile.\n\n" +
                     "\"Continue with Google\" is often blocked in a browser tab. Use email and password.\n\n" +
                     "A site may show a security check after the browser identity changes. Hiding the Open-app bars depends on the live " +
                     "site and may need a small fix when the site changes.\n\n" +

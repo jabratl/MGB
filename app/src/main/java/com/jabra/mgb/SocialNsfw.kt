@@ -163,16 +163,16 @@ object SocialNsfw {
             if (!modelReady(ctx)) return null
             val m = load(ctx) ?: return null
             if (!gate.tryAcquire(3, TimeUnit.SECONDS)) return null
-            try { return check(ctx, m, u, r) } finally { gate.release() }
+            try { return check(ctx, tabUrl, m, u, r) } finally { gate.release() }
         } catch (_: Throwable) {
             return null // fail-open
         }
     }
 
-    private fun check(ctx: Context, m: Model, u: String, r: WebResourceRequest): WebResourceResponse? {
+    private fun check(ctx: Context, tabUrl: String, m: Model, u: String, r: WebResourceRequest): WebResourceResponse? {
         val rb = Request.Builder().url(u)
         r.requestHeaders?.forEach { (k, v) -> if (k.equals("Referer", true) || k.equals("User-Agent", true) || k.equals("Accept", true) || k.equals("Accept-Language", true)) rb.header(k, v) }
-        try { CookieManager.getInstance().getCookie(u)?.let { rb.header("Cookie", it) } } catch (_: Throwable) { }
+        try { SocialMode.cookies(ctx, tabUrl, u)?.let { rb.header("Cookie", it) } } catch (_: Throwable) { }
         http.newCall(rb.build()).execute().use { resp ->
             if (!resp.isSuccessful) return null
             val body = resp.body ?: return null

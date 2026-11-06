@@ -2,8 +2,11 @@ package com.jabra.mgb
 
 import android.content.Context
 import android.net.Uri
+import android.webkit.CookieManager
 import android.webkit.WebSettings
 import android.webkit.WebView
+import androidx.webkit.ProfileStore
+import androidx.webkit.WebViewFeature
 import java.util.WeakHashMap
 
 /**
@@ -29,6 +32,25 @@ object SocialMode {
     private fun sp(c: Context) = c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
     fun on(c: Context): Boolean = sp(c).getBoolean(KEY, false)
     fun setOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(KEY, v).apply() }
+
+    /** 0.0.234 (P9): "Keep social logins separate" (default OFF). ON = a NEW tab on a social site gets its own WebView profile social_<id> (own cookies). */
+    private const val K_SEP = "sm_sep"
+    fun sepOn(c: Context): Boolean = sp(c).getBoolean(K_SEP, false)
+    fun setSepOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_SEP, v).apply() }
+    /** false = this WebView has no multi-profile (screen shows "Not supported on this phone"). */
+    fun sepSupported(): Boolean = try { WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE) } catch (_: Throwable) { false }
+    /** Profile name for a tab that opens [url] now, or null = normal shared profile (switch OFF, Social OFF, site OFF, not a social site, no support). */
+    fun profileName(c: Context, url: String?): String? {
+        if (url == null || !on(c) || !sepOn(c) || !sepSupported()) return null
+        val p = SocialProfiles.of(url) ?: return null
+        if (!SocialProfiles.siteOn(c, p.id)) return null
+        return "social_" + p.id
+    }
+    /** Cookie header for [u] from the profile that a tab on [tabUrl] uses (SocialNsfw re-downloads pictures with the page's cookies). */
+    fun cookies(c: Context, tabUrl: String, u: String): String? = try {
+        val cm = profileName(c, tabUrl)?.let { ProfileStore.getInstance().getProfile(it)?.cookieManager }
+        (cm ?: CookieManager.getInstance()).getCookie(u)
+    } catch (_: Throwable) { null }
 
     /** Per-site switch (0.0.228, P4): thin wrappers over SocialProfiles (key sm_s_<id>, not set = ON). */
     fun siteOn(c: Context, id: String): Boolean = SocialProfiles.siteOn(c, id)

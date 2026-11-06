@@ -63,6 +63,8 @@ class TabManager(
         var suspended: Boolean = false
         var savedState: android.os.Bundle? = null
         var url: String = ""
+        /** 0.0.234 (P9): WebView profile name (social_<id>) or null = shared profile. Kept when the tab is suspended / cloned. */
+        var socialProfile: String? = null
         /** 0.0.106: opened by window.open / target=_blank: its first pages are checked against the ad lists. */
         var popup: Boolean = false
         var openerUrl: String? = null
@@ -163,7 +165,7 @@ class TabManager(
         if (!u.startsWith("http")) return
         val b = android.os.Bundle()
         try { old.saveState(b) } catch (_: Throwable) { }
-        val fresh = createWebView(false)
+        val fresh = createWebView(false, t.socialProfile)
         fresh.webViewClient = client(t)
         fresh.webChromeClient = chrome(t)
         fresh.setOnLongClickListener(longPress(t))
@@ -216,7 +218,7 @@ class TabManager(
     // ---------- tabs ----------
 
     /** T1: lazy = the page loads only when the tab is first selected (url waits in pending, like a restored tab). */
-    fun newTab(url: String?, openerId: Int = 0, select: Boolean = true, priv: Boolean = false, lazy: Boolean = false): Tab? {
+    fun newTab(url: String?, openerId: Int = 0, select: Boolean = true, priv: Boolean = false, lazy: Boolean = false, social: String? = null): Tab? {
         if (tabs.size >= MAX_TABS) {
             Util.toast(ctx, "Too many tabs")
             return null
@@ -224,9 +226,12 @@ class TabManager(
         // S26: a tab opened from a private tab stays private
         val isPriv = priv || (openerId != 0 && tabs.any { it.id == openerId && it.priv })
         if (isPriv && tabs.none { it.priv }) purgePrivate() // drop data left from an earlier run
-        val web = createWebView(isPriv)
+        // 0.0.234 (P9): own login profile = explicit name (clone / restore), else the opener's, else by address
+        val sProf = if (isPriv) null else (social ?: tabs.firstOrNull { it.id == openerId }?.socialProfile ?: SocialMode.profileName(ctx, url))
+        val web = createWebView(isPriv, sProf)
         val tab = Tab(nextId++, web, openerId)
         tab.priv = isPriv
+        tab.socialProfile = sProf
         web.webViewClient = client(tab)
         web.webChromeClient = chrome(tab)
         web.setOnLongClickListener(longPress(tab)) // S21
@@ -276,7 +281,7 @@ class TabManager(
             src.pending != null -> null
             else -> android.os.Bundle().also { try { src.web.saveState(it) } catch (_: Throwable) { } }
         }
-        val t = newTab(null, 0, false, src.priv) ?: return null
+        val t = newTab(null, 0, false, src.priv, false, src.socialProfile) ?: return null
         t.url = u
         t.title = src.title
         if (src.desktop) { // same as setDesktop, without the reload
@@ -396,9 +401,9 @@ class TabManager(
         var target: Tab? = null
         val ids = ArrayList<Int>()
         for (i in 0 until arr.length()) {
-            val t = newTab(null, 0, false) ?: break
-            ids.add(t.id)
             val u = arr.getString(i)
+            val t = newTab(null, 0, false, false, false, SocialMode.profileName(ctx, u)) ?: break // 0.0.234 (P9)
+            ids.add(t.id)
             t.url = u
             ts.optLong(i, 0L).let { if (it > 0L) t.lastActive = it } // STEP E
             if (u == HOME_PAGE) t.home = true else t.pending = u // S13
@@ -423,12 +428,14 @@ class TabManager(
         } catch (e: Exception) { /* profile still in use or missing: ignore */ }
     }
 
-    private fun createWebView(priv: Boolean = false): WebView {
+    private fun createWebView(priv: Boolean = false, social: String? = null): WebView {
         val w = WebView(ctx)
         if (priv) { // S26: must happen before settings / first load
             if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
                 try { WebViewCompat.setProfile(w, PRIVATE_PROFILE) } catch (e: Exception) { Util.toast(ctx, "Private tab: cookies are shared with normal tabs") }
             } else Util.toast(ctx, "Private tab: this WebView shares cookies with normal tabs")
+        } else if (social != null) { // 0.0.234 (P9): own cookies per social site, before settings / first load
+            try { WebViewCompat.setProfile(w, social) } catch (e: Exception) { Diag.w("social", "profile $social: " + (e.message ?: ""), "") }
         }
         w.settings.apply {
             javaScriptEnabled = true
