@@ -275,9 +275,13 @@ object BookmarksScreen {
             if (mode == Mode.BOOKMARKS) h.addView(icon(R.drawable.ic_folder, "Move") { moveSelected() }, LinearLayout.LayoutParams(dp(44), dp(48)))
             h.addView(icon(R.drawable.ic_trash, "Remove") { removeSelected() }, LinearLayout.LayoutParams(dp(44), dp(48)))
             h.addView(icon(R.drawable.ic_more, "More") { // S28
-                val labels = if (mode == Mode.BOOKMARKS) arrayOf("Pin to home", "Open in new tabs") else arrayOf("Open in new tabs")
+                val labels = (if (mode == Mode.BOOKMARKS) arrayOf("Pin to home", "Open in new tabs") else arrayOf("Open in new tabs")) + arrayOf("Move to vault", "Copy to vault") // V4b
                 MaterialAlertDialogBuilder(act).setItems(labels) { _, w ->
-                    if (mode == Mode.BOOKMARKS && w == 0) pinSelected() else openSelected()
+                    when (labels[w]) {
+                        "Pin to home" -> pinSelected()
+                        "Open in new tabs" -> openSelected()
+                        else -> toVault(labels[w] == "Move to vault")
+                    }
                 }.show()
             }, LinearLayout.LayoutParams(dp(44), dp(48)))
             return h
@@ -328,6 +332,24 @@ object BookmarksScreen {
             }
             Util.toast(act, if (n == 0) "Already on home" else "Pinned $n to home")
             endSelect()
+        }
+
+        /** V4b: move / copy the picked rows into the vault. Originals are removed only after VaultItems verified the vault copy. */
+        private fun toVault(move: Boolean) {
+            if (picked.isEmpty()) return
+            if (!VaultStore.isUnlocked()) { Util.toast(act, "Open the vault first (menu > Vault)"); return }
+            val type = if (mode == Mode.BOOKMARKS) "bm" else "hist"
+            val keys = picked.toSet()
+            Util.toast(act, "Sealing...")
+            Thread {
+                val src = (if (type == "bm") VaultItems.bmSources() else VaultItems.histSources())
+                    .filter { keys.contains(if (type == "bm") it.e.url else it.e.time.toString() + "|" + it.e.url) }
+                val r = try { VaultItems.addToVault(act, type, src, move) } catch (e: Exception) { VaultItems.Result(false, msg = "Something went wrong. Nothing was removed.") }
+                act.runOnUiThread {
+                    Util.toast(act, VaultItems.describe(type, r, move))
+                    if (r.ok && isShowing) endSelect()
+                }
+            }.start()
         }
 
         private fun openSelected() {

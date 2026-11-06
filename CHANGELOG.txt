@@ -1,3 +1,10 @@
+0.0.191 (V4b FIX + MODIFY: CI compile errors, Move/Copy to vault in BookmarksScreen)
+- FIX VaultItems.kt l.556: "try { } catch { } if ..." on one line had no separator (Unexpected tokens) -> ";" added.
+- FIX VaultStore.kt l.411: "if (gen == g) dirty = false" was the last statement of a try used as a value -> needs else -> "else Unit". No behaviour change.
+- BookmarksScreen.kt: selection "More" menu now also has "Move to vault" / "Copy to vault" (bookmarks and history mode). Runs VaultItems.addToVault on a background thread; vault must be open (toast otherwise); originals removed only after the vault copy is saved and read back; selection ends on success.
+- VaultItems.kt: describe() helper (shared message text). Nothing else changed.
+- app/build.gradle.kts: 0.0.191.
+
 0.0.190 (V5 BUILD: History in the vault)
 - VaultItems.kt: history list ("hist") grouped by day (11sp primary caps headers, time + host per row), search, multi-select, delete, open in tab. "Add from browser" picker for history: tap single entries, chips Today / Last 7 days / Older than 30 days / All, Select all shown, then Move or Copy. Same core as bookmarks: save in vault, flush, read back, THEN remove originals; duplicates (same url + time) merged.
 - Optional switch "Send history to vault" (off by default) at the top of the vault history list: while the vault is open, browser history is moved into it when the app is left (VaultStore.onAppStop -> VaultItems.sweepHistory, own thread, originals removed only after the vault copy is verified). No hook in Bookmarks.kt was needed. Private tabs never write to Bookmarks history, so nothing of them can reach the vault.

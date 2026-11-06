@@ -102,6 +102,14 @@ object VaultItems {
         return Result(true, ids.size, dup, removed, newIds = ids, moved = moved)
     }
 
+    /** User text for a finished add (also used by BookmarksScreen). */
+    fun describe(t: String, r: Result, move: Boolean): String {
+        if (!r.ok) return r.msg
+        val n = r.added + r.dup
+        val what = if (t == "bm") (if (n == 1) "1 bookmark" else "$n bookmarks") else (if (n == 1) "1 history entry" else "$n history entries")
+        return (if (move) "Moved " else "Copied ") + what + " to the vault" + (if (r.dup > 0) " (${r.dup} already there)" else "")
+    }
+
     private fun ensureBookmark(e: E) {
         if (!Bookmarks.isBookmarked(e.url)) Bookmarks.addBookmark(e.title, e.url)
         if (e.folder.isNotEmpty()) {
@@ -542,8 +550,7 @@ object VaultItems {
                 pSel.clear(); selecting = false; sel.clear(); query = ""; chip = 0
                 listPage()
                 if (!r.ok) { bar(a, r.msg, null, null); return@post }
-                val n = r.added + r.dup
-                val msg = (if (move) "Moved " else "Copied ") + plural(n) + " to the vault" + (if (r.dup > 0) " (${r.dup} already there)" else "")
+                val msg = describe(t, r, move)
                 if (move && t == "bm" && r.moved.isNotEmpty()) bar(a, msg, "Undo") { undoMove(a, r) } else bar(a, msg, null, null)
             }
         }
@@ -553,7 +560,7 @@ object VaultItems {
     private fun undoMove(a: Activity, r: Result) {
         bg.execute {
             var back = 0
-            for (e in r.moved) { try { ensureBookmark(e) } catch (x: Exception) { } if (Bookmarks.isBookmarked(e.url)) back++ }
+            for (e in r.moved) { try { ensureBookmark(e) } catch (x: Exception) { }; if (Bookmarks.isBookmarked(e.url)) back++ }
             if (back == r.moved.size) { for (id in r.newIds) VaultStore.removeItem(a, id, false); sealed(a) }
             main.post {
                 if (dlg?.isShowing == true) { listPage(); bar(a, if (back == r.moved.size) "Undone" else "Could not undo everything. The vault copies were kept.", null, null) }

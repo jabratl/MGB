@@ -408,7 +408,7 @@ object VaultStore {
                     child(app, tree, root, IDX_BAK)?.let { DocumentsContract.renameDocument(cr, it.uri, IDX) }
                     throw IOException("swap failed")
                 }
-                if (gen == g) dirty = false
+                if (gen == g) dirty = false else Unit
             } catch (e: Exception) {
                 lastError = "The vault could not save its list. Nothing was lost, it will retry."
                 io.schedule(Runnable { try { flush(app) } catch (x: Exception) { } }, 8, TimeUnit.SECONDS)
