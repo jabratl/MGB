@@ -54,6 +54,7 @@ object VaultStore {
     private var dataUri: Uri? = null
     private var leftAt = 0L
     @Volatile private var dirty = false
+    @Volatile private var gen = 0L // V4: bumped by every change so a flush that started earlier cannot clear "dirty" for newer changes
     @Volatile private var folderOk = true
     @Volatile var lastError = ""
         private set
@@ -273,6 +274,13 @@ object VaultStore {
     fun hideRecents(c: Context): Boolean = prefs(c).getBoolean("hide_recents", true)
     fun setHideRecents(c: Context, on: Boolean) { prefs(c).edit().putBoolean("hide_recents", on).apply() }
 
+    /** V4: true when everything changed so far is on disk (set only after flush wrote and read back the index). */
+    fun isSaved(): Boolean = !dirty
+
+    /** V5: "Send history to vault" (default off). While the vault is open, browser history moves into it when the app is left. */
+    fun histAuto(c: Context): Boolean = prefs(c).getBoolean("hist_auto", false)
+    fun setHistAuto(c: Context, on: Boolean) { prefs(c).edit().putBoolean("hist_auto", on).apply() }
+
     // ---------- auto-lock ----------
 
     fun autoLockMs(c: Context): Long = prefs(c).getLong("autolock_ms", 120_000L)
@@ -281,6 +289,7 @@ object VaultStore {
     /** Call from MainActivity.onStop (wired in V3). */
     fun onAppStop(c: Context) {
         if (dek == null) return
+        VaultItems.sweepHistory(c) // V5: no-op unless "Send history to vault" is on; runs on its own thread
         leftAt = System.currentTimeMillis()
         if (autoLockMs(c) <= 0L) lock(c)
     }
@@ -367,6 +376,7 @@ object VaultStore {
     // ---------- saving the index ----------
 
     private fun saveSoon(c: Context) {
+        gen++
         dirty = true
         val app = c.applicationContext
         pending?.cancel(false)
@@ -377,6 +387,7 @@ object VaultStore {
     fun flush(c: Context) {
         synchronized(ioLock) {
             val k = dek ?: return
+            val g = gen
             val text = synchronized(this) { index?.toString() } ?: return
             if (!dirty) return
             val app = c.applicationContext
@@ -397,7 +408,7 @@ object VaultStore {
                     child(app, tree, root, IDX_BAK)?.let { DocumentsContract.renameDocument(cr, it.uri, IDX) }
                     throw IOException("swap failed")
                 }
-                dirty = false
+                if (gen == g) dirty = false
             } catch (e: Exception) {
                 lastError = "The vault could not save its list. Nothing was lost, it will retry."
                 io.schedule(Runnable { try { flush(app) } catch (x: Exception) { } }, 8, TimeUnit.SECONDS)

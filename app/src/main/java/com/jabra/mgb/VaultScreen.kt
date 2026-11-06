@@ -90,11 +90,15 @@ object VaultScreen {
 
     /** MainActivity.onStart calls this after VaultStore.onAppStart: if the vault auto-locked while the screen is open, show the unlock page. */
     fun refresh() {
+        VaultItems.refresh() // V4: a locked vault must not leave its list open
         if (dlg?.isShowing != true) return
         if (screen == "home" && !VaultStore.isUnlocked()) unlockView()
     }
 
     private fun close() { dlg?.dismiss() }
+
+    /** V4: closes the list dialog and the vault dialog (used after "open in tab"). */
+    fun closeAll() { VaultItems.closeAll(); close() }
 
     private fun render(st: VaultStore.State) {
         when (st) {
@@ -107,25 +111,25 @@ object VaultScreen {
 
     // ---------- small view helpers (same look as ToolsSheet / AppLock) ----------
 
-    private fun dp(a: Context, v: Int) = Util.dp(a, v)
+    internal fun dp(a: Context, v: Int) = Util.dp(a, v)
     private fun col(a: Context, id: Int) = a.getColor(id)
 
-    private fun box(a: Context, radius: Int = 20, fill: Int = R.color.mg_surface) = GradientDrawable().apply {
+    internal fun box(a: Context, radius: Int = 20, fill: Int = R.color.mg_surface) = GradientDrawable().apply {
         setColor(col(a, fill)); cornerRadius = dp(a, radius).toFloat(); setStroke(dp(a, 1), col(a, R.color.mg_outline))
     }
 
-    private fun tv(a: Context, t: String, sp: Float, color: Int, medium: Boolean = false) = TextView(a).apply {
+    internal fun tv(a: Context, t: String, sp: Float, color: Int, medium: Boolean = false) = TextView(a).apply {
         text = t; setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, sp); setTextColor(col(a, color))
         if (medium) typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
     }
 
-    private fun lp(top: Int = 0, w: Int = MATCH, h: Int = WRAP) = LinearLayout.LayoutParams(w, h).apply { topMargin = top }
+    internal fun lp(top: Int = 0, w: Int = MATCH, h: Int = WRAP) = LinearLayout.LayoutParams(w, h).apply { topMargin = top }
 
     private fun dash(a: Context): View = View(a).apply {
         background = GradientDrawable().apply { setColor(col(a, R.color.mg_primary)); cornerRadius = dp(a, 2).toFloat() }
     }
 
-    private fun btn(a: Context, t: String, filled: Boolean = true, onClick: () -> Unit): MaterialButton {
+    internal fun btn(a: Context, t: String, filled: Boolean = true, onClick: () -> Unit): MaterialButton {
         val b = if (filled) MaterialButton(a) else MaterialButton(a, null, com.google.android.material.R.attr.materialButtonOutlinedStyle)
         b.text = t; b.isAllCaps = false; b.cornerRadius = dp(a, 14); b.insetTop = 0; b.insetBottom = 0
         if (!filled) { b.strokeColor = ColorStateList.valueOf(col(a, R.color.mg_outline)); b.setTextColor(col(a, R.color.mg_primary)) }
@@ -133,7 +137,7 @@ object VaultScreen {
         return b
     }
 
-    private fun link(a: Context, t: String, onClick: () -> Unit): MaterialButton {
+    internal fun link(a: Context, t: String, onClick: () -> Unit): MaterialButton {
         val b = MaterialButton(a)
         b.text = t; b.isAllCaps = false; b.insetTop = 0; b.insetBottom = 0; b.elevation = 0f; b.stateListAnimator = null
         b.backgroundTintList = ColorStateList.valueOf(Color.TRANSPARENT)
@@ -142,7 +146,7 @@ object VaultScreen {
         return b
     }
 
-    private fun field(a: Context, hint: String, password: Boolean): EditText = EditText(a).apply {
+    internal fun field(a: Context, hint: String, password: Boolean): EditText = EditText(a).apply {
         this.hint = hint
         setHintTextColor(col(a, R.color.mg_text_dim)); setTextColor(col(a, R.color.mg_text)); textSize = 16f
         inputType = if (password) InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
@@ -181,7 +185,7 @@ object VaultScreen {
         if (sub.isNotEmpty()) c.addView(tv(a, sub, 14f, R.color.mg_text_dim).apply { setLineSpacing(0f, 1.15f) }, lp(dp(a, 8)))
     }
 
-    private fun folderLabel(c: Context): String {
+    internal fun folderLabel(c: Context): String {
         val t = VaultStore.treeUri(c) ?: return "Vault folder"
         return try { DocumentsContract.getTreeDocumentId(t).substringAfterLast(':').substringAfterLast('/').ifEmpty { "Phone storage" } } catch (e: Exception) { "Vault folder" }
     }
@@ -443,7 +447,10 @@ object VaultScreen {
             orientation = LinearLayout.VERTICAL; background = box(a); setPadding(dp(a, 16), dp(a, 16), dp(a, 16), dp(a, 16)); minimumHeight = dp(a, 96)
             isClickable = true; isFocusable = true
             contentDescription = "$title, $info"
-            setOnClickListener { Util.toast(a, "Moving items in comes in the next update") }
+            setOnClickListener {
+                if (type == "bm" || type == "hist") VaultItems.open(a, type) { if (dlg?.isShowing == true && VaultStore.isUnlocked()) home(false) } // V4/V5
+                else Util.toast(a, "Moving items in comes in the next update")
+            }
         }
         t.addView(ImageView(a).apply { setImageResource(icon); setColorFilter(col(a, R.color.mg_primary)) }, LinearLayout.LayoutParams(dp(a, 24), dp(a, 24)))
         t.addView(tv(a, title, 15f, R.color.mg_text, true), lp(dp(a, 10)))
@@ -451,7 +458,7 @@ object VaultScreen {
         return t
     }
 
-    private fun switchRow(a: Activity, title: String, info: String, on: Boolean, change: (Boolean) -> Unit): View {
+    internal fun switchRow(a: Activity, title: String, info: String, on: Boolean, change: (Boolean) -> Unit): View {
         val r = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(a, 16), dp(a, 10), dp(a, 12), dp(a, 10)); minimumHeight = dp(a, 56) }
         val tx = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
         tx.addView(tv(a, title, 15f, R.color.mg_text))

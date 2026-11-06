@@ -1,0 +1,564 @@
+package com.jabra.mgb
+
+import android.app.Activity
+import android.app.Dialog
+import android.content.Context
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
+import android.os.Handler
+import android.os.Looper
+import android.text.TextUtils
+import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
+import android.view.WindowManager
+import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
+import androidx.core.widget.doAfterTextChanged
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import java.util.concurrent.Executors
+
+/**
+ * V4 + V5: vault lists for bookmarks ("bm") and history ("hist"), plus the move / copy core.
+ *
+ * UI: one full-screen Dialog on top of the vault dialog. Pages: list (search, folder chips, multi-select, open in tab, restore, delete)
+ * and picker ("Add from browser": checkboxes, search, chips, Move / Copy). History list is grouped by day.
+ * Core (BLOCKING, call on a background thread; reused by later steps and by any BookmarksScreen hook):
+ *   addToVault(ctx, type, sources, move)  -> add to the vault index, flush, read back, THEN remove originals (only when move).
+ *   restoreBookmarks(ctx, ids, keep)      -> add back to the browser, verify with Bookmarks.isBookmarked, THEN remove from vault.
+ * Rules: duplicates are merged (bookmarks by url, history by url+time). Home pins are never touched. Nothing is logged. Items stay
+ * inside the encrypted index (no blobs). Item JSON: id,type,title,url,time,folder,size,mime,blob,orig (same as the V2 contract).
+ * History restore into the browser is not offered (Bookmarks.addHistory cannot set the visit time): that is V10.
+ */
+object VaultItems {
+    private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
+    private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
+    private const val PAGE = 150
+
+    /** Neutral copy of a browser entry, so this file does not depend on the exact Bookmarks item classes. */
+    class E(val title: String, val url: String, val time: Long, val folder: String = "")
+    /** An entry plus the action that removes the ORIGINAL from the browser (run only after the vault copy is verified). */
+    class Src(val e: E, val remove: () -> Unit)
+    class Result(
+        val ok: Boolean, val added: Int = 0, val dup: Int = 0, val removed: Int = 0, val msg: String = "",
+        val newIds: List<String> = emptyList(), val moved: List<E> = emptyList()
+    )
+
+    private val main = Handler(Looper.getMainLooper())
+    private val bg = Executors.newSingleThreadExecutor()
+
+    // ---------- core (blocking) ----------
+
+    fun bmSources(): List<Src> = Bookmarks.bookmarks().map { b -> Src(E(b.title, b.url, b.time.toLong(), b.folder), { Bookmarks.removeBookmark(b.url) }) }
+
+    fun histSources(): List<Src> = Bookmarks.history().map { h -> Src(E(h.title, h.url, h.time.toLong(), ""), { Bookmarks.removeHistory(h.time, h.url) }) }
+
+    private fun keyOf(type: String, url: String, time: Long) = if (type == "bm") url else "$time|$url"
+
+    /** Flush the vault index and confirm that it is on disk (VaultStore.flush reads the file back before swapping). */
+    private fun sealed(c: Context): Boolean {
+        VaultStore.flush(c)
+        if (!VaultStore.isSaved()) VaultStore.flush(c)
+        return VaultStore.isUnlocked() && VaultStore.isSaved()
+    }
+
+    fun addToVault(c: Context, type: String, src: List<Src>, move: Boolean): Result {
+        val app = c.applicationContext
+        if (!VaultStore.isUnlocked()) return Result(false, msg = "The vault is locked. Nothing was changed.")
+        val have = HashSet<String>()
+        for (o in VaultStore.items(type)) have.add(keyOf(type, o.optString("url"), o.optLong("time")))
+        val good = src.filter { it.e.url.isNotEmpty() }
+        val ids = ArrayList<String>()
+        var dup = 0
+        for (s in good) {
+            val e = s.e
+            if (!have.add(keyOf(type, e.url, e.time))) { dup++; continue }
+            if (type == "bm" && e.folder.isNotEmpty()) VaultStore.addFolder(app, e.folder)
+            val o = JSONObject().put("type", type).put("title", e.title).put("url", e.url).put("time", e.time).put("folder", e.folder)
+                .put("size", 0).put("mime", "").put("blob", "").put("orig", JSONObject())
+            val id = VaultStore.addItem(app, o)
+            if (id.isEmpty()) return Result(false, msg = "The vault locked while saving. Nothing was removed from the browser.")
+            ids.add(id)
+        }
+        if (!sealed(app)) return Result(false, msg = "The vault could not save its list. Nothing was removed from the browser.")
+        val now = HashSet<String>()
+        for (o in VaultStore.items(type)) now.add(keyOf(type, o.optString("url"), o.optLong("time")))
+        if (!good.all { now.contains(keyOf(type, it.e.url, it.e.time)) }) return Result(false, msg = "Could not verify the vault copy. Nothing was removed from the browser.")
+        var removed = 0
+        val moved = ArrayList<E>()
+        if (move) for (s in good) { try { s.remove(); removed++; moved.add(s.e) } catch (x: Exception) { } }
+        return Result(true, ids.size, dup, removed, newIds = ids, moved = moved)
+    }
+
+    private fun ensureBookmark(e: E) {
+        if (!Bookmarks.isBookmarked(e.url)) Bookmarks.addBookmark(e.title, e.url)
+        if (e.folder.isNotEmpty()) {
+            if (Bookmarks.folders().none { it.toString() == e.folder }) Bookmarks.addFolder(e.folder)
+            Bookmarks.setFolder(e.url, e.folder)
+        }
+    }
+
+    private fun toE(o: JSONObject) = E(o.optString("title"), o.optString("url"), o.optLong("time"), o.optString("folder"))
+
+    /** Puts vault bookmarks back into the browser. keep=false removes them from the vault afterwards (only the verified ones). */
+    fun restoreBookmarks(c: Context, ids: Collection<String>, keep: Boolean): Result {
+        val app = c.applicationContext
+        if (!VaultStore.isUnlocked()) return Result(false, msg = "The vault is locked. Nothing was changed.")
+        val done = ArrayList<String>()
+        for (id in ids) {
+            val o = VaultStore.item(id) ?: continue
+            val e = toE(o)
+            if (e.url.isEmpty()) continue
+            try { ensureBookmark(e) } catch (x: Exception) { continue }
+            if (Bookmarks.isBookmarked(e.url)) done.add(id)
+        }
+        if (done.size < ids.size && done.isEmpty()) return Result(false, msg = "Could not restore. Nothing was removed from the vault.")
+        if (!keep) { for (id in done) VaultStore.removeItem(app, id, false); if (!sealed(app)) return Result(true, done.size, msg = "Restored, but the vault list could not update. Repeat to clean up.") }
+        return Result(true, done.size, removed = if (keep) 0 else done.size)
+    }
+
+    /** Called from VaultStore.onAppStop: when the vault is open and "Send history to vault" is on, browser history moves into the vault. */
+    fun sweepHistory(c: Context) {
+        val app = c.applicationContext
+        if (!VaultStore.isUnlocked() || !VaultStore.histAuto(app)) return
+        bg.execute { try { if (VaultStore.isUnlocked()) { val s = histSources(); if (s.isNotEmpty()) addToVault(app, "hist", s, true) } } catch (x: Exception) { } }
+    }
+
+    // ---------- UI state (kept in the object so rotation just rebuilds the dialog) ----------
+
+    private var dlg: Dialog? = null
+    private var host: FrameLayout? = null
+    private var act: Activity? = null
+    private var type = "bm"
+    private var onClose: (() -> Unit)? = null
+    private var snack: View? = null
+
+    private var query = ""
+    private var chip = 0
+    private var selecting = false
+    private val sel = LinkedHashSet<String>()
+    private var limit = PAGE
+
+    private var pQuery = ""
+    private var pChip = 0
+    private val pSel = LinkedHashSet<String>()
+    private var pLimit = PAGE
+    private var pSrc: List<Src> = emptyList()
+
+    private fun dp(a: Context, v: Int) = Util.dp(a, v)
+    private fun col(a: Context, id: Int) = a.getColor(id)
+    private fun lp(top: Int = 0, w: Int = MATCH, h: Int = WRAP) = LinearLayout.LayoutParams(w, h).apply { topMargin = top }
+
+    private fun title() = if (type == "bm") "Bookmarks" else "History"
+    private fun plural(n: Int) = if (type == "bm") (if (n == 1) "1 bookmark" else "$n bookmarks") else (if (n == 1) "1 history entry" else "$n history entries")
+
+    /** Opens the list for "bm" or "hist". onClose runs when the dialog goes away (VaultScreen refreshes its tile counts). */
+    fun open(a: Activity, t: String, closed: () -> Unit) {
+        if (a.isFinishing || a.isDestroyed || dlg?.isShowing == true) return
+        if (!VaultStore.isUnlocked()) return
+        act = a; type = t; onClose = closed
+        query = ""; chip = 0; selecting = false; sel.clear(); limit = PAGE
+        val d = object : Dialog(a, android.R.style.Theme_Black_NoTitleBar_Fullscreen) {
+            @Suppress("OVERRIDE_DEPRECATION")
+            override fun onBackPressed() { back() }
+        }
+        val h = FrameLayout(a)
+        h.setBackgroundColor(col(a, R.color.mg_bg))
+        host = h
+        d.setContentView(h, ViewGroup.LayoutParams(MATCH, MATCH))
+        d.window?.apply {
+            setBackgroundDrawable(ColorDrawable(col(a, R.color.mg_bg)))
+            setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            if (VaultStore.hideRecents(a)) setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        }
+        d.setOnDismissListener { if (dlg === d) { dlg = null; host = null; snack = null; val f = onClose; onClose = null; f?.invoke() } }
+        dlg = d
+        try { d.show() } catch (e: Exception) { dlg = null; return }
+        listPage()
+    }
+
+    /** VaultScreen.refresh (MainActivity.onStart) calls this: a locked vault must not leave its list on screen. */
+    fun refresh() {
+        if (dlg?.isShowing == true && !VaultStore.isUnlocked()) dlg?.dismiss()
+    }
+
+    fun closeAll() { dlg?.dismiss() }
+
+    private var page = "list"
+    private fun back() { if (page == "pick") listPage() else dlg?.dismiss() }
+
+    // ---------- shared view pieces ----------
+
+    private class Ui(val head: LinearLayout, val list: LinearLayout, val foot: LinearLayout)
+
+    private fun shell(a: Activity): Ui {
+        val h = host ?: throw IllegalStateException("no host")
+        h.removeAllViews(); snack = null
+        val root = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
+        val head = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(a, 20), dp(a, 8), dp(a, 20), dp(a, 4)) }
+        val list = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(a, 20), dp(a, 4), dp(a, 20), dp(a, 24)) }
+        val sv = ScrollView(a)
+        sv.addView(list, FrameLayout.LayoutParams(MATCH, WRAP))
+        val foot = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(a, 20), dp(a, 8), dp(a, 20), dp(a, 12)); setBackgroundColor(col(a, R.color.mg_bg)) }
+        root.addView(head, LinearLayout.LayoutParams(MATCH, WRAP))
+        root.addView(sv, LinearLayout.LayoutParams(MATCH, 0, 1f))
+        root.addView(foot, LinearLayout.LayoutParams(MATCH, WRAP))
+        val w = minOf(a.resources.displayMetrics.widthPixels, dp(a, 560))
+        h.addView(root, FrameLayout.LayoutParams(w, MATCH, Gravity.CENTER_HORIZONTAL))
+        return Ui(head, list, foot)
+    }
+
+    private fun icon(a: Activity, res: Int, desc: String, tint: Int = R.color.mg_text, onClick: () -> Unit) = ImageView(a).apply {
+        setImageResource(res); setColorFilter(col(a, tint)); setPadding(dp(a, 10), dp(a, 10), dp(a, 10), dp(a, 10))
+        contentDescription = desc; isClickable = true; isFocusable = true; setOnClickListener { onClick() }
+    }
+
+    private fun topBar(a: Activity, text: String, right: List<View>): LinearLayout {
+        val top = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        top.addView(icon(a, R.drawable.ic_back, "Back") { back() }, LinearLayout.LayoutParams(dp(a, 44), dp(a, 44)))
+        top.addView(VaultScreen.tv(a, text, 20f, R.color.mg_text, true).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END }, LinearLayout.LayoutParams(0, WRAP, 1f).apply { marginStart = dp(a, 6) })
+        for (v in right) top.addView(v, LinearLayout.LayoutParams(dp(a, 44), dp(a, 44)))
+        return top
+    }
+
+    private fun search(a: Activity, hint: String, start: String, change: (String) -> Unit): EditText {
+        val f = VaultScreen.field(a, hint, false)
+        f.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        f.setText(start)
+        f.doAfterTextChanged { change(it?.toString() ?: "") }
+        return f
+    }
+
+    private fun chips(a: Activity, labels: List<String>, selected: Int, pick: (Int) -> Unit): View {
+        val hs = HorizontalScrollView(a).apply { isHorizontalScrollBarEnabled = false }
+        val row = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(a, 4), 0, dp(a, 4)) }
+        labels.forEachIndexed { i, l ->
+            val on = i == selected
+            val t = TextView(a).apply {
+                text = l; setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13f); gravity = Gravity.CENTER; minHeight = dp(a, 40)
+                setPadding(dp(a, 14), 0, dp(a, 14), 0); maxLines = 1
+                setTextColor(col(a, if (on) R.color.mg_on_primary else R.color.mg_text))
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(a, 20).toFloat()
+                    setColor(col(a, if (on) R.color.mg_primary else R.color.mg_surface)); setStroke(dp(a, 1), col(a, if (on) R.color.mg_primary else R.color.mg_outline))
+                }
+                isClickable = true; isFocusable = true; contentDescription = if (on) "$l, selected" else l
+                setOnClickListener { pick(i) }
+            }
+            row.addView(t, LinearLayout.LayoutParams(WRAP, dp(a, 40)).apply { marginEnd = dp(a, 8) })
+        }
+        hs.addView(row)
+        return hs
+    }
+
+    private fun check(a: Activity, on: Boolean): View = ImageView(a).apply {
+        setPadding(dp(a, 3), dp(a, 3), dp(a, 3), dp(a, 3))
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(if (on) col(a, R.color.mg_primary) else Color.TRANSPARENT); setStroke(dp(a, 2), col(a, if (on) R.color.mg_primary else R.color.mg_outline))
+        }
+        if (on) { setImageResource(R.drawable.ic_check); setColorFilter(col(a, R.color.mg_on_primary)) }
+    }
+
+    private fun header(a: Activity, text: String) = VaultScreen.tv(a, text.uppercase(), 11f, R.color.mg_primary).apply { typeface = Typeface.DEFAULT_BOLD; letterSpacing = 0.08f }
+
+    /** One list row. checked == null: no check circle (normal mode); sealed: tiny lock chip on the right. */
+    private fun row(a: Activity, title: String, sub: String, checked: Boolean?, lock: Boolean, click: () -> Unit, long: (() -> Unit)?): View {
+        val r = LinearLayout(a).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; background = VaultScreen.box(a, 16)
+            setPadding(dp(a, 14), dp(a, 10), dp(a, 12), dp(a, 10)); minimumHeight = dp(a, 56); isClickable = true; isFocusable = true
+            contentDescription = if (sub.isEmpty()) title else "$title, $sub"
+            setOnClickListener { click() }
+            if (long != null) setOnLongClickListener { long(); true }
+        }
+        if (checked != null) r.addView(check(a, checked), LinearLayout.LayoutParams(dp(a, 24), dp(a, 24)).apply { marginEnd = dp(a, 12) })
+        val tx = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
+        tx.addView(VaultScreen.tv(a, title, 15f, R.color.mg_text).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END })
+        if (sub.isNotEmpty()) tx.addView(VaultScreen.tv(a, sub, 12f, R.color.mg_text_dim).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END })
+        r.addView(tx, LinearLayout.LayoutParams(0, WRAP, 1f))
+        if (lock) r.addView(ImageView(a).apply { setImageResource(R.drawable.ic_lock); setColorFilter(col(a, R.color.mg_text_dim)); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO },
+            LinearLayout.LayoutParams(dp(a, 14), dp(a, 14)).apply { marginStart = dp(a, 8) })
+        return r
+    }
+
+    private fun empty(a: Activity, t: String) = VaultScreen.tv(a, t, 14f, R.color.mg_text_dim).apply { setLineSpacing(0f, 1.15f); setPadding(0, dp(a, 16), 0, 0) }
+
+    private fun showMore(a: Activity, left: Int, more: () -> Unit) = VaultScreen.link(a, "Show more ($left left)") { more() }
+
+    /** Undo-style bar at the bottom. Disappears after 7 s. action == null: plain message. */
+    private fun bar(a: Activity, msg: String, action: String?, run: (() -> Unit)?) {
+        val h = host ?: return
+        snack?.let { h.removeView(it) }
+        val b = LinearLayout(a).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; background = VaultScreen.box(a, 16, R.color.mg_surface_variant)
+            setPadding(dp(a, 16), dp(a, 4), dp(a, 4), dp(a, 4)); accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        }
+        b.addView(VaultScreen.tv(a, msg, 14f, R.color.mg_text), LinearLayout.LayoutParams(0, WRAP, 1f))
+        if (action != null && run != null) b.addView(VaultScreen.link(a, action) { if (snack === b) { h.removeView(b); snack = null }; run() }, LinearLayout.LayoutParams(WRAP, dp(a, 48)))
+        val w = minOf(a.resources.displayMetrics.widthPixels - dp(a, 32), dp(a, 528))
+        h.addView(b, FrameLayout.LayoutParams(w, WRAP, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply { bottomMargin = dp(a, 20) })
+        snack = b
+        main.postDelayed({ if (snack === b) { host?.removeView(b); snack = null } }, 7000)
+    }
+
+    // ---------- list page ----------
+
+    private fun dayKey(t: Long): Long { val c = Calendar.getInstance(); c.timeInMillis = t; c.set(Calendar.HOUR_OF_DAY, 0); c.set(Calendar.MINUTE, 0); c.set(Calendar.SECOND, 0); c.set(Calendar.MILLISECOND, 0); return c.timeInMillis }
+
+    private fun dayLabel(t: Long): String {
+        val d = dayKey(t); val today = dayKey(System.currentTimeMillis())
+        return when (d) {
+            today -> "Today"
+            dayKey(today - 1) -> "Yesterday"
+            else -> SimpleDateFormat("EEE d MMM yyyy", Locale.getDefault()).format(Date(t))
+        }
+    }
+
+    private fun clock(t: Long) = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(t))
+
+    private fun vaultItems(): List<JSONObject> {
+        val q = query.trim().lowercase()
+        var l = VaultStore.items(type).sortedByDescending { it.optLong("time") }
+        if (type == "bm" && chip > 0) { val f = bmFolders()[chip - 1]; l = l.filter { it.optString("folder") == f } }
+        if (q.isNotEmpty()) l = l.filter { it.optString("title").lowercase().contains(q) || it.optString("url").lowercase().contains(q) || it.optString("folder").lowercase().contains(q) }
+        return l
+    }
+
+    private fun bmFolders(): List<String> = VaultStore.items("bm").map { it.optString("folder") }.filter { it.isNotEmpty() }.distinct().sorted()
+
+    private fun listPage() {
+        val a = act ?: return
+        page = "list"
+        val ui = shell(a)
+        val info = VaultScreen.tv(a, "", 12f, R.color.mg_text_dim)
+        if (selecting) {
+            ui.head.addView(topBar(a, "${sel.size} selected", listOf(
+                icon(a, R.drawable.ic_list, "Select all shown") { sel.addAll(vaultItems().map { it.optString("id") }); listPage() },
+                icon(a, R.drawable.ic_close, "Cancel selection") { selecting = false; sel.clear(); listPage() })), lp())
+        } else {
+            ui.head.addView(topBar(a, title(), listOf(icon(a, R.drawable.ic_add, "Add from browser", R.color.mg_primary) { pick(a) })), lp())
+        }
+        ui.head.addView(search(a, if (type == "bm") "Search bookmarks" else "Search history", query) { query = it; limit = PAGE; fill(a, ui, info) }, lp(dp(a, 8), MATCH, dp(a, 48)))
+        if (type == "bm" && bmFolders().isNotEmpty()) {
+            ui.head.addView(chips(a, listOf("All") + bmFolders(), chip) { chip = it; limit = PAGE; listPage() }, lp(dp(a, 4)))
+        }
+        if (type == "hist") {
+            ui.head.addView(VaultScreen.switchRow(a, "Send history to vault", "While the vault is open, new history moves here when you leave the app. Off by default.", VaultStore.histAuto(a)) { on ->
+                VaultStore.setHistAuto(a, on)
+                if (on) sweepHistory(a)
+            }.also { it.background = VaultScreen.box(a) }, lp(dp(a, 4)))
+        }
+        ui.head.addView(info, lp(dp(a, 6)))
+        fill(a, ui, info)
+        foot(a, ui)
+    }
+
+    private fun foot(a: Activity, ui: Ui) {
+        ui.foot.removeAllViews()
+        if (!selecting) { ui.foot.visibility = View.GONE; return }
+        ui.foot.visibility = View.VISIBLE
+        val r = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL }
+        val has = sel.isNotEmpty()
+        if (type == "bm") {
+            r.addView(VaultScreen.btn(a, "Restore", true) { restoreDialog(a) }.apply { isEnabled = has }, LinearLayout.LayoutParams(0, dp(a, 48), 1f).apply { marginEnd = dp(a, 6) })
+        }
+        r.addView(VaultScreen.btn(a, "Delete", false) { deleteDialog(a) }.apply { isEnabled = has }, LinearLayout.LayoutParams(0, dp(a, 48), 1f).apply { marginStart = if (type == "bm") dp(a, 6) else 0 })
+        ui.foot.addView(r, lp())
+    }
+
+    private fun fill(a: Activity, ui: Ui, info: TextView) {
+        ui.list.removeAllViews()
+        val all = VaultStore.items(type).size
+        val l = vaultItems()
+        info.text = (if (query.isBlank() && chip == 0) plural(all) else "${l.size} of ${plural(all)}") + " - sealed in " + VaultScreen.folderLabel(a)
+        if (l.isEmpty()) {
+            ui.list.addView(empty(a, if (all == 0) (if (type == "bm") "No bookmarks in the vault yet. Tap + to add some from the browser." else "No history in the vault yet. Tap + to add some from the browser.") else "Nothing matches."))
+            return
+        }
+        if (!selecting && all > 0) ui.list.addView(VaultScreen.tv(a, "Tap to open in a tab. Press and hold to select.", 12f, R.color.mg_text_dim), lp(dp(a, 4)))
+        var lastDay = -1L
+        for (o in l.take(limit)) {
+            val id = o.optString("id")
+            val t = o.optLong("time")
+            if (type == "hist") {
+                val dk = dayKey(t)
+                if (dk != lastDay) { lastDay = dk; ui.list.addView(header(a, dayLabel(t)), lp(dp(a, 16))) }
+            }
+            val host = Util.host(o.optString("url"))
+            val sub = if (type == "hist") clock(t) + " - " + host else (if (o.optString("folder").isNotEmpty()) o.optString("folder") + " - " else "") + host
+            val title = o.optString("title").ifBlank { host }
+            ui.list.addView(row(a, title, sub, if (selecting) sel.contains(id) else null, true, {
+                if (selecting) { if (!sel.add(id)) sel.remove(id); if (sel.isEmpty()) selecting = false; listPage() } else openInTab(a, o.optString("url"))
+            }, { if (!selecting) { selecting = true; sel.clear(); sel.add(id); listPage() } }), lp(dp(a, 8)))
+        }
+        if (l.size > limit) ui.list.addView(showMore(a, l.size - limit) { limit += PAGE; fill(a, ui, info) }, lp(dp(a, 8), MATCH, dp(a, 48)))
+    }
+
+    private fun openInTab(a: Activity, url: String) {
+        val tabs = BookmarksScreen.tabsRef
+        if (url.isEmpty() || tabs == null) { Util.toast(a, "Could not open it now"); return }
+        tabs.newTab(url)
+        VaultScreen.closeAll()
+    }
+
+    private fun deleteDialog(a: Activity) {
+        val n = sel.size
+        if (n == 0) return
+        MaterialAlertDialogBuilder(a).setTitle("Delete from vault?")
+            .setMessage("${plural(n)} will be deleted from the vault for good. Items you already restored to the browser are not affected.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Delete") { _, _ ->
+                val ids = ArrayList(sel)
+                bg.execute {
+                    for (id in ids) VaultStore.removeItem(a, id, false)
+                    val ok = sealed(a)
+                    main.post { if (dlg?.isShowing != true) return@post; selecting = false; sel.clear(); listPage(); bar(a, if (ok) "Deleted ${plural(n)}" else "Deleted, but the vault list could not save yet. It will retry.", null, null) }
+                }
+            }.show()
+    }
+
+    private fun restoreDialog(a: Activity) {
+        val n = sel.size
+        if (n == 0) return
+        MaterialAlertDialogBuilder(a).setTitle("Restore ${plural(n)}")
+            .setItems(arrayOf("Move back to the browser", "Copy to the browser (keep in vault)")) { _, which ->
+                val keep = which == 1
+                val ids = ArrayList(sel)
+                bg.execute {
+                    val r = restoreBookmarks(a, ids, keep)
+                    main.post {
+                        if (dlg?.isShowing != true) return@post
+                        selecting = false; sel.clear(); listPage()
+                        bar(a, if (r.ok) (if (keep) "Copied " else "Restored ") + plural(r.added) + " to the browser" else r.msg, null, null)
+                    }
+                }
+            }.setNegativeButton("Cancel", null).show()
+    }
+
+    // ---------- picker page: add from the browser ----------
+
+    private fun pick(a: Activity) {
+        pQuery = ""; pChip = 0; pSel.clear(); pLimit = PAGE
+        pSrc = emptyList()
+        pickerPage()
+        bg.execute {
+            val s = try { if (type == "bm") bmSources() else histSources() } catch (x: Exception) { emptyList() }
+            main.post { if (dlg?.isShowing == true && page == "pick") { pSrc = s; pickerPage() } }
+        }
+    }
+
+    private fun pKey(s: Src) = keyOf(type, s.e.url, s.e.time)
+
+    private fun pLabels(): List<String> =
+        if (type == "bm") listOf("All") + pSrc.map { it.e.folder }.filter { it.isNotEmpty() }.distinct().sorted()
+        else listOf("All", "Today", "Last 7 days", "Older than 30 days")
+
+    private fun pShown(): List<Src> {
+        var l = pSrc.filter { it.e.url.isNotEmpty() }
+        val labels = pLabels()
+        if (pChip > 0 && pChip < labels.size) {
+            val now = System.currentTimeMillis(); val today = dayKey(now)
+            l = when {
+                type == "bm" -> l.filter { it.e.folder == labels[pChip] }
+                pChip == 1 -> l.filter { it.e.time >= today }
+                pChip == 2 -> l.filter { it.e.time >= today - 6L * 86400000L }
+                else -> l.filter { it.e.time < now - 30L * 86400000L }
+            }
+        }
+        val q = pQuery.trim().lowercase()
+        if (q.isNotEmpty()) l = l.filter { it.e.title.lowercase().contains(q) || it.e.url.lowercase().contains(q) }
+        return if (type == "bm") l else l.sortedByDescending { it.e.time }
+    }
+
+    private fun pickerPage() {
+        val a = act ?: return
+        page = "pick"
+        val ui = shell(a)
+        val info = VaultScreen.tv(a, "", 12f, R.color.mg_text_dim)
+        ui.head.addView(topBar(a, "Add from browser", listOf(icon(a, R.drawable.ic_list, "Select all shown") {
+            val shown = pShown()
+            if (shown.isNotEmpty() && shown.all { pSel.contains(pKey(it)) }) shown.forEach { pSel.remove(pKey(it)) } else shown.forEach { pSel.add(pKey(it)) }
+            pickerPage()
+        })), lp())
+        ui.head.addView(search(a, if (type == "bm") "Search browser bookmarks" else "Search browser history", pQuery) { pQuery = it; pLimit = PAGE; pFill(a, ui, info) }, lp(dp(a, 8), MATCH, dp(a, 48)))
+        val labels = pLabels()
+        if (labels.size > 1) ui.head.addView(chips(a, labels, pChip) { pChip = it; pLimit = PAGE; pickerPage() }, lp(dp(a, 4)))
+        ui.head.addView(info, lp(dp(a, 6)))
+        pFill(a, ui, info)
+        val n = pSel.size
+        val r = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL }
+        r.addView(VaultScreen.btn(a, "Move to vault", true) { runAdd(a, true) }.apply { isEnabled = n > 0 }, LinearLayout.LayoutParams(0, dp(a, 48), 1f).apply { marginEnd = dp(a, 6) })
+        r.addView(VaultScreen.btn(a, "Copy to vault", false) { runAdd(a, false) }.apply { isEnabled = n > 0 }, LinearLayout.LayoutParams(0, dp(a, 48), 1f).apply { marginStart = dp(a, 6) })
+        ui.foot.addView(VaultScreen.tv(a, if (n == 0) "Nothing selected" else plural(n) + " selected", 12f, R.color.mg_text_dim), lp())
+        ui.foot.addView(r, lp(dp(a, 8)))
+    }
+
+    private fun pFill(a: Activity, ui: Ui, info: TextView) {
+        ui.list.removeAllViews()
+        val shown = pShown()
+        info.text = "Move removes the browser copy after the vault copy is saved and checked. Copy keeps both. Duplicates are merged."
+        if (shown.isEmpty()) { ui.list.addView(empty(a, if (pSrc.isEmpty()) "Loading, or nothing in the browser yet." else "Nothing matches.")); return }
+        var lastDay = -1L
+        for (s in shown.take(pLimit)) {
+            val key = pKey(s)
+            val host = Util.host(s.e.url)
+            if (type == "hist") { val dk = dayKey(s.e.time); if (dk != lastDay) { lastDay = dk; ui.list.addView(header(a, dayLabel(s.e.time)), lp(dp(a, 16))) } }
+            val sub = if (type == "hist") clock(s.e.time) + " - " + host else (if (s.e.folder.isNotEmpty()) s.e.folder + " - " else "") + host
+            ui.list.addView(row(a, s.e.title.ifBlank { host }, sub, pSel.contains(key), false, { if (!pSel.add(key)) pSel.remove(key); pickerPage() }, null), lp(dp(a, 8)))
+        }
+        if (shown.size > pLimit) ui.list.addView(showMore(a, shown.size - pLimit) { pLimit += PAGE; pFill(a, ui, info) }, lp(dp(a, 8), MATCH, dp(a, 48)))
+    }
+
+    private fun runAdd(a: Activity, move: Boolean) {
+        if (pSel.isEmpty()) return
+        if (move) {
+            MaterialAlertDialogBuilder(a).setTitle("Move to vault?")
+                .setMessage("${plural(pSel.size)} will be saved in the vault, checked, and then removed from the browser.")
+                .setNegativeButton("Cancel", null).setPositiveButton("Move") { _, _ -> doAdd(a, true) }.show()
+        } else doAdd(a, false)
+    }
+
+    private fun doAdd(a: Activity, move: Boolean) {
+        val chosen = pSrc.filter { pSel.contains(pKey(it)) }
+        val t = type
+        val ui = host?.let { shell(a) } ?: return
+        ui.list.addView(VaultScreen.tv(a, "Sealing ${plural(chosen.size)}...", 15f, R.color.mg_text_dim).apply { gravity = Gravity.CENTER }, lp(dp(a, 80)))
+        bg.execute {
+            val r = try { addToVault(a, t, chosen, move) } catch (x: Exception) { Result(false, msg = "Something went wrong. Nothing was removed from the browser.") }
+            main.post {
+                if (dlg?.isShowing != true) return@post
+                pSel.clear(); selecting = false; sel.clear(); query = ""; chip = 0
+                listPage()
+                if (!r.ok) { bar(a, r.msg, null, null); return@post }
+                val n = r.added + r.dup
+                val msg = (if (move) "Moved " else "Copied ") + plural(n) + " to the vault" + (if (r.dup > 0) " (${r.dup} already there)" else "")
+                if (move && t == "bm" && r.moved.isNotEmpty()) bar(a, msg, "Undo") { undoMove(a, r) } else bar(a, msg, null, null)
+            }
+        }
+    }
+
+    /** Undo of a bookmark move: put the originals back, verify, then drop only the vault copies this move created. */
+    private fun undoMove(a: Activity, r: Result) {
+        bg.execute {
+            var back = 0
+            for (e in r.moved) { try { ensureBookmark(e) } catch (x: Exception) { } if (Bookmarks.isBookmarked(e.url)) back++ }
+            if (back == r.moved.size) { for (id in r.newIds) VaultStore.removeItem(a, id, false); sealed(a) }
+            main.post {
+                if (dlg?.isShowing == true) { listPage(); bar(a, if (back == r.moved.size) "Undone" else "Could not undo everything. The vault copies were kept.", null, null) }
+                else Util.toast(a, if (back == r.moved.size) "Undone" else "Could not undo everything")
+            }
+        }
+    }
+}

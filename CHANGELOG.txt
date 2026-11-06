@@ -1,3 +1,17 @@
+0.0.190 (V5 BUILD: History in the vault)
+- VaultItems.kt: history list ("hist") grouped by day (11sp primary caps headers, time + host per row), search, multi-select, delete, open in tab. "Add from browser" picker for history: tap single entries, chips Today / Last 7 days / Older than 30 days / All, Select all shown, then Move or Copy. Same core as bookmarks: save in vault, flush, read back, THEN remove originals; duplicates (same url + time) merged.
+- Optional switch "Send history to vault" (off by default) at the top of the vault history list: while the vault is open, browser history is moved into it when the app is left (VaultStore.onAppStop -> VaultItems.sweepHistory, own thread, originals removed only after the vault copy is verified). No hook in Bookmarks.kt was needed. Private tabs never write to Bookmarks history, so nothing of them can reach the vault.
+- VaultStore.kt: histAuto / setHistAuto (prefs "mgb_vault", key hist_auto), one call in onAppStop.
+- Not in this step: restoring history into the browser (Bookmarks.addHistory cannot set the visit time, V10), "Move to vault" in the BookmarksScreen history menu (file not in the patch base, see HANDOFF NEXT), index compaction / size warning (V11).
+- app/build.gradle.kts: 0.0.190.
+
+0.0.189 (V4 BUILD: Bookmarks in the vault)
+- VaultItems.kt (new): shared vault list UI + move/copy core. Bookmarks list with search, folder chips, multi-select (press and hold), open in tab, Restore (move back / copy back), Delete. "Add from browser" picker (checkboxes, search, folder chips, Select all shown) with Move to vault / Copy to vault. Move = add to vault, flush, read back, THEN Bookmarks.removeBookmark; Copy keeps the original; duplicates by url merged; folder names kept (also in the vault folder list); Home pins untouched. Undo bar after a move (7 s).
+- VaultScreen.kt: Bookmarks and History tiles open the list (VaultItems.open); small helpers made internal (dp, box, tv, lp, btn, link, field, folderLabel, switchRow); closeAll(); refresh() also closes the list when the vault locked. Saved pages / Files tiles still show the toast.
+- VaultStore.kt: isSaved(); fix in flush: a change made while a save was running could be marked as saved (gen counter), so "dirty" is cleared only when nothing changed during the write.
+- Not touched: Vault.kt, PasswordStore, Bookmarks.kt, BookmarksScreen.kt (not in the patch base; the Move/Copy rows there are listed under NEXT in HANDOFF), MainActivity, SettingsScreen, CI.
+- app/build.gradle.kts: 0.0.189 (part of the combined 0.0.190 zip).
+
 0.0.188 (V3 BUILD: Vault shell UI)
 - VaultScreen.kt (new): full-screen Vault dialog. Create (intro -> pick folder -> passphrase with strength hint -> recovery key shown once with Copy / Share and an "I saved it" switch -> optional quick unlock), Unlock (passphrase, fingerprint / screen lock quick unlock, recovery key), "folder missing" page (pick again / forget folder, never creates a new vault), Home (seal ring, four category tiles with counts and sizes - still empty until V4-V7, quick-unlock + hide-from-recents switches, Lock now). Picking an existing vault folder on a fresh install goes to Unlock.
 - VaultStore.kt: quick unlock (DEK wrapped with the Keystore through the existing Vault helper, per install, cleared when the folder changes), hide-from-recents setting (default ON, FLAG_SECURE on the vault dialog).
