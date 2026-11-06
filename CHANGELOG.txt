@@ -1,3 +1,11 @@
+0.0.272 (C1 PARTIAL: social dock)
+- Why: switch between social sites like apps. Extras > switch "Social dock" (sm_dock, default OFF): slim row above the bottom bar on social tabs, one letter icon per site, tap = that site's tab or open it, red number = unread.
+- How: NEW SocialDock.kt (attach / refresh / sync, same place and style as GroupStrip). MainActivity: 4 one-line hooks (attach, scroll sync, onTabsChanged, onActiveChanged). SocialScreen switch + summary. SettingsScreen RESET + sm_dock. HowToUse phrase.
+- Files: SocialDock.kt (new), MainActivity.kt, SocialScreen.kt, SettingsScreen.kt, HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES.
+- Could break: with a group strip + dock + bar the stack takes more height on small screens; the row follows the bottom bar (hidden in full screen social tabs).
+- Not built: pinned sites without an open tab.
+- NOT tested: Gradle build (CI), device.
+
 0.0.271 (D4 PARTIAL: ask before leaving a social site)
 - Why: a tapped external link replaced the feed tab. Extras > switch "Ask before leaving a social site" (sm_ext, default OFF): a sheet offers Open in new tab (feed stays) / Open here / Cancel.
 - How: NEW SocialExt.kt (intercept + BottomSheetDialog, Facebook / Instagram link wrappers resolved with ?u=). TabManager.shouldOverrideUrlLoading: one line after SocialMode.blockApp. SocialScreen switch + summary. SettingsScreen RESET + sm_ext. HowToUse phrase.

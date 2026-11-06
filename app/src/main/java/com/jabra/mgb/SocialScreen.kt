@@ -213,6 +213,8 @@ object SocialScreen {
             tlTv = ((tlRow as LinearLayout).getChildAt(1) as LinearLayout).getChildAt(1) as TextView
             switchRow(extra, R.drawable.ic_info, "Data saver plus: no videos on mobile data", "On mobile data (or a Wi-Fi the phone marks as metered) video files are not downloaded on social sites. Wi-Fi is not touched. Some sites use video addresses that this cannot see",
                 null, { SocialSave2.on(act) }) { on -> SocialSave2.setOn(act, on) }
+            switchRow(extra, R.drawable.ic_info, "Social dock", "A slim row above the bottom bar on social tabs: one letter icon per site, tap = go to that site's tab (or open it), red number = unread. Hides with the bottom bar",
+                null, { SocialDock.on(act) }) { on -> SocialDock.setOn(act, on) } // 0.0.272 (C1)
             switchRow(extra, R.drawable.ic_info, "Ask before leaving a social site", "A tapped link to another site shows a small sheet: Open in new tab (the feed stays), Open here or Cancel. Facebook and Instagram link wrappers are looked through",
                 null, { SocialExt.on(act) }) { on -> SocialExt.setOn(act, on) } // 0.0.271 (D4)
             lateinit var mtTv: TextView // 0.0.267 (C6)
@@ -643,6 +645,7 @@ object SocialScreen {
                 .append(", data saver plus: ").append(yn(SocialSave2.on(act))).append(" (").append(SocialSave2.blocked).append(" videos blocked)")
                 .append(", muted words: ").append(SocialMute.count(act))
                 .append(", ask before leaving: ").append(yn(SocialExt.on(act)))
+                .append(", dock: ").append(yn(SocialDock.on(act)))
                 .append(", blur per site: ").append(SocialBlur.siteOverrides(act)).append(" own")
                 .append(", blur mode: ").append(SocialBlur.mode(act)).append(" (0 off, 1 flagged, 2 all), strength ").append(SocialBlur.px(act)).append(" px")
                 .append(", AI picture check: ").append(yn(SocialNsfw.on(act))).append(" level ").append(SocialNsfw.level(act))

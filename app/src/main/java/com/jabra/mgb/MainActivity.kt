@@ -87,7 +87,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         EngineHost.start(this) // S6 (A7b: safe twice, it starts once for the whole app): background.js engine (hidden WebView)
         tabs = TabManager(this, findViewById<FrameLayout>(R.id.web_container), this)
         if (shared) TabsApi.attach(tabs)
-        if (shared) { GroupStrip.attach(this, tabs); TabSwitcher.onChanged = { GroupStrip.refresh() } } // S13
+        if (shared) { GroupStrip.attach(this, tabs); SocialDock.attach(this, tabs); TabSwitcher.onChanged = { GroupStrip.refresh() } } // S13
         BookmarksScreen.tabsRef = tabs // S25
         if (shared) TabsApi.onNativePanel = { floating.openSheet() } // MGB S51: Grabber page button -> Files detected! panel
         window.decorView.post { DlMode.init(this) } // S54: Smart download buttons on first start
@@ -115,6 +115,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                 else if (acc < -Util.dp(this, 20) && barView.visibility != View.VISIBLE) barView.visibility = View.VISIBLE
             }
             GroupStrip.sync() // S13
+            SocialDock.sync() // 0.0.272 (C1)
         }
         floating = FloatingDl(this, findViewById<FrameLayout>(R.id.web_container).parent as FrameLayout, tabs) // S11
 
@@ -441,6 +442,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             btnTabs.animate().scaleX(1f).scaleY(1f).setInterpolator(android.view.animation.OvershootInterpolator(2f)).setDuration(260).start()
         }
         GroupStrip.refresh() // S13
+        SocialDock.refresh() // 0.0.272 (C1)
     }
 
     override fun onActiveChanged(tab: TabManager.Tab?) {
@@ -453,6 +455,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         SocialLock.check(this, tab) // 0.0.260 (D7)
         SocialBars.sync(this, tab) // 0.0.240 (A2)
         GroupStrip.refresh() // S13
+        SocialDock.refresh() // 0.0.272 (C1)
         floating.poke() // S11
     }
 
