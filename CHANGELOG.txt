@@ -1,3 +1,10 @@
+0.0.200 (V13 MODIFY: smoother Settings animation)
+- SettingsScreen.kt toggle(): the category accordion no longer uses Slide(TOP) (content flew in over the card above and janked on tall cards). Now cards glide with ChangeBounds 280 ms while content fades (out 110 ms, in 200 ms after 80 ms), one ease curve (0.2, 0, 0, 1); chevron rotates 260 ms with the same curve; scroll-to-card waits 300 ms.
+- SettingsScreen.kt: opening Settings uses a soft rise + fade window animation (new style MgbSettingsWindow); opening / leaving a sub-page (Downloads, Grabber) glides the body in from the side / back (glide()).
+- Reduce motion ON: no window animation, no transition, no glide, no rotate (same rule as before).
+- New files: res/anim/mgb_settings_in.xml, res/anim/mgb_settings_out.xml, res/values/mgb_settings_anim.xml.
+- NOT touched: logic, ids, handlers, other screens, Vault, CI.
+
 0.0.199 (V12c MODIFY: Vault integration polish)
 - CommandCenter.kt: new entry "Vault" (icon ic_vault, shows VaultScreen.summary) before Passwords; opens VaultScreen.
 - TabBookmarks.kt: "Bookmark all tabs" dialog gets a neutral button "To vault": copies the web tabs as vault bookmarks (folder = typed name) via VaultItems.addToVault(move=false). Needs the vault open, else a toast. Browser bookmarks are not touched.

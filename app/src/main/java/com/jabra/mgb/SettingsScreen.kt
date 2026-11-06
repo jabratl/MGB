@@ -16,7 +16,7 @@ import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.animation.ValueAnimator
 import android.transition.ChangeBounds
-import android.transition.Slide
+import android.transition.Fade
 import android.transition.TransitionSet
 import android.transition.TransitionManager
 import android.widget.FrameLayout
@@ -223,7 +223,19 @@ object SettingsScreen {
                 it.setLayout(MATCH, MATCH)
                 it.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
                 it.setBackgroundDrawable(ColorDrawable(act.getColor(R.color.mg_bg)))
+                if (!TabPrefs.reduce(act)) it.setWindowAnimations(R.style.MgbSettingsWindow) // V13: soft rise + fade, Reduce motion = none
             }
+        }
+
+        /** V13: the body glides in from the side (forward) or back; no motion when Reduce motion is ON. */
+        private fun glide(forward: Boolean) {
+            val col = body ?: return
+            if (TabPrefs.reduce(act)) return
+            col.animate().cancel()
+            col.alpha = 0f
+            col.translationX = dp(if (forward) 28 else -28).toFloat()
+            col.animate().alpha(1f).translationX(0f).setDuration(240)
+                .setInterpolator(android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f)).start()
         }
 
         private fun round(color: Int, r: Int) = GradientDrawable().apply {
@@ -642,6 +654,7 @@ object SettingsScreen {
             forceY = 0
             applyPage()
             fill()
+            glide(true) // V13
         }
 
         /** Back order: sub-page -> Settings -> close. */
@@ -651,6 +664,7 @@ object SettingsScreen {
                 forceY = savedY
                 applyPage()
                 fill()
+                glide(false) // V13
             } else dismiss()
         }
 
@@ -726,15 +740,16 @@ object SettingsScreen {
             val opening = openCat != key
             val calm = TabPrefs.reduce(act) // Step B: Reduce motion = no slide, no rotate animation
             if (!calm) try {
-                // one transition owns the layout change: card bounds + content slide (chevron uses its own rotate below)
-                val slide = Slide(Gravity.TOP)
-                for ((_, v) in cats) slide.addTarget(v.first)
+                // V13: one transition owns the layout change: cards glide (bounds) while the content fades (no flying slide)
+                val ease = android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f)
+                val fadeIn = Fade(Fade.IN).apply { duration = 200; startDelay = 80; interpolator = ease }
+                val fadeOut = Fade(Fade.OUT).apply { duration = 110; interpolator = ease }
+                for ((_, v) in cats) { fadeIn.addTarget(v.first); fadeOut.addTarget(v.first) }
                 val ts = TransitionSet().apply {
                     ordering = TransitionSet.ORDERING_TOGETHER
-                    addTransition(ChangeBounds())
-                    addTransition(slide)
-                    duration = 220
-                    interpolator = android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f)
+                    addTransition(ChangeBounds().apply { duration = 280; interpolator = ease })
+                    addTransition(fadeOut)
+                    addTransition(fadeIn)
                 }
                 TransitionManager.beginDelayedTransition(col, ts)
             } catch (_: Exception) { }
@@ -744,11 +759,11 @@ object SettingsScreen {
                 v.first.visibility = if (show) View.VISIBLE else View.GONE
                 val deg = if (show) 90f else 0f
                 v.second.animate().cancel()
-                if (calm) v.second.rotation = deg else v.second.animate().rotation(deg).setDuration(220).start()
+                if (calm) v.second.rotation = deg else v.second.animate().rotation(deg).setDuration(260).setInterpolator(android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f)).start()
             }
             if (opening) card.postDelayed({
                 sv?.smoothScrollTo(0, (card.top - dp(8)).coerceAtLeast(0))
-            }, if (calm) 0L else 240L)
+            }, if (calm) 0L else 300L)
         }
 
         private fun hideBar(): Boolean =
