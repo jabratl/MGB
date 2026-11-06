@@ -166,6 +166,8 @@ object SocialScreen {
                 null, { SocialMode.barsOn(act) }) { on -> SocialMode.setBarsOn(act, on); SocialBars.sync(act, BookmarksScreen.tabsRef?.active) }
             switchRow(extra, R.drawable.ic_shield, "Ask before closing a social tab", "On the first page of a social site, Back shows \"Press Back again to close\" so one slip does not close your feed",
                 null, { SocialMode.backOn(act) }) { on -> SocialMode.setBackOn(act, on) }
+            switchRow(extra, R.drawable.ic_screen, "Bigger buttons (Reddit, X, LinkedIn)", "Makes the small like / reply / vote buttons at least 44 px so they are easy to hit (experimental, applies from the next page load)",
+                null, { SocialMode.bigOn(act) }) { on -> SocialMode.setBigOn(act, on) }
             switchRow(extra, R.drawable.ic_screen, "Splash when opening from a shortcut", "Shows the site letter and name for a moment when a home-screen shortcut opens it (off with Reduce motion)",
                 null, { SocialMode.splashOn(act) }) { on -> SocialMode.setSplashOn(act, on) }
             col.addView(extra, LinearLayout.LayoutParams(MATCH, WRAP))

@@ -82,6 +82,10 @@ object SocialMode {
     private const val K_KB = "sm_kb"
     fun kbOn(c: Context): Boolean = sp(c).getBoolean(K_KB, true)
     fun setKbOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_KB, v).apply() }
+    // 0.0.245 (A5): bigger touch targets on Reddit / X / LinkedIn (default OFF: selectors are assumptions)
+    private const val K_BIG = "sm_big"
+    fun bigOn(c: Context): Boolean = sp(c).getBoolean(K_BIG, false)
+    fun setBigOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_BIG, v).apply() }
 
     /** Per-site switch (0.0.228, P4): thin wrappers over SocialProfiles (key sm_s_<id>, not set = ON). */
     fun siteOn(c: Context, id: String): Boolean = SocialProfiles.siteOn(c, id)
@@ -254,7 +258,7 @@ object SocialMode {
             Kind.NONE -> return
         }
         if (intOn(ctx)) view.evaluateJavascript(if (again) "window.__mgSi=0;" + INTERSTITIAL_JS else INTERSTITIAL_JS, null) // 0.0.237 (U3)
-        val css = ((p?.css ?: "") + " " + (if (p != null) SocialProfiles.fixCss(ctx, p.id) else "")).trim() // 0.0.236 (U2): built-in + Site fix
+        val css = ((p?.css ?: "") + " " + (if (p != null && bigOn(ctx)) SocialProfiles.bigCss(p.id) else "") + " " + (if (p != null) SocialProfiles.fixCss(ctx, p.id) else "")).trim() // 0.0.236 (U2): built-in + 0.0.245 (A5) big targets + Site fix (last = wins)
         if (css.isNotEmpty()) view.evaluateJavascript(cssJs(css), null)
         SocialBlur.inject(ctx, view, p?.id) // 0.0.229 (P5): sensitive-media blur (mode OFF = only removes an old blur)
         SocialBadge.injectSaver(ctx, view) // 0.0.231 (P7): data saver (switch OFF = nothing)
