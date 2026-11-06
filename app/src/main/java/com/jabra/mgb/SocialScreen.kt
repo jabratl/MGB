@@ -158,6 +158,8 @@ object SocialScreen {
                 null, { SocialBadge.badgeOn(act) }) { on -> SocialBadge.setBadgeOn(act, on) }
             switchRow(extra, R.drawable.ic_shield, "Data saver", "Stops video autoplay on social pages (applies from the next page load)",
                 null, { SocialBadge.saveOn(act) }) { on -> SocialBadge.setSaveOn(act, on) }
+            switchRow(extra, R.drawable.ic_shield, "Skip \"Use the app\" screens", "Taps \"Staying in the browser\" or \"Not now\" on a full-screen app nag (applies from the next page load)",
+                null, { SocialMode.intOn(act) }) { on -> SocialMode.setIntOn(act, on) }
             col.addView(extra, LinearLayout.LayoutParams(MATCH, WRAP))
             siteRows.add(extra)
 

@@ -27,7 +27,7 @@ import java.util.WeakHashMap
  *  - A small script hides the "Open app / Use the app / Get Messenger" banner (fixed bar, found by its text).
  * Not possible in a browser: background notifications / push (that is what the real Lite app has).
  * Hooks in TabManager: shouldOverrideUrlLoading (ensure, blockApp), onPageStarted (ensure), onProgressChanged + onPageFinished (inject),
- * doUpdateVisitedHistory (onRoute, 0.0.235: in-page navigation such as pushState on Facebook / Instagram / Reddit / X).
+ * doUpdateVisitedHistory (onRoute; 0.0.237 U3: INTERSTITIAL_JS in inject, 0.0.235: in-page navigation such as pushState on Facebook / Instagram / Reddit / X).
  * 0.0.236: a per-site "Site fix" (extra banner texts + CSS, SocialProfiles.fixWords / fixCss) is added to the built-in ones.
  */
 object SocialMode {
@@ -54,6 +54,11 @@ object SocialMode {
         val cm = profileName(c, tabUrl)?.let { ProfileStore.getInstance().getProfile(it)?.cookieManager }
         (cm ?: CookieManager.getInstance()).getCookie(u)
     } catch (_: Throwable) { null }
+
+    /** 0.0.237 (U3): "Skip Use-the-app screens" (default ON; only does something while Social sites is ON). */
+    private const val K_INT = "sm_int"
+    fun intOn(c: Context): Boolean = sp(c).getBoolean(K_INT, true)
+    fun setIntOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_INT, v).apply() }
 
     /** Per-site switch (0.0.228, P4): thin wrappers over SocialProfiles (key sm_s_<id>, not set = ON). */
     fun siteOn(c: Context, id: String): Boolean = SocialProfiles.siteOn(c, id)
@@ -162,6 +167,26 @@ object SocialMode {
         }
     }
 
+    // 0.0.237 (U3): full-screen "Use the app / Chats on mobile browsers are not available" screen: clicks "Staying in the browser" / "Not now" for you.
+    // Only when ALL are true: a big fixed / dialog layer (>= 40 % of the screen), its text names an app / says not available in browsers,
+    // it has no password field, and the button text is one of the dismiss texts (a bare "Continue" is never clicked). Max 3 clicks, scans 40 s.
+    private const val INTERSTITIAL_JS =
+        "(function(){try{" +
+        "if(window.__mgSi)return;window.__mgSi=1;" +
+        "var warn=/(use|get|open|go to|install|download) (the |our )?([a-z]+ )?app|not available (on|in) (mobile )?(web )?browsers?|chats? on mobile browsers|only available (in|on) (the )?app|isn.t available (on|in)|keep chatting/i;" +
+        "var skip=/^(staying in the browser|stay in (the )?browser|continue in (the )?browser|continue on (the )?(web|mobile web|browser)|continue to (the )?(mobile )?(web)?site|use (the )?(mobile )?(web|browser|site)|not now|maybe later|no,? thanks|skip)$/i;" +
+        "var n=0,clicks=0;" +
+        "var big=function(e){var p=e;for(var d=0;d<10&&p&&p!==document.body;d++,p=p.parentElement){var cs=getComputedStyle(p);" +
+        "if(cs.position==='fixed'||cs.position==='sticky'||p.getAttribute('role')==='dialog'||p.getAttribute('aria-modal')==='true'){var r=p.getBoundingClientRect();" +
+        "if(r.width*r.height>=window.innerWidth*window.innerHeight*0.4)return p;}}return null;};" +
+        "var scan=function(){if(clicks>=3)return;var l=document.querySelectorAll('a,button,[role=button]');" +
+        "for(var i=0;i<l.length;i++){var e=l[i];if(e.__mgi)continue;var t=(e.textContent||'').trim();if(t.length>40||!skip.test(t))continue;" +
+        "var o=big(e);if(!o)continue;if(o.querySelector('input[type=password]'))continue;" +
+        "if(!warn.test((o.innerText||'').slice(0,600)))continue;" +
+        "e.__mgi=1;clicks++;e.click();return;}};" +
+        "scan();var iv=setInterval(function(){scan();if(++n>40||clicks>=3)clearInterval(iv);},1000);" +
+        "}catch(e){}})();"
+
     // Site CSS (0.0.226): one <style> element, guarded by its id, no loop.
     private fun cssJs(css: String): String {
         val q = css.replace("\\", "\\\\").replace("'", "\\'")
@@ -178,6 +203,7 @@ object SocialMode {
             Kind.FEED, Kind.INSTA -> view.evaluateJavascript(bannerJs(p?.appWords ?: emptyList(), if (p != null) SocialProfiles.fixWords(ctx, p.id) else emptyList(), again), null)
             Kind.NONE -> return
         }
+        if (intOn(ctx)) view.evaluateJavascript(if (again) "window.__mgSi=0;" + INTERSTITIAL_JS else INTERSTITIAL_JS, null) // 0.0.237 (U3)
         val css = ((p?.css ?: "") + " " + (if (p != null) SocialProfiles.fixCss(ctx, p.id) else "")).trim() // 0.0.236 (U2): built-in + Site fix
         if (css.isNotEmpty()) view.evaluateJavascript(cssJs(css), null)
         SocialBlur.inject(ctx, view, p?.id) // 0.0.229 (P5): sensitive-media blur (mode OFF = only removes an old blur)
