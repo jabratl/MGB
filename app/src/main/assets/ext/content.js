@@ -618,6 +618,11 @@
     return draw(im);
   }
   chrome.runtime.onMessage.addListener((msg, sender, respond) => {
+    if (msg && !IS_TOP && (msg.type === 'fetch-text-frame' || msg.type === 'fetch-bin-frame')) { // V77a: the video player usually lives in a cross-origin iframe; only a frame that can really read the url answers (a failure stays silent so another frame can win)
+      fetch(msg.url, { credentials: 'include', ...(msg.range ? { headers: { Range: msg.range } } : {}) }).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return msg.type === 'fetch-text-frame' ? r.text().then((text) => ({ ok: true, text })) : r.blob().then(toDataUrl).then((d) => ({ ok: true, b64: String(d).split(',')[1] || '' })); })
+        .then((x) => respond(x)).catch(() => respond(null));
+      return true;
+    }
     if (!msg || !IS_TOP) return;
     if (msg.type === 'mg-fetch') {
       fetch(msg.url, { credentials: 'include' }).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })

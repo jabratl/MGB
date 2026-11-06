@@ -38,6 +38,13 @@ RULES (every step): new logic in new file, 1-3 line hooks; new pref default = ol
 Checks available: node --check changed .js, brace balance, single-match patches, duplicate ids, JSON valid. NOT possible in sandbox: Gradle (CI), device render.
 
 LOG (newest first)
+A10 | 0.0.220 | FIX (owner asked; HANDOFF said extension bridge untouchable: not touched, only content.js + background.js of the V77 ext + TabsApi read). Files: assets/ext/content.js, assets/ext/background.js, build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+   Root cause: animepahe player = kwik.cx iframe; owocdn CDN gives 403 to the engine; fallback "page reads it" used executeScript(allFrames) = main frame only + content.js ignores sub-frames -> only animepahe.pw tried -> "Failed to fetch" -> 403.
+   Fix: content.js sub-frame handler for fetch-text-frame / fetch-bin-frame; background.js pageFetchAll / pageFetchBin call old code first, then tabs.sendMessage to all frames (empty answers are skipped by TabsApi.fanOut).
+   Checked: node --check content.js + background.js OK; single-match patches; no new pref / UI / ids.
+   NOT tested: Gradle build (CI); device; real animepahe download; whether ChromeBridge ends a tabs.sendMessage with null when no frame answers (my 9 s / 15 s timeout covers it); large segments through base64 message.
+   Reasoned only: sub-frame content script exists (manifest all_frames true) and fetch there carries kwik.cx origin + cookies like the player; the exact reason for the first 403 (TLS / cookie / header) is NOT proven.
+   NEXT (not touched): rotate the recorded per-host rule too (downloader.js applyGeneric / setupRecordedHeaders); log which frame answered; executeScript with allFrames in TabsApi.
 A9 | 0.0.219 | FIX (owner asked; HANDOFF said Vault* untouchable, this prompt wins). Files: VaultItems.kt, build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
    Root cause: folder chip = list position; Restore / Delete emptied the folder, chip stayed > 0, bmFolders()[chip - 1] crashed (VaultItems.kt:349).
    Fix: fixChip() + chipName (chip follows folder name, else All) + getOrNull. Added "Unhide all (N)" (+ Undo) in the hide row.

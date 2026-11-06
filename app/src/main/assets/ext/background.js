@@ -225,7 +225,7 @@ function pageFetchTop(tabId, url, ms = 9000) { // fallback: let the page itself 
   });
 }
 // V73b: the same, but asked in EVERY frame of the tab (the video player usually lives in an iframe with its own origin / cookies, which the top page cannot copy)
-async function pageFetchAll(tabId, url, ms = 9000) {
+async function pageFetchAll0(tabId, url, ms = 9000) {
   const run = chrome.scripting.executeScript({ target: { tabId, allFrames: true }, args: [url], func: async (u) => { try { const r = await fetch(u, { credentials: 'include' }); if (!r.ok) return { ok: false, err: 'HTTP ' + r.status }; return { ok: true, text: await r.text() }; } catch (e) { return { ok: false, err: String((e && e.message) || e) }; } } });
   const res = await Promise.race([run, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
   const hit = (res || []).map((x) => x && x.result).find((x) => x && x.ok && x.text);
@@ -234,13 +234,27 @@ async function pageFetchAll(tabId, url, ms = 9000) {
   throw new Error(bad || 'no frame could read it');
 }
 // V74n: the same for a media SEGMENT (bytes, not text): some CDNs answer 403 to every header the extension can fake, but not to the player's own frame
-async function pageFetchBin(tabId, url, range, ms = 15000) {
+async function pageFetchBin0(tabId, url, range, ms = 15000) {
   const run = chrome.scripting.executeScript({ target: { tabId, allFrames: true }, args: [url, range || ''], func: async (u, rng) => { try { const r = await fetch(u, { credentials: 'include', ...(rng ? { headers: { Range: rng } } : {}) }); if (!r.ok) return { ok: false, err: 'HTTP ' + r.status }; const b = new Uint8Array(await r.arrayBuffer()); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return { ok: true, b64: btoa(s) }; } catch (e) { return { ok: false, err: String((e && e.message) || e) }; } } });
   const res = await Promise.race([run, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
   const hit = (res || []).map((x) => x && x.result).find((x) => x && x.ok && x.b64);
   if (hit) return hit.b64;
   const bad = (res || []).map((x) => x && x.result && x.result.err).find(Boolean);
   throw new Error(bad || 'no frame could read it');
+}
+// V77a: scripting.executeScript only reaches the MAIN frame in MGB, so the player iframe (e.g. kwik.cx) was never asked. content.js of every frame answers fetch-text-frame / fetch-bin-frame (first real answer wins).
+async function askFrames(tabId, type, url, range, ms) {
+  const r = await Promise.race([chrome.tabs.sendMessage(tabId, { type, url, range: range || '' }), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+  if (r && r.ok) return r;
+  throw new Error('no frame could read it');
+}
+async function pageFetchAll(tabId, url, ms = 9000) {
+  try { return await pageFetchAll0(tabId, url, ms); }
+  catch (e0) { try { const r = await askFrames(tabId, 'fetch-text-frame', url, '', ms); dbg('net', 'playlist read by a player frame'); return r.text; } catch (e1) { throw e0; } }
+}
+async function pageFetchBin(tabId, url, range, ms = 15000) {
+  try { return await pageFetchBin0(tabId, url, range, ms); }
+  catch (e0) { try { const r = await askFrames(tabId, 'fetch-bin-frame', url, range, ms); if (r.b64) return r.b64; } catch (e1) { /* keep first error */ } throw e0; }
 }
 async function pageFetch(tabId, url, ms = 9000) { // chain: top page -> every frame of the tab
   try { return await pageFetchTop(tabId, url, ms); } catch (e1) { dbg('net', 'top page could not read the playlist (' + (e1.message || e1) + '), asking every frame'); return await pageFetchAll(tabId, url, ms); }
