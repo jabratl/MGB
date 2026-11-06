@@ -7,7 +7,7 @@ import android.webkit.WebView
 import java.util.WeakHashMap
 
 /**
- * SOCIAL MODE (0.0.224; 0.0.225: sites come from SocialProfiles.kt, per-site switch sm_s_<id>; 0.0.226-227: banner words + CSS per site, more rows): Facebook, Messenger chat and Instagram in a normal tab, without the Desktop site switch.
+ * SOCIAL MODE (0.0.224; 0.0.225: sites come from SocialProfiles.kt, per-site switch sm_s_<id>; 0.0.226-227: banner words + CSS per site, more rows; 0.0.229: media blur via SocialBlur): Facebook, Messenger chat and Instagram in a normal tab, without the Desktop site switch.
  *
  * Why it is needed: Facebook's mobile site has no chat (it sends you to the Messenger app), and Facebook / Instagram show
  * "Open app" banners and app redirects. The real chat only opens for a desktop user agent, but a desktop page is tiny on a phone.
@@ -148,6 +148,7 @@ object SocialMode {
             Kind.NONE -> return
         }
         if (p != null && p.css.isNotEmpty()) view.evaluateJavascript(cssJs(p.css), null)
+        SocialBlur.inject(ctx, view, p?.id) // 0.0.229 (P5): sensitive-media blur (mode OFF = only removes an old blur)
     }
 
     /** Command Center shortcut: switch Social mode ON (the person asked for a social page) and open it in a new tab. */

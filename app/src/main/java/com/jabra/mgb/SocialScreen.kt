@@ -16,6 +16,8 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.SeekBar
+import android.content.res.ColorStateList
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.graphics.ColorUtils
@@ -136,6 +138,11 @@ object SocialScreen {
                 null, { SocialMode.on(act) }) { on -> SocialMode.setOn(act, on); applyDim() }
             col.addView(master, LinearLayout.LayoutParams(MATCH, WRAP))
 
+            col.addView(sectionLabel("Sensitive media"))
+            val blur = blurCard()
+            col.addView(blur, LinearLayout.LayoutParams(MATCH, WRAP))
+            siteRows.add(blur)
+
             val feeds = SocialProfiles.all.filter { it.defaultKind != SocialMode.Kind.CHAT }
             val chats = SocialProfiles.all.filter { it.defaultKind == SocialMode.Kind.CHAT }
             for ((title, list) in listOf("Feed sites" to feeds, "Chat sites (desktop page, fits the phone)" to chats)) {
@@ -164,6 +171,77 @@ object SocialScreen {
             }, LinearLayout.LayoutParams(MATCH, WRAP))
             col.addView(info, LinearLayout.LayoutParams(MATCH, WRAP))
             applyDim()
+        }
+
+        /** 0.0.229 (P5): blur card = 3 choices (Off / Flagged only / All until tap) + strength slider 4..24 px. Prefs: SocialBlur. */
+        private fun blurCard(): LinearLayout {
+            val c = card()
+            val seg = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(10), dp(8), dp(10), dp(4)) }
+            val labels = listOf("Off", "Flagged only", "All until tap")
+            val chips = ArrayList<TextView>()
+            fun paint() {
+                val m = SocialBlur.mode(act)
+                for ((i, t) in chips.withIndex()) {
+                    val sel = i == m
+                    t.setTextColor(act.getColor(if (sel) R.color.mg_on_primary else R.color.mg_text))
+                    t.background = round(act.getColor(if (sel) R.color.mg_primary else R.color.mg_surface_variant), 14, 1f,
+                        act.getColor(if (sel) R.color.mg_primary else R.color.mg_outline))
+                    t.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                }
+            }
+            for ((i, l) in labels.withIndex()) {
+                val t = TextView(act).apply {
+                    text = l
+                    textSize = 12f
+                    maxLines = 1
+                    gravity = Gravity.CENTER
+                    isClickable = true
+                    contentDescription = "Blur: $l"
+                    setPadding(dp(4), 0, dp(4), 0)
+                    setOnClickListener {
+                        it.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                        SocialBlur.setMode(act, i)
+                        paint()
+                    }
+                }
+                chips.add(t)
+                seg.addView(t, LinearLayout.LayoutParams(0, dp(44), 1f).apply { if (i > 0) marginStart = dp(6) })
+            }
+            paint()
+            c.addView(seg, LinearLayout.LayoutParams(MATCH, WRAP))
+            c.addView(TextView(act).apply {
+                text = "Flagged only: media the site marks as NSFW / sensitive, or whose post says so. All until tap: every picture and " +
+                    "video. Tap an item to show it; Reveal all shows the rest. Small pictures (avatars) stay clear."
+                textSize = 12f
+                setTextColor(act.getColor(R.color.mg_text_dim))
+                setPadding(dp(16), dp(4), dp(16), dp(4))
+            }, LinearLayout.LayoutParams(MATCH, WRAP))
+            val lab = TextView(act).apply {
+                textSize = 13f
+                setTextColor(act.getColor(R.color.mg_text))
+                setPadding(dp(16), dp(6), dp(16), 0)
+            }
+            fun setLab() { lab.text = "Blur strength: " + SocialBlur.px(act) + " px" }
+            setLab()
+            c.addView(lab, LinearLayout.LayoutParams(MATCH, WRAP))
+            val tint = ColorStateList.valueOf(act.getColor(R.color.mg_toggle_on))
+            c.addView(SeekBar(act).apply {
+                max = 20 // 4..24 px
+                progress = SocialBlur.px(act) - 4
+                progressTintList = tint
+                thumbTintList = tint
+                contentDescription = "Blur strength"
+                setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
+                        if (!fromUser) return
+                        SocialBlur.setPx(act, p + 4)
+                        setLab()
+                    }
+                    override fun onStartTrackingTouch(sb: SeekBar?) { }
+                    override fun onStopTrackingTouch(sb: SeekBar?) { }
+                })
+            }, LinearLayout.LayoutParams(MATCH, dp(48)).apply { setMargins(dp(12), 0, dp(12), dp(4)) })
+            return c
         }
 
         private fun hintOf(p: SocialProfiles.Profile): String = when {
