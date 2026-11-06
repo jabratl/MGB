@@ -203,7 +203,7 @@ object VaultFiles {
     private val cancel = java.util.concurrent.atomic.AtomicBoolean(false)
     private class Cancelled : Exception()
 
-    private fun safeName(n: String): String {
+    internal fun safeName(n: String): String {
         val x = n.substringAfterLast('/').replace(Regex("[^A-Za-z0-9._ ()\\-]"), "_").trim().take(100)
         return if (x.isEmpty() || x == "." || x == "..") "file" else x
     }

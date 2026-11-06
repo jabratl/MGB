@@ -454,6 +454,50 @@ object VaultStore {
         } catch (e: Exception) { }
     }
 
+    // ---------- V9: wipe ----------
+
+    /** V9: forget every bookmark folder name in the index (used when the bookmarks category is deleted). */
+    fun clearFolders(c: Context) {
+        synchronized(this) { val a = index?.optJSONArray("folders") ?: return; while (a.length() > 0) a.remove(0) }
+        saveSoon(c)
+    }
+
+    private fun kids(c: Context, tree: Uri, parent: Uri): List<Uri> {
+        val out = ArrayList<Uri>()
+        val q = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getDocumentId(parent))
+        c.contentResolver.query(q, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID), null, null, null)?.use { while (it.moveToNext()) out.add(DocumentsContract.buildDocumentUriUsingTree(tree, it.getString(0))) }
+        return out
+    }
+
+    /** Best effort overwrite with zeros before delete (not every provider allows "rw"; the vault key wrap is destroyed with vault.hdr anyway). */
+    private fun zero(c: Context, uri: Uri) {
+        try {
+            val len = c.contentResolver.query(uri, arrayOf(DocumentsContract.Document.COLUMN_SIZE), null, null, null)?.use { if (it.moveToFirst()) it.getLong(0) else 0L } ?: 0L
+            if (len <= 0L || len > 64L * 1048576L) return
+            c.contentResolver.openOutputStream(uri, "rw")?.use { o -> val z = ByteArray(8192); var left = len; while (left > 0) { val n = minOf(left, z.size.toLong()).toInt(); o.write(z, 0, n); left -= n }; o.flush() }
+        } catch (e: Exception) { }
+    }
+
+    /**
+     * V9 BLOCKING. Destroys the vault in the bound folder: d/ blobs, index files, then vault.hdr LAST (zero-filled first), then forgets the folder.
+     * Without vault.hdr no key can be derived, so any blob a provider failed to delete is unreadable. Returns null when vault.hdr is gone, else a user text.
+     */
+    fun wipeAll(c: Context): String? {
+        val app = c.applicationContext
+        val tree = treeUri(app) ?: return "No vault folder is set."
+        pending?.cancel(false); dirty = false; gen++
+        lock(app)
+        try {
+            val root = rootDoc(tree)
+            child(app, tree, root, DATA)?.let { d -> for (k in kids(app, tree, d.uri)) del(app, k); del(app, d.uri) }
+            for (n in listOf(IDX, IDX_BAK, IDX_TMP)) child(app, tree, root, n)?.let { zero(app, it.uri); del(app, it.uri) }
+            child(app, tree, root, HDR)?.let { zero(app, it.uri); del(app, it.uri) }
+            if (child(app, tree, root, HDR) != null) return "vault.hdr could not be removed. Delete the vault folder in your file manager."
+        } catch (e: Exception) { return "The vault could not be removed completely. Delete the vault folder in your file manager." }
+        unbind(app)
+        return null
+    }
+
     /** Positional reads over a SAF file descriptor (needs a file-backed provider; internal/SD storage folders are). */
     private class SafSource(c: Context, uri: Uri) : RandomSource {
         private val pfd = c.contentResolver.openFileDescriptor(uri, "r") ?: throw IOException("cannot open blob")

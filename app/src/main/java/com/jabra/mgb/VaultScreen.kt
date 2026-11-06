@@ -91,6 +91,7 @@ object VaultScreen {
     /** MainActivity.onStart calls this after VaultStore.onAppStart: if the vault auto-locked while the screen is open, show the unlock page. */
     fun refresh() {
         VaultItems.refresh() // V4: a locked vault must not leave its list open
+        VaultExit.refresh() // V9
         if (dlg?.isShowing != true) return
         if (screen == "home" && !VaultStore.isUnlocked()) unlockView()
     }
@@ -520,6 +521,9 @@ object VaultScreen {
             })
             c.addView(card, lp(dp(a, 8)))
             c.addView(btn(a, "Lock now", false) { lockNow(a) }, lp(dp(a, 20), MATCH, dp(a, 48)))
+            c.addView(btn(a, "Exit vault / Prepare for uninstall", false) { // V9
+                VaultExit.open(a) { if (dlg?.isShowing == true) bg.execute { val st = VaultStore.check(a); main.post { if (dlg?.isShowing == true) render(st) } } }
+            }, lp(dp(a, 8), MATCH, dp(a, 48)))
         }
     }
 
