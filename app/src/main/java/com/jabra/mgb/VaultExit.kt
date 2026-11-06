@@ -32,7 +32,7 @@ import java.util.Locale
  * Pages: choose (per category KEEP | EXPORT | DELETE, default KEEP) -> review (export folder, "remove vault copy after verified export", optional
  * wipe of the whole vault, typed word DELETE when anything is destroyed) -> run (progress, Cancel between items) -> report.
  * KEEP = nothing happens, the encrypted vault folder stays. EXPORT = readable copy in <picked folder>/ThazirVault-export-<date>/ (bookmarks.html,
- * history.csv, pages/*.mht, files/<original names>); the vault copy stays unless the switch says to remove it after the copy was written and checked.
+ * history.csv, pages/<title>.mht, files/<original names>); the vault copy stays unless the switch says to remove it after the copy was written and checked.
  * DELETE = items + blobs removed from the vault, index saved, then verified. WIPE = VaultStore.wipeAll (vault.hdr removed last, folder forgotten).
  * Never touches the normal Downloads folder, saved pages or bookmarks of the browser, or any non-vault file. The export folder must not be the vault folder.
  * State lives in this object (rotation safe, the dialog is rebuilt on each page).
@@ -239,7 +239,8 @@ object VaultExit {
         for (l in rep) list.addView(VaultScreen.tv(a, l, 14f, R.color.mg_text), lp(dp(a, 10)))
         if (wiped) list.addView(VaultScreen.tv(a, "The vault was removed. You can uninstall the app now.", 14f, R.color.mg_primary, true), lp(dp(a, 20)))
         else list.addView(VaultScreen.tv(a, "Whatever you chose to keep is still sealed in " + VaultScreen.folderLabel(a) + ".", 13f, R.color.mg_text_dim), lp(dp(a, 20)))
-        foot.addView(VaultScreen.btn(a, "Close", true) { dlg?.dismiss() }, lp(0, MATCH, dp(a, 48)))
+        foot.addView(VaultScreen.btn(a, "Uninstall Thazir...", false) { VaultRestore.uninstall(a) }, lp(0, MATCH, dp(a, 48))) // V10
+        foot.addView(VaultScreen.btn(a, "Close", true) { dlg?.dismiss() }, lp(dp(a, 8), MATCH, dp(a, 48)))
     }
 
     // ---------- the work (BLOCKING, background thread) ----------

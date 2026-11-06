@@ -55,6 +55,7 @@ object VaultScreen {
     private var host: FrameLayout? = null
     private var act: Activity? = null
     private var screen = ""
+    private var offerRestore = false // V10: set when an existing vault was opened from its folder; the restore page opens after unlock
 
     /** Short state text for the menu / settings row. */
     fun summary(c: Context): String = when (VaultStore.state(c)) {
@@ -92,6 +93,7 @@ object VaultScreen {
     fun refresh() {
         VaultItems.refresh() // V4: a locked vault must not leave its list open
         VaultExit.refresh() // V9
+        VaultRestore.refresh() // V10
         if (dlg?.isShowing != true) return
         if (screen == "home" && !VaultStore.isUnlocked()) unlockView()
     }
@@ -231,6 +233,8 @@ object VaultScreen {
             c.addView(tv(a, "The folder stays on your phone after app updates and even after you uninstall Thazir. Before uninstalling you can choose what to keep and what to delete forever.", 14f, R.color.mg_text_dim).apply { setLineSpacing(0f, 1.15f) }, lp(dp(a, 12)))
             c.addView(tv(a, "Tip: create a new folder (for example ThazirVault) and pick it. Android does not allow the main Downloads or Documents folder.", 13f, R.color.mg_text_dim).apply { setLineSpacing(0f, 1.15f) }, lp(dp(a, 12)))
             c.addView(btn(a, "Choose vault folder") { pickFolder(a) }, lp(dp(a, 24), MATCH, dp(a, 48)))
+            c.addView(tv(a, "Reinstalled Thazir? Your old vault folder still has everything.", 13f, R.color.mg_text_dim).apply { setLineSpacing(0f, 1.15f) }, lp(dp(a, 20)))
+            c.addView(btn(a, "I already have a vault", false) { pickExisting(a) }, lp(dp(a, 8), MATCH, dp(a, 48)))
             c.addView(link(a, "Close") { close() }, lp(dp(a, 8), MATCH, dp(a, 48)))
         }
     }
@@ -246,12 +250,42 @@ object VaultScreen {
                     if (dlg?.isShowing != true) return@post
                     when {
                         !ok -> { Util.toast(a, VaultStore.lastError); render(VaultStore.state(a)) }
-                        st == VaultStore.State.LOCKED -> { Util.toast(a, "Found an existing vault in this folder"); unlockView() }
+                        st == VaultStore.State.LOCKED -> { Util.toast(a, "Found an existing vault in this folder"); offerRestore = true; unlockView() }
                         else -> setupPass()
                     }
                 }
             }
         }
+    }
+
+    /** V10: "I already have a vault". Checks the picked folder first; only a folder that holds vault.hdr is remembered, nothing is created. */
+    private fun pickExisting(a: Activity) {
+        BrowserExtras.pickVaultFolder { uri ->
+            if (dlg?.isShowing != true) return@pickVaultFolder
+            message("Looking for your vault...")
+            bg.execute {
+                val found = VaultStore.probe(a, uri)
+                val ok = found == 1 && VaultStore.bind(a, uri)
+                val st = if (ok) VaultStore.check(a) else VaultStore.State.NONE
+                main.post {
+                    if (dlg?.isShowing != true) return@post
+                    when {
+                        found == 2 -> { Util.toast(a, "This vault was made by a newer Thazir. Update the app first."); setupIntro() }
+                        found == 0 -> { Util.toast(a, "No vault found directly in this folder. Pick the folder that holds vault.hdr. Nothing was created."); setupIntro() }
+                        found != 1 -> { Util.toast(a, "This folder cannot be read. Pick another one."); setupIntro() }
+                        !ok -> { Util.toast(a, VaultStore.lastError); setupIntro() }
+                        st == VaultStore.State.LOCKED -> { offerRestore = true; unlockView() }
+                        else -> { Util.toast(a, "This vault cannot be opened. Pick the folder again."); render(VaultStore.state(a)) }
+                    }
+                }
+            }
+        }
+    }
+
+    /** V10: after a successful unlock: home, then (once, only for a vault opened from an existing folder) the restore page. */
+    private fun unlocked(a: Activity) {
+        home(true)
+        if (offerRestore) { offerRestore = false; VaultRestore.open(a) { if (dlg?.isShowing == true && VaultStore.isUnlocked()) home(false) } }
     }
 
     private fun strength(p: String): String {
@@ -382,7 +416,7 @@ object VaultScreen {
                     val r = VaultStore.unlock(a, x) // wipes x
                     main.post {
                         if (dlg?.isShowing != true) return@post
-                        if (r.ok) { pw.setText(""); home(true) }
+                        if (r.ok) { pw.setText(""); unlocked(a) }
                         else { go.isEnabled = true; go.text = "Unlock"; err.text = r.msg; err.visibility = View.VISIBLE }
                     }
                 }
@@ -405,7 +439,7 @@ object VaultScreen {
                 if (k == null) VaultStore.quickDisable(a)
                 main.post {
                     if (dlg?.isShowing != true) return@post
-                    if (r.ok) home(true) else { err.text = r.msg; err.visibility = View.VISIBLE }
+                    if (r.ok) unlocked(a) else { err.text = r.msg; err.visibility = View.VISIBLE }
                 }
             }
         }
@@ -428,7 +462,7 @@ object VaultScreen {
                     val r = VaultStore.unlockRecovery(a, k)
                     main.post {
                         if (dlg?.isShowing != true) return@post
-                        if (r.ok) { f.setText(""); home(true) }
+                        if (r.ok) { f.setText(""); unlocked(a) }
                         else { go.isEnabled = true; go.text = "Unlock with recovery key"; err.text = r.msg; err.visibility = View.VISIBLE }
                     }
                 }
@@ -521,6 +555,9 @@ object VaultScreen {
             })
             c.addView(card, lp(dp(a, 8)))
             c.addView(btn(a, "Lock now", false) { lockNow(a) }, lp(dp(a, 20), MATCH, dp(a, 48)))
+            c.addView(btn(a, "Restore into the browser", false) { // V10
+                VaultRestore.open(a) { if (dlg?.isShowing == true && VaultStore.isUnlocked()) home(false) }
+            }, lp(dp(a, 8), MATCH, dp(a, 48)))
             c.addView(btn(a, "Exit vault / Prepare for uninstall", false) { // V9
                 VaultExit.open(a) { if (dlg?.isShowing == true) bg.execute { val st = VaultStore.check(a); main.post { if (dlg?.isShowing == true) render(st) } } }
             }, lp(dp(a, 8), MATCH, dp(a, 48)))

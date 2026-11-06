@@ -138,6 +138,15 @@ object VaultStore {
         return h
     }
 
+    /** BLOCKING. V10: looks for vault.hdr in a freshly picked folder WITHOUT remembering it or creating anything.
+     *  1 = vault found, 2 = made by a newer Thazir, 0 = no vault here, -1 = folder cannot be read. */
+    fun probe(c: Context, tree: Uri): Int = try {
+        val d = child(c.applicationContext, tree, rootDoc(tree), HDR)
+        if (d == null) 0
+        else if (VaultCrypto.Header.parse(String(readAll(c.applicationContext, d.uri), Charsets.UTF_8)).v > VaultCrypto.HDR_V) 2
+        else 1
+    } catch (e: Exception) { -1 }
+
     // ---------- bind / create / unlock / lock ----------
 
     /** Remember the folder the user picked (persistable permission). Does not create anything. */
