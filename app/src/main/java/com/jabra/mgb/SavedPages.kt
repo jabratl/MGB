@@ -93,12 +93,25 @@ object SavedPages {
                 .setNegativeButton("Cancel", null).show()
         }
 
+        /** V6: seal this page into the vault (needs the vault to be open). Move removes it here after the vault copy is verified. */
+        fun toVault(e: PageSave.Entry, move: Boolean) {
+            if (!VaultStore.isUnlocked()) { Util.toast(act, "Open the vault first (menu > Vault)"); return }
+            Util.toast(act, "Sealing...")
+            Thread {
+                val src = VaultFiles.pageSources(act).filter { it.e.ref == e.id }
+                val r = try { VaultFiles.addPages(act, src, move) } catch (x: Exception) { VaultItems.Result(false, msg = "Something went wrong. Nothing was removed.") }
+                act.runOnUiThread { Util.toast(act, VaultItems.describe("page", r, move)); if (r.ok) refresh() }
+            }.start()
+        }
+
         fun menu(e: PageSave.Entry) {
             val items = ArrayList<ToolsSheet.Item>()
             items.add(ToolsSheet.Item(R.drawable.ic_open, "Open in new tab", "Offline copy") { dlg.dismiss(); PageSave.open(act, tabs, e) })
             items.add(ToolsSheet.Item(R.drawable.ic_edit, "Rename", "Change the title") { rename(e) })
             items.add(ToolsSheet.Item(R.drawable.ic_share, "Share file", ".mht archive") { share(e) })
             if (e.url.startsWith("http")) items.add(ToolsSheet.Item(R.drawable.ic_ext, "Open original site", Util.host(e.url)) { dlg.dismiss(); tabs.newTab(e.url) })
+            items.add(ToolsSheet.Item(R.drawable.ic_vault, "Move to vault", "Encrypted, removed from here") { toVault(e, true) }) // V6
+            items.add(ToolsSheet.Item(R.drawable.ic_vault, "Copy to vault", "Keep this page too") { toVault(e, false) }) // V6
             items.add(ToolsSheet.Item(R.drawable.ic_trash, "Delete", "Remove the file") { delete(e) })
             ToolsSheet.show(act, e.title, Util.host(e.url), listOf(ToolsSheet.Group("Actions", items)))
         }

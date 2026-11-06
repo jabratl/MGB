@@ -1,3 +1,10 @@
+0.0.192 (V6 BUILD: Saved pages in the vault)
+- VaultFiles.kt (new): saved page (.mht) -> stream-encrypted vault blob, read back and compared by SHA-256, THEN PageSave.remove (move). Restore back to Saved pages (new id, original title / url / time, respects PageSave.MAX). Open offline: decrypt to cacheDir/vault_tmp/<random>.mht, TabManager.openSaved (offline flags, JS off). Temp folder zero-filled + deleted on app stop and app start.
+- VaultItems.kt: type "page": vault list (title, host - date - size, sealed chip), search, multi-select, open, Restore (move back / copy back), Delete (blob removed too), "+" picker from Saved pages (Today / Last 7 days / Older chips, Select all shown, Move / Copy). Duplicates (same url + time) merged. E class got ref + size (defaults, old calls unchanged), sealed() internal, describe() knows pages.
+- VaultScreen.kt: "Saved pages" tile opens the list. VaultStore.kt: wipeTemp call in onAppStop / onAppStart. SavedPages.kt: menu rows "Move to vault" / "Copy to vault".
+- Not in this step: downloaded files (V7), Share / export of a vault page (V7 temp + FileProvider), reload of an opened vault page after the temp wipe.
+- app/build.gradle.kts: 0.0.192.
+
 0.0.191 (V4b FIX + MODIFY: CI compile errors, Move/Copy to vault in BookmarksScreen)
 - FIX VaultItems.kt l.556: "try { } catch { } if ..." on one line had no separator (Unexpected tokens) -> ";" added.
 - FIX VaultStore.kt l.411: "if (gen == g) dirty = false" was the last statement of a try used as a value -> needs else -> "else Unit". No behaviour change.

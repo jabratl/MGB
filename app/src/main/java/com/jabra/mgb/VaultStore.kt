@@ -288,6 +288,7 @@ object VaultStore {
 
     /** Call from MainActivity.onStop (wired in V3). */
     fun onAppStop(c: Context) {
+        VaultFiles.wipeTemp(c) // V6: decrypted saved pages never stay in cache
         if (dek == null) return
         VaultItems.sweepHistory(c) // V5: no-op unless "Send history to vault" is on; runs on its own thread
         leftAt = System.currentTimeMillis()
@@ -296,6 +297,7 @@ object VaultStore {
 
     /** Call from MainActivity.onStart (wired in V3). Locks when the app was away longer than the delay. */
     fun onAppStart(c: Context) {
+        VaultFiles.wipeTemp(c) // V6
         if (dek == null) return
         if (System.currentTimeMillis() - leftAt > autoLockMs(c)) lock(c)
     }

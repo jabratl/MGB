@@ -448,8 +448,8 @@ object VaultScreen {
             isClickable = true; isFocusable = true
             contentDescription = "$title, $info"
             setOnClickListener {
-                if (type == "bm" || type == "hist") VaultItems.open(a, type) { if (dlg?.isShowing == true && VaultStore.isUnlocked()) home(false) } // V4/V5
-                else Util.toast(a, "Moving items in comes in the next update")
+                if (type == "bm" || type == "hist" || type == "page") VaultItems.open(a, type) { if (dlg?.isShowing == true && VaultStore.isUnlocked()) home(false) } // V4/V5
+                else Util.toast(a, "Downloaded files come in a later update")
             }
         }
         t.addView(ImageView(a).apply { setImageResource(icon); setColorFilter(col(a, R.color.mg_primary)) }, LinearLayout.LayoutParams(dp(a, 24), dp(a, 24)))
