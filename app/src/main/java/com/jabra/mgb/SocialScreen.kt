@@ -143,6 +143,11 @@ object SocialScreen {
             col.addView(blur, LinearLayout.LayoutParams(MATCH, WRAP))
             siteRows.add(blur)
 
+            col.addView(sectionLabel("AI picture check (experimental)")) // 0.0.233 (P8b)
+            val ai = aiCard()
+            col.addView(ai, LinearLayout.LayoutParams(MATCH, WRAP))
+            siteRows.add(ai)
+
             col.addView(sectionLabel("Tabs and data")) // 0.0.231 (P7)
             val extra = card()
             switchRow(extra, R.drawable.ic_info, "Unread number on tab cards", "Shows the \"(3)\" of the page title in the tab list",
@@ -175,7 +180,8 @@ object SocialScreen {
             col.addView(sectionLabel("Good to know"))
             val info = card()
             info.addView(TextView(act).apply {
-                text = "No push notifications or sounds, no badge on the launcher icon: a browser tab cannot receive them when it is closed. The unread number on tab cards only updates while the tab is open.\n\n" +
+                text = "The AI picture check is experimental: it needs a model file inside the app, it can miss things or blur harmless pictures, and it does not see video.\n\n" +
+                    "No push notifications or sounds, no badge on the launcher icon: a browser tab cannot receive them when it is closed. The unread number on tab cards only updates while the tab is open.\n\n" +
                     "\"Continue with Google\" is often blocked in a browser tab. Use email and password.\n\n" +
                     "A site may show a security check after the browser identity changes. Hiding the Open-app bars depends on the live " +
                     "site and may need a small fix when the site changes.\n\n" +
@@ -256,6 +262,63 @@ object SocialScreen {
                     override fun onStopTrackingTouch(sb: SeekBar?) { }
                 })
             }, LinearLayout.LayoutParams(MATCH, dp(48)).apply { setMargins(dp(12), 0, dp(12), dp(4)) })
+            return c
+        }
+
+        /** 0.0.233 (P8b): AI picture check card = switch + Low / Normal / Strict + status + counter. Prefs: SocialNsfw. Pictures only, not video. */
+        private fun aiCard(): LinearLayout {
+            val c = card()
+            val chips = ArrayList<TextView>()
+            val status = TextView(act).apply { textSize = 12f; setPadding(dp(16), dp(4), dp(16), 0) }
+            val count = TextView(act).apply { textSize = 12f; setTextColor(act.getColor(R.color.mg_text_dim)); setPadding(dp(16), dp(2), dp(16), dp(6)) }
+            fun paint() {
+                val lv = SocialNsfw.level(act)
+                val en = SocialNsfw.on(act)
+                for ((i, t) in chips.withIndex()) {
+                    val sel = i == lv
+                    t.alpha = if (en) 1f else 0.5f
+                    t.setTextColor(act.getColor(if (sel) R.color.mg_on_primary else R.color.mg_text))
+                    t.background = round(act.getColor(if (sel) R.color.mg_primary else R.color.mg_surface_variant), 14, 1f,
+                        act.getColor(if (sel) R.color.mg_primary else R.color.mg_outline))
+                    t.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                }
+                val ready = SocialNsfw.modelReady(act)
+                status.text = "Model: " + SocialNsfw.status(act)
+                status.setTextColor(act.getColor(if (ready) R.color.mg_text_dim else R.color.mg_error))
+                count.text = SocialNsfw.blurred.get().toString() + " pictures blurred since the app started"
+            }
+            switchRow(c, R.drawable.ic_shield, "Check pictures with AI", "A model on this phone looks at pictures on social pages and blurs the ones it rates as sensitive",
+                null, { SocialNsfw.on(act) }) { on -> SocialNsfw.setOn(act, on); paint() }
+            val seg = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(10), dp(8), dp(10), dp(4)) }
+            for ((i, l) in SocialNsfw.levelNames.withIndex()) {
+                val t = TextView(act).apply {
+                    text = l
+                    textSize = 12f
+                    maxLines = 1
+                    gravity = Gravity.CENTER
+                    isClickable = true
+                    contentDescription = "AI check sensitivity: $l"
+                    setPadding(dp(4), 0, dp(4), 0)
+                    setOnClickListener {
+                        it.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                        SocialNsfw.setLevel(act, i)
+                        paint()
+                    }
+                }
+                chips.add(t)
+                seg.addView(t, LinearLayout.LayoutParams(0, dp(44), 1f).apply { if (i > 0) marginStart = dp(6) })
+            }
+            c.addView(seg, LinearLayout.LayoutParams(MATCH, WRAP))
+            c.addView(TextView(act).apply {
+                text = "Sensitivity: Low blurs only clear cases, Strict blurs more (and more wrongly). Pictures only: videos are not checked. " +
+                    "Not 100 % accurate. Pictures are fetched once by the app and nothing is sent anywhere else."
+                textSize = 12f
+                setTextColor(act.getColor(R.color.mg_text_dim))
+                setPadding(dp(16), dp(4), dp(16), dp(4))
+            }, LinearLayout.LayoutParams(MATCH, WRAP))
+            c.addView(status, LinearLayout.LayoutParams(MATCH, WRAP))
+            c.addView(count, LinearLayout.LayoutParams(MATCH, WRAP))
+            paint()
             return c
         }
 

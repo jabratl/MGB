@@ -56,6 +56,17 @@ object SocialNsfw {
     fun threshold(c: Context): Float = sp(c).getFloat(K_TH, 0.60f).coerceIn(0.30f, 0.95f)
     fun setThreshold(c: Context, v: Float) { sp(c).edit().putFloat(K_TH, v.coerceIn(0.30f, 0.95f)).apply() }
 
+    /** 0.0.233 (P8b): sensitivity level 0 Low (score >= 0.85), 1 Normal (0.60), 2 Strict (0.40). Stored as the threshold float. */
+    private val LEVEL_TH = floatArrayOf(0.85f, 0.60f, 0.40f)
+    val levelNames: List<String> = listOf("Low", "Normal", "Strict")
+    fun level(c: Context): Int { val t = threshold(c); return if (t >= 0.75f) 0 else if (t <= 0.50f) 2 else 1 }
+    fun setLevel(c: Context, i: Int) {
+        setThreshold(c, LEVEL_TH[i.coerceIn(0, 2)])
+        clearCaches() // old verdicts were made with another limit
+    }
+    /** Forget cached verdicts (not the counter). */
+    fun clearCaches() { synchronized(seen) { seen.clear() }; synchronized(flagged) { flagged.clear() } }
+
     /** Pictures replaced by a blur since the app started (P8b shows it). */
     val blurred = AtomicInteger(0)
 

@@ -1,3 +1,9 @@
+0.0.233 (P8b BUILD: AI picture check screen)
+- Why: P8a had the engine but no switch. Social sites page got a card "AI picture check (experimental)": switch, sensitivity Low / Normal / Strict (score limit 0.85 / 0.60 / 0.40), model status line (red when no model), counter of blurred pictures.
+- Files: SocialScreen.kt (aiCard + info text), SocialNsfw.kt (level / setLevel / levelNames / clearCaches; changing the level forgets cached verdicts), HowToUse.kt (one phrase), build.gradle.kts, CHANGELOG. RESET list needs no change (SocialNsfw.keys added in P8a).
+- Could break: nothing when the switch is OFF (default). Without model.tflite the switch can be ON but does nothing (status says so). Counter is read when the page opens / a control is tapped, not live.
+- NOT tested: Gradle build (CI), device, 360 / 1280 dp, dark + light, rotation, any real model.
+
 0.0.232 (P8a BUILD, PARTIAL: experimental on-device picture check, engine only)
 - Why: blur pictures that a small local model rates as sensitive, on social sites only. Needs a model.tflite that you supply; none was attached, so this is engine + loader.
 - New SocialNsfw.kt: prefs sm_nsfw (default OFF, no screen until P8b) and sm_nsfw_th (0.60). intercept() is called from TabManager.shouldInterceptRequest (+1 line after Sniffer): social page + switches ON + picture request + model present -> download, skip < 128 px / > 4 MB, classify (224 x 224 or whatever the model says), flagged = blurred JPEG, else original bytes; verdict caches; max 2 at once; any error = normal load (fail-open).
