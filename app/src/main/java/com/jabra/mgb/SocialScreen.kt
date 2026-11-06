@@ -213,12 +213,30 @@ object SocialScreen {
             tlTv = ((tlRow as LinearLayout).getChildAt(1) as LinearLayout).getChildAt(1) as TextView
             switchRow(extra, R.drawable.ic_info, "Data saver plus: no videos on mobile data", "On mobile data (or a Wi-Fi the phone marks as metered) video files are not downloaded on social sites. Wi-Fi is not touched. Some sites use video addresses that this cannot see",
                 null, { SocialSave2.on(act) }) { on -> SocialSave2.setOn(act, on) }
+            switchRow(extra, R.drawable.ic_info, "Ask before leaving a social site", "A tapped link to another site shows a small sheet: Open in new tab (the feed stays), Open here or Cancel. Facebook and Instagram link wrappers are looked through",
+                null, { SocialExt.on(act) }) { on -> SocialExt.setOn(act, on) } // 0.0.271 (D4)
             lateinit var mtTv: TextView // 0.0.267 (C6)
             fun mtHint() = (if (SocialMute.count(act) == 0) "No words yet" else SocialMute.count(act).toString() + " word(s)") + " (tap to edit). Posts with these words are hidden on Facebook, Instagram, Reddit, X, LinkedIn. Stays on the phone"
             val mtRow = actionRow(extra, R.drawable.ic_info, "Muted words", mtHint()) {
                 muteDialog { mtTv.text = mtHint() }
             }
             mtTv = ((mtRow as LinearLayout).getChildAt(1) as LinearLayout).getChildAt(1) as TextView
+            actionRow(extra, R.drawable.ic_info, "Site fixes: copy", "Copies your Site fixes (all sites) as text, to keep or to paste on another phone") { // 0.0.269 (C8)
+                val t = SocialFixIO.export(act)
+                if (t == null) Util.toast(act, "No Site fix yet") else { SocialFixIO.copy(act, t); Util.toast(act, "Copied") }
+            }
+            actionRow(extra, R.drawable.ic_info, "Site fixes: paste", "Takes Site fixes copied from Thazir (clipboard) and applies them. Same sites are replaced. Asks first") {
+                val clip = SocialFixIO.clipboardText(act)
+                MaterialAlertDialogBuilder(act)
+                    .setTitle("Paste Site fixes?")
+                    .setMessage("The text on the clipboard will replace the Site fix of every site it lists. Other sites stay as they are.")
+                    .setPositiveButton("Paste") { _, _ ->
+                        val n = SocialFixIO.importText(act, clip)
+                        Util.toast(act, if (n < 0) "The clipboard has no Thazir Site fix" else "Applied to " + n + " site(s). Reload the sites")
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
             col.addView(extra, LinearLayout.LayoutParams(MATCH, WRAP))
             siteRows.add(extra)
 
@@ -624,7 +642,11 @@ object SocialScreen {
                 .append(", focus mode: ").append(yn(SocialFocus.on(act)))
                 .append(", data saver plus: ").append(yn(SocialSave2.on(act))).append(" (").append(SocialSave2.blocked).append(" videos blocked)")
                 .append(", muted words: ").append(SocialMute.count(act))
+                .append(", ask before leaving: ").append(yn(SocialExt.on(act)))
                 .append(", blur per site: ").append(SocialBlur.siteOverrides(act)).append(" own")
+                .append(", blur mode: ").append(SocialBlur.mode(act)).append(" (0 off, 1 flagged, 2 all), strength ").append(SocialBlur.px(act)).append(" px")
+                .append(", AI picture check: ").append(yn(SocialNsfw.on(act))).append(" level ").append(SocialNsfw.level(act))
+                .append(", model: ").append(SocialNsfw.status(act)).append(", ").append(SocialNsfw.blurred.get()).append(" pictures blurred since start")
                 .append(", time limit: ").append(SocialTime.label(act)).append("\n\n")
             for (p in SocialProfiles.all) {
                 sb.append(p.label).append(": ").append(yn(SocialProfiles.siteOn(act, p.id)))

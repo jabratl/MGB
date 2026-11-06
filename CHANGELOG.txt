@@ -1,3 +1,26 @@
+0.0.271 (D4 PARTIAL: ask before leaving a social site)
+- Why: a tapped external link replaced the feed tab. Extras > switch "Ask before leaving a social site" (sm_ext, default OFF): a sheet offers Open in new tab (feed stays) / Open here / Cancel.
+- How: NEW SocialExt.kt (intercept + BottomSheetDialog, Facebook / Instagram link wrappers resolved with ?u=). TabManager.shouldOverrideUrlLoading: one line after SocialMode.blockApp. SocialScreen switch + summary. SettingsScreen RESET + sm_ext. HowToUse phrase.
+- Files: SocialExt.kt (new), TabManager.kt, SocialScreen.kt, SettingsScreen.kt, HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES.
+- Could break: every tapped external link asks (switch OFF to stop); links that a page opens by script are not asked.
+- Not built: overlay mini-browser inside the sheet.
+- NOT tested: Gradle build (CI), device.
+
+0.0.270 (B8: more lines in the Social settings summary)
+- Why: one screenshot / Copy should show blur mode + strength, AI picture check state + level, model status and the blurred counter, for bug reports.
+- How: SocialScreen.summaryDialog: 3 more append lines (SocialBlur.mode / px, SocialNsfw.on / level / status / blurred). No new file, no pref.
+- Files: SocialScreen.kt, build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES.
+- Could break: nothing expected (text only).
+- NOT tested: Gradle build (CI), device.
+
+0.0.269 (C8 PARTIAL: Site fix copy / paste)
+- Why: Site fixes (U2) were stuck on one phone. Extras > rows "Site fixes: copy" (all fixes as text to the clipboard) and "Site fixes: paste" (asks first, then applies).
+- How: NEW SocialFixIO.kt (export / importText through SocialProfiles.setFix which cleans words + CSS again; unknown site ids skipped; not-ours text = -1 and a message). SocialScreen two action rows. HowToUse phrase.
+- Files: SocialFixIO.kt (new), SocialScreen.kt, HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES.
+- Could break: paste replaces the fix of every site listed in the text; sites not listed stay.
+- Not built from C8: picture-in-picture, force dark page per site, long-press picture save / share.
+- NOT tested: Gradle build (CI), device.
+
 0.0.268 (B6: blur mode per site)
 - Why: the blur had one global mode. Now each site can follow it or have its own: Social sites page > blur card > row "Blur per site" (tap a site: Same as above -> Off -> Flagged only -> All until tap).
 - How: SocialBlur.kt: pref sm_bm_<id> (absent = global sm_blur), modeFor(ctx, id) used by script() and inject(); keys list extended with sm_bm_<id> so Settings reset (which already uses SocialBlur.keys) clears them. SocialScreen: action row + blurSitesDialog + summary line. HowToUse phrase.
