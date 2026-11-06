@@ -450,6 +450,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         findViewById<View>(R.id.bottom_bar).visibility = View.VISIBLE // S33
         refreshAll(tab)
         SocialFull.sync(this, tab) // 0.0.238 (A1)
+        SocialLock.check(this, tab) // 0.0.260 (D7)
         SocialBars.sync(this, tab) // 0.0.240 (A2)
         GroupStrip.refresh() // S13
         floating.poke() // S11
@@ -470,6 +471,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     override fun onStart() {
         super.onStart()
         AppLock.onStart(this) // S45: lock again after the chosen delay
+        SocialLock.onStart(this, tabs.active) // 0.0.260 (D7)
+        SocialTime.start(this, tabs) // 0.0.261 (C3)
         VaultStore.onAppStart(this); VaultScreen.refresh() // V3: vault auto-lock
         AutoDiag.start(this, tabs) // S87.2
     }
@@ -477,6 +480,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     override fun onStop() {
         VaultStore.onAppStop(this) // V3
         AppLock.onStop(this) // S45
+        SocialLock.onStop() // 0.0.260 (D7)
+        SocialTime.stop() // 0.0.261 (C3)
         AutoDiag.stop() // S87.2
         AdBlock.flushTotal() // S68
         super.onStop()

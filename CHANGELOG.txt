@@ -1,3 +1,40 @@
+0.0.263 (D5 PARTIAL: app-like error screen on social sites)
+- Why: a social page without internet showed the white system error page. Social sites page > Extras > Tabs and data > switch "App-like error screen" (sm_err, default OFF): a small page in the app colours with "No connection", the site name, a short reason and a "Try again" button.
+- How: NEW SocialError.kt (object SocialError: on / setOn, show(ctx, view, request, code, isExt)). TabManager.onReceivedError: ONE line after the existing Diag line. Only main-frame errors with code HOST_LOOKUP / CONNECT / TIMEOUT / IO on a social site (Social ON + site switch ON, not an extension tab). Page = loadDataWithBaseURL(url, html, ..., historyUrl = url) with colours from R.color.mg_* (dark + light follow the phone); Try again = location.replace(original address). Certificate errors, http 4xx / 5xx and other sites are untouched.
+- NOT built from D5: the site-coloured start screen instead of a white flash (needs the A2 theme-colour value before the first paint).
+- Files: SocialError.kt (new), TabManager.kt (1 line), SocialScreen.kt (switch row + summary), SettingsScreen.kt (RESET + sm_err), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES.
+- Could break: switch OFF = nothing runs. ON: the error page is a data page, so Back from it goes to the page before; if loadDataWithBaseURL inside onReceivedError misbehaves on some WebView versions switch it OFF.
+- NOT tested: Gradle build (CI), device (airplane mode on Facebook / Reddit), Try again after the connection is back, Back button after an error, dark + light.
+
+0.0.262 (B4 BUILD: Social sites page in 3 tabs)
+- Why: the Social sites page had about 10 cards in one long scroll. Now Master switch stays on top and a tab bar (Sites / Privacy / Extras) shows one group at a time.
+- Groups: Sites = Feed sites, Chat sites, Chat comfort, Page layout, Site fix. Privacy = Sensitive media, AI picture check, Logins. Extras = Tabs and data, Home, Good to know.
+- How: SocialScreen.fill records where each group starts (grp(g) marks, one line before each section), after the last card the children are listed with their group, a 3-chip bar is inserted under the Master switch card and showTab() only toggles View.VISIBLE / GONE. No card or row code changed, siteRows / applyDim untouched. The chosen tab is kept in an object field (lastTab) so rotation or a fill() after Forget logins stays on the same tab; a new page opening shows the last used tab.
+- Files: SocialScreen.kt only (+ build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES). No pref, no reset key, no HowToUse change.
+- Could break: nothing in the cards. If a future section is added without a grp(g) mark it joins the group before it.
+- NOT tested: Gradle build (CI), device, 360 dp chips, dark + light, scroll position when switching tabs, rotation.
+
+0.0.261 (C3 BUILD: time limit for social sites)
+- Why: a soft daily limit for social sites. Social sites page > Tabs and data > row "Time limit for social sites" (sm_tl; tap cycles Off -> 15 -> 30 -> 60 -> 120 min per day; default Off) with the minutes used today in its hint.
+- How: NEW SocialTime.kt (object SocialTime). While the app is in front (MainActivity onStart .. onStop) and the ACTIVE tab is social (Social ON + site switch ON), a 10 s Handler tick adds seconds to sm_t_sec (day key sm_t_day = year * 1000 + day of year; new day = 0). At the limit a MaterialAlertDialog "Time limit reached" shows: "Keep going 10 more minutes" (next reminder +10 min) or "Leave app" (moveTaskToBack). Nothing is closed or blocked. One total for all social sites. Local only. MainActivity: 2 one-line hooks (onStart start, onStop stop).
+- Files: SocialTime.kt (new), MainActivity.kt (2 lines), SocialScreen.kt (row + summary), SettingsScreen.kt (RESET + sm_tl, sm_t_day, sm_t_sec), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES.
+- Could break: Off = no ticker at all. ON: the count is by 10 s steps while the screen is on and the app in front (an open social tab with the screen on counts); the "lock screen over the tab" part of the C3 plan is NOT built (reminder only).
+- NOT tested: Gradle build (CI), device, tick while a video plays, day change at midnight, dialog + rotation, 360dp, dark + light.
+
+0.0.260 (D7 BUILD: biometric lock for social tabs)
+- Why: a social tab (Facebook, Messenger, Instagram ...) can be locked with the phone fingerprint / face / screen lock without locking the whole browser. Social sites page > Tabs and data > "Lock social tabs" (sm_lock, default OFF).
+- How: NEW SocialLock.kt (object SocialLock: on / setOn (refuses ON when the phone has no screen lock, AppLock.available), onStart / onStop / check). When a social tab (Social mode ON + site switch ON) is in front and needs = true (cold start, or away 1 minute or more) a full-screen cover Dialog + system BiometricPrompt shows; Back = leave the app. Normal tabs are not locked. Skipped while App lock (S45) is ON. Screen lock removed on the phone = needs false (never trapped). Own prompt + own pref: Vault*, PasswordStore, AppLock untouched. MainActivity: 3 one-line hooks (onStart, onStop, onActiveChanged).
+- Files: SocialLock.kt (new), MainActivity.kt (3 lines), SocialScreen.kt (switch row + summary), SettingsScreen.kt (RESET + sm_lock), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES.
+- Could break: switch OFF = nothing runs. ON: cover stays after a failed fingerprint until Unlock is tapped again (Back leaves the app). Only the active tab is checked: a social tab in the background is covered when it is switched to.
+- NOT tested: Gradle build (CI), device, BiometricPrompt from the dialog on API 24-29 / 30+, rotation while the cover is shown, 360dp, dark + light, cold start with a restored social tab.
+
+0.0.259 (C4 BUILD: link cleaner)
+- Why: links copied or shared from a page carry tracking parts (fbclid, utm_*, igsh, gclid ...). New switch Social sites page > Tabs and data > "Clean copied and shared links" (sm_clean, default OFF) removes them from the copied / shared text only. The page itself is never changed.
+- How: NEW SocialClean.kt (object SocialClean: on / setOn, maybe(ctx, s) = switch check, clean(s) = pure function, one plain http(s) address only, any other text or any error = unchanged). Global names + per-host names (x.com / twitter.com s + t only on /status/ links, youtube si + feature, spotify si, reddit share_id / ref, tiktok, linkedin trk, facebook __cft__) live in two tables at the top of the file. TabManager: 2 one-line hooks inside copyText + shareText (so link long-press, menu Share, Command Center copy / share are all covered; multi-line shares such as tab lists are untouched).
+- Files: SocialClean.kt (new), TabManager.kt (2 lines), SocialScreen.kt (switch row + summary line), SettingsScreen.kt (RESET + sm_clean), HowToUse.kt (phrase), build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES.
+- Could break: nothing with the switch OFF (maybe returns the same text). With ON a site that needs one of the removed names in a link: switch OFF or add the exception in the tables (all names are ASSUMPTIONS).
+- NOT tested: Gradle build (CI), device, real links of each site, Uri rebuild keeps parameter order and encoding (appendQueryParameter may re-encode a few characters).
+
 0.0.258 (U5 BUILD: settings summary for bug reports)
 - Why: when a social site looks wrong, one screenshot / copy should show what is set. Social sites page > Page layout card > row "Why does a site look wrong?" opens a text box: master + global switches (separate logins, share FB + Messenger, extra fixes, bigger buttons, skip Use-the-app, full screen, calmer touch, keep tabs alive) and one line per site (on / off, layout, page type, login profile, own Site fix yes / no). Button Copy puts the text on the clipboard.
 - Scope: settings only. It does NOT read the page or count how often a script ran (the planned "banner script ran" counter is NOT built).

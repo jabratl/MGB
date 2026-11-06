@@ -34,6 +34,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 object SocialScreen {
     private const val TAG = "MGB.social"
     private var current: Screen? = null
+    private var lastTab = 0 // 0.0.262 (B4): 0 Sites, 1 Privacy, 2 Extras (kept while the page is rebuilt, e.g. rotation)
 
     fun open(host: Activity, onClose: (() -> Unit)? = null) {
         if (host.isFinishing || host.isDestroyed) return
@@ -135,6 +136,9 @@ object SocialScreen {
         private fun fill(col: LinearLayout) {
             siteRows.clear()
             col.removeAllViews()
+            val marks = ArrayList<Pair<Int, Int>>() // 0.0.262 (B4): (child index where a group starts, group: -1 always shown, 0 Sites, 1 Privacy, 2 Extras)
+            fun grp(g: Int) { marks.add(col.childCount to g) }
+            grp(-1)
 
             col.addView(sectionLabel("Master switch"))
             val master = card()
@@ -142,6 +146,7 @@ object SocialScreen {
                 null, { SocialMode.on(act) }) { on -> SocialMode.setOn(act, on); applyDim() }
             col.addView(master, LinearLayout.LayoutParams(MATCH, WRAP))
 
+            grp(1)
             col.addView(sectionLabel("Sensitive media"))
             val blur = blurCard()
             col.addView(blur, LinearLayout.LayoutParams(MATCH, WRAP))
@@ -152,6 +157,7 @@ object SocialScreen {
             col.addView(ai, LinearLayout.LayoutParams(MATCH, WRAP))
             siteRows.add(ai)
 
+            grp(2)
             col.addView(sectionLabel("Tabs and data")) // 0.0.231 (P7)
             val extra = card()
             switchRow(extra, R.drawable.ic_info, "Unread number on tab cards", "Shows the \"(3)\" of the page title in the tab list",
@@ -183,9 +189,23 @@ object SocialScreen {
                 null, { SocialMode.touchOn(act) }) { on -> SocialMode.setTouchOn(act, on) }
             switchRow(extra, R.drawable.ic_info, "Keep social tabs alive", "Social tabs (up to 4) are not freed by Suspend old tabs, so you come back to the same page. Uses more memory",
                 null, { SocialKeep.on(act) }) { on -> SocialKeep.setOn(act, on) }
+            switchRow(extra, R.drawable.ic_info, "Clean copied and shared links", "Removes tracking parts (fbclid, utm_, igsh, gclid ...) from a link when you copy or share it. The page itself is not changed",
+                null, { SocialClean.on(act) }) { on -> SocialClean.setOn(act, on) }
+            switchRow(extra, R.drawable.ic_lock, "Lock social tabs", "Asks for fingerprint / face / screen lock when a social tab is in front and you were away 1 minute or more. Needs a screen lock on the phone. Not used while App lock is ON",
+                null, { SocialLock.on(act) }) { on -> SocialLock.setOn(act, on) }
+            switchRow(extra, R.drawable.ic_info, "App-like error screen", "On a social site without internet, shows a clean No connection page with a Try again button instead of the system error page",
+                null, { SocialError.on(act) }) { on -> SocialError.setOn(act, on) }
+            lateinit var tlTv: TextView // 0.0.261 (C3)
+            fun tlHint() = SocialTime.label(act) + ", today about " + SocialTime.todayMin(act) + " min (tap to change). A reminder shows at the limit, nothing is closed"
+            val tlRow = actionRow(extra, R.drawable.ic_info, "Time limit for social sites", tlHint()) {
+                SocialTime.cycle(act)
+                tlTv.text = tlHint()
+            }
+            tlTv = ((tlRow as LinearLayout).getChildAt(1) as LinearLayout).getChildAt(1) as TextView
             col.addView(extra, LinearLayout.LayoutParams(MATCH, WRAP))
             siteRows.add(extra)
 
+            grp(0)
             val feeds = SocialProfiles.all.filter { it.defaultKind != SocialMode.Kind.CHAT }
             val chats = SocialProfiles.all.filter { it.defaultKind == SocialMode.Kind.CHAT }
             for ((title, list) in listOf("Feed sites" to feeds, "Chat sites (desktop page, fits the phone)" to chats)) {
@@ -232,6 +252,7 @@ object SocialScreen {
             col.addView(uaC, LinearLayout.LayoutParams(MATCH, WRAP))
             siteRows.add(uaC)
 
+            grp(1)
             col.addView(sectionLabel("Logins")) // 0.0.234 (P9)
             val sep = card()
             val supported = SocialMode.sepSupported()
@@ -251,6 +272,7 @@ object SocialScreen {
             }
             col.addView(sep, LinearLayout.LayoutParams(MATCH, WRAP))
 
+            grp(2)
             col.addView(sectionLabel("Home"))
             val home = card() // 0.0.230 (P6): not dimmed, a shortcut turns Social sites ON when tapped
             actionRow(home, R.drawable.ic_add, "Add a site to the phone home screen", "Icon opens it in a Social tab") { SocialShortcuts.pickPin(act) }
@@ -277,6 +299,44 @@ object SocialScreen {
                 setPadding(dp(18), dp(8), dp(16), dp(10))
             }, LinearLayout.LayoutParams(MATCH, WRAP))
             col.addView(info, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            // 0.0.262 (B4): three tabs under the Master switch; every card above is only shown or hidden (no card code changed)
+            val items = ArrayList<Pair<View, Int>>()
+            for (i in 0 until col.childCount) {
+                var g = -1
+                for ((s, gg) in marks) if (s <= i) g = gg
+                items.add(col.getChildAt(i) to g)
+            }
+            val tabNames = arrayOf("Sites", "Privacy", "Extras")
+            val chips = ArrayList<TextView>()
+            if (lastTab < 0 || lastTab >= tabNames.size) lastTab = 0
+            fun showTab() {
+                for ((v, g) in items) v.visibility = if (g < 0 || g == lastTab) View.VISIBLE else View.GONE
+                for ((i, t) in chips.withIndex()) {
+                    val sel = i == lastTab
+                    t.setTextColor(act.getColor(if (sel) R.color.mg_on_primary else R.color.mg_text_dim))
+                    t.background = round(act.getColor(if (sel) R.color.mg_primary else R.color.mg_surface_variant), 22)
+                }
+            }
+            val tabBar = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(0, dp(12), 0, dp(4))
+            }
+            for ((i, n) in tabNames.withIndex()) {
+                val t = TextView(act).apply {
+                    text = n
+                    textSize = 14f
+                    gravity = Gravity.CENTER
+                    typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                    isClickable = true
+                    contentDescription = n + " tab"
+                    setOnClickListener { lastTab = i; showTab() }
+                }
+                chips.add(t)
+                tabBar.addView(t, LinearLayout.LayoutParams(0, dp(44), 1f).apply { if (i > 0) marginStart = dp(8) })
+            }
+            col.addView(tabBar, 2, LinearLayout.LayoutParams(MATCH, WRAP)) // after the Master switch label + card
+            showTab()
             applyDim()
         }
 
@@ -511,7 +571,11 @@ object SocialScreen {
                 .append(", skip Use-the-app screens: ").append(yn(SocialMode.intOn(act)))
                 .append(", full screen: ").append(yn(SocialMode.fullOn(act)))
                 .append(", calmer touch: ").append(yn(SocialMode.touchOn(act)))
-                .append(", keep tabs alive: ").append(yn(SocialKeep.on(act))).append("\n\n")
+                .append(", keep tabs alive: ").append(yn(SocialKeep.on(act)))
+                .append(", clean links: ").append(yn(SocialClean.on(act)))
+                .append(", lock: ").append(yn(SocialLock.on(act)))
+                .append(", error screen: ").append(yn(SocialError.on(act)))
+                .append(", time limit: ").append(SocialTime.label(act)).append("\n\n")
             for (p in SocialProfiles.all) {
                 sb.append(p.label).append(": ").append(yn(SocialProfiles.siteOn(act, p.id)))
                     .append(", layout ").append(SocialMode.uaNames[SocialMode.uaMode(act, p.id)])

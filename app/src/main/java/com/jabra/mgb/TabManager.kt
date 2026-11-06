@@ -533,6 +533,7 @@ class TabManager(
             val r = request ?: return
             if (!tab.isExt && !tab.priv) HeaderModes.pageError(r, tab.id, tab.url, error?.description?.toString() ?: "net::ERR_FAILED") // 0.0.119 (S5): webRequest.onErrorOccurred
             if (r.isForMainFrame) Diag.w("page", "load error " + (error?.errorCode ?: 0) + " " + (error?.description ?: ""), if (tab.priv) "(private tab)" else r.url.toString()) // S83
+            SocialError.show(ctx, view, r, error?.errorCode ?: 0, tab.isExt) // 0.0.263 (D5)
             val from = tab.httpsFrom ?: return
             if (!r.isForMainFrame || r.url.scheme != "https" || android.net.Uri.parse(from).host != r.url.host) return
             container.post { // S41: no https on this site: ask once
@@ -771,13 +772,13 @@ class TabManager(
 
     fun copyText(s: String) {
         (ctx.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
-            .setPrimaryClip(android.content.ClipData.newPlainText("MGB", s))
+            .setPrimaryClip(android.content.ClipData.newPlainText("MGB", SocialClean.maybe(ctx, s))) // 0.0.259 (C4)
         Util.toast(ctx, "Copied")
     }
 
     fun shareText(s: String) {
         try {
-            ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, s), null))
+            ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, SocialClean.maybe(ctx, s)), null)) // 0.0.259 (C4)
         } catch (e: Exception) {
             Util.toast(ctx, "Cannot share")
         }
