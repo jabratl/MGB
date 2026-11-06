@@ -179,6 +179,8 @@ object SocialScreen {
                 null, { SocialMode.dfixOn(act) }) { on -> SocialMode.setDfixOn(act, on) }
             switchRow(extra, R.drawable.ic_info, "Warm up when opening a site", "Looks up the site address a moment earlier so the first page starts a little faster. Nothing is sent to the site",
                 null, { SocialPreload.on(act) }) { on -> SocialPreload.setOn(act, on) }
+            switchRow(extra, R.drawable.ic_info, "Calmer touch on social pages", "No grey flash when you tap, and a page does not pull the whole screen when you scroll past its end. Applies from the next page load",
+                null, { SocialMode.touchOn(act) }) { on -> SocialMode.setTouchOn(act, on) }
             switchRow(extra, R.drawable.ic_info, "Keep social tabs alive", "Social tabs (up to 4) are not freed by Suspend old tabs, so you come back to the same page. Uses more memory",
                 null, { SocialKeep.on(act) }) { on -> SocialKeep.setOn(act, on) }
             col.addView(extra, LinearLayout.LayoutParams(MATCH, WRAP))
@@ -191,6 +193,7 @@ object SocialScreen {
                 col.addView(sectionLabel(title))
                 val c = card()
                 for (p in list) {
+                    rowLetter = p.label // 0.0.254 (B5): letter circle instead of the same icon
                     val row = switchRow(c, R.drawable.ic_desktop, p.label, hintOf(p), { openSite(p) },
                         { SocialProfiles.siteOn(act, p.id) }) { on -> SocialProfiles.setSiteOn(act, p.id, on) }
                     siteRows.add(row)
@@ -574,6 +577,7 @@ object SocialScreen {
         }
 
         /** Switch row (>= 52 dp): icon + label + hint + optional "Open" pill + ThazirSwitch. Row tap toggles. Returns the row. */
+        private var rowLetter: String? = null // 0.0.254 (B5): set just before switchRow, read + cleared inside it
         private fun switchRow(parent: LinearLayout, icon: Int, label: String, hint: String, onOpen: (() -> Unit)?,
                               get: () -> Boolean, set: (Boolean) -> Unit): View {
             val sw = ThazirSwitch(act).apply { isChecked = get(); isClickable = false; isFocusable = false }
@@ -585,7 +589,15 @@ object SocialScreen {
                 isClickable = true
                 rippleBg(this)
             }
-            row.addView(ImageView(act).apply {
+            val letter = rowLetter; rowLetter = null
+            if (letter != null) { // 0.0.254 (B5): violet circle with the first letter of the site name (same look as the home-screen shortcut icon)
+                row.addView(TextView(act).apply {
+                    text = letter.trim().take(1).uppercase(); textSize = 13f
+                    typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                    setTextColor(act.getColor(R.color.mg_on_primary)); gravity = Gravity.CENTER
+                    background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(act.getColor(R.color.mg_primary)) }
+                }, LinearLayout.LayoutParams(dp(26), dp(26)).apply { marginEnd = dp(12) })
+            } else row.addView(ImageView(act).apply {
                 setImageResource(icon)
                 setColorFilter(act.getColor(R.color.mg_text_dim))
             }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(14) })

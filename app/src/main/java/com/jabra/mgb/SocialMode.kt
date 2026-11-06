@@ -91,6 +91,11 @@ object SocialMode {
     private const val K_FULL = "sm_full"
     fun fullOn(c: Context): Boolean = sp(c).getBoolean(K_FULL, false)
     fun setFullOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_FULL, v).apply() }
+    /** 0.0.254 (D2): "Calmer touch on social pages" (default OFF): CSS only, no tap flash + no scroll chaining. */
+    private const val K_TOUCH = "sm_touch"
+    private const val TOUCH_CSS = "html,body,*{-webkit-tap-highlight-color:transparent!important}html,body{overscroll-behavior:contain!important}"
+    fun touchOn(c: Context): Boolean = sp(c).getBoolean(K_TOUCH, false)
+    fun setTouchOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_TOUCH, v).apply() }
     private const val K_BARS = "sm_bars" // 0.0.240 (A2): phone bar colour follows the site (default ON)
     fun barsOn(c: Context): Boolean = sp(c).getBoolean(K_BARS, true)
     fun setBarsOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_BARS, v).apply() }
@@ -288,7 +293,7 @@ object SocialMode {
             Kind.NONE -> return
         }
         if (intOn(ctx)) view.evaluateJavascript(if (again) "window.__mgSi=0;" + INTERSTITIAL_JS else INTERSTITIAL_JS, null) // 0.0.237 (U3)
-        val css = ((p?.css ?: "") + " " + (if (p != null && bigOn(ctx)) SocialProfiles.bigCss(p.id) else "") + " " + (if (p != null && dfixOn(ctx)) SocialProfiles.extraCss(p.id) else "") + " " + (if (p != null) SocialProfiles.fixCss(ctx, p.id) else "")).trim() // 0.0.236 (U2): built-in + 0.0.245 (A5) big targets + Site fix (last = wins)
+        val css = ((p?.css ?: "") + " " + (if (p != null && touchOn(ctx)) TOUCH_CSS else "") + " " + (if (p != null && bigOn(ctx)) SocialProfiles.bigCss(p.id) else "") + " " + (if (p != null && dfixOn(ctx)) SocialProfiles.extraCss(p.id) else "") + " " + (if (p != null) SocialProfiles.fixCss(ctx, p.id) else "")).trim() // 0.0.236 (U2): built-in + 0.0.245 (A5) big targets + Site fix (last = wins)
         if (css.isNotEmpty()) view.evaluateJavascript(cssJs(css), null)
         SocialBlur.inject(ctx, view, p?.id) // 0.0.229 (P5): sensitive-media blur (mode OFF = only removes an old blur)
         SocialBadge.injectSaver(ctx, view) // 0.0.231 (P7): data saver (switch OFF = nothing)

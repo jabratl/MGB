@@ -1,3 +1,15 @@
+0.0.255 (D2 BUILD: calmer touch on social pages)
+- Why: feel like an app. Switch "Calmer touch on social pages" (Social sites page > Tabs and data, default OFF, key sm_touch): one CSS line added to the site CSS = no grey tap flash (-webkit-tap-highlight-color transparent) and overscroll-behavior contain (no scroll chaining). Applies from the next page load. Pinch-zoom is NOT changed and "tap the top edge = scroll to top" is NOT built (both left out on purpose: risk for chat sites / needs a gesture hook).
+- Files: SocialMode.kt (K_TOUCH, TOUCH_CSS, touchOn / setTouchOn, 1 term in the css line of inject), SocialScreen.kt (switch row), SettingsScreen.kt (RESET + sm_touch), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: nothing with the switch OFF. ON: a site that styles its own tap highlight may look a little different. Site fix CSS comes later in the string and still wins.
+- NOT tested: Gradle build (CI), device, live sites.
+
+0.0.254 (B5 BUILD: letter circle per site)
+- Why: every site row on the Social sites page had the same desktop icon. Now each row shows a violet circle with the first letter of the site name (same look as the home-screen shortcut icon). Other switch rows keep their icons.
+- Files: SocialScreen.kt (rowLetter helper var read + cleared inside switchRow; set in the site list loop), build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: nothing functional (looks only). 
+- NOT tested: Gradle build (CI), device, 360 / 1280 dp, dark + light.
+
 0.0.253 (D6 BUILD: long-press shortcuts on the app icon)
 - Why: long-press the Thazir icon on the launcher and see up to 4 social sites (the ones switched ON, in list order); tap = opens it in a Social tab (same intent as the pinned shortcut, so splash / own window rules apply). Switch "Long-press shortcuts on the Thazir icon" (Social sites page > Home, default OFF, key sm_dyn). OFF removes the shortcuts. Updated at each cold start and when the switch is changed.
 - Files: SocialShortcuts.kt (dynOn / setDynOn / syncDynamic, uses ShortcutManagerCompat.setDynamicShortcuts), MainActivity.kt (1 line after the P6 hook), SocialScreen.kt (switch row), SettingsScreen.kt (RESET + sm_dyn), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF. Manifest untouched.
