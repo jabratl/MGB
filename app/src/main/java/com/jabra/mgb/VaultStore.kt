@@ -2,6 +2,7 @@ package com.jabra.mgb
 
 import android.content.Context
 import android.content.Intent
+import android.util.Base64
 import android.net.Uri
 import android.provider.DocumentsContract
 import org.json.JSONArray
@@ -146,7 +147,7 @@ object VaultStore {
         } catch (e: Exception) { lastError = "This folder cannot be used, pick another one."; return false }
         val old = prefs(app).getString("tree", null)
         lock(app)
-        prefs(app).edit().putString("tree", uri.toString()).apply()
+        prefs(app).edit().putString("tree", uri.toString()).remove("qk").apply()
         dataUri = null; header = null; folderOk = true
         // do not release a folder the download feature also uses
         if (old != null && old != uri.toString() && old != DownloadFolder.treeUri(app)?.toString()) {
@@ -159,7 +160,7 @@ object VaultStore {
     fun unbind(c: Context) {
         val app = c.applicationContext
         lock(app)
-        prefs(app).edit().remove("tree").apply()
+        prefs(app).edit().remove("tree").remove("qk").apply()
         dataUri = null; header = null; folderOk = true
     }
 
@@ -243,6 +244,34 @@ object VaultStore {
         pending?.cancel(false)
         synchronized(this) { VaultCrypto.wipe(dek); dek = null; index = null }
     }
+
+    // ---------- per-install quick unlock + screen privacy (V3) ----------
+
+    /**
+     * Quick unlock: the DEK is wrapped with the Android Keystore through the existing [Vault] helper and kept in prefs "mgb_vault" (key "qk").
+     * It dies with the app on uninstall, so after a reinstall the passphrase or recovery key is needed once. The caller must ask the user
+     * to authenticate (Vault.unlock) before using [quickKey]; only offer it when AppLock.available() is true.
+     */
+    fun quickOn(c: Context): Boolean = prefs(c).getString("qk", null) != null
+
+    fun quickEnable(c: Context): Boolean {
+        val k = dek ?: return false
+        return try {
+            prefs(c).edit().putString("qk", Vault.encrypt(Base64.encodeToString(k, Base64.NO_WRAP))).apply()
+            true
+        } catch (e: Exception) { false }
+    }
+
+    fun quickDisable(c: Context) { prefs(c).edit().remove("qk").apply() }
+
+    /** The wrapped DEK, or null. Caller wipes the array. */
+    fun quickKey(c: Context): ByteArray? = try {
+        prefs(c).getString("qk", null)?.let { Vault.decrypt(it) }?.let { Base64.decode(it, Base64.NO_WRAP) }
+    } catch (e: Exception) { null }
+
+    /** Blank recents preview + no screenshots while the vault screen is open (default ON). */
+    fun hideRecents(c: Context): Boolean = prefs(c).getBoolean("hide_recents", true)
+    fun setHideRecents(c: Context, on: Boolean) { prefs(c).edit().putBoolean("hide_recents", on).apply() }
 
     // ---------- auto-lock ----------
 

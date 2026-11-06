@@ -1,6 +1,6 @@
 THAZIR (internal project MGB) - VAULT FEATURE: AUDIT + STEP PLAN
 Planning baseline: Thazir-main.zip, appVersionName 0.0.185 (CHANGELOG top entry = 0.0.185)
-STATUS: V1 + V2 DONE (merged in one chat by owner request, cumulative zip 0.0.187). Next = V3.
+STATUS: V1, V2, V3 DONE (V1+V2 merged in one chat, zip 0.0.187; V3 zip 0.0.188). Next = V4.
 This file REPLACES the old root HANDOFF.txt (UI roadmap: S1-S5, S7, S10 done, rest skipped by owner;
 that roadmap is finished). Old copies stay in the repo as HANDOFF_OLD.txt / HANDOFF_PLAYER.txt.
 
@@ -159,7 +159,7 @@ Order is strict. Each step ends in a working app. No step is L (>60%).
     Notes: need own folder picker callback path (do NOT reuse DownloadFolder prefs). If BrowserExtras needs a second launcher it is a tiny edit there (add to Modify and say so in RESULT).
     Checks: all SAF calls on a background thread; index writes debounced + serialized; no vault data in filesDir except per-install quick-unlock wrap; state never silently resets to NONE.
 
-[ ] V3  BUILD  M (~50%)  Vault shell UI: setup, unlock, home
+[x] V3  BUILD  M (~50%)  Vault shell UI: setup, unlock, home
     Goal: user can create a vault (folder + passphrase + recovery key + optional biometric), lock/unlock, see 4 empty category tiles; entry points exist.
     Add: VaultScreen.kt, res/drawable/ic_vault.xml. Modify: MainActivity.kt (one MenuSheet.Item "Vault" + onStop hook for auto-lock), SettingsScreen.kt (one Row in Privacy and security),
          build.gradle.kts, CHANGELOG, HANDOFF. Read-only: ToolsSheet.kt, MenuSheet.kt, AppLock.kt, TabPrefs.kt, Vault.kt, colors/themes, ic_* drawables.
@@ -237,6 +237,11 @@ If a session is lost mid-step the next chat re-runs the SAME step from the last 
 7. PROGRESS / RESULT LOG (append newest at top; fill after each step)
 ====================================================================================================
 (newest first)
+V3 | 0.0.188 | NEW VaultScreen.kt (~420 lines), NEW res/drawable/ic_vault.xml; MODIFIED VaultStore.kt (quickOn/quickEnable/quickDisable/quickKey, hideRecents/setHideRecents, qk cleared on bind/unbind), MainActivity.kt (menu row "Vault" after Passwords; onStart: VaultStore.onAppStart + VaultScreen.refresh; onStop: VaultStore.onAppStop), SettingsScreen.kt (Row "Vault" in Privacy after "Lock after"), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+  Checked: XML well-formed, brace/paren balance, single-match patch audit, changed-files scope, no edit to Vault.kt / BrowserExtras / PasswordStore. Design reasoned against DESIGN RULES (mg_* tokens only, 20dp cards, 14dp fields, 48dp buttons, 560dp max width, sans-serif-medium titles, 11sp primary caps headers, violet dash markers, Reduce motion respected for the ring animation).
+  NOT tested: Gradle build (CI; still no Kotlin compiler in the chat sandbox), device render 360/1280dp, dark/light, rotation, TalkBack, SAF folder pick on real devices, PBKDF2 time (~1 s expected), quick unlock. If CI fails, fix compile errors first in V4 chat.
+  Decisions / limits: tiles only show counts, tap shows a toast until V4-V7. Quick unlock uses Vault.unlock (existing helper): it skips the prompt for 2 minutes after a password unlock and lets through when the phone has no screen lock - so it is only offered when AppLock.available() is true. No failed-attempt backoff yet (V11). Auto-lock delay is the VaultStore default 120000 ms with no picker (V11). Locking from the screen runs VaultStore.lock on a background thread.
+  UI API for later steps: VaultScreen.open(act), summary(ctx), refresh(); private page()/btn()/link()/field()/tile() helpers live in VaultScreen.kt - V4 should reuse them (make them internal if VaultItems.kt needs them, say so in RESULT). Home tiles are built in home()/tile(): V4 replaces the toast in tile() with a call that opens the item list for that type.
 V1+V2 | 0.0.187 (V1 = 0.0.186 included) | NEW VaultCrypto.kt (412 lines), NEW VaultStore.kt (447 lines); MODIFIED BrowserExtras.kt (+pickVaultFolder, own launcher registered last), app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
   Checked: brace/paren balance (BrowserExtras has the same -1 paren as baseline = text in a comment/string), single-match patch audit, changed-files scope, no edit to Vault.kt / PasswordStore / DownloadFolder / Backup.
   NOT tested: Gradle build (CI) - no Kotlin compiler in the chat sandbox, so FIRST ACTION of V3 chat: if the CI build of 0.0.187 failed, fix compile errors in VaultCrypto/VaultStore before anything else; selfTest() never run on a device; SAF behaviour on real providers (rename/createDocument names, FileChannel positional read) unverified.
@@ -255,6 +260,6 @@ RESULT template: step id | version | files changed | what was checked | NOT test
 ====================================================================================================
 8. EXACT KICKOFF LINE FOR THE NEXT CHAT (attach MGB-context.zip + any patch zips delivered so far)
 ====================================================================================================
-START V3 ONLY - Vault shell UI (setup, unlock, home, entry points), baseline appVersionName 0.0.187 (merge Thazir_V2_v0_0_187.zip over MGB-context.zip first). Read HANDOFF.txt and FILES.txt first, only the files FILES.txt lists for V3 plus VaultCrypto.kt/VaultStore.kt from the patch, check the CI build of 0.0.187 compiled (fix compile errors first if not), do not modify Vault.kt, patch only, stop by 85% session (hard stop 90%), return a changed-files-only ZIP named Thazir_V3_v0_0_188.zip.
+START V4 ONLY - Bookmarks in the vault (VaultItems.kt shared list UI + Move/Copy to vault in BookmarksScreen), baseline appVersionName 0.0.188 (merge Thazir_V2_v0_0_187.zip and Thazir_V3_v0_0_188.zip over MGB-context.zip, in order). Read HANDOFF.txt and FILES.txt first, only the files FILES.txt lists for V4 plus VaultCrypto/VaultStore/VaultScreen from the patches, confirm the CI build of 0.0.188 compiled (fix compile errors first if not), do not modify Vault.kt, patch only, stop by 85% session (hard stop 90%), return a changed-files-only ZIP named Thazir_V4_v0_0_189.zip.
 
 For later steps use: "START V<n> ONLY - <step title>, baseline appVersionName <previous version>. Read HANDOFF.txt and FILES.txt first, only the files listed for V<n>, patch only, stop by 85% (hard 90%), return Thazir_V<n>_v0_0_<NNN>.zip." (merge earlier patch zips over MGB-context.zip first, in version order)

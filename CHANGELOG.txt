@@ -1,3 +1,11 @@
+0.0.188 (V3 BUILD: Vault shell UI)
+- VaultScreen.kt (new): full-screen Vault dialog. Create (intro -> pick folder -> passphrase with strength hint -> recovery key shown once with Copy / Share and an "I saved it" switch -> optional quick unlock), Unlock (passphrase, fingerprint / screen lock quick unlock, recovery key), "folder missing" page (pick again / forget folder, never creates a new vault), Home (seal ring, four category tiles with counts and sizes - still empty until V4-V7, quick-unlock + hide-from-recents switches, Lock now). Picking an existing vault folder on a fresh install goes to Unlock.
+- VaultStore.kt: quick unlock (DEK wrapped with the Keystore through the existing Vault helper, per install, cleared when the folder changes), hide-from-recents setting (default ON, FLAG_SECURE on the vault dialog).
+- res/drawable/ic_vault.xml (new): shield with keyhole, 24dp vector, same tint as ic_shield.
+- MainActivity.kt: one 3-dot menu row "Vault" (after Passwords) + VaultStore.onAppStop / onAppStart / VaultScreen.refresh in onStop / onStart. SettingsScreen.kt: one Row "Vault" in Privacy and security. No other ids, handlers or settings changed.
+- Not in this step: moving items into the vault (V4-V7), auto-lock delay picker and passphrase change (V11), exit wizard (V9).
+- app/build.gradle.kts: 0.0.188.
+
 0.0.187 (V2 BUILD: Vault container + index + lock state)
 - VaultStore.kt (new, no UI): binds a user-picked SAF folder (persistable permission, separate prefs "mgb_vault", never touches the download folder setting), creates/opens vault.hdr + index.enc (+ index.bak), states NONE / FOLDER_MISSING / LOCKED / UNLOCKED (a missing folder or permission never creates a new empty vault), unlock by passphrase / recovery key / quick-unlock key, lock() wipes the key, auto-lock delay helpers (onAppStop / onAppStart, wired in V3), item + folder API on a JSON index (add / update / remove / count / bytes), debounced index save with write-tmp, read-back verify, swap with .bak and rollback, encrypted blob streams in d/<id>.bin (write stream, seekable reader, delete), schema migrate() hook, header re-write helper for V11.
 - BrowserExtras.kt: one extra folder-picker launcher (registered last) + pickVaultFolder(done). Nothing else changed.

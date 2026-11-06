@@ -216,6 +216,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Item("New private tab", R.drawable.ic_lock) { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) }, // S26
             MenuSheet.Item("Bookmark all tabs", R.drawable.ic_bookmark_border) { TabBookmarks.dialog(this, tabs) }, // S40
             MenuSheet.Item("Passwords", R.drawable.ic_lock) { PasswordStore.screen(this) }, // S40
+            MenuSheet.Item("Vault", R.drawable.ic_vault, true, VaultScreen.summary(this)) { VaultScreen.open(this) }, // V3
             MenuSheet.Item("Recently closed tabs", R.drawable.ic_history) { Backup.closedTabs(this, tabs) }, // S29
             MenuSheet.Item("Saved pages", R.drawable.ic_folder, true, PageSave.count(this).let { if (it > 0) it.toString() else "" }) { SavedPages.open(this, tabs) }, // T3, T4: screen
             MenuSheet.Item("Novel grabber", R.drawable.ic_book, true, "EPUB · DOCX · TXT") { openExt("novel/studio.html") }, // N1
@@ -417,10 +418,12 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     override fun onStart() {
         super.onStart()
         AppLock.onStart(this) // S45: lock again after the chosen delay
+        VaultStore.onAppStart(this); VaultScreen.refresh() // V3: vault auto-lock
         AutoDiag.start(this, tabs) // S87.2
     }
 
     override fun onStop() {
+        VaultStore.onAppStop(this) // V3
         AppLock.onStop(this) // S45
         AutoDiag.stop() // S87.2
         AdBlock.flushTotal() // S68

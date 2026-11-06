@@ -1015,6 +1015,7 @@ object SettingsScreen {
                     fa?.let { AppLock.toggle(it) { fill() } }
                 },
                 Row(R.drawable.ic_lock, "Lock after", AppLock.delayLabel(act)) { AppLock.pickDelay(act) { fill() } }, // S45
+                Row(R.drawable.ic_vault, "Vault", VaultScreen.summary(act)) { VaultScreen.open(act) }, // V3
                 Row(R.drawable.ic_shield, "Site permissions", "${SitePerms.count(act)} saved") { // S45
                     fa?.let { SitePerms.screen(it) { fill() } }
                 },
