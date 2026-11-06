@@ -175,6 +175,20 @@ object AccessScreen {
             }
             col.addView(sc, LinearLayout.LayoutParams(MATCH, WRAP))
 
+            col.addView(sectionLabel("Pages")) // A3 + A4
+            val pc = card()
+            toggleRow(pc, R.drawable.ic_search, "Force enable zoom", "Pinch zoom even on sites that block it. Reload the page. Per site: Site settings",
+                { AppearancePrefs.forceZoom(act) }) { on -> AppearancePrefs.setForceZoom(act, on) }
+            toggleRow(pc, R.drawable.ic_list, "Simplified view for web pages", "Shows a small Simplified view pill on article pages. Press and hold the pill to hide it on a site",
+                { AppearancePrefs.simpleHint(act) }) { on -> AppearancePrefs.setSimpleHint(act, on) }
+            toggleRow(pc, R.drawable.ic_forward, "Swipe between pages using a touchpad", "Two-finger swipe = Back / Forward. Works with touchpads that send horizontal scroll",
+                { AppearancePrefs.touchpad(act) }) { on -> AppearancePrefs.setTouchpad(act, on) }
+            navRow(pc, R.drawable.ic_info, "Captions", "Opens Android caption style (size, colour, background)") {
+                try { act.startActivity(android.content.Intent(android.provider.Settings.ACTION_CAPTIONING_SETTINGS)) }
+                catch (_: Exception) { Util.toast(act, "Caption settings are not available on this phone") }
+            }
+            col.addView(pc, LinearLayout.LayoutParams(MATCH, WRAP))
+
             col.addView(sectionLabel("Main menu"))
             val mc = card()
             toggleRow(mc, R.drawable.ic_edit, "Show Text size in main menu", "The Text size row of the page actions",
@@ -368,6 +382,32 @@ object AccessScreen {
             if (act.theme.resolveAttribute(android.R.attr.selectableItemBackground, tv, true)) {
                 if (v.background == null) v.setBackgroundResource(tv.resourceId) else v.foreground = act.getDrawable(tv.resourceId)
             }
+        }
+
+        /** Row with icon, title, hint and a chevron (opens something). */
+        private fun navRow(parent: LinearLayout, icon: Int, label: String, hint: String, onClick: () -> Unit) {
+            val row = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(52)
+                setPadding(dp(18), dp(6), dp(12), dp(6))
+                isClickable = true
+                ripple(this)
+                setOnClickListener { onClick() }
+            }
+            row.addView(ImageView(act).apply {
+                setImageResource(icon)
+                setColorFilter(act.getColor(R.color.mg_text_dim))
+            }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(16) })
+            val txt = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+            txt.addView(TextView(act).apply { text = label; textSize = 15f; setTextColor(act.getColor(R.color.mg_text)) })
+            txt.addView(TextView(act).apply { text = hint; textSize = 12f; setTextColor(act.getColor(R.color.mg_text_dim)); setPadding(0, dp(2), 0, 0) })
+            row.addView(txt, LinearLayout.LayoutParams(0, WRAP, 1f))
+            row.addView(ImageView(act).apply {
+                setImageResource(R.drawable.ic_chevron)
+                setColorFilter(act.getColor(R.color.mg_text_dim))
+            }, LinearLayout.LayoutParams(dp(18), dp(18)).apply { marginStart = dp(4) })
+            parent.addView(row, LinearLayout.LayoutParams(MATCH, WRAP))
         }
 
         private fun toggleRow(parent: LinearLayout, icon: Int, label: String, hint: String?, get: () -> Boolean, set: (Boolean) -> Unit) {

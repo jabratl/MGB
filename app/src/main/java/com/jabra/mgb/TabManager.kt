@@ -584,6 +584,9 @@ class TabManager(
             // S13: browsing history (web pages only, not extension pages)
             if (!tab.isExt && !tab.priv && (tab.url.startsWith("http://") || tab.url.startsWith("https://")))
                 Bookmarks.addHistory(view?.title ?: tab.title, tab.url)
+            if (!tab.isExt && !tab.savedPage && view != null && AppearancePrefs.forceZoom(ctx) && tab.url.startsWith("http") &&
+                !ZoomTools.optedOut(ctx, Util.host(tab.url))) view.evaluateJavascript(ZoomTools.FORCE_JS, null) // A3: Force enable zoom
+            SimpleHint.check(ctx, tab, this@TabManager) // A4: returns at once when the switch is OFF
             TabsApi.onUpdated(tab, JSONObject().put("status", "complete")) // S6
             listener.onPageInfo(tab)
         }

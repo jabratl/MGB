@@ -496,6 +496,12 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     // uiMode is in configChanges (no WebView reload on rotate); on light/dark switch we
     // recreate so the XML colours re-resolve. Tabs come back from the saved session.
+    /** A3: touchpad two-finger horizontal scroll = back / forward. The pref check comes first, so nothing runs when OFF. */
+    override fun dispatchGenericMotionEvent(ev: android.view.MotionEvent): Boolean {
+        if (::tabs.isInitialized && AppearancePrefs.touchpad(this) && ZoomTools.onScroll(ev, tabs)) return true
+        return super.dispatchGenericMotionEvent(ev)
+    }
+
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         applyNavArrows(); refreshShield() // A1: narrow / wide rule follows rotation

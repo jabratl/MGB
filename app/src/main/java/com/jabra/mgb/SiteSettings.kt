@@ -227,6 +227,19 @@ object SiteSettings {
             })
         }
         col.addView(zTv); col.addView(bar)
+        // A3: Force enable zoom per site (only has an effect when Accessibility > Force enable zoom is ON)
+        col.addView(label("Force zoom"))
+        val fzKey = zoomRaw
+        val fzTv = TextView(act).apply {
+            textSize = 15f
+            setTextColor(act.getColor(R.color.mg_text))
+            setPadding(0, dp(6), 0, dp(6))
+            fun upd() { text = if (ZoomTools.optedOut(act, fzKey)) "Off for this site" else "Follows Accessibility" }
+            upd()
+            isClickable = true
+            setOnClickListener { ZoomTools.setOptOut(act, fzKey, !ZoomTools.optedOut(act, fzKey)); upd() }
+        }
+        col.addView(fzTv)
         // button mode (DlMode)
         col.addView(label("Download buttons"))
         val dlTv = TextView(act).apply {

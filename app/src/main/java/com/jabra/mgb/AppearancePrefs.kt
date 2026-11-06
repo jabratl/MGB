@@ -22,6 +22,9 @@ object AppearancePrefs {
     const val K_NAV_FWD = "ap_nav_fwd" // A1
     const val K_NAV_HIDE = "ap_nav_hide" // A1
     const val K_ZOOM_DEF = "ap_zoom_def" // A2
+    const val K_FORCE_ZOOM = "ap_force_zoom" // A3
+    const val K_TOUCHPAD = "ap_touchpad" // A3
+    const val K_SIMPLE_HINT = "ap_simple_hint" // A4
 
     val BAR_POS = listOf("bottom", "top")
     val HOME_ACTIONS = listOf("home", "back", "newtab", "refresh", "bookmarks", "extensions")
@@ -87,6 +90,14 @@ object AppearancePrefs {
     /** A2: default text zoom 50..250 in steps of 10 (default 100 = as before). */
     fun zoomDef(c: Context): Int = (sp(c).getInt(K_ZOOM_DEF, 100).coerceIn(50, 250) / 10) * 10
     fun setZoomDef(c: Context, v: Int) { sp(c).edit().putInt(K_ZOOM_DEF, (v.coerceIn(50, 250) / 10) * 10).apply() }
+
+    /** A3 / A4: Force enable zoom, touchpad swipe, simplified-view pill. All default OFF. */
+    fun forceZoom(c: Context): Boolean = sp(c).getBoolean(K_FORCE_ZOOM, false)
+    fun setForceZoom(c: Context, on: Boolean) { sp(c).edit().putBoolean(K_FORCE_ZOOM, on).apply() }
+    fun touchpad(c: Context): Boolean = sp(c).getBoolean(K_TOUCHPAD, false)
+    fun setTouchpad(c: Context, on: Boolean) { sp(c).edit().putBoolean(K_TOUCHPAD, on).apply() }
+    fun simpleHint(c: Context): Boolean = sp(c).getBoolean(K_SIMPLE_HINT, false)
+    fun setSimpleHint(c: Context, on: Boolean) { sp(c).edit().putBoolean(K_SIMPLE_HINT, on).apply() }
 
     fun startPage(c: Context): Boolean = sp(c).getBoolean(K_START_PAGE, false)
     fun setStartPage(c: Context, on: Boolean) { sp(c).edit().putBoolean(K_START_PAGE, on).apply() }

@@ -112,17 +112,22 @@ object HowToUse {
                 "Each card has Reset to default. It only resets the settings of that card."
             ), "",
             listOf("Cannot find a setting? Search for: animation - Reduce motion appears. Search for: dark - theme options appear.")),
-        Topic(R.drawable.ic_edit, "Accessibility", "Bigger text, arrows in the bar",
+        Topic(R.drawable.ic_edit, "Accessibility", "Zoom, simplified view, arrows",
             listOf(
                 "Menu > Settings > Accessibility (or Appearance > Accessibility) sets the default zoom for every site. The preview shows the size.",
                 "Use - and + or drag the slider. Each step is 10 %. Reset to 100 % appears when the size is not 100.",
                 "Saved zoom for sites lists the sites that have their own size. Tap one to change it, X to follow the default again.",
                 "Show Text size in main menu turns the page-action row on or off.",
-                "Appearance > Customize address bar > Navigation arrows adds Back and Forward inside the bar."
+                "Appearance > Customize address bar > Navigation arrows adds Back and Forward inside the bar.",
+                "Force enable zoom lets you pinch zoom on sites that block it. Reload the page. Site settings > Force zoom turns it off for one site.",
+                "Simplified view for web pages shows a small pill on article pages. Tap it for Reader view. Press and hold it to hide it on that site.",
+                "Swipe between pages using a touchpad: two fingers sideways = Back or Forward (needs a touchpad that sends horizontal scroll).",
+                "Captions opens the Android caption style (size, colour, background)."
             ), "",
             listOf(
                 "Text is small everywhere: set the default zoom to 130 %. A site you saved at 100 % stays at 100 %.",
-                "You use Back often: switch on the Back arrow, and Hide when not available to keep the bar tidy."
+                "You use Back often: switch on the Back arrow, and Hide when not available to keep the bar tidy.",
+                "A shop page will not zoom: switch on Force enable zoom, reload, then pinch."
             )),
         Topic(R.drawable.ic_code, "Userscripts", "Small scripts that run on a site",
             listOf(

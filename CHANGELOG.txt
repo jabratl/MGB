@@ -1,3 +1,16 @@
+0.0.207 (A4 BUILD: Simplified view pill + QA)
+- SimpleHint.kt (NEW): after a page load (0.7 s later) a detector (>= 3 paragraphs of 40+ chars, >= 600 chars in article / main / body) decides; true = small pill "Simplified view" in the web area (never over the bar), shown 6 s, fade 180 ms (none with Reduce motion). Tap = Reader view (PageInfo.reader). Long press = not on this site (prefs mgb_simple_opt). One run per page url per tab; not on Home, extension pages, non-http, or when the reader is already open.
+- TabManager.kt: one line in onPageFinished (SimpleHint.check, exits at once when OFF). AccessScreen.kt: switch "Simplified view for web pages" (default OFF). Key ap_simple_hint in AppearancePrefs and in the RESET list.
+- HowToUse.kt: Accessibility topic now covers zoom, force zoom, simplified view, touchpad, captions and arrows.
+- NOT touched: PageInfo.kt, Vault*, CI.
+
+0.0.206 (A3 BUILD: force zoom, touchpad swipe, captions)
+- ZoomTools.kt (NEW): FORCE_JS rewrites the viewport meta (user-scalable=yes, maximum-scale=10, watches late meta tags 5 s, pages without a viewport meta are not touched); per-site opt-out in prefs mgb_zoom_opt; touchpad helper (AXIS_HSCROLL, 300 ms debounce, threshold 2, 600 ms lock after a page change).
+- TabManager.kt: one line in onPageFinished runs FORCE_JS when ap_force_zoom is ON, page is http(s), not an extension / saved page, site not opted out.
+- MainActivity.kt: dispatchGenericMotionEvent hook, runs only when ap_touchpad is ON.
+- AccessScreen.kt: section "Pages": Force enable zoom, Swipe between pages using a touchpad (hint says it needs horizontal scroll), Captions row (system caption settings, toast if missing). SiteSettings.kt: "Force zoom" per-site row (Follows Accessibility / Off for this site).
+- AppearancePrefs.kt: ap_force_zoom, ap_touchpad (default OFF, in RESET list). Force zoom OFF and touchpad OFF = no behaviour change.
+
 0.0.205 (A2 BUILD: Accessibility page - default zoom, saved site zoom)
 - AccessScreen.kt (NEW): full-screen Accessibility page in the Appearance style. Default zoom (round - / + buttons, slider with a tick per 10 %, centre label, "Reset to 100 %" only when not 100, haptic tick per step, live Comfort preview with an invented sample text). Saved zoom for sites (host + percent, tap to change, X to reset, Reset all, plain empty-state sentence). Switch "Show Text size in main menu" (MenuCustom key "Text size"). Column capped at 560 dp.
 - TextZoom.kt: get() falls back to the default zoom; set() removes the site key only when the value equals the default (a site can be pinned to 100 while the default is 150); new reset / all / resetAll / applyActive. Signatures of get / set / dialog unchanged. Dialog "Reset" now means "follow the default".
