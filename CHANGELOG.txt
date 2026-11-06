@@ -1,3 +1,11 @@
+0.0.228 (P4 BUILD: Social sites page with a switch per site)
+- Why: the plan has 15 sites now; one ON/OFF row in Settings is too coarse. Each site can be switched off by itself and opened from one page.
+- New SocialScreen.kt: full-screen page (Appearance look: header + back, 20 dp cards, rows >= 56 dp, 560 dp width cap). Master switch (Social sites), "Feed sites" and "Chat sites" cards with one ThazirSwitch per SocialProfiles row (key sm_s_<id>), an "Open" pill per site (opens the start page in a new tab, switches that site and the master switch ON), and a short "Good to know" text (no push, Google login, security check, banner fixes).
+- SettingsScreen.kt: the Social sites row opens the page (value ON/OFF refreshes when it closes); RESET "general" list now also removes all sm_s_<id> keys.
+- SocialMode.kt: siteOn / setSiteOn wrappers. HowToUse: one phrase. No change to ensure / inject / blockApp, TabManager untouched.
+- Could break: nothing while Social sites is OFF. Open pill needs a tab manager (BookmarksScreen.tabsRef, assumed TabManager?); with none it shows a toast.
+- NOT tested: Gradle build (CI), device, 360 / 1280 dp layout, dark + light look, rotation.
+
 0.0.227 (P3 BUILD: Discord, WhatsApp Web, Telegram Web, Snapchat Web in a phone-fitting tab)
 - Why: these web clients need a desktop page; a plain desktop tab is tiny on a phone. Same recipe as Messenger chat (desktop user agent + width=device-width viewport).
 - SocialProfiles.kt: 4 rows (Kind.CHAT): discord (discord.com/app), whatsapp (web.whatsapp.com), telegram (web.telegram.org/k/), snapchat (web.snapchat.com). Their app links (discord:// whatsapp:// tg:// snapchat:// + intent of those apps) stay in the browser.

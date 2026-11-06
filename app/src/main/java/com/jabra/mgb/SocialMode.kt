@@ -30,6 +30,10 @@ object SocialMode {
     fun on(c: Context): Boolean = sp(c).getBoolean(KEY, false)
     fun setOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(KEY, v).apply() }
 
+    /** Per-site switch (0.0.228, P4): thin wrappers over SocialProfiles (key sm_s_<id>, not set = ON). */
+    fun siteOn(c: Context, id: String): Boolean = SocialProfiles.siteOn(c, id)
+    fun setSiteOn(c: Context, id: String, v: Boolean) { SocialProfiles.setSiteOn(c, id, v) }
+
     enum class Kind { NONE, FEED, CHAT, INSTA }
 
     /** Start pages for the shortcuts (Command Center). */
