@@ -30,6 +30,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.core.view.ViewCompat
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.FragmentActivity
 import com.google.android.material.button.MaterialButton
@@ -94,6 +95,7 @@ object VaultScreen {
         VaultItems.refresh() // V4: a locked vault must not leave its list open
         VaultExit.refresh() // V9
         VaultRestore.refresh() // V10
+        VaultSettings.refresh() // V11
         if (dlg?.isShowing != true) return
         if (screen == "home" && !VaultStore.isUnlocked()) unlockView()
     }
@@ -184,7 +186,7 @@ object VaultScreen {
 
     private fun head(a: Activity, c: LinearLayout, t: String, sub: String) {
         c.addView(dash(a), lp(0, dp(a, 18), dp(a, 3)))
-        c.addView(tv(a, t, 24f, R.color.mg_text, true), lp(dp(a, 10)))
+        c.addView(tv(a, t, 24f, R.color.mg_text, true).also { ViewCompat.setAccessibilityHeading(it, true) }, lp(dp(a, 10)))
         if (sub.isNotEmpty()) c.addView(tv(a, sub, 14f, R.color.mg_text_dim).apply { setLineSpacing(0f, 1.15f) }, lp(dp(a, 8)))
     }
 
@@ -399,7 +401,7 @@ object VaultScreen {
         val a = act ?: return
         screen = "unlock"
         page(a) { c ->
-            val ring = seal(a, 0.75f)
+            val ring = seal(a, 0.75f).also { it.contentDescription = "Vault is locked" }
             c.addView(ring, lp(0, dp(a, 96), dp(a, 96)).apply { gravity = Gravity.CENTER_HORIZONTAL })
             c.addView(tv(a, "Vault is locked", 22f, R.color.mg_text, true).apply { gravity = Gravity.CENTER }, lp(dp(a, 16)))
             c.addView(tv(a, "Folder: " + folderLabel(a), 13f, R.color.mg_text_dim).apply { gravity = Gravity.CENTER }, lp(dp(a, 4)))
@@ -407,6 +409,8 @@ object VaultScreen {
             val err = tv(a, "", 13f, R.color.mg_error).apply { visibility = View.GONE }
             c.addView(pw, lp(dp(a, 24), MATCH, dp(a, 52)))
             c.addView(err, lp(dp(a, 8)))
+            val waitMs = VaultStore.lockoutLeftMs(a) // V11
+            if (waitMs > 0L) { err.text = "Too many wrong tries. Wait " + VaultStore.waitText(waitMs) + " and try again."; err.visibility = View.VISIBLE }
             lateinit var go: MaterialButton
             go = btn(a, "Unlock") {
                 val x = text(pw)
@@ -522,7 +526,7 @@ object VaultScreen {
             }, LinearLayout.LayoutParams(dp(a, 44), dp(a, 44)))
             c.addView(top, lp())
 
-            val ring = seal(a, if (animate) 0.75f else 1f)
+            val ring = seal(a, if (animate) 0.75f else 1f).also { it.contentDescription = "Vault is open and sealed" }
             c.addView(ring, lp(dp(a, 12), dp(a, 120), dp(a, 120)).apply { gravity = Gravity.CENTER_HORIZONTAL })
             c.addView(tv(a, "Sealed", 18f, R.color.mg_text, true).apply { gravity = Gravity.CENTER }, lp(dp(a, 12)))
             c.addView(tv(a, "Folder: " + folderLabel(a), 13f, R.color.mg_text_dim).apply { gravity = Gravity.CENTER }, lp(dp(a, 2)))
@@ -532,7 +536,7 @@ object VaultScreen {
                 else ValueAnimator.ofFloat(0.75f, 1f).apply { duration = 250; addUpdateListener { ring.p = it.animatedValue as Float } }.start()
             }
 
-            c.addView(tv(a, "CONTENTS", 11f, R.color.mg_primary).apply { typeface = Typeface.DEFAULT_BOLD; letterSpacing = 0.08f }, lp(dp(a, 24)))
+            c.addView(tv(a, "CONTENTS", 11f, R.color.mg_primary).apply { typeface = Typeface.DEFAULT_BOLD; letterSpacing = 0.08f; ViewCompat.setAccessibilityHeading(this, true) }, lp(dp(a, 24)))
             val r1 = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL }
             r1.addView(tile(a, R.drawable.ic_bookmark, "Bookmarks", "bm"), LinearLayout.LayoutParams(0, WRAP, 1f).apply { marginEnd = dp(a, 6) })
             r1.addView(tile(a, R.drawable.ic_history, "History", "hist"), LinearLayout.LayoutParams(0, WRAP, 1f).apply { marginStart = dp(a, 6) })
@@ -542,7 +546,7 @@ object VaultScreen {
             r2.addView(tile(a, R.drawable.ic_download, "Files", "file"), LinearLayout.LayoutParams(0, WRAP, 1f).apply { marginStart = dp(a, 6) })
             c.addView(r2, lp(dp(a, 12)))
 
-            c.addView(tv(a, "SECURITY", 11f, R.color.mg_primary).apply { typeface = Typeface.DEFAULT_BOLD; letterSpacing = 0.08f }, lp(dp(a, 24)))
+            c.addView(tv(a, "SECURITY", 11f, R.color.mg_primary).apply { typeface = Typeface.DEFAULT_BOLD; letterSpacing = 0.08f; ViewCompat.setAccessibilityHeading(this, true) }, lp(dp(a, 24)))
             val card = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; background = box(a) }
             if (a is FragmentActivity && AppLock.available(a)) {
                 card.addView(switchRow(a, "Quick unlock", "Fingerprint or screen lock, this phone only", VaultStore.quickOn(a)) { on ->
@@ -554,13 +558,26 @@ object VaultScreen {
                 dlg?.window?.let { w -> if (on) w.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE) else w.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
             })
             c.addView(card, lp(dp(a, 8)))
-            c.addView(btn(a, "Lock now", false) { lockNow(a) }, lp(dp(a, 20), MATCH, dp(a, 48)))
+            c.addView(btn(a, "Vault settings", false) { // V11
+                VaultSettings.open(a) {
+                    if (dlg?.isShowing == true) { if (VaultStore.isUnlocked()) { applySecure(a); home(false) } else unlockView() }
+                }
+            }, lp(dp(a, 20), MATCH, dp(a, 48)))
+            c.addView(btn(a, "Lock now", false) { lockNow(a) }, lp(dp(a, 8), MATCH, dp(a, 48)))
             c.addView(btn(a, "Restore into the browser", false) { // V10
                 VaultRestore.open(a) { if (dlg?.isShowing == true && VaultStore.isUnlocked()) home(false) }
             }, lp(dp(a, 8), MATCH, dp(a, 48)))
             c.addView(btn(a, "Exit vault / Prepare for uninstall", false) { // V9
                 VaultExit.open(a) { if (dlg?.isShowing == true) bg.execute { val st = VaultStore.check(a); main.post { if (dlg?.isShowing == true) render(st) } } }
             }, lp(dp(a, 8), MATCH, dp(a, 48)))
+        }
+    }
+
+    /** V11: re-applies "hide from recents" to this dialog after the settings page changed it. */
+    private fun applySecure(a: Activity) {
+        dlg?.window?.let { w ->
+            if (VaultStore.hideRecents(a)) w.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+            else w.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
     }
 

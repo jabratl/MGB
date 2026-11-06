@@ -39,6 +39,7 @@ object VaultStore {
     private const val IDX = "index.enc"
     private const val IDX_TMP = "index.tmp"
     private const val IDX_BAK = "index.bak"
+    private const val HDR_BAK = "vault.hdr.bak" // V11: previous header while a new one is being written
     private const val DATA = "d"
     const val INDEX_V = 1
     private const val BIN = "application/octet-stream"
@@ -133,7 +134,11 @@ object VaultStore {
     private fun readHeader(c: Context): VaultCrypto.Header {
         val tree = treeUri(c) ?: throw IOException("no folder")
         val d = child(c, tree, rootDoc(tree), HDR) ?: throw IOException("vault.hdr not found")
-        val h = VaultCrypto.Header.parse(String(readAll(c, d.uri), Charsets.UTF_8))
+        val h = try { VaultCrypto.Header.parse(String(readAll(c, d.uri), Charsets.UTF_8)) } catch (e: Exception) {
+            // V11: a header write that was interrupted leaves the previous good header as vault.hdr.bak
+            val b = child(c, tree, rootDoc(tree), HDR_BAK) ?: throw e
+            VaultCrypto.Header.parse(String(readAll(c, b.uri), Charsets.UTF_8))
+        }
         if (h.v > VaultCrypto.HDR_V) throw IOException("NEWER")
         return h
     }
@@ -206,18 +211,20 @@ object VaultStore {
     fun unlockRecovery(c: Context, recovery: String): Res = unlockWith(c) { h -> VaultCrypto.openRecovery(h, recovery) }
 
     /** BLOCKING. Unlock with a DEK from the per-install quick-unlock wrap (V3). The array is copied, caller wipes its own. */
-    fun unlockWithKey(c: Context, key: ByteArray): Res = unlockWith(c) { h -> if (VaultCrypto.verifyDek(h, key)) key.copyOf() else null }
+    fun unlockWithKey(c: Context, key: ByteArray): Res = unlockWith(c, false) { h -> if (VaultCrypto.verifyDek(h, key)) key.copyOf() else null }
 
-    private fun unlockWith(c: Context, open: (VaultCrypto.Header) -> ByteArray?): Res {
+    private fun unlockWith(c: Context, count: Boolean = true, open: (VaultCrypto.Header) -> ByteArray?): Res {
         val app = c.applicationContext
         if (treeUri(app) == null) return Res(false, "No vault folder chosen.")
+        if (count && lockoutLeftMs(app) > 0L) return Res(false, tooMany(app)) // V11: wait after wrong tries
         try {
             val h = readHeader(app)
-            val k = open(h) ?: return Res(false, "Wrong passphrase or key.")
+            val k = open(h) ?: return Res(false, if (count) { noteFail(app); if (lockoutLeftMs(app) > 0L) tooMany(app) else "Wrong passphrase or key." } else "Wrong passphrase or key.")
             val idx = loadIndex(app, k)
             if (idx == null) { VaultCrypto.wipe(k); return Res(false, lastError.ifEmpty { "The vault index cannot be read." }) }
             synchronized(this) { dek = k; index = idx; header = h; dirty = false }
             folderOk = true; leftAt = System.currentTimeMillis()
+            if (count) clearFails(app)
             return Res(true)
         } catch (e: Exception) {
             if (e.message == "NEWER") lastError = "This vault was made by a newer Thazir. Update the app first."
@@ -499,7 +506,7 @@ object VaultStore {
         try {
             val root = rootDoc(tree)
             child(app, tree, root, DATA)?.let { d -> for (k in kids(app, tree, d.uri)) del(app, k); del(app, d.uri) }
-            for (n in listOf(IDX, IDX_BAK, IDX_TMP)) child(app, tree, root, n)?.let { zero(app, it.uri); del(app, it.uri) }
+            for (n in listOf(IDX, IDX_BAK, IDX_TMP, HDR_BAK)) child(app, tree, root, n)?.let { zero(app, it.uri); del(app, it.uri) }
             child(app, tree, root, HDR)?.let { zero(app, it.uri); del(app, it.uri) }
             if (child(app, tree, root, HDR) != null) return "vault.hdr could not be removed. Delete the vault folder in your file manager."
         } catch (e: Exception) { return "The vault could not be removed completely. Delete the vault folder in your file manager." }
@@ -530,15 +537,160 @@ object VaultStore {
             val tree = treeUri(app) ?: return false
             val d = child(app, tree, rootDoc(tree), HDR) ?: return false
             val old = try { readAll(app, d.uri) } catch (e: Exception) { return false }
+            // V11: keep the previous good header as vault.hdr.bak until the new one is verified (readHeader falls back to it)
+            val oldOk = try { VaultCrypto.Header.parse(String(old, Charsets.UTF_8)).wrapPass.isNotEmpty() } catch (e: Exception) { false }
+            if (oldOk) {
+                try {
+                    val root = rootDoc(tree)
+                    writeAll(app, child(app, tree, root, HDR_BAK)?.uri ?: makeFile(app, root, HDR_BAK), old)
+                } catch (e: Exception) { return false }
+            }
             return try {
                 writeAll(app, d.uri, h.toJson().toString().toByteArray(Charsets.UTF_8))
                 if (VaultCrypto.Header.parse(String(readAll(app, d.uri), Charsets.UTF_8)).wrapPass.isEmpty()) throw IOException("verify")
                 synchronized(this) { header = h }
+                child(app, tree, rootDoc(tree), HDR_BAK)?.let { del(app, it.uri) }
                 true
             } catch (e: Exception) {
-                try { writeAll(app, d.uri, old) } catch (x: Exception) { }
+                var back = false
+                try { writeAll(app, d.uri, old); back = true } catch (x: Exception) { }
+                if (back) child(app, tree, rootDoc(tree), HDR_BAK)?.let { del(app, it.uri) }
                 false
             }
         }
+    }
+
+    // ---------- V11: failed-attempt wait, key changes, index helpers ----------
+
+    private const val FREE_TRIES = 5
+    private const val BASE_WAIT = 30_000L
+    private const val MAX_WAIT = 900_000L
+
+    /** Wrong passphrase / recovery tries in a row (reset by a correct one). */
+    fun failCount(c: Context): Int = prefs(c).getInt("fails", 0)
+
+    /**
+     * Milliseconds the user still has to wait (0 = may try). Stored in prefs so it survives a restart. Inside one boot it uses the monotonic clock
+     * (changing the phone clock does not help); after a reboot it falls back to the wall clock, capped at the wait that was set.
+     */
+    fun lockoutLeftMs(c: Context): Long {
+        val p = prefs(c)
+        val wait = p.getLong("lock_wait", 0L)
+        if (wait <= 0L) return 0L
+        val el = android.os.SystemClock.elapsedRealtime()
+        val start = p.getLong("lock_start_el", -1L)
+        val left = if (start in 0L..el) wait - (el - start) else minOf(wait, p.getLong("lock_until_wall", 0L) - System.currentTimeMillis())
+        return maxOf(0L, left)
+    }
+
+    fun waitText(ms: Long): String { val s = (ms + 999L) / 1000L; return if (s >= 60L) ((s + 59L) / 60L).toString() + " min" else "$s s" }
+
+    private fun tooMany(c: Context): String = "Too many wrong tries. Wait " + waitText(lockoutLeftMs(c)) + " and try again."
+
+    private fun noteFail(c: Context) {
+        val p = prefs(c)
+        val n = p.getInt("fails", 0) + 1
+        val e = p.edit().putInt("fails", n)
+        if (n >= FREE_TRIES) {
+            val wait = minOf(MAX_WAIT, BASE_WAIT shl minOf(n - FREE_TRIES, 5))
+            e.putLong("lock_wait", wait).putLong("lock_start_el", android.os.SystemClock.elapsedRealtime()).putLong("lock_until_wall", System.currentTimeMillis() + wait)
+        }
+        e.apply()
+    }
+
+    private fun clearFails(c: Context) { prefs(c).edit().remove("fails").remove("lock_wait").remove("lock_start_el").remove("lock_until_wall").apply() }
+
+    /** BLOCKING. Checks the passphrase of the OPEN vault (for sensitive actions). Counts wrong tries like unlock does. Wipes [pass]. */
+    fun confirmPass(c: Context, pass: CharArray): Res {
+        val app = c.applicationContext
+        try {
+            if (lockoutLeftMs(app) > 0L) return Res(false, tooMany(app))
+            val h = synchronized(this) { header } ?: return Res(false, "The vault is locked.")
+            val k = VaultCrypto.openPass(h, pass)
+            if (k == null) { noteFail(app); return Res(false, if (lockoutLeftMs(app) > 0L) tooMany(app) else "Wrong passphrase.") }
+            val same = synchronized(this) { dek }?.let { java.security.MessageDigest.isEqual(it, k) } ?: false
+            VaultCrypto.wipe(k)
+            if (!same) return Res(false, "The vault is locked.")
+            clearFails(app)
+            return Res(true)
+        } catch (e: Exception) {
+            return Res(false, "The passphrase could not be checked.")
+        } finally { VaultCrypto.wipe(pass) }
+    }
+
+    /** True when the header read back from the folder opens with [open] and gives exactly [k]. */
+    private fun readBackOk(app: Context, k: ByteArray, open: (VaultCrypto.Header) -> ByteArray?): Boolean = try {
+        val k2 = open(readHeader(app))
+        val same = k2 != null && java.security.MessageDigest.isEqual(k2, k)
+        if (k2 != null) VaultCrypto.wipe(k2)
+        same
+    } catch (e: Exception) { false }
+
+    /**
+     * V11 BLOCKING. New passphrase for the open vault: only the passphrase wrap in vault.hdr is replaced (DEK, index and blobs untouched).
+     * The old header is kept as vault.hdr.bak while writing, the new one is read back and opened with the new passphrase, and on any doubt the
+     * old header is put back, so the old passphrase keeps working. Wipes both arrays.
+     */
+    fun changePass(c: Context, oldPass: CharArray, newPass: CharArray): Res {
+        val app = c.applicationContext
+        try {
+            val chk = confirmPass(app, oldPass)
+            if (!chk.ok) return chk
+            val k = synchronized(this) { dek?.copyOf() } ?: return Res(false, "The vault is locked.")
+            try {
+                val h = synchronized(this) { header } ?: return Res(false, "The vault is locked.")
+                val nh = VaultKeyOps.rewrap(h, k, newPass.copyOf()) ?: return Res(false, "This build cannot change the passphrase yet. Nothing was changed.")
+                if (!writeHeader(app, nh)) return Res(false, "The key file could not be saved. Your old passphrase still works.")
+                if (!readBackOk(app, k) { x -> VaultCrypto.openPass(x, newPass.copyOf()) }) {
+                    writeHeader(app, h)
+                    return Res(false, "The new passphrase could not be verified, so the old one was kept.")
+                }
+                return Res(true)
+            } finally { VaultCrypto.wipe(k) }
+        } catch (e: Exception) {
+            return Res(false, "The passphrase could not be changed. The old one still works.")
+        } finally { VaultCrypto.wipe(newPass) }
+    }
+
+    /** V11 BLOCKING. Replaces the recovery wrap and returns the new key text (show once). The old key stops working. Wipes [pass]. */
+    fun regenRecovery(c: Context, pass: CharArray): Res {
+        val app = c.applicationContext
+        try {
+            val chk = confirmPass(app, pass)
+            if (!chk.ok) return chk
+            val k = synchronized(this) { dek?.copyOf() } ?: return Res(false, "The vault is locked.")
+            try {
+                val h = synchronized(this) { header } ?: return Res(false, "The vault is locked.")
+                val r = VaultKeyOps.recovery(h, k) ?: return Res(false, "This build cannot create a new recovery key yet. Nothing was changed.")
+                val nh = r.first; val key = r.second
+                if (!writeHeader(app, nh)) return Res(false, "The key file could not be saved. Your old recovery key still works.")
+                if (!readBackOk(app, k) { x -> VaultCrypto.openRecovery(x, key) }) {
+                    writeHeader(app, h)
+                    return Res(false, "The new recovery key could not be verified, so the old one was kept.")
+                }
+                return Res(true, "", key)
+            } finally { VaultCrypto.wipe(k) }
+        } catch (e: Exception) {
+            return Res(false, "The recovery key could not be changed. The old one still works.")
+        }
+    }
+
+    /** Approximate size of the list (index) in characters. */
+    @Synchronized fun indexBytes(): Int = index?.toString()?.length ?: 0
+
+    /** V11: removes history entries older than [cutoff] (ms). Returns how many went. */
+    fun trimHistory(c: Context, cutoff: Long): Int {
+        var n = 0
+        synchronized(this) {
+            val a = index?.optJSONArray("items") ?: return 0
+            var i = a.length() - 1
+            while (i >= 0) {
+                val o = a.optJSONObject(i)
+                if (o != null && o.optString("type") == "hist" && o.optLong("time") < cutoff) { a.remove(i); n++ }
+                i--
+            }
+        }
+        if (n > 0) saveSoon(c)
+        return n
     }
 }
