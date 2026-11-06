@@ -160,8 +160,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         onBackPressedDispatcher.addCallback(this, backCb)
 
         if (!tabs.restoreSession()) tabs.newTab(TabManager.HOME_PAGE) // S13
-        LinkInbox.fromIntent(this, tabs, intent) // D1
         else if (AppearancePrefs.startPage(this)) tabs.newTab(TabManager.HOME_PAGE) // A8: restored tabs + a fresh home tab selected
+        LinkInbox.fromIntent(this, tabs, intent) // D1
         UpdateManager.autoCheck(this)
         CrashLog.showLast(this) // FIX
         AppLock.onCreate(this) // S45: lock screen at cold start (if ON)
