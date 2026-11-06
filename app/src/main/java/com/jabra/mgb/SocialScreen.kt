@@ -179,6 +179,8 @@ object SocialScreen {
                 null, { SocialMode.dfixOn(act) }) { on -> SocialMode.setDfixOn(act, on) }
             switchRow(extra, R.drawable.ic_info, "Warm up when opening a site", "Looks up the site address a moment earlier so the first page starts a little faster. Nothing is sent to the site",
                 null, { SocialPreload.on(act) }) { on -> SocialPreload.setOn(act, on) }
+            switchRow(extra, R.drawable.ic_info, "Keep social tabs alive", "Social tabs (up to 4) are not freed by Suspend old tabs, so you come back to the same page. Uses more memory",
+                null, { SocialKeep.on(act) }) { on -> SocialKeep.setOn(act, on) }
             col.addView(extra, LinearLayout.LayoutParams(MATCH, WRAP))
             siteRows.add(extra)
 
@@ -229,6 +231,8 @@ object SocialScreen {
             val home = card() // 0.0.230 (P6): not dimmed, a shortcut turns Social sites ON when tapped
             actionRow(home, R.drawable.ic_add, "Add a site to the phone home screen", "Icon opens it in a Social tab") { SocialShortcuts.pickPin(act) }
             actionRow(home, R.drawable.ic_add, "Add tiles to the browser Home page", "Tick the sites you want") { SocialShortcuts.pickTiles(act) }
+            switchRow(home, R.drawable.ic_add, "Long-press shortcuts on the Thazir icon", "Shows up to 4 sites that are switched on when you long-press the app icon",
+                null, { SocialShortcuts.dynOn(act) }) { on -> SocialShortcuts.setDynOn(act, on) }
             col.addView(home, LinearLayout.LayoutParams(MATCH, WRAP))
 
             col.addView(sectionLabel("Good to know"))

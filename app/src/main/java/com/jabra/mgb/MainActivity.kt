@@ -171,6 +171,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         else if (AppearancePrefs.startPage(this)) tabs.newTab(TabManager.HOME_PAGE) // A8: restored tabs + a fresh home tab selected
         LinkInbox.fromIntent(this, tabs, intent) // D1
         if (savedInstanceState == null) SocialShortcuts.fromIntent(this, tabs, intent) // 0.0.230 (P6): home-screen shortcut
+        if (savedInstanceState == null) SocialShortcuts.syncDynamic(this) // 0.0.253 (D6): launcher long-press shortcuts (switch sm_dyn)
         if (savedInstanceState == null) { SocialLinks.sync(this); SocialLinks.fromIntent(this, tabs, intent) } // 0.0.246 (A6): link from another app
         UpdateManager.autoCheck(this)
         CrashLog.showLast(this) // FIX

@@ -1,3 +1,15 @@
+0.0.253 (D6 BUILD: long-press shortcuts on the app icon)
+- Why: long-press the Thazir icon on the launcher and see up to 4 social sites (the ones switched ON, in list order); tap = opens it in a Social tab (same intent as the pinned shortcut, so splash / own window rules apply). Switch "Long-press shortcuts on the Thazir icon" (Social sites page > Home, default OFF, key sm_dyn). OFF removes the shortcuts. Updated at each cold start and when the switch is changed.
+- Files: SocialShortcuts.kt (dynOn / setDynOn / syncDynamic, uses ShortcutManagerCompat.setDynamicShortcuts), MainActivity.kt (1 line after the P6 hook), SocialScreen.kt (switch row), SettingsScreen.kt (RESET + sm_dyn), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF. Manifest untouched.
+- Could break: nothing with the switch OFF (removeAll only clears shortcuts; no other dynamic shortcut existed in the app: grep before adding more). Changing a site switch does not refresh the list until the next cold start or toggling this switch.
+- NOT tested: Gradle build (CI), device, launchers that ignore dynamic shortcuts, Android 7.1 vs 14 launcher look.
+
+0.0.252 (D1 BUILD: keep social tabs alive)
+- Why: biggest app feel. "Suspend old tabs" freed the WebView of an unused tab, so coming back reloaded the page. Switch "Keep social tabs alive" (Social sites page > Tabs and data, default OFF, key sm_keep): a tab on a social site (Social sites ON + that site ON) is skipped by the sweep. Cap = 4 most recently used social tabs (SocialKeep.MAX); older social tabs can still be suspended. Uses more memory (said in the switch text).
+- Files: NEW SocialKeep.kt, TabManager.kt (1 line in sweep after the group check), SocialScreen.kt (switch row), SettingsScreen.kt (RESET + sm_keep), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: nothing with the switch OFF (keep returns false at once). ON: more RAM; Android may still kill the app in the background (then the saved session restores as before).
+- NOT tested: Gradle build (CI), device, memory with 4 social tabs, sweep timing.
+
 0.0.251 (B2 BUILD: forget social logins)
 - Why: with "Keep social logins separate" ON every social site keeps its own login in its own WebView profile (social_<id>). There was no way to log one out except Android app data. Social sites page > Logins now has two rows: "Forget logins of one site" (list of sites, each says has saved login / nothing saved, then a question) and "Forget all social logins" (question first). Shown only when the phone supports profiles. Works with Social sites OFF too.
 - How: SocialMode.forget(id) deletes the profile (ProfileStore.deleteProfile). If a tab still uses it (deleteProfile refuses), the profile's cookies + site data are wiped instead and the toast says "Reload its open tab". hasProfile(id) = profile exists. forgetAll() = every site, returns how many had data.

@@ -57,6 +57,24 @@ object SocialShortcuts {
         return IconCompat.createWithAdaptiveBitmap(bmp)
     }
 
+    /** 0.0.253 (D6): long-press the Thazir icon = up to 4 social sites (the ones switched ON, in list order). Switch sm_dyn, default OFF. */
+    private const val K_DYN = "sm_dyn"
+    fun dynOn(c: Context): Boolean = c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).getBoolean(K_DYN, false)
+    fun setDynOn(c: Context, v: Boolean) { c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE).edit().putBoolean(K_DYN, v).apply(); syncDynamic(c) }
+    fun syncDynamic(c: Context) {
+        try {
+            if (!dynOn(c)) { ShortcutManagerCompat.removeAllDynamicShortcuts(c); return }
+            val list = SocialProfiles.all.filter { SocialProfiles.siteOn(c, it.id) }.take(4).map { p ->
+                ShortcutInfoCompat.Builder(c, "dyn_" + p.id)
+                    .setShortLabel(p.label).setLongLabel(p.label)
+                    .setIcon(icon(c, p.label))
+                    .setIntent(intentFor(c, p.id))
+                    .build()
+            }
+            ShortcutManagerCompat.setDynamicShortcuts(c, list)
+        } catch (_: Throwable) { }
+    }
+
     /** Ask the launcher to pin a shortcut for this site (the launcher shows its own confirm). */
     fun pin(act: Activity, p: SocialProfiles.Profile) {
         try {

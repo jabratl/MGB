@@ -146,6 +146,7 @@ class TabManager(
             if (now - t.lastActive < min * 60_000L) continue
             if (!t.url.startsWith("http")) continue
             if (TabSwitcher.groupInfoOf(t.id) != null) continue // grouped tabs stay alive
+            if (SocialKeep.keep(ctx, tabs, t)) continue // 0.0.252 (D1): social tabs stay alive (switch sm_keep)
             val js = "(function(){var m=document.querySelectorAll('video,audio');if(!m.length)return 0;for(var i=0;i<m.length;i++)if(!m[i].paused&&!m[i].ended)return 1;return 2})()"
             try {
                 t.web.evaluateJavascript(js) { r ->
