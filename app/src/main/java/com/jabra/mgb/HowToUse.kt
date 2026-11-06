@@ -209,6 +209,7 @@ object HowToUse {
             listOf(
                 "Bookmarks > select rows > More > Move to vault. They leave the browser list and appear in Vault > Bookmarks.",
                 "Hide private bookmarks: in Vault > Bookmarks press and hold one, tap Hide. Or pick a folder chip and tap Hide folder. They disappear from the list until you tap Show hidden.",
+                "Select many: press and hold a bookmark, then tap Folders... and tick folders one by one (or All folders). Tap Hide: choose only the selected bookmarks, or the bookmarks with their folders.",
                 "Changing phone: before you leave, Vault > Prepare for uninstall > Keep all. On the new phone install Thazir, Vault > I already have a vault."
             ), true),
         Topic(R.drawable.ic_save, "Backup and restore", "Move to a new phone safely",

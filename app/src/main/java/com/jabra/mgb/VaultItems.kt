@@ -366,15 +366,29 @@ object VaultItems {
 
     private fun hiddenCount(): Int = if (type == "bm") VaultStore.items("bm").count { isHid(it) } else 0
 
-    private fun hideSelected(a: Activity, hide: Boolean) {
+    /** V17: Hide button. Selection with folders = ask: only the selected bookmarks, or the bookmarks and their folders. */
+    private fun onHideClick(a: Activity, hide: Boolean) {
+        if (!hide) { hideSelected(a, false); return }
+        val fo = sel.mapNotNull { VaultStore.item(it) }.map { it.optString("folder") }.filter { it.isNotEmpty() }.distinct()
+        if (fo.isEmpty()) { hideSelected(a, true); return }
+        val total = VaultStore.items("bm").count { fo.contains(it.optString("folder")) }
+        MaterialAlertDialogBuilder(a).setTitle("Hide")
+            .setItems(arrayOf("Only the selected bookmarks", "Selected bookmarks and their " + (if (fo.size == 1) "folder" else "${fo.size} folders") + " ($total bookmarks in total)")) { _, i ->
+                hideSelected(a, true, i == 1)
+            }.setNegativeButton("Cancel", null).show()
+    }
+
+    private fun hideSelected(a: Activity, hide: Boolean, withFolders: Boolean = false) {
         val ids = ArrayList(sel)
         if (ids.isEmpty()) return
         val folders = HashSet<String>()
+        val newlyHidden = HashSet<String>() // V17: folders this action hid (Undo opens only these)
         var n = 0
         for (id in ids) {
             val o = VaultStore.item(id) ?: continue
             val fo = o.optString("folder")
             if (!hide && fo.isNotEmpty()) folders.add(fo)
+            if (hide && withFolders && fo.isNotEmpty() && !VaultStore.hiddenFolders().contains(fo) && newlyHidden.add(fo)) VaultStore.setFolderHidden(a, fo, true)
             if (o.optBoolean("hidden") != hide) { o.put("hidden", hide); VaultStore.updateItem(a, o) }
             n++
         }
@@ -383,6 +397,7 @@ object VaultItems {
         bar(a, (if (hide) "Hid " else "Unhid ") + plural(n), "Undo") {
             for (id in ids) { val o = VaultStore.item(id) ?: continue; o.put("hidden", !hide); VaultStore.updateItem(a, o) }
             for (f in folders) VaultStore.setFolderHidden(a, f, true)
+            for (f in newlyHidden) VaultStore.setFolderHidden(a, f, false)
             chip = 0; listPage()
         }
     }
@@ -396,12 +411,19 @@ object VaultItems {
     private fun selectFolderDialog(a: Activity) {
         val fs = bmFolders()
         if (fs.isEmpty()) { Util.toast(a, "No folders here"); return }
-        MaterialAlertDialogBuilder(a).setTitle("Select a folder")
-            .setItems(fs.toTypedArray()) { _, i ->
-                val f = fs[i]
-                sel.addAll(shownAll().filter { it.optString("folder") == f }.map { it.optString("id") })
+        // V17: tick folders one by one (a ticked folder selects all its bookmarks, un-ticking a fully selected folder removes them), or All folders
+        val shown = shownAll()
+        fun idsOf(f: String) = shown.filter { it.optString("folder") == f }.map { it.optString("id") }
+        val checked = BooleanArray(fs.size) { val l = idsOf(fs[it]); l.isNotEmpty() && sel.containsAll(l) }
+        val was = checked.copyOf()
+        MaterialAlertDialogBuilder(a).setTitle("Select folders")
+            .setMultiChoiceItems(fs.map { "$it (${idsOf(it).size})" }.toTypedArray(), checked) { _, i, on -> checked[i] = on }
+            .setPositiveButton("Apply") { _, _ ->
+                for (i in fs.indices) { val l = idsOf(fs[i]); if (checked[i]) sel.addAll(l) else if (was[i]) sel.removeAll(l.toSet()) }
                 selecting = sel.isNotEmpty(); listPage()
-            }.setNegativeButton("Cancel", null).show()
+            }
+            .setNeutralButton("All folders") { _, _ -> for (f in fs) sel.addAll(idsOf(f)); selecting = sel.isNotEmpty(); listPage() }
+            .setNegativeButton("Cancel", null).show()
     }
 
     /** All / None / Invert / Folder... shown under the top bar while selecting. */
@@ -411,7 +433,7 @@ object VaultItems {
         add("All") { sel.addAll(vaultItems().map { it.optString("id") }); listPage() }
         add("None") { sel.clear(); listPage() }
         add("Invert") { val shown = vaultItems().map { it.optString("id") }.toSet(); val keep = shown.filter { !sel.contains(it) }; sel.clear(); sel.addAll(keep); listPage() }
-        if (type == "bm" && bmFolders().isNotEmpty()) add("Folder...") { selectFolderDialog(a) }
+        if (type == "bm" && bmFolders().isNotEmpty()) add("Folders...") { selectFolderDialog(a) }
         return r
     }
 
@@ -468,7 +490,7 @@ object VaultItems {
         }
         if (type == "bm") {
             val allHid = has && sel.all { id -> VaultStore.item(id)?.let { isHid(it) } == true }
-            r.addView(VaultScreen.btn(a, if (allHid) "Unhide" else "Hide", false) { hideSelected(a, !allHid) }.apply { isEnabled = has }, LinearLayout.LayoutParams(0, dp(a, 48), 1f).apply { marginStart = dp(a, 6) })
+            r.addView(VaultScreen.btn(a, if (allHid) "Unhide" else "Hide", false) { onHideClick(a, !allHid) }.apply { isEnabled = has }, LinearLayout.LayoutParams(0, dp(a, 48), 1f).apply { marginStart = dp(a, 6) })
         }
         r.addView(VaultScreen.btn(a, "Delete", false) { deleteDialog(a) }.apply { isEnabled = has }, LinearLayout.LayoutParams(0, dp(a, 48), 1f).apply { marginStart = if (type == "bm" || type == "page" || type == "file") dp(a, 6) else 0 })
         ui.foot.addView(r, lp())

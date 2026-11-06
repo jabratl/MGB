@@ -1,3 +1,8 @@
+0.0.208 (V17 MODIFY: Vault bookmarks - folder multi-select, hide with folders)
+- VaultItems.kt: selection tool "Folder..." is now "Folders...": a tick list (folder name + bookmark count). Tick folders one by one to select their bookmarks, un-tick a fully selected folder to remove them, or tap All folders. Apply / Cancel.
+- VaultItems.kt: Hide with a selection that has folders asks: "Only the selected bookmarks" or "Selected bookmarks and their folder(s)" (shows how many bookmarks the folders hold). Undo opens only the folders that action hid. Selection without folders hides at once as before. Unhide unchanged.
+- HowToUse.kt: one example line. Not touched: VaultStore.kt (no change needed), data format, other Vault files.
+
 0.0.207 (A4 BUILD: Simplified view pill + QA)
 - SimpleHint.kt (NEW): after a page load (0.7 s later) a detector (>= 3 paragraphs of 40+ chars, >= 600 chars in article / main / body) decides; true = small pill "Simplified view" in the web area (never over the bar), shown 6 s, fade 180 ms (none with Reduce motion). Tap = Reader view (PageInfo.reader). Long press = not on this site (prefs mgb_simple_opt). One run per page url per tab; not on Home, extension pages, non-http, or when the reader is already open.
 - TabManager.kt: one line in onPageFinished (SimpleHint.check, exits at once when OFF). AccessScreen.kt: switch "Simplified view for web pages" (default OFF). Key ap_simple_hint in AppearancePrefs and in the RESET list.
