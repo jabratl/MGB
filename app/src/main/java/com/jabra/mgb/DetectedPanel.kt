@@ -379,6 +379,15 @@ object DetectedPanel {
         return if (bw > 0 && dur > 0) (bw * dur / 8).toLong() else 0L
     }
 
+    /** 0.0.223: size that will really download = size of the quality the cap picks (same as the card line); else sizeOf(). */
+    private fun sizeToGet(e: DItem): Long {
+        if (e.isStream) {
+            val got = pickH(heightsOf(e.variants), maxQ())
+            if (got > 0) { val z = varSize(e, got, durOf(e)); if (z > 0) return z }
+        }
+        return sizeOf(e).first
+    }
+
     /** S63: V77 autoSubs = download the page subtitle together with the video (same name). */
     fun subsOn(): Boolean = try { ChromeBridge.sync.get("autoSubs").optBoolean("autoSubs", true) } catch (e: Exception) { true }
 
@@ -793,7 +802,7 @@ object DetectedPanel {
         private fun refreshSelection(only: String?) {
             val n = selected.size
             var tot = 0L // S67: total of the sizes that are known
-            for (k in selected) all.firstOrNull { it.key == k }?.let { tot += sizeOf(it).first }
+            for (k in selected) all.firstOrNull { it.key == k }?.let { tot += sizeToGet(it) }
             dlBtn.text = "Download " + n + (if (n == 1) " file" else " files") + (if (tot > 0) "  ·  ~" + EngineApi.fmtSize(tot) else "")
             setDlVisible(n > 0)
             selAll.isChecked = visible.isNotEmpty() && visible.all { it.drm || selected.contains(it.key) }

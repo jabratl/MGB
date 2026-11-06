@@ -1,3 +1,8 @@
+0.0.223 (A13 FIX: "Download N files" total showed the biggest quality, not the selected one)
+- Root cause: refreshSelection() summed sizeOf() = bit rate of the BEST variant x duration, while the card line uses the quality the "Video quality: up to ..." cap picks. Example: card 360p ~14.3 MB, button ~98.4 MB (1080p).
+- DetectedPanel.kt: new sizeToGet() (same pickH + varSize + durOf as the card; falls back to sizeOf) used only for the button total. Cards, sort and list refresh are unchanged.
+- Could break: nothing in downloads (label only). Streams without bandwidth info still show the old size.
+
 0.0.222 (A12 FIX: diagnose report showed empty "failed:" job lines and hid where a crash happened)
 - Root cause 1: DiagReport read the failed job text from "error" / "why", but V77 (background.js trackJob) stores it in "text". So "Queue / jobs" printed "failed:" with no reason, and the rule engine (token-expired, convert-limit, dup-file, subtitle-fail) never saw the job errors.
 - Root cause 2: a crash event keeps its stack in Diag.Event.extra, but the report printed only the message line ("IndexOutOfBoundsException Empty list ... index 0"), so the crash cannot be located.

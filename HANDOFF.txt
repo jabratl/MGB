@@ -1,5 +1,5 @@
 THAZIR (project MGB) - DOWNLOADER IDEAS PLAN D1-D6 (idea source: UVD GUI, GPLv3 -> IDEAS ONLY, NO UVD CODE)
-Baseline: Thazir-main at 0.0.209. STATUS: D3 [x] (0.0.210)  D5 [x] (0.0.211)  D2 [x] (0.0.211)  D1 [x] (0.0.212)  D4 [x] (0.0.213)  D6 [x] (0.0.214)  ALL DONE. Latest: A12 = 0.0.222 (see LOG)
+Baseline: Thazir-main at 0.0.209. STATUS: D3 [x] (0.0.210)  D5 [x] (0.0.211)  D2 [x] (0.0.211)  D1 [x] (0.0.212)  D4 [x] (0.0.213)  D6 [x] (0.0.214)  ALL DONE. Latest: A13 = 0.0.223 (A12 = 0.0.222 also in LOG) (see LOG)
 Order: D3, D5, D2, D1, D4, D6.   Next = none (see NEXT list in the LOG).
 Old plan (Accessibility A1-A4, all done) is kept as HANDOFF_A_ACCESS.txt. DESIGN RULES (colour tokens mg_*, 20dp cards, dark+light, Reduce motion,
 rotation-safe dialogs, 560dp cap) are in section 2 of HANDOFF_A_ACCESS.txt: read only that section when UI is added.
@@ -38,6 +38,11 @@ RULES (every step): new logic in new file, 1-3 line hooks; new pref default = ol
 Checks available: node --check changed .js, brace balance, single-match patches, duplicate ids, JSON valid. NOT possible in sandbox: Gradle (CI), device render.
 
 LOG (newest first)
+A13 | 0.0.223 | FIX (owner screenshot). Files: DetectedPanel.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+   Root cause: button total used best-variant size (sizeOf) instead of the capped quality size the card shows. Fix: sizeToGet() + 1 call in refreshSelection().
+   Checked: single-match patches; Kotlin brace/paren balance (see below); no new pref / UI / ids.
+   NOT tested: Gradle build (CI); device; multi-select with mixed streams + direct files; cap change refreshes the total (render() runs after the quality dialog).
+   NEXT (not touched, ideas): total also shows "(360p)" when capped; "Download all" in the quality dialog shows total size per option; warn when free space < total; cancelled jobs counted as failed in the report; A12 NEXT list.
 A12 | 0.0.222 | FIX (owner asked: review native downloader, fix bugs from diagnose report). Files: DiagReport.kt, app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
    Root cause: job failure text is in "text" (trackJob), report read "error"/"why" -> blank "failed:" lines + job errors invisible to DiagRules. Crash stack was stored (Diag.Event.extra) but not printed.
    Fix: jobErr() + crashFrames() in DiagReport.kt (2 call sites + 1 flatMap).
