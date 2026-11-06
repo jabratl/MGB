@@ -3,7 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-val appVersionName = "0.0.231"
+val appVersionName = "0.0.232"
 // CI sets GITHUB_RUN_NUMBER, so every build has a higher versionCode (needed for updates)
 // CI provides "owner/repo"; the in-app updater reads releases from it
 val ghRepo = System.getenv("GITHUB_REPOSITORY") ?: ""
@@ -77,4 +77,5 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:1.3.1") // S39: web streams (.m3u8)
     implementation("androidx.media3:media3-exoplayer-dash:1.3.1") // S39: web streams (.mpd)
     implementation("androidx.biometric:biometric:1.1.0") // S30: unlock for saved passwords
+    implementation("org.tensorflow:tensorflow-lite:2.14.0") // 0.0.232 (P8a): on-device picture check (SocialNsfw, needs assets/nsfw/model.tflite)
 }

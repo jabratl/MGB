@@ -513,6 +513,7 @@ class TabManager(
                 if (!tab.priv) HeaderModes.pageRequest(r, tab.id, tab.url)?.let { return it }
                 if (AdBlock.shouldBlock(r, tab.url)) return AdBlock.emptyResponse() // S19
                 Sniffer.onRequest(tab, r)
+                SocialNsfw.intercept(ctx, tab.url, r)?.let { return it } // 0.0.232 (P8a): experimental picture check (pref OFF / no model = null)
                 return null
             }
             if (!r.isForMainFrame && !tab.isExt) return EngineHost.extPublic(r.url, tab.url, r.requestHeaders?.get("Referer")) // 0.0.108: only web_accessible_resources of installed extensions
