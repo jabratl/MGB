@@ -476,6 +476,9 @@ class TabManager(
                 if (tab.popup) container.post { close(tab) }
                 return true
             }
+            // 0.0.224: Social mode: user agent follows the page (chat = desktop, feed / Instagram = mobile); app links stay in the browser
+            if (!tab.isExt && request.isForMainFrame && u.scheme == "https" && view != null && SocialMode.ensure(ctx, view, u.toString(), tab.desktop)) { view.loadUrl(u.toString()); return true }
+            if (!tab.isExt && request.isForMainFrame && SocialMode.blockApp(ctx, tab.url, u)) { Util.toast(ctx, "Staying in the browser"); return true }
             // S41: HTTPS-only mode
             if (!tab.isExt && request.isForMainFrame && u.scheme == "http" && HttpsOnly.on(ctx) && tab.httpsAllow != u.host && tab.httpsFrom != u.toString()) {
                 val up = HttpsOnly.upgrade(u.toString())
@@ -566,6 +569,7 @@ class TabManager(
                 if (SiteConfig.has(url, SiteConfig.DESKTOP) && !tab.desktop) container.post { setDesktop(tab, true) }
             }
             if (!tab.isExt && view != null) YtAds.flag(view, url) // 0.0.105
+            if (!tab.isExt && !tab.savedPage && view != null && url != null && SocialMode.ensure(ctx, view, url, tab.desktop)) container.post { view.stopLoading(); view.loadUrl(url) } // 0.0.224
             TabsApi.onUpdated(tab, JSONObject().put("status", "loading").put("url", tab.url)) // S6
             listener.onPageInfo(tab)
         }
@@ -581,6 +585,7 @@ class TabManager(
             if (!tab.isExt && !tab.priv && tab.url.startsWith("http") && WebVideo.onFor(ctx, tab.url)) view?.evaluateJavascript(WebVideo.JS, null) // S45
             if (!tab.isExt) YtAds.flag(view, tab.url) // 0.0.105
             if (!tab.isExt) CosmeticFilter.inject(ctx, view, tab.url) // S42
+            if (!tab.isExt) SocialMode.inject(ctx, view, tab.url, tab.desktop) // 0.0.224
             // S13: browsing history (web pages only, not extension pages)
             if (!tab.isExt && !tab.priv && (tab.url.startsWith("http://") || tab.url.startsWith("https://")))
                 Bookmarks.addHistory(view?.title ?: tab.title, tab.url)
@@ -601,6 +606,7 @@ class TabManager(
         override fun onProgressChanged(view: WebView?, newProgress: Int) {
             tab.progress = newProgress
             if (!tab.isExt && newProgress in 35..99) CosmeticFilter.inject(ctx, view, tab.url) // S42: early, so the banner does not flash
+            if (!tab.isExt && newProgress in 35..99) SocialMode.inject(ctx, view, tab.url, tab.desktop) // 0.0.224: early viewport for the chat
             listener.onPageInfo(tab)
         }
 

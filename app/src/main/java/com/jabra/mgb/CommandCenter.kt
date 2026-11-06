@@ -192,6 +192,10 @@ object CommandCenter {
         reg(R.drawable.ic_lock, "New private tab", "No history, separate cookies", "incognito secret", { tabs.newTab(TabManager.HOME_PAGE, 0, true, true) })
         reg(R.drawable.ic_screen, "Tab switcher", "See all open tabs and groups", "tabs overview grid", { tabs.showSwitcher() })
         reg(R.drawable.ic_home, "Home", "Go to the speed dial", "start page", { tabs.goHome() })
+        reg(R.drawable.ic_desktop, "Facebook", "Mobile feed, no Desktop site needed", "fb social lite", { SocialMode.open(act, tabs, SocialMode.FB_HOME) }) // 0.0.224
+        reg(R.drawable.ic_desktop, "Messenger chat", "Facebook messages that fit the phone", "fb chat message social", { SocialMode.open(act, tabs, SocialMode.FB_CHAT) })
+        reg(R.drawable.ic_desktop, "Instagram", "Feed in the browser", "ig insta social", { SocialMode.open(act, tabs, SocialMode.IG_HOME) })
+        reg(R.drawable.ic_desktop, "Instagram messages", "Direct messages in the browser", "ig insta dm chat social", { SocialMode.open(act, tabs, SocialMode.IG_DM) })
         if (cur != null) reg(R.drawable.ic_history, "Recently closed tabs", "Reopen a tab you closed", "undo restore reopen", { Backup.closedTabs(act, tabs) })
         if (canPage) {
             reg(R.drawable.ic_reload, "Reload page", Util.host(cur!!.url), "refresh", { cur.web.reload() })

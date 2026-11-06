@@ -1,3 +1,12 @@
+0.0.224 (NEW: Social sites - Facebook, Messenger chat and Instagram without the Desktop site switch)
+- Why: Facebook's mobile site has no chat (it pushes the Messenger app), and the desktop site that has chat is tiny on a phone. Facebook / Instagram also show "Open app" banners and app redirects.
+- New SocialMode.kt (switch Settings > General > Social sites, key sm_on, default OFF = old behaviour). Chat pages (facebook.com/messages, messenger.com): desktop user agent + width=device-width viewport. Other Facebook pages and Instagram: mobile user agent without the WebView marker. The user agent follows each page address, a tab put in Desktop site by hand is not touched, other sites get the default user agent back.
+- fb:// fb-messenger:// instagram:// and intent:// / market:// links of those apps are not opened from a social page. A script hides the fixed "Open app / Use the app / Get Messenger" bar.
+- Command Center: Facebook, Messenger chat, Instagram, Instagram messages (each switches Social sites ON and opens a new tab).
+- TabManager hooks: shouldOverrideUrlLoading (2 lines), onPageStarted (1), onPageFinished (1), onProgressChanged (1). SettingsScreen row + Reset key, CommandCenter 4 rows, HowToUse line.
+- Could break: nothing while the switch is OFF. ON: a first load of a social page may load twice (user agent change); Facebook may ask for a security check when it sees a new "device" user agent.
+- NOT tested: Gradle build (CI); device; whether Messenger's narrow layout looks right at 360 dp; the banner script on the live sites (texts / classes change). No background notifications.
+
 0.0.223 (A13 FIX: "Download N files" total showed the biggest quality, not the selected one)
 - Root cause: refreshSelection() summed sizeOf() = bit rate of the BEST variant x duration, while the card line uses the quality the "Video quality: up to ..." cap picks. Example: card 360p ~14.3 MB, button ~98.4 MB (1080p).
 - DetectedPanel.kt: new sizeToGet() (same pickH + varSize + durOf as the card; falls back to sizeOf) used only for the button total. Cards, sort and list refresh are unchanged.

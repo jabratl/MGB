@@ -90,7 +90,7 @@ object SettingsScreen {
         /** Step C: the ONLY mgb_ui keys each card's "Reset to default" may remove. Nothing else is ever touched. */
         private val RESET = mapOf(
             "general" to listOf("night", "dark_pages", "engine", "tr_lang", "hide_bar", "pull_refresh", "rotate_browser",
-                "ap_bar_pos", "ap_home_action", "ap_full_url", "ap_swipe_fs", "ap_swipe_tabs", "ap_wp_dim", "ap_undo_toast", "ap_start_page", "ap_bar_compact", "ap_nav_back", "ap_nav_fwd", "ap_nav_hide", "ap_zoom_def", "ap_force_zoom", "ap_touchpad", "ap_simple_hint"), // A9, A11, A1, A2: + Appearance keys
+                "ap_bar_pos", "ap_home_action", "ap_full_url", "ap_swipe_fs", "ap_swipe_tabs", "ap_wp_dim", "ap_undo_toast", "ap_start_page", "ap_bar_compact", "ap_nav_back", "ap_nav_fwd", "ap_nav_hide", "ap_zoom_def", "ap_force_zoom", "ap_touchpad", "ap_simple_hint", "sm_on"), // A9, A11, A1, A2: + Appearance keys
             "tabs" to listOf("swipe_close", "close_confirm", "reduce_motion", "tab_suspend_min"),
             "downloads" to listOf("auto_diag", "dr_wifi", "dr_metered", "dr_batt", "dr_store", "li_on"), // D1, D2: download rules
             "grabber" to listOf("web_play", "v77_backup", "v77_prev_mode", "dl_mode", "native_btn", "video_btn"),
@@ -884,6 +884,7 @@ object SettingsScreen {
                     Orient.apply(act)
                     fill()
                 },
+                Row(R.drawable.ic_desktop, "Social sites", if (SocialMode.on(act)) "ON" else "OFF", "Facebook, Messenger chat and Instagram fit the phone, no Desktop site. App links stay in the browser") { SocialMode.setOn(act, !SocialMode.on(act)); fill() }, // 0.0.224
                 Row(R.drawable.ic_screen, "Default browser", if (isDefaultBrowser()) "Default" else "", "Make MGB open web links") { openDefaultBrowser() } // Step C
             ))
             category("tabs", R.drawable.ic_list, "Tabs and motion", "Swipe, close, animations", listOf( // S21f
