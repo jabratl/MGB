@@ -24,6 +24,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     private lateinit var tabs: TabManager
     private lateinit var urlBar: EditText
     private lateinit var btnHome: ImageView // S22
+    private lateinit var btnBack: ImageView // A1: optional Back arrow in the bar
+    private lateinit var btnFwd: ImageView // A1: optional Forward arrow in the bar
     private lateinit var btnTabs: MaterialButton
     private lateinit var btnShield: ImageView // S68: Privacy Guard
     private lateinit var btnEngine: TextView // S69: search engine badge
@@ -68,6 +70,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         Util.loadEngine(this) // S33
         urlBar = findViewById(R.id.url_bar)
         btnHome = findViewById(R.id.btn_home)
+        btnBack = findViewById(R.id.btn_back) // A1
+        btnFwd = findViewById(R.id.btn_fwd) // A1
         btnTabs = findViewById(R.id.btn_tabs)
         btnShield = findViewById(R.id.btn_shield) // S68
         btnEngine = findViewById(R.id.btn_engine) // S69
@@ -109,8 +113,11 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         floating = FloatingDl(this, findViewById<FrameLayout>(R.id.web_container).parent as FrameLayout, tabs) // S11
 
         btnHome.setOnClickListener { homeClick() } // S22, 0.0.130: Home opens in the same tab; APPEARANCE A3: action from Appearance (default = Home)
+        btnBack.setOnClickListener { tabs.active?.let { if (tabs.canBack(it)) tabs.back(it) } } // A1
+        btnFwd.setOnClickListener { tabs.active?.let { if (tabs.canFwd(it)) tabs.fwd(it) } } // A1
         applyHomeIcon() // A3
-        AppearanceScreen.onChange = { applyHomeIcon(); refreshUrlField() } // A3: live update while the Appearance screen is open
+        applyNavArrows() // A1
+        AppearanceScreen.onChange = { applyHomeIcon(); applyNavArrows(); refreshUrlField(); refreshShield() } // A3: live update while the Appearance screen is open
         btnTabs.setOnClickListener { tabs.showSwitcher() }
         btnShield.setOnClickListener { PrivacyGuard.show(this, tabs) { refreshShield() } } // S68
         btnEngine.setOnClickListener { EnginePicker.show(this, btnEngine) { refreshShield() } } // S69
@@ -178,6 +185,29 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         val (icon, label) = AppearancePrefs.homeIconAndLabel(AppearancePrefs.homeAction(this))
         btnHome.setImageResource(icon)
         btnHome.contentDescription = label
+    }
+
+    /** A1: both arrows ON on a narrow screen (< 400 dp) = smaller arrows, no engine badge, url field keeps at least 96 dp. */
+    private fun navTight(): Boolean =
+        AppearancePrefs.navBack(this) && AppearancePrefs.navFwd(this) && resources.configuration.screenWidthDp < 400
+
+    /** A1: show / hide the Back + Forward arrows by prefs; dim (alpha .38) or hide an unavailable arrow. No animation, so Reduce motion needs nothing. */
+    private fun applyNavArrows() {
+        if (!::tabs.isInitialized) return
+        val cur = tabs.active
+        val hide = AppearancePrefs.navHide(this)
+        val w = Util.dp(this, if (navTight()) 32 else 36)
+        fun one(v: ImageView, on: Boolean, can: Boolean) {
+            val show = on && !(hide && !can)
+            v.visibility = if (show) View.VISIBLE else View.GONE
+            v.isEnabled = can
+            v.alpha = if (can) 1f else 0.38f
+            v.setColorFilter(getColor(R.color.mg_text))
+            v.layoutParams?.let { lp -> if (lp.width != w) { lp.width = w; v.layoutParams = lp } }
+        }
+        one(btnBack, AppearancePrefs.navBack(this), cur != null && tabs.canBack(cur))
+        one(btnFwd, AppearancePrefs.navFwd(this), cur != null && tabs.canFwd(cur))
+        urlBar.minWidth = if (AppearancePrefs.navBack(this) || AppearancePrefs.navFwd(this)) Util.dp(this, 96) else 0
     }
 
     /** S22: reload, or stop when the page is still loading (was the top bar button). */
@@ -367,6 +397,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         btnTabs.setTextColor(getColor(if (tab?.priv == true) R.color.mg_primary else R.color.mg_text)) // S26
         refreshUrlField()
         refreshShield()
+        applyNavArrows() // A1: arrows follow tab switch, page load and history changes
     }
 
     /** S68: shield shows on web pages only (not while typing); rose = guarding, grey = blocker off here. */
@@ -379,7 +410,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         } else if (!show) btnShield.visibility = View.GONE
         btnShield.setColorFilter(getColor(if (st == 2) R.color.mg_text_dim else R.color.mg_primary))
         // S69: engine badge on the home page and while typing (where the shield is not shown)
-        val eng = tabs.active?.home == true || urlBar.hasFocus()
+        val eng = (tabs.active?.home == true || urlBar.hasFocus()) && !navTight() // A1: no badge when both arrows squeeze the bar
         btnEngine.visibility = if (eng) View.VISIBLE else View.GONE
         if (eng) EnginePicker.styleBadge(this, btnEngine)
     }
@@ -467,6 +498,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
     // recreate so the XML colours re-resolve. Tabs come back from the saved session.
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        applyNavArrows(); refreshShield() // A1: narrow / wide rule follows rotation
         // S35 FIX: compare the colours the app really uses (resources, after AppCompat applied the saved theme),
         // not newConfig (= the system theme). With a forced Dark/Light theme the old test was true on EVERY rotation,
         // so rotating recreated the Activity: the player closed and every tab reloaded.

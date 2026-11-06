@@ -14,11 +14,30 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 object TextZoom {
     private fun sp(ctx: Context) = ctx.getSharedPreferences("mgb_zoom", Context.MODE_PRIVATE)
 
-    fun get(ctx: Context, host: String): Int = if (host.isEmpty()) 100 else sp(ctx).getInt(host, 100)
+    /** A2: a site without its own size uses the default zoom (Accessibility, default 100 = as before). */
+    fun get(ctx: Context, host: String): Int = if (host.isEmpty()) 100 else sp(ctx).getInt(host, AppearancePrefs.zoomDef(ctx))
 
+    /** A2: the key is removed only when v equals the default, so a site can be pinned to 100 while the default is 150. */
     fun set(ctx: Context, host: String, v: Int) { // STEP D: public for Site settings
         if (host.isEmpty()) return
-        if (v == 100) sp(ctx).edit().remove(host).apply() else sp(ctx).edit().putInt(host, v).apply()
+        if (v == AppearancePrefs.zoomDef(ctx)) sp(ctx).edit().remove(host).apply() else sp(ctx).edit().putInt(host, v).apply()
+    }
+
+    /** A2: forget this site's own size (it follows the default again). */
+    fun reset(ctx: Context, host: String) { if (host.isNotEmpty()) sp(ctx).edit().remove(host).apply() }
+
+    /** A2: every saved site size (host -> percent). Only Int values of mgb_zoom. */
+    fun all(ctx: Context): Map<String, Int> = sp(ctx).all.filterValues { it is Int }.mapValues { it.value as Int }
+
+    /** A2: removes only the mgb_zoom keys. */
+    fun resetAll(ctx: Context) { sp(ctx).edit().clear().apply() }
+
+    /** A2: re-applies the size to the page that is open now (default zoom changed, site size reset). */
+    fun applyActive(ctx: Context) {
+        val t = BookmarksScreen.tabsRef?.active ?: return
+        if (t.isExt || !t.url.startsWith("http")) return
+        val z = get(ctx, Util.host(t.url))
+        if (t.web.settings.textZoom != z) t.web.settings.textZoom = z
     }
 
     fun dialog(act: Activity, tabs: TabManager) {
@@ -47,7 +66,7 @@ object TextZoom {
             .setTitle("Text size · $host")
             .setView(col)
             .setPositiveButton("Save") { _, _ -> set(act, host, 50 + bar.progress * 10); Util.toast(act, "Saved for $host") }
-            .setNeutralButton("Reset") { _, _ -> set(act, host, 100); t.web.settings.textZoom = 100 }
+            .setNeutralButton("Reset") { _, _ -> reset(act, host); t.web.settings.textZoom = get(act, host) } // A2: back to the default zoom
             .setNegativeButton("Cancel") { _, _ -> t.web.settings.textZoom = old }
             .setOnCancelListener { t.web.settings.textZoom = old }
             .show()

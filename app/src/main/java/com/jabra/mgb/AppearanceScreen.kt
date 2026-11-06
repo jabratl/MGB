@@ -86,6 +86,8 @@ object AppearanceScreen {
         private var page = "root"
         private var prevUrl: TextView? = null // A3: live preview of the address bar
         private var prevHome: ImageView? = null
+        private var prevBack: ImageView? = null // A1: arrows in the preview bar
+        private var prevFwd: ImageView? = null
         private var prevBar: View? = null // A11: live height of the preview bar
 
         private fun dp(v: Int) = Util.dp(act, v)
@@ -210,6 +212,13 @@ object AppearanceScreen {
             navRow(barCard, R.drawable.ic_screen, "Customize address bar",
                 AppearancePrefs.homeIconAndLabel(AppearancePrefs.homeAction(act)).second) { openPage("bar", "Address bar") }
             col.addView(barCard, LinearLayout.LayoutParams(MATCH, WRAP))
+
+            col.addView(sectionLabel("Accessibility")) // A2
+            val accCard = card()
+            navRow(accCard, R.drawable.ic_edit, "Accessibility", AppearancePrefs.zoomDef(act).takeIf { it != 100 }?.let { "$it %" } ?: "") {
+                dismiss(); AccessScreen.open(act) { AppearanceScreen.open(act) }
+            }
+            col.addView(accCard, LinearLayout.LayoutParams(MATCH, WRAP))
 
             col.addView(sectionLabel("Menu and tabs")) // A8
             val menuCard = card()
@@ -342,6 +351,28 @@ object AppearanceScreen {
             }
             col.addView(chipCard, LinearLayout.LayoutParams(MATCH, WRAP))
 
+            col.addView(sectionLabel("Navigation arrows")) // A1
+            val navCard = card()
+            toggleRow(navCard, R.drawable.ic_back, "Back arrow", "Show Back inside the address bar",
+                { AppearancePrefs.navBack(act) }) { on ->
+                AppearancePrefs.setNavBack(act, on)
+                AppearanceScreen.onChange?.invoke()
+                updatePreview()
+            }
+            toggleRow(navCard, R.drawable.ic_forward, "Forward arrow", "Show Forward inside the address bar",
+                { AppearancePrefs.navFwd(act) }) { on ->
+                AppearancePrefs.setNavFwd(act, on)
+                AppearanceScreen.onChange?.invoke()
+                updatePreview()
+            }
+            toggleRow(navCard, R.drawable.ic_screen, "Hide when not available", "Hide an arrow instead of dimming it",
+                { AppearancePrefs.navHide(act) }) { on ->
+                AppearancePrefs.setNavHide(act, on)
+                AppearanceScreen.onChange?.invoke()
+                updatePreview()
+            }
+            col.addView(navCard, LinearLayout.LayoutParams(MATCH, WRAP))
+
             col.addView(sectionLabel("Behaviour"))
             val behCard = card()
             val ui = act.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
@@ -373,6 +404,8 @@ object AppearanceScreen {
             prevUrl?.text = if (AppearancePrefs.fullUrl(act)) "https://example.com/watch?v=12" else "example.com"
             prevBar?.let { b -> b.layoutParams?.let { lp -> lp.height = dp(if (AppearancePrefs.compactBar(act)) 44 else 52); b.layoutParams = lp } } // A11
             prevHome?.setImageResource(AppearancePrefs.homeIconAndLabel(AppearancePrefs.homeAction(act)).first)
+            prevBack?.visibility = if (AppearancePrefs.navBack(act)) View.VISIBLE else View.GONE // A1: preview shows the arrows (Forward dimmed = no forward page)
+            prevFwd?.visibility = if (AppearancePrefs.navFwd(act) && !AppearancePrefs.navHide(act)) View.VISIBLE else View.GONE
         }
 
         /** Mini copy of the bottom bar pill (home action icon, address, tabs, menu), built from views. */
@@ -389,6 +422,17 @@ object AppearanceScreen {
             }
             prevHome = home
             bar.addView(home, LinearLayout.LayoutParams(dp(44), dp(44)))
+            fun arrow(icon: Int, dim: Boolean) = ImageView(act).apply { // A1
+                setImageResource(icon)
+                setColorFilter(act.getColor(R.color.mg_text))
+                alpha = if (dim) 0.38f else 1f
+                setPadding(dp(9), dp(9), dp(9), dp(9))
+                visibility = View.GONE
+            }
+            prevBack = arrow(R.drawable.ic_back, false)
+            prevFwd = arrow(R.drawable.ic_forward, true)
+            bar.addView(prevBack, LinearLayout.LayoutParams(dp(36), dp(44)))
+            bar.addView(prevFwd, LinearLayout.LayoutParams(dp(36), dp(44)))
             val url = TextView(act).apply {
                 textSize = 15f
                 setSingleLine(true)

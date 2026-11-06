@@ -112,6 +112,18 @@ object HowToUse {
                 "Each card has Reset to default. It only resets the settings of that card."
             ), "",
             listOf("Cannot find a setting? Search for: animation - Reduce motion appears. Search for: dark - theme options appear.")),
+        Topic(R.drawable.ic_edit, "Accessibility", "Bigger text, arrows in the bar",
+            listOf(
+                "Menu > Settings > Accessibility (or Appearance > Accessibility) sets the default zoom for every site. The preview shows the size.",
+                "Use - and + or drag the slider. Each step is 10 %. Reset to 100 % appears when the size is not 100.",
+                "Saved zoom for sites lists the sites that have their own size. Tap one to change it, X to follow the default again.",
+                "Show Text size in main menu turns the page-action row on or off.",
+                "Appearance > Customize address bar > Navigation arrows adds Back and Forward inside the bar."
+            ), "",
+            listOf(
+                "Text is small everywhere: set the default zoom to 130 %. A site you saved at 100 % stays at 100 %.",
+                "You use Back often: switch on the Back arrow, and Hide when not available to keep the bar tidy."
+            )),
         Topic(R.drawable.ic_code, "Userscripts", "Small scripts that run on a site",
             listOf(
                 "Open Settings > Extensions > Userscripts (or Menu > Userscripts on a page).",

@@ -268,8 +268,8 @@ object SiteSettings {
                 MaterialAlertDialogBuilder(act).setMessage("Forget every saved setting for $key (permissions, switches, text size, button mode)?")
                     .setPositiveButton("Reset") { _, _ ->
                         for (b in bits) if ((SiteConfig.flags(key) and b) != 0) SiteConfig.toggle(key, b)
-                        s.zoomRaw?.let { TextZoom.set(act, it, 100) }
-                        TextZoom.set(act, key, 100)
+                        s.zoomRaw?.let { TextZoom.reset(act, it) } // A2: back to the default zoom
+                        TextZoom.reset(act, key)
                         DlMode.setSite(act, key, -1)
                         for ((raw, what) in s.perms) SitePerms.set(act, raw, what, null)
                         Util.toast(act, "Reset. Reload the page")

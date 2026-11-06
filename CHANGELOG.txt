@@ -1,3 +1,20 @@
+0.0.205 (A2 BUILD: Accessibility page - default zoom, saved site zoom)
+- AccessScreen.kt (NEW): full-screen Accessibility page in the Appearance style. Default zoom (round - / + buttons, slider with a tick per 10 %, centre label, "Reset to 100 %" only when not 100, haptic tick per step, live Comfort preview with an invented sample text). Saved zoom for sites (host + percent, tap to change, X to reset, Reset all, plain empty-state sentence). Switch "Show Text size in main menu" (MenuCustom key "Text size"). Column capped at 560 dp.
+- TextZoom.kt: get() falls back to the default zoom; set() removes the site key only when the value equals the default (a site can be pinned to 100 while the default is 150); new reset / all / resetAll / applyActive. Signatures of get / set / dialog unchanged. Dialog "Reset" now means "follow the default".
+- SiteSettings.kt: "Reset this site" uses TextZoom.reset (2 lines).
+- AppearancePrefs.kt: ap_zoom_def (50..250, step 10, default 100 = no change for existing users). SettingsScreen.kt: key in the RESET "general" list, row Accessibility in General, hint + search keywords.
+- AppearanceScreen.kt: section "Accessibility" on the root page. CommandCenter.kt: action Accessibility. HowToUse.kt: topic Accessibility.
+- Default zoom applies to the open page at once and to other pages on load (TabManager unchanged, it already calls TextZoom.get).
+- NOT touched: TabManager, MainActivity (menu row already follows MenuCustom), Vault*, CI.
+
+0.0.204 (A1 MODIFY: address bar Back / Forward arrows)
+- res/layout/activity_main.xml: new ImageView btn_back + btn_fwd (36dp, gone by default) between btn_home and the engine badge / shield; contentDescription + tooltip "Back" / "Forward".
+- AppearancePrefs.kt: ap_nav_back, ap_nav_fwd, ap_nav_hide (all default OFF = bar looks exactly as before).
+- MainActivity.kt: applyNavArrows() shows each arrow by its switch, dims an unavailable arrow (alpha .38) or hides it when "Hide when not available" is ON; click = tabs.back / tabs.fwd. Runs on start, tab switch, page load (refreshAll), Appearance change and rotation. Both arrows ON and width < 400dp: arrows 32dp, engine badge not shown, url field min 96dp.
+- AppearanceScreen.kt (Customize address bar): new card "Navigation arrows" (Back arrow, Forward arrow, Hide when not available); the preview bar draws the arrows live.
+- SettingsScreen.kt: the 3 new keys added to the RESET "general" list.
+- NOT touched: TabManager, BarGestures, Vault*, CI, home button actions (Home action "back" still works).
+
 0.0.203 (V16 MODIFY: Vault bookmarks - hide + selection tools)
 - VaultItems.kt (bookmark list): Hide / Unhide for selected bookmarks (button in the selection bar, with Undo); Hide folder / Unhide folder under a folder chip; "Show hidden (n)" / "Hide hidden again" switch. Hidden bookmarks and hidden folders stay out of the list, the folder chips, the search and the counts until Show hidden is ON; it resets every time the list is opened. Hidden rows are tagged "hidden - " when shown.
 - Selection tools (all vault lists): All / None / Invert under the top bar while selecting; bookmarks also get "Folder..." (select every bookmark of a folder). Press and hold still starts selecting; "Select all shown" icon kept.

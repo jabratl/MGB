@@ -87,7 +87,7 @@ object SettingsScreen {
         /** Step C: the ONLY mgb_ui keys each card's "Reset to default" may remove. Nothing else is ever touched. */
         private val RESET = mapOf(
             "general" to listOf("night", "dark_pages", "engine", "tr_lang", "hide_bar", "pull_refresh", "rotate_browser",
-                "ap_bar_pos", "ap_home_action", "ap_full_url", "ap_swipe_fs", "ap_swipe_tabs", "ap_wp_dim", "ap_undo_toast", "ap_start_page", "ap_bar_compact"), // A9, A11: + Appearance keys
+                "ap_bar_pos", "ap_home_action", "ap_full_url", "ap_swipe_fs", "ap_swipe_tabs", "ap_wp_dim", "ap_undo_toast", "ap_start_page", "ap_bar_compact", "ap_nav_back", "ap_nav_fwd", "ap_nav_hide", "ap_zoom_def"), // A9, A11, A1, A2: + Appearance keys
             "tabs" to listOf("swipe_close", "close_confirm", "reduce_motion", "tab_suspend_min"),
             "downloads" to listOf("auto_diag"),
             "grabber" to listOf("web_play", "v77_backup", "v77_prev_mode", "dl_mode", "native_btn", "video_btn"),
@@ -103,6 +103,7 @@ object SettingsScreen {
         private val HINTS = mapOf(
             "Theme" to "Light, dark or follow phone",
             "Appearance" to "Theme and dark pages",
+            "Accessibility" to "Default zoom and site zoom",
             "Dark pages" to "Darken websites (reload page)",
             "Search engine" to "Used in the address bar",
             "Translate to" to "Language for page translation",
@@ -152,6 +153,7 @@ object SettingsScreen {
         private val KW = mapOf(
             "Theme" to "dark light night mode appearance colour",
             "Appearance" to "theme dark light night look colour style wallpaper bar top bottom toggle dark pages home button swipe fullscreen undo start page menu",
+            "Accessibility" to "zoom text size font bigger larger smaller read default saved sites preview",
             "Default browser" to "links open http https set app phone settings",
             "Dark pages" to "dark mode night websites black",
             "Search engine" to "google bing duckduckgo default address bar",
@@ -858,6 +860,7 @@ object SettingsScreen {
             category("general", R.drawable.ic_settings, "General", "Theme, search, pages, display", listOf(
                 Sub("Appearance"),
                 Row(R.drawable.ic_theme, "Appearance", UiMode.label(act)) { dismiss(); AppearanceScreen.open(act) }, // APPEARANCE A2
+                Row(R.drawable.ic_edit, "Accessibility", AppearancePrefs.zoomDef(act).takeIf { it != 100 }?.let { "$it %" } ?: "") { dismiss(); AccessScreen.open(act) { SettingsScreen.open(act) } }, // A2
                 Sub("Browsing"),
                 Row(R.drawable.ic_search, "Search engine", Util.engineName(act)) {
                     val names = Util.ENGINES.map { it.first }
