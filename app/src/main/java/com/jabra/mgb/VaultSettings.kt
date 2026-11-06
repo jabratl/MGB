@@ -39,7 +39,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  *  CHECKS           Verify vault (quick = header, crypto self-test, index, every file present; full = also reads every file back),
  *                   failed-attempt wait (info), index size + "remove old history"
  *  Lock now.
- * The crypto work is in VaultStore (changePass / regenRecovery / confirmPass), the wait after wrong tries is in VaultStore too.
+ * The crypto work is in VaultStore (changePass / regenRecovery / confirmPass; they call VaultCrypto.rewrapPass / newRecovery directly), the wait after wrong tries is in VaultStore too.
  * No passphrase, key or item title is ever put in a toast or a log.
  */
 object VaultSettings {
@@ -406,7 +406,7 @@ object VaultSettings {
         if (!VaultStore.isUnlocked()) return listOf("The vault is locked. Nothing was checked.")
         say("Key file and crypto...")
         out.add(if (VaultStore.currentHeader() != null) "Key file: OK" else "Key file: FAILED to load")
-        val st = VaultKeyOps.selfTest()
+        val st = VaultCrypto.selfTest() // null = OK, else a short fixed reason
         out.add(if (st == null) "Crypto self-test: OK" else "Crypto self-test: FAILED ($st)")
         say("List...")
         try { VaultStore.flush(a) } catch (e: Exception) { }
@@ -473,77 +473,5 @@ object VaultSettings {
                     }
                 }.setNegativeButton("Cancel", null).show()
         }.setNegativeButton("Cancel", null).show()
-    }
-}
-
-/**
- * V11: the ONLY place that calls VaultCrypto functions whose exact signature was not visible when V11 was written
- * (rewrapPass, newRecovery, selfTest). They are looked up by name and filled by parameter TYPE (Header, ByteArray key, CharArray passphrase), so a
- * different parameter order or an "internal" name suffix still works, and a missing / different function makes the feature say so instead of
- * breaking the build. If a V12b chat has VaultCrypto.kt, replace these three bodies with direct calls.
- */
-internal object VaultKeyOps {
-    private fun nameOk(m: java.lang.reflect.Method, name: String) =
-        m.name == name || (m.name.startsWith(name) && m.name.getOrNull(name.length) == '$')
-
-    private fun call(name: String, pool: List<Any>): Any? {
-        for (m in VaultCrypto::class.java.declaredMethods) {
-            if (!nameOk(m, name) || m.isSynthetic) continue
-            val used = BooleanArray(pool.size)
-            val args = arrayOfNulls<Any>(m.parameterTypes.size)
-            var fit = true
-            for ((i, t) in m.parameterTypes.withIndex()) {
-                val j = pool.indices.firstOrNull { !used[it] && t.isInstance(pool[it]) }
-                if (j == null) { fit = false; break }
-                used[j] = true; args[i] = pool[j]
-            }
-            if (!fit) continue
-            try {
-                m.isAccessible = true
-                return m.invoke(VaultCrypto, *args)
-            } catch (e: Exception) { return null }
-        }
-        return null
-    }
-
-    private fun getters(r: Any): List<Any?> = r.javaClass.methods
-        .filter { it.parameterTypes.isEmpty() && it.name.startsWith("get") && it.name != "getClass" }
-        .map { try { it.invoke(r) } catch (e: Exception) { null } }
-
-    private fun parts(r: Any?): List<Any?> = when (r) {
-        null -> emptyList()
-        is Pair<*, *> -> listOf(r.first, r.second)
-        is VaultCrypto.Header, is String -> listOf(r)
-        else -> getters(r)
-    }
-
-    private fun headerOf(r: Any?): VaultCrypto.Header? = parts(r).firstOrNull { it is VaultCrypto.Header } as VaultCrypto.Header?
-
-    private fun keyOf(r: Any?): String? = parts(r).firstOrNull { it is String && it.contains('-') && it.length >= 16 } as String?
-
-    /** New header whose passphrase wrap holds the SAME key under [pass]. Null when the function was not found. */
-    fun rewrap(h: VaultCrypto.Header, dek: ByteArray, pass: CharArray): VaultCrypto.Header? =
-        try { headerOf(call("rewrapPass", listOf(h, dek, pass))) } finally { VaultCrypto.wipe(pass) }
-
-    /** New header with a fresh recovery wrap + the new recovery key text. Null when the function was not found. */
-    fun recovery(h: VaultCrypto.Header, dek: ByteArray): Pair<VaultCrypto.Header, String>? {
-        val r = call("newRecovery", listOf(h, dek))
-        val nh = headerOf(r) ?: return null
-        val key = keyOf(r) ?: return null
-        return Pair(nh, key)
-    }
-
-    /** null = OK, else a short fixed reason (never data). */
-    fun selfTest(): String? {
-        val m = VaultCrypto::class.java.declaredMethods.firstOrNull { nameOk(it, "selfTest") && it.parameterTypes.isEmpty() && !it.isSynthetic }
-            ?: return "not available in this build"
-        return try {
-            m.isAccessible = true
-            when (val r = m.invoke(VaultCrypto)) {
-                is Boolean -> if (r) null else "a check failed"
-                is String -> if (r.contains("fail", true) || r.contains("error", true)) "a check failed" else null
-                else -> null
-            }
-        } catch (e: Exception) { "a check failed" }
     }
 }

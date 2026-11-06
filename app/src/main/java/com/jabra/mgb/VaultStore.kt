@@ -639,7 +639,8 @@ object VaultStore {
             val k = synchronized(this) { dek?.copyOf() } ?: return Res(false, "The vault is locked.")
             try {
                 val h = synchronized(this) { header } ?: return Res(false, "The vault is locked.")
-                val nh = VaultKeyOps.rewrap(h, k, newPass.copyOf()) ?: return Res(false, "This build cannot change the passphrase yet. Nothing was changed.")
+                val pw = newPass.copyOf()
+                val nh = try { VaultCrypto.rewrapPass(h, k, pw) } finally { VaultCrypto.wipe(pw) }
                 if (!writeHeader(app, nh)) return Res(false, "The key file could not be saved. Your old passphrase still works.")
                 if (!readBackOk(app, k) { x -> VaultCrypto.openPass(x, newPass.copyOf()) }) {
                     writeHeader(app, h)
@@ -661,7 +662,7 @@ object VaultStore {
             val k = synchronized(this) { dek?.copyOf() } ?: return Res(false, "The vault is locked.")
             try {
                 val h = synchronized(this) { header } ?: return Res(false, "The vault is locked.")
-                val r = VaultKeyOps.recovery(h, k) ?: return Res(false, "This build cannot create a new recovery key yet. Nothing was changed.")
+                val r = VaultCrypto.newRecovery(h, k)
                 val nh = r.first; val key = r.second
                 if (!writeHeader(app, nh)) return Res(false, "The key file could not be saved. Your old recovery key still works.")
                 if (!readBackOk(app, k) { x -> VaultCrypto.openRecovery(x, key) }) {
