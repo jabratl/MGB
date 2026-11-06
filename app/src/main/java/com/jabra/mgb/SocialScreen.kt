@@ -307,6 +307,12 @@ object SocialScreen {
                     null, { SocialMode.shareOn(act) }) { on -> SocialMode.setShareOn(act, on) }
                 siteRows.add(shareRow)
             }
+            if (supported) { // 0.0.276 (C5): account slot per site
+                lateinit var slTv: TextView
+                fun slHint() = (if (SocialSlot.overrides(act) == 0) "All sites use Account 1" else SocialSlot.overrides(act).toString() + " site(s) use Account 2") + " (tap to change). New tabs only; needs the switch above"
+                val slRow = actionRow(sep, R.drawable.ic_shield, "Account per site", slHint()) { slotDialog { slTv.text = slHint() } }
+                slTv = ((slRow as LinearLayout).getChildAt(1) as LinearLayout).getChildAt(1) as TextView
+            }
             if (supported) { // 0.0.251 (B2): forget saved social logins (not dimmed: works even with Social sites OFF)
                 actionRow(sep, R.drawable.ic_trash, "Forget logins of one site", "Pick a site, its saved login and site data are removed") { forgetPick() }
                 actionRow(sep, R.drawable.ic_trash, "Forget all social logins", "Removes the saved logins of every social site") { forgetAllAsk() }
@@ -521,6 +527,31 @@ object SocialScreen {
                 .show()
         }
 
+        /** 0.0.276 (C5): one row per site, tap switches Account 1 / Account 2 for tabs opened from now on. Open tabs keep their account. */
+        private fun slotDialog(onDone: () -> Unit) {
+            val box = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), dp(4)) }
+            box.addView(TextView(act).apply {
+                text = "Pick which account a NEW tab of a site uses. Account 2 has its own login, so you can sign in with a second account. Tabs that are already open keep their account. Log in once in each account."
+                textSize = 12f; setTextColor(act.getColor(R.color.mg_text_dim)); setPadding(0, dp(6), 0, dp(8))
+            })
+            for (p in SocialProfiles.all) {
+                val t = TextView(act).apply {
+                    textSize = 14f; setTextColor(act.getColor(R.color.mg_text)); gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(12), 0, dp(12), 0); isClickable = true
+                    background = round(act.getColor(R.color.mg_surface_variant), 12, 1f, act.getColor(R.color.mg_outline))
+                }
+                fun paint() { t.text = p.label + ": " + SocialSlot.label(SocialSlot.slot(act, p.id)) }
+                paint()
+                t.setOnClickListener { it.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK); SocialSlot.cycle(act, p.id); paint(); onDone() }
+                box.addView(t, LinearLayout.LayoutParams(MATCH, dp(48)).apply { bottomMargin = dp(6) })
+            }
+            MaterialAlertDialogBuilder(act)
+                .setTitle("Account per site")
+                .setView(ScrollView(act).apply { addView(box) })
+                .setPositiveButton("Done", null)
+                .show()
+        }
+
         /** 0.0.275 (C8): one row per site, tap cycles Same as app setting / Dark / Original. Applies from the next page load of that site. */
         private fun darkSitesDialog(onDone: () -> Unit) {
             val box = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), dp(4)) }
@@ -685,6 +716,7 @@ object SocialScreen {
                 .append(", ask before leaving: ").append(yn(SocialExt.on(act)))
                 .append(", dock: ").append(yn(SocialDock.on(act)))
                 .append(", blur per site: ").append(SocialBlur.siteOverrides(act)).append(" own")
+                .append(", account 2 on: ").append(SocialSlot.overrides(act)).append(" site(s)")
                 .append(", dark page per site: ").append(SocialDark.siteOverrides(act)).append(" own")
                 .append(", blur mode: ").append(SocialBlur.mode(act)).append(" (0 off, 1 flagged, 2 all), strength ").append(SocialBlur.px(act)).append(" px")
                 .append(", AI picture check: ").append(yn(SocialNsfw.on(act))).append(" level ").append(SocialNsfw.level(act))

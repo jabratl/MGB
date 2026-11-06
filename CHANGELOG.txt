@@ -1,3 +1,11 @@
+0.0.276 (C5: account slots)
+- Why: use two accounts of one site (e.g. two Facebook or X accounts) side by side. Privacy > Logins > row "Account per site": each site uses Account 1 (as before) or Account 2 for NEW tabs; Account 2 = own login profile social_<id>_2.
+- How: NEW SocialSlot.kt (pref sm_slot_<id>, absent = Account 1). SocialMode: pname() adds the slot suffix, new allNames() so hasProfile / forget cover both accounts. TabManager: saveSession also saves the login profile name per tab (pref "tp"), restoreSession keeps it only for Account 2 names (everything else = old logic). SocialScreen row + slotDialog + summary. SettingsScreen RESET + SocialSlot.keys. HowToUse phrase.
+- Files: SocialSlot.kt (new), SocialMode.kt, TabManager.kt, SocialScreen.kt, SettingsScreen.kt, HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES.
+- Could break: nothing with all sites on Account 1 and no "tp" data (restore falls back to the old rule). Needs "Keep social logins separate" ON and WebView multi-profile.
+- Not built: second dock icon per account (dock already counts tabs of both accounts under one icon); a visible "2" mark on a tab; per-tab account switch (a tab keeps its account; open a new tab to use the other).
+- NOT tested: Gradle build (CI), device (login in both accounts, restart keeps Account 2 tabs, forget removes both).
+
 0.0.275 (C8 PART: dark page per social site)
 - Why: one social site looked wrong or too bright with the global "Dark pages" setting. Extras > row "Dark page per site": each site follows the app setting, or is forced Dark / Original (tap cycles, same style as Blur per site).
 - How: NEW SocialDark.kt (pref sm_dk_<id>, absent = same as app; apply() runs UiMode.applyPage on page start, returns at once when no site is set). TabManager.onPageStarted: 1 line inside the textZoom block. SocialScreen: row + darkSitesDialog + summary line. SettingsScreen RESET + SocialDark.keys. HowToUse phrase.

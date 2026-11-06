@@ -53,12 +53,14 @@ object SocialMode {
     private const val K_SHARE = "sm_fbshare"
     fun shareOn(c: Context): Boolean = sp(c).getBoolean(K_SHARE, false)
     fun setShareOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_SHARE, v).apply() }
-    private fun pname(c: Context, id: String): String = if (id == "messenger" && shareOn(c)) "social_facebook" else "social_" + id
+    private fun pname(c: Context, id: String): String = if (id == "messenger" && shareOn(c)) "social_facebook" + SocialSlot.suffix(c, "facebook") else "social_" + id + SocialSlot.suffix(c, id) // 0.0.276 (C5): + account slot
+    /** 0.0.276 (C5): every profile name a site can have (current one, slot 1 and slot 2), so forget / hasProfile see both accounts. */
+    private fun allNames(c: Context, id: String): Set<String> = setOf(pname(c, id), "social_" + id).flatMap { listOf(it, it.removeSuffix("_2"), it.removeSuffix("_2") + "_2") }.toSet()
     /** 0.0.251 (B2): "Forget social logins". DONE = profile deleted, CLEARED = profile was in use by an open tab, so its cookies + site data were wiped instead, NONE = nothing saved, UNSUPPORTED = no multi-profile. */
     enum class Forgot { DONE, CLEARED, NONE, UNSUPPORTED }
     /** true when site [id] has saved login data (its own profile, or the shared Facebook one). */
     fun hasProfile(c: Context, id: String): Boolean = try {
-        sepSupported() && (setOf(pname(c, id), "social_" + id)).any { ProfileStore.getInstance().getProfile(it) != null }
+        sepSupported() && allNames(c, id).any { ProfileStore.getInstance().getProfile(it) != null }
     } catch (_: Throwable) { false }
     private fun forgetName(name: String): Forgot {
         return try {
@@ -79,7 +81,7 @@ object SocialMode {
     fun forget(c: Context, id: String): Forgot {
         if (!sepSupported()) return Forgot.UNSUPPORTED
         var best = Forgot.NONE
-        for (n in setOf(pname(c, id), "social_" + id)) {
+        for (n in allNames(c, id)) {
             val r = forgetName(n)
             if (r == Forgot.DONE || (r == Forgot.CLEARED && best == Forgot.NONE)) best = r
         }
