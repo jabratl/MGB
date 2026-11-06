@@ -1,3 +1,13 @@
+0.0.193 (V7 BUILD: Downloaded files in the vault)
+- VaultFiles.kt: file part. Finished download -> stream-encrypted vault blob (64 KiB chunks, source read once with SHA-256, vault copy decrypted and compared by size + SHA-256, THEN the index entry is saved). Progress dialog with Cancel (half-written blob is removed), free-space check (phone storage, best effort), low-space / unreadable-source messages. Originals are never touched by the sealing code: after "Move" the user is ASKED "Delete the original?" (Keep / Delete, default = ask) and only then DownloadsApi.deleteFile runs. Duplicates (same time + name) merged.
+- Open / Share: temp decrypt to cacheDir/vault_tmp/x/<random>/<name> + FileProvider (authority .fileprovider) -> other app. Temp copies are wiped (zero-fill + delete) after 15 minutes, when the vault locks, and at the first wipe of every app start. Saved-page temp files (V6) are still wiped at once.
+- Export: readable copy to Downloads/Thazir (API 29+ MediaStore, older: the app's own Downloads folder), size-checked; "Move out" removes the vault copy only after the copy was written and checked.
+- VaultItems.kt: type "file": vault list (search, multi-select, Export, Delete incl. blob), tap = Open / Share / Export / Delete, "+" picker "Add from downloads" (Today / 7 days / Older chips, Select all) with Move / Copy.
+- DownloadsScreen.kt: file menu rows "Move to vault" / "Copy to vault" (before Remove from list). DownloadsApi.kt: one read-only helper itemOf(id). VaultScreen.kt: "Files" tile opens the list. VaultStore.kt: lock() also wipes temp copies.
+- res/xml/file_paths.xml: cache-path "vault_tmp".
+- Not in this step: playing media without a plain copy (V8), multi-select "Move to vault" inside DownloadsScreen, exit wizard (V9), empty (0 byte) files cannot be sealed.
+- app/build.gradle.kts: 0.0.193.
+
 0.0.192 (V6 BUILD: Saved pages in the vault)
 - VaultFiles.kt (new): saved page (.mht) -> stream-encrypted vault blob, read back and compared by SHA-256, THEN PageSave.remove (move). Restore back to Saved pages (new id, original title / url / time, respects PageSave.MAX). Open offline: decrypt to cacheDir/vault_tmp/<random>.mht, TabManager.openSaved (offline flags, JS off). Temp folder zero-filled + deleted on app stop and app start.
 - VaultItems.kt: type "page": vault list (title, host - date - size, sealed chip), search, multi-select, open, Restore (move back / copy back), Delete (blob removed too), "+" picker from Saved pages (Today / Last 7 days / Older chips, Select all shown, Move / Copy). Duplicates (same url + time) merged. E class got ref + size (defaults, old calls unchanged), sealed() internal, describe() knows pages.

@@ -169,11 +169,12 @@ object VaultItems {
     private fun col(a: Context, id: Int) = a.getColor(id)
     private fun lp(top: Int = 0, w: Int = MATCH, h: Int = WRAP) = LinearLayout.LayoutParams(w, h).apply { topMargin = top }
 
-    private fun title() = when (type) { "bm" -> "Bookmarks"; "page" -> "Saved pages"; else -> "History" }
+    private fun title() = when (type) { "bm" -> "Bookmarks"; "page" -> "Saved pages"; "file" -> "Files"; else -> "History" }
     private fun plural(n: Int) = plural(type, n)
     private fun plural(t: String, n: Int) = when (t) {
         "bm" -> if (n == 1) "1 bookmark" else "$n bookmarks"
         "page" -> if (n == 1) "1 saved page" else "$n saved pages"
+        "file" -> if (n == 1) "1 file" else "$n files"
         else -> if (n == 1) "1 history entry" else "$n history entries"
     }
 
@@ -361,9 +362,9 @@ object VaultItems {
                 icon(a, R.drawable.ic_list, "Select all shown") { sel.addAll(vaultItems().map { it.optString("id") }); listPage() },
                 icon(a, R.drawable.ic_close, "Cancel selection") { selecting = false; sel.clear(); listPage() })), lp())
         } else {
-            ui.head.addView(topBar(a, title(), listOf(icon(a, R.drawable.ic_add, "Add from browser", R.color.mg_primary) { pick(a) })), lp())
+            ui.head.addView(topBar(a, title(), listOf(icon(a, R.drawable.ic_add, if (type == "file") "Add from downloads" else "Add from browser", R.color.mg_primary) { pick(a) })), lp())
         }
-        ui.head.addView(search(a, when (type) { "bm" -> "Search bookmarks"; "page" -> "Search saved pages"; else -> "Search history" }, query) { query = it; limit = PAGE; fill(a, ui, info) }, lp(dp(a, 8), MATCH, dp(a, 48)))
+        ui.head.addView(search(a, when (type) { "bm" -> "Search bookmarks"; "page" -> "Search saved pages"; "file" -> "Search files"; else -> "Search history" }, query) { query = it; limit = PAGE; fill(a, ui, info) }, lp(dp(a, 8), MATCH, dp(a, 48)))
         if (type == "bm" && bmFolders().isNotEmpty()) {
             ui.head.addView(chips(a, listOf("All") + bmFolders(), chip) { chip = it; limit = PAGE; listPage() }, lp(dp(a, 4)))
         }
@@ -384,10 +385,10 @@ object VaultItems {
         ui.foot.visibility = View.VISIBLE
         val r = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL }
         val has = sel.isNotEmpty()
-        if (type == "bm" || type == "page") {
-            r.addView(VaultScreen.btn(a, "Restore", true) { restoreDialog(a) }.apply { isEnabled = has }, LinearLayout.LayoutParams(0, dp(a, 48), 1f).apply { marginEnd = dp(a, 6) })
+        if (type == "bm" || type == "page" || type == "file") {
+            r.addView(VaultScreen.btn(a, if (type == "file") "Export" else "Restore", true) { restoreDialog(a) }.apply { isEnabled = has }, LinearLayout.LayoutParams(0, dp(a, 48), 1f).apply { marginEnd = dp(a, 6) })
         }
-        r.addView(VaultScreen.btn(a, "Delete", false) { deleteDialog(a) }.apply { isEnabled = has }, LinearLayout.LayoutParams(0, dp(a, 48), 1f).apply { marginStart = if (type == "bm" || type == "page") dp(a, 6) else 0 })
+        r.addView(VaultScreen.btn(a, "Delete", false) { deleteDialog(a) }.apply { isEnabled = has }, LinearLayout.LayoutParams(0, dp(a, 48), 1f).apply { marginStart = if (type == "bm" || type == "page" || type == "file") dp(a, 6) else 0 })
         ui.foot.addView(r, lp())
     }
 
@@ -397,7 +398,7 @@ object VaultItems {
         val l = vaultItems()
         info.text = (if (query.isBlank() && chip == 0) plural(all) else "${l.size} of ${plural(all)}") + " - sealed in " + VaultScreen.folderLabel(a)
         if (l.isEmpty()) {
-            ui.list.addView(empty(a, if (all == 0) (when (type) { "bm" -> "No bookmarks in the vault yet. Tap + to add some from the browser."; "page" -> "No saved pages in the vault yet. Tap + to add some from Saved pages."; else -> "No history in the vault yet. Tap + to add some from the browser." }) else "Nothing matches."))
+            ui.list.addView(empty(a, if (all == 0) (when (type) { "bm" -> "No bookmarks in the vault yet. Tap + to add some from the browser."; "page" -> "No saved pages in the vault yet. Tap + to add some from Saved pages."; "file" -> "No files in the vault yet. Tap + to add some from your downloads."; else -> "No history in the vault yet. Tap + to add some from the browser." }) else "Nothing matches."))
             return
         }
         if (!selecting && all > 0) ui.list.addView(VaultScreen.tv(a, "Tap to open. Press and hold to select.", 12f, R.color.mg_text_dim), lp(dp(a, 4)))
@@ -413,11 +414,12 @@ object VaultItems {
             val sub = when (type) {
                 "hist" -> clock(t) + " - " + host
                 "page" -> host + " - " + SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(t)) + " - " + Util.fmtBytes(o.optLong("size"))
+                "file" -> SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(t)) + " - " + Util.fmtBytes(o.optLong("size")) + (if (host.isNotEmpty() && o.optString("url").startsWith("http")) " - " + host else "")
                 else -> (if (o.optString("folder").isNotEmpty()) o.optString("folder") + " - " else "") + host
             }
             val title = o.optString("title").ifBlank { host }
             ui.list.addView(row(a, title, sub, if (selecting) sel.contains(id) else null, true, {
-                if (selecting) { if (!sel.add(id)) sel.remove(id); if (sel.isEmpty()) selecting = false; listPage() } else if (type == "page") VaultFiles.openPage(a, id) { VaultScreen.closeAll() } else openInTab(a, o.optString("url"))
+                if (selecting) { if (!sel.add(id)) sel.remove(id); if (sel.isEmpty()) selecting = false; listPage() } else if (type == "page") VaultFiles.openPage(a, id) { VaultScreen.closeAll() } else if (type == "file") fileMenu(a, id) else openInTab(a, o.optString("url"))
             }, { if (!selecting) { selecting = true; sel.clear(); sel.add(id); listPage() } }), lp(dp(a, 8)))
         }
         if (l.size > limit) ui.list.addView(showMore(a, l.size - limit) { limit += PAGE; fill(a, ui, info) }, lp(dp(a, 8), MATCH, dp(a, 48)))
@@ -430,16 +432,30 @@ object VaultItems {
         VaultScreen.closeAll()
     }
 
+    /** V7: tap on a vault file. Open / Share decrypt to a temp copy (wiped later), Export writes a readable copy, Delete removes it from the vault. */
+    private fun fileMenu(a: Activity, id: String) {
+        val o = VaultStore.item(id) ?: return
+        MaterialAlertDialogBuilder(a).setTitle(o.optString("title").ifBlank { "File" })
+            .setItems(arrayOf("Open", "Share", "Export to Downloads/Thazir", "Delete from vault")) { _, which ->
+                when (which) {
+                    0 -> VaultFiles.openFile(a, id, false)
+                    1 -> VaultFiles.openFile(a, id, true)
+                    2 -> { sel.clear(); sel.add(id); restoreDialog(a) }
+                    else -> { sel.clear(); sel.add(id); deleteDialog(a) }
+                }
+            }.setNegativeButton("Cancel", null).show()
+    }
+
     private fun deleteDialog(a: Activity) {
         val n = sel.size
         if (n == 0) return
         MaterialAlertDialogBuilder(a).setTitle("Delete from vault?")
-            .setMessage("${plural(n)} will be deleted from the vault for good. Items you already restored to the browser are not affected.")
+            .setMessage("${plural(n)} will be deleted from the vault for good. " + (if (type == "file") "Copies you exported are not affected." else "Items you already restored to the browser are not affected."))
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Delete") { _, _ ->
                 val ids = ArrayList(sel)
                 bg.execute {
-                    for (id in ids) VaultStore.removeItem(a, id, type == "page")
+                    for (id in ids) VaultStore.removeItem(a, id, type == "page" || type == "file")
                     val ok = sealed(a)
                     main.post { if (dlg?.isShowing != true) return@post; selecting = false; sel.clear(); listPage(); bar(a, if (ok) "Deleted ${plural(n)}" else "Deleted, but the vault list could not save yet. It will retry.", null, null) }
                 }
@@ -449,16 +465,17 @@ object VaultItems {
     private fun restoreDialog(a: Activity) {
         val n = sel.size
         if (n == 0) return
-        MaterialAlertDialogBuilder(a).setTitle("Restore ${plural(n)}")
-            .setItems(arrayOf("Move back to the browser", "Copy to the browser (keep in vault)")) { _, which ->
+        val fl = type == "file"
+        MaterialAlertDialogBuilder(a).setTitle((if (fl) "Export " else "Restore ") + plural(n))
+            .setItems(if (fl) arrayOf("Move out to Downloads/Thazir (remove from vault)", "Copy out to Downloads/Thazir (keep in vault)") else arrayOf("Move back to the browser", "Copy to the browser (keep in vault)")) { _, which ->
                 val keep = which == 1
                 val ids = ArrayList(sel)
                 bg.execute {
-                    val r = if (type == "page") VaultFiles.restorePages(a, ids, keep) else restoreBookmarks(a, ids, keep)
+                    val r = if (type == "page") VaultFiles.restorePages(a, ids, keep) else if (type == "file") VaultFiles.exportFiles(a, ids, keep) else restoreBookmarks(a, ids, keep)
                     main.post {
                         if (dlg?.isShowing != true) return@post
                         selecting = false; sel.clear(); listPage()
-                        bar(a, if (r.ok) (if (keep) "Copied " else "Restored ") + plural(r.added) + (if (type == "page") " to Saved pages" else " to the browser") + (if (r.msg.isNotEmpty()) ". " + r.msg else "") else r.msg, null, null)
+                        bar(a, if (r.ok) (if (keep) "Copied " else if (type == "file") "Exported " else "Restored ") + plural(r.added) + (if (type == "page") " to Saved pages" else if (type == "file") " to Downloads/Thazir" else " to the browser") + (if (r.msg.isNotEmpty()) ". " + r.msg else "") else r.msg, null, null)
                     }
                 }
             }.setNegativeButton("Cancel", null).show()
@@ -471,19 +488,19 @@ object VaultItems {
         pSrc = emptyList()
         pickerPage()
         bg.execute {
-            val s = try { when (type) { "bm" -> bmSources(); "page" -> VaultFiles.pageSources(a); else -> histSources() } } catch (x: Exception) { emptyList() }
+            val s = try { when (type) { "bm" -> bmSources(); "page" -> VaultFiles.pageSources(a); "file" -> VaultFiles.fileSources(a); else -> histSources() } } catch (x: Exception) { emptyList() }
             main.post { if (dlg?.isShowing == true && page == "pick") { pSrc = s; pickerPage() } }
         }
     }
 
-    private fun pKey(s: Src) = keyOf(type, s.e.url, s.e.time)
+    private fun pKey(s: Src) = if (type == "file") s.e.ref + ":" + s.e.time else keyOf(type, s.e.url, s.e.time)
 
     private fun pLabels(): List<String> =
         if (type == "bm") listOf("All") + pSrc.map { it.e.folder }.filter { it.isNotEmpty() }.distinct().sorted()
         else listOf("All", "Today", "Last 7 days", "Older than 30 days")
 
     private fun pShown(): List<Src> {
-        var l = pSrc.filter { it.e.url.isNotEmpty() }
+        var l = if (type == "file") pSrc else pSrc.filter { it.e.url.isNotEmpty() }
         val labels = pLabels()
         if (pChip > 0 && pChip < labels.size) {
             val now = System.currentTimeMillis(); val today = dayKey(now)
@@ -504,12 +521,12 @@ object VaultItems {
         page = "pick"
         val ui = shell(a)
         val info = VaultScreen.tv(a, "", 12f, R.color.mg_text_dim)
-        ui.head.addView(topBar(a, if (type == "page") "Add from saved pages" else "Add from browser", listOf(icon(a, R.drawable.ic_list, "Select all shown") {
+        ui.head.addView(topBar(a, if (type == "page") "Add from saved pages" else if (type == "file") "Add from downloads" else "Add from browser", listOf(icon(a, R.drawable.ic_list, "Select all shown") {
             val shown = pShown()
             if (shown.isNotEmpty() && shown.all { pSel.contains(pKey(it)) }) shown.forEach { pSel.remove(pKey(it)) } else shown.forEach { pSel.add(pKey(it)) }
             pickerPage()
         })), lp())
-        ui.head.addView(search(a, when (type) { "bm" -> "Search browser bookmarks"; "page" -> "Search saved pages"; else -> "Search browser history" }, pQuery) { pQuery = it; pLimit = PAGE; pFill(a, ui, info) }, lp(dp(a, 8), MATCH, dp(a, 48)))
+        ui.head.addView(search(a, when (type) { "bm" -> "Search browser bookmarks"; "page" -> "Search saved pages"; "file" -> "Search downloads"; else -> "Search browser history" }, pQuery) { pQuery = it; pLimit = PAGE; pFill(a, ui, info) }, lp(dp(a, 8), MATCH, dp(a, 48)))
         val labels = pLabels()
         if (labels.size > 1) ui.head.addView(chips(a, labels, pChip) { pChip = it; pLimit = PAGE; pickerPage() }, lp(dp(a, 4)))
         ui.head.addView(info, lp(dp(a, 6)))
@@ -525,8 +542,8 @@ object VaultItems {
     private fun pFill(a: Activity, ui: Ui, info: TextView) {
         ui.list.removeAllViews()
         val shown = pShown()
-        info.text = "Move removes the " + (if (type == "page") "saved page" else "browser") + " copy after the vault copy is saved and checked. Copy keeps both. Duplicates are merged."
-        if (shown.isEmpty()) { ui.list.addView(empty(a, if (pSrc.isEmpty()) "Loading, or nothing in the browser yet." else "Nothing matches.")); return }
+        info.text = if (type == "file") "The file is sealed and checked first. With Move you are then asked whether to delete the original from your phone. Duplicates are merged." else "Move removes the " + (if (type == "page") "saved page" else "browser") + " copy after the vault copy is saved and checked. Copy keeps both. Duplicates are merged."
+        if (shown.isEmpty()) { ui.list.addView(empty(a, if (pSrc.isEmpty()) (if (type == "file") "Loading, or no finished downloads yet." else "Loading, or nothing in the browser yet.") else "Nothing matches.")); return }
         var lastDay = -1L
         for (s in shown.take(pLimit)) {
             val key = pKey(s)
@@ -535,6 +552,7 @@ object VaultItems {
             val sub = when (type) {
                 "hist" -> clock(s.e.time) + " - " + host
                 "page" -> host + " - " + Util.fmtBytes(s.e.size)
+                "file" -> Util.fmtBytes(s.e.size) + (if (s.e.url.startsWith("http")) " - " + host else "")
                 else -> (if (s.e.folder.isNotEmpty()) s.e.folder + " - " else "") + host
             }
             ui.list.addView(row(a, s.e.title.ifBlank { host }, sub, pSel.contains(key), false, { if (!pSel.add(key)) pSel.remove(key); pickerPage() }, null), lp(dp(a, 8)))
@@ -546,7 +564,7 @@ object VaultItems {
         if (pSel.isEmpty()) return
         if (move) {
             MaterialAlertDialogBuilder(a).setTitle("Move to vault?")
-                .setMessage("${plural(pSel.size)} will be saved in the vault, checked, and then removed from " + (if (type == "page") "Saved pages" else "the browser") + ".")
+                .setMessage(if (type == "file") "${plural(pSel.size)} will be sealed in the vault and checked. Then you choose whether to delete the originals from your phone." else "${plural(pSel.size)} will be saved in the vault, checked, and then removed from " + (if (type == "page") "Saved pages" else "the browser") + ".")
                 .setNegativeButton("Cancel", null).setPositiveButton("Move") { _, _ -> doAdd(a, true) }.show()
         } else doAdd(a, false)
     }
@@ -554,6 +572,13 @@ object VaultItems {
     private fun doAdd(a: Activity, move: Boolean) {
         val chosen = pSrc.filter { pSel.contains(pKey(it)) }
         val t = type
+        if (t == "file") { // V7: own progress dialog (stream + cancel); originals are only deleted after the user confirms
+            VaultFiles.runSeal(a, chosen, move) { r, del ->
+                pSel.clear(); selecting = false; sel.clear(); query = ""; chip = 0
+                if (dlg?.isShowing == true) { listPage(); bar(a, VaultFiles.sealedText(r, del), null, null) } else Util.toast(a, VaultFiles.sealedText(r, del))
+            }
+            return
+        }
         val ui = host?.let { shell(a) } ?: return
         ui.list.addView(VaultScreen.tv(a, "Sealing ${plural(chosen.size)}...", 15f, R.color.mg_text_dim).apply { gravity = Gravity.CENTER }, lp(dp(a, 80)))
         bg.execute {

@@ -145,6 +145,10 @@ object DownloadsScreen {
                 TabsApi.openTab(src)
             })
             if (id > 0) rows.add(MenuSheet.Item("Rename", R.drawable.ic_edit) { renameFile(h) })
+            if (id > 0) { // V7
+                rows.add(MenuSheet.Item("Move to vault", R.drawable.ic_vault) { toVault(h, true) })
+                rows.add(MenuSheet.Item("Copy to vault", R.drawable.ic_vault) { toVault(h, false) })
+            }
             rows.add(MenuSheet.Item("Remove from list", R.drawable.ic_close) { removeFromList(h) })
             if (id > 0) rows.add(MenuSheet.Item("Delete", R.drawable.ic_trash, danger = true) {
                 MaterialAlertDialogBuilder(act)
@@ -157,6 +161,11 @@ object DownloadsScreen {
                     .show()
             })
             MenuSheet.showLink(act, title, if (web) src else DownloadsApi.folderPath(id), rows)
+        }
+
+        /** V7: seal one finished download into the vault. Move asks afterwards whether to delete the original; if it was deleted the entry leaves the list, like Delete. */
+        private fun toVault(h: JSONObject, move: Boolean) {
+            VaultFiles.sealDownload(act, h, move) { deleted -> if (deleted) removeFromList(h) else if (isShowing) { sig = ""; render() } }
         }
 
         /** S18: rename the file on the phone, then the title in the saved-files list. */

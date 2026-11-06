@@ -1,6 +1,7 @@
 THAZIR (internal project MGB) - VAULT FEATURE: AUDIT + STEP PLAN
 Planning baseline: Thazir-main.zip, appVersionName 0.0.185 (CHANGELOG top entry = 0.0.185)
-STATUS: V1-V6 DONE (zip 0.0.192; V4b = 0.0.191) (V1+V2 zip 0.0.187; V3 zip 0.0.188; V4+V5 merged in one chat, zip 0.0.190 = V4 0.0.189 included). Next = V6.
+STATUS: V1-V7 DONE (zip 0.0.193; V6 = 0.0.192; V4b = 0.0.191) (V1+V2 zip 0.0.187; V3 zip 0.0.188; V4+V5 merged in one chat, zip 0.0.190 = V4 0.0.189 included). Next = V8.
+CONTEXT ZIP: Thazir_Context_V8-V12_v0_0_193.zip holds every file V8-V12 read or modify (current 0.0.193 state) - attach THAT instead of the full repo zip; see FILES.txt inside.
 This file REPLACES the old root HANDOFF.txt (UI roadmap: S1-S5, S7, S10 done, rest skipped by owner;
 that roadmap is finished). Old copies stay in the repo as HANDOFF_OLD.txt / HANDOFF_PLAYER.txt.
 
@@ -188,7 +189,7 @@ Order is strict. Each step ends in a working app. No step is L (>60%).
     Open path: decrypt to cacheDir/vault_tmp/<random>.mht, load with PageSave-style file:// WebView (allowFileAccess is already true only there), wipe temp on close/onStop and at app start. Move = import, verify read-back, then PageSave.remove.
     Checks: temp wipe on every path (back, crash restart); PageSave.MAX unaffected.
 
-[ ] V7  BUILD  M (~55%)  Downloaded files into the vault
+[x] V7  BUILD  M (~55%)  Downloaded files into the vault
     Goal: "Move to vault" for finished downloads: stream-encrypt the file into d/<id>.bin with progress/cancel; vault Files list; Open / Share (via temp decrypt) / Export out / Delete.
     Add: file part in VaultFiles.kt (progress worker thread + notification-free first version, cancel, free-space check). Modify: DownloadsScreen.kt (menu row near Delete ~l148), res/xml/file_paths.xml (cache-path "vault_tmp"),
          VaultScreen.kt, build.gradle.kts, CHANGELOG, HANDOFF. Read-only: DownloadsApi.kt (DlItem.uri/mime/rel, deleteFile), EngineApi.kt, DownloadFolder.kt, Util.kt, VaultCrypto.kt.
@@ -237,6 +238,11 @@ If a session is lost mid-step the next chat re-runs the SAME step from the last 
 7. PROGRESS / RESULT LOG (append newest at top; fill after each step)
 ====================================================================================================
 (newest first)
+V7 | 0.0.193 | MODIFIED VaultFiles.kt (+~260 lines file part, shred/wipeTemp now folder aware), VaultItems.kt (type "file"), VaultScreen.kt (Files tile), VaultStore.kt (lock -> wipeTemp(force)), DownloadsScreen.kt (2 menu rows + toVault()), DownloadsApi.kt (itemOf), res/xml/file_paths.xml (vault_tmp), app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+  Checked: brace/paren/bracket balance of all 6 changed .kt files (strings + comments stripped), single-match patch audit, changed-files scope, no edit to Vault.kt / PasswordStore / Downloader / CI, R.drawable.ic_vault + mg_* tokens only, APIs read from the REAL DownloadsApi / EngineApi / DownloadsScreen / VaultCrypto.BlobReader (not guessed).
+  NOT tested: Gradle build (CI; no Kotlin compiler in sandbox), device render 360/1280dp, dark/light, rotation, TalkBack, content:// source read on real SAF/MediaStore downloads, MediaStore export, FileProvider hand-off to real apps, 15-minute temp wipe, large file (>1 GB) timing.
+  Decisions / limits: (1) Move = seal + verify, then ASK to delete original (Keep default); there is no automatic delete. (2) Dedupe key = time + name (not size). (3) 0-byte files are refused ("could not be sealed"). (4) Free-space check only for a vault folder on phone storage. (5) Open/Share leave a plain temp copy for up to 15 min (or until lock / next process start) because the other app must read it; V8 replaces this for audio/video on API26+. (6) Export goes to Downloads/Thazir (public, readable by other apps - intended). (7) No multi-select Move in DownloadsScreen (vault-side picker does multiples). (8) A vault file keeps no download id; "Restore into the Downloads list" is not offered (only Export).
+  UI API for V8: VaultFiles.openFile(a, id, share) is the single hand-off point - V8 adds a media branch there (mime audio/ video/ -> VaultPlay uri -> PlayerScreen.open(a, uri, title) / PlayerActivity.start). VaultFiles.decryptTo / wipeTemp(c, force) reusable. FileProvider cache-path vault_tmp exists.
 V6 | 0.0.192 | NEW VaultFiles.kt; MODIFIED VaultItems.kt (type "page"), VaultScreen.kt (tile), VaultStore.kt (wipeTemp x2), SavedPages.kt (2 menu rows), app/build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
   Checked: brace/paren/bracket balance, single-match patch audit, changed-files scope; APIs read from the REAL PageSave.kt / VaultCrypto.kt / TabManager.openSaved (not guessed).
   NOT tested: Gradle build (CI), device, dark/light, 360/1280dp, rotation, TalkBack, SAF read-back of blobs on real providers, WebView loading a file:// page from cacheDir (PageSave.mark sets allowFileAccess), restore under PageSave.MAX.
@@ -273,7 +279,7 @@ RESULT template: step id | version | files changed | what was checked | NOT test
 ====================================================================================================
 8. EXACT KICKOFF LINE FOR THE NEXT CHAT (attach MGB-context.zip + any patch zips delivered so far)
 ====================================================================================================
-START V7 ONLY - Downloaded files into the vault (VaultFiles.kt file part + DownloadsScreen menu row + file_paths.xml cache-path vault_tmp), baseline appVersionName 0.0.192 (full repo zip at 0.0.192). Read HANDOFF.txt first, only the files listed for V7, confirm the CI build of 0.0.192 compiled (fix compile errors first if not), do not modify Vault.kt, patch only, stop by 85% session (hard stop 90%), return a changed-files-only ZIP named Thazir_V7_v0_0_193.zip.
+START V8 ONLY - Play vault media without a plain copy (VaultPlay.kt ContentProvider + AndroidManifest provider + play branch in VaultFiles.openFile), baseline appVersionName 0.0.193. Attach ONLY Thazir_Context_V8-V12_v0_0_193.zip (+ any newer patch zips). Read HANDOFF.txt first, only the files listed for V8, confirm the CI build of 0.0.193 compiled (fix compile errors first if not), do not modify Vault.kt, patch only, stop by 85% session (hard stop 90%), return a changed-files-only ZIP named Thazir_V8_v0_0_194.zip.
 OPTIONAL "V4b" (small, needs BookmarksScreen.kt attached): add "Move to vault / Copy to vault" in the BookmarksScreen menu + multi-select (bookmarks and history mode) using VaultItems.addToVault, see V4+V5 decision (1).
 
 For later steps use: "START V<n> ONLY - <step title>, baseline appVersionName <previous version>. Read HANDOFF.txt and FILES.txt first, only the files listed for V<n>, patch only, stop by 85% (hard 90%), return Thazir_V<n>_v0_0_<NNN>.zip." (merge earlier patch zips over MGB-context.zip first, in version order)

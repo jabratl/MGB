@@ -422,6 +422,9 @@ object DownloadsApi {
         return true
     }
 
+    /** V7: a finished download for the vault (null when unknown or not complete). Read-only handle, nothing is changed. */
+    fun itemOf(id: Int): DlItem? = synchronized(items) { items[id] }?.takeIf { it.state == "complete" }
+
     /** Folder that holds the file as a document id (for example primary:Download/MGB) plus a short label. */
     private fun folderOf(i: DlItem): Pair<String, String> {
         val u = if (i.uri.startsWith("content:")) Uri.parse(i.uri) else null
