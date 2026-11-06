@@ -244,6 +244,7 @@ object VaultStore {
         if (dirty && c != null && dek != null) { try { flush(c) } catch (e: Exception) { } }
         pending?.cancel(false)
         synchronized(this) { VaultCrypto.wipe(dek); dek = null; index = null }
+        VaultPlay.revoke() // V8
         if (c != null) VaultFiles.wipeTemp(c, true) // V7: plain temp copies handed to other apps go when the vault locks
     }
 

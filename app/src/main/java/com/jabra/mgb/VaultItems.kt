@@ -435,12 +435,15 @@ object VaultItems {
     /** V7: tap on a vault file. Open / Share decrypt to a temp copy (wiped later), Export writes a readable copy, Delete removes it from the vault. */
     private fun fileMenu(a: Activity, id: String) {
         val o = VaultStore.item(id) ?: return
+        val labels = if (VaultPlay.isMedia(o)) listOf("Play", "Play with temp copy", "Share", "Export to Downloads/Thazir", "Delete from vault") else listOf("Open", "Share", "Export to Downloads/Thazir", "Delete from vault")
         MaterialAlertDialogBuilder(a).setTitle(o.optString("title").ifBlank { "File" })
-            .setItems(arrayOf("Open", "Share", "Export to Downloads/Thazir", "Delete from vault")) { _, which ->
-                when (which) {
-                    0 -> VaultFiles.openFile(a, id, false)
-                    1 -> VaultFiles.openFile(a, id, true)
-                    2 -> { sel.clear(); sel.add(id); restoreDialog(a) }
+            .setItems(labels.toTypedArray()) { _, which ->
+                when (labels[which]) {
+                    "Play" -> VaultFiles.openFile(a, id, false)
+                    "Play with temp copy" -> VaultFiles.openFile(a, id, false, true)
+                    "Open" -> VaultFiles.openFile(a, id, false)
+                    "Share" -> VaultFiles.openFile(a, id, true)
+                    "Export to Downloads/Thazir" -> { sel.clear(); sel.add(id); restoreDialog(a) }
                     else -> { sel.clear(); sel.add(id); deleteDialog(a) }
                 }
             }.setNegativeButton("Cancel", null).show()

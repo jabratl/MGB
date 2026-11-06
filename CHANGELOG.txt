@@ -1,3 +1,11 @@
+0.0.194 (V8 BUILD: Play vault media without a plain copy)
+- VaultPlay.kt (new): not-exported ContentProvider "<applicationId>.vaultplay". Uri = per-play random token (memory only). openFile() gives the player a PROXY file descriptor (StorageManager.openProxyFileDescriptor, API 26+): each read is decrypted on demand with VaultCrypto.BlobReader.readAt, so seeking works and no decrypted copy is written to disk. Vault locked = no uri served, open readers fail (EIO), tokens cleared. Also answers name / size queries.
+- VaultFiles.openFile: audio / video now go to PlayerScreen.open through VaultPlay (API 26+). New forceTemp: the V7 temp decrypt, played in the built-in player (used on API 24-25 and by the new menu row).
+- VaultItems.kt: tapping a media file offers Play / Play with temp copy / Share / Export / Delete (other files unchanged). The temp row is the fallback if a device's player cannot read the proxy uri.
+- VaultStore.kt: lock() calls VaultPlay.revoke(). AndroidManifest.xml: provider entry (exported=false).
+- Not in this step: playlist / next-previous inside the vault, subtitles next to a vault video, images / PDF viewer in-app (still Open = temp copy), exit wizard (V9).
+- app/build.gradle.kts: 0.0.194.
+
 0.0.193 (V7 BUILD: Downloaded files in the vault)
 - VaultFiles.kt: file part. Finished download -> stream-encrypted vault blob (64 KiB chunks, source read once with SHA-256, vault copy decrypted and compared by size + SHA-256, THEN the index entry is saved). Progress dialog with Cancel (half-written blob is removed), free-space check (phone storage, best effort), low-space / unreadable-source messages. Originals are never touched by the sealing code: after "Move" the user is ASKED "Delete the original?" (Keep / Delete, default = ask) and only then DownloadsApi.deleteFile runs. Duplicates (same time + name) merged.
 - Open / Share: temp decrypt to cacheDir/vault_tmp/x/<random>/<name> + FileProvider (authority .fileprovider) -> other app. Temp copies are wiped (zero-fill + delete) after 15 minutes, when the vault locks, and at the first wipe of every app start. Saved-page temp files (V6) are still wiped at once.

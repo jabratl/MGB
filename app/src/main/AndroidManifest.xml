@@ -31,5 +31,12 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- V8: serves decrypted vault media to the in-app player only (not exported, tokens in memory) -->
+        <provider
+            android:name=".VaultPlay"
+            android:authorities="${applicationId}.vaultplay"
+            android:exported="false"
+            android:grantUriPermissions="true" />
     </application>
 </manifest>

@@ -392,13 +392,20 @@ object VaultFiles {
     }
 
     /** Decrypts into cacheDir/vault_tmp/x/<random>/<name>, then hands it to another app. The temp copy is wiped by wipeTemp (15 min / lock / next start). */
-    fun openFile(a: Activity, id: String, share: Boolean) {
+    fun openFile(a: Activity, id: String, share: Boolean, forceTemp: Boolean = false) {
         val o = VaultStore.item(id)
         if (o == null) { Util.toast(a, "Could not open it now"); return }
         val app = a.applicationContext
         val blob = o.optString("blob")
         val name = safeName(o.optString("title"))
         val mime = mimeOf(o)
+        val inPlayer = !share && VaultPlay.isMedia(o)
+        if (inPlayer && !forceTemp && VaultPlay.supported()) { // V8: no plain copy, the player reads through VaultPlay
+            val pu = VaultPlay.uriFor(app, o, name, mime)
+            if (pu == null) { Util.toast(a, "The vault is locked"); return }
+            PlayerScreen.open(a, pu, o.optString("title").ifBlank { name })
+            return
+        }
         if (a.cacheDir.usableSpace < o.optLong("size") + 8L * 1048576L) { Util.toast(a, "Not enough free space to open this file. Export it instead."); return }
         Util.toast(a, "Opening...")
         Thread {
@@ -408,6 +415,7 @@ object VaultFiles {
                 if (!ok || a.isFinishing || a.isDestroyed) { Util.toast(a, "Could not open this file. Is the vault folder still there?"); shred(f.parentFile ?: f); return@runOnUiThread }
                 try {
                     val u = FileProvider.getUriForFile(a, a.packageName + ".fileprovider", f)
+                    if (inPlayer) { PlayerScreen.open(a, u, o.optString("title").ifBlank { name }); return@runOnUiThread } // V8 fallback: temp copy in the built-in player
                     val i = if (share) Intent.createChooser(Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM, u).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Share")
                         else Intent(Intent.ACTION_VIEW).setDataAndType(u, mime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     a.startActivity(i)
