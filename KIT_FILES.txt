@@ -1,4 +1,4 @@
-THAZIR KIT 0.0.267 - full current versions. Use with HANDOFF+Thazir+0.0.267.txt.
+THAZIR KIT 0.0.268 - full current versions. Use with HANDOFF+Thazir+0.0.268.txt.
 Not in kit: drawables (ic_*), other Kotlin files: ask for exactly that file.
 
   238426  CHANGELOG.txt

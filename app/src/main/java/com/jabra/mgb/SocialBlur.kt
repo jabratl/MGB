@@ -26,13 +26,25 @@ object SocialBlur {
     private const val K_MODE = "sm_blur"
     private const val K_PX = "sm_blur_px"
     /** Keys for the SettingsScreen RESET list. */
-    val keys: List<String> = listOf(K_MODE, K_PX)
+    val keys: List<String> = listOf(K_MODE, K_PX) + SocialProfiles.all.map { "sm_bm_" + it.id } // 0.0.268 (B6): + one key per site
 
     private fun sp(c: Context) = c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
     fun mode(c: Context): Int = sp(c).getInt(K_MODE, OFF).coerceIn(OFF, ALL)
     fun setMode(c: Context, v: Int) { sp(c).edit().putInt(K_MODE, v.coerceIn(OFF, ALL)).apply() }
     fun px(c: Context): Int = sp(c).getInt(K_PX, 12).coerceIn(4, 24)
     fun setPx(c: Context, v: Int) { sp(c).edit().putInt(K_PX, v.coerceIn(4, 24)).apply() }
+
+    // ---- 0.0.268 (B6): blur mode per site. Key sm_bm_<id>: absent = follow the global mode above, 0 / 1 / 2 = Off / Flagged / All for this site only ----
+    fun siteMode(c: Context, id: String): Int = sp(c).getInt("sm_bm_" + id, -1).coerceIn(-1, ALL)
+    fun setSiteMode(c: Context, id: String, v: Int) {
+        if (v < 0) sp(c).edit().remove("sm_bm_" + id).apply() else sp(c).edit().putInt("sm_bm_" + id, v.coerceIn(OFF, ALL)).apply()
+    }
+    /** Mode that counts for this site: its own choice, else the global one. */
+    fun modeFor(c: Context, id: String): Int = siteMode(c, id).let { if (it >= 0) it else mode(c) }
+    /** Tap order: follow global -> Off -> Flagged only -> All until tap -> follow global. Returns the new value. */
+    fun cycleSite(c: Context, id: String): Int { val n = if (siteMode(c, id) >= ALL) -1 else siteMode(c, id) + 1; setSiteMode(c, id, n); return n }
+    fun siteLabel(v: Int): String = when (v) { OFF -> "Off"; FLAGGED -> "Flagged only"; ALL -> "All until tap"; else -> "Same as above" }
+    fun siteOverrides(c: Context): Int = SocialProfiles.all.count { siteMode(c, it.id) >= 0 }
 
     /**
      * The site's own "sensitive" marker, by profile id (CSS selector; the media inside a match is blurred).
@@ -88,13 +100,13 @@ document.documentElement.style.setProperty('--mgbl',px+'px');clean();if(mode)sca
     /** Script for this page: installs the blur (once) and passes the current settings. Call on every inject; it is cheap. */
     fun script(ctx: Context, profileId: String): String {
         val sel = JSONObject.quote(FLAG_SEL[profileId] ?: "")
-        return JS + "try{window.__mgSz&&window.__mgSz.set(" + mode(ctx) + "," + px(ctx) + "," + sel + ");}catch(e){}"
+        return JS + "try{window.__mgSz&&window.__mgSz.set(" + modeFor(ctx, profileId) + "," + px(ctx) + "," + sel + ");}catch(e){}"
     }
 
     /** Called by SocialMode.inject for a social page whose switches are ON. Mode OFF still sends the short call, so a blur from earlier is removed. */
     fun inject(ctx: Context, view: android.webkit.WebView?, profileId: String?) {
         if (view == null || profileId == null) return
-        if (mode(ctx) == OFF) {
+        if (modeFor(ctx, profileId) == OFF) {
             view.evaluateJavascript("try{window.__mgSz&&window.__mgSz.set(0,12,'');}catch(e){}", null)
             return
         }

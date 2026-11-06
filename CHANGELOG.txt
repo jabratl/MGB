@@ -1,3 +1,10 @@
+0.0.268 (B6: blur mode per site)
+- Why: the blur had one global mode. Now each site can follow it or have its own: Social sites page > blur card > row "Blur per site" (tap a site: Same as above -> Off -> Flagged only -> All until tap).
+- How: SocialBlur.kt: pref sm_bm_<id> (absent = global sm_blur), modeFor(ctx, id) used by script() and inject(); keys list extended with sm_bm_<id> so Settings reset (which already uses SocialBlur.keys) clears them. SocialScreen: action row + blurSitesDialog + summary line. HowToUse phrase.
+- Files: SocialBlur.kt, SocialScreen.kt, HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF, KIT_FILES (no new file, SettingsScreen untouched in this step).
+- Could break: if a site is Off but the global mode is on, the script still gets a set(0) call, so an old blur is removed (same as before); strength is still one global slider.
+- NOT tested: Gradle build (CI), device.
+
 0.0.267 (C6: muted words)
 - Why: hide posts about topics the person does not want to see. Extras > Tabs and data > row "Muted words" (tap = edit box, one word per line, max 20; Save / Clear / Cancel). Stored as sm_mute in mgb_ui. Empty = off.
 - How: NEW SocialMute.kt (words / count / setWords, per-site post selector map SEL, page script with MutationObserver throttled 300 ms, guard window.__mgSw, words passed as a JSON array, no data leaves the page). SocialMode.inject: one call SocialMute.inject(ctx, view, p?.id). SocialScreen: row + muteDialog + summary line. SettingsScreen RESET + sm_mute. HowToUse phrase.

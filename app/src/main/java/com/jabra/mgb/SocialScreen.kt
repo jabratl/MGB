@@ -465,7 +465,36 @@ object SocialScreen {
                     override fun onStopTrackingTouch(sb: SeekBar?) { }
                 })
             }, LinearLayout.LayoutParams(MATCH, dp(48)).apply { setMargins(dp(12), 0, dp(12), dp(4)) })
+            lateinit var bsTv: TextView // 0.0.268 (B6)
+            fun bsHint() = (if (SocialBlur.siteOverrides(act) == 0) "All sites follow the choice above" else SocialBlur.siteOverrides(act).toString() + " site(s) have their own choice") + " (tap to change)"
+            val bsRow = actionRow(c, R.drawable.ic_info, "Blur per site", bsHint()) { blurSitesDialog { bsTv.text = bsHint() } }
+            bsTv = ((bsRow as LinearLayout).getChildAt(1) as LinearLayout).getChildAt(1) as TextView
             return c
+        }
+
+        /** 0.0.268 (B6): one row per site, tap cycles Same as above / Off / Flagged only / All until tap. Applies from the next page load of that site. */
+        private fun blurSitesDialog(onDone: () -> Unit) {
+            val box = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), dp(4)) }
+            box.addView(TextView(act).apply {
+                text = "Tap a site to change its blur. Same as above = the choice on the blur card. Reload the site after a change."
+                textSize = 12f; setTextColor(act.getColor(R.color.mg_text_dim)); setPadding(0, dp(6), 0, dp(8))
+            })
+            for (p in SocialProfiles.all) {
+                val t = TextView(act).apply {
+                    textSize = 14f; setTextColor(act.getColor(R.color.mg_text)); gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(12), 0, dp(12), 0); isClickable = true
+                    background = round(act.getColor(R.color.mg_surface_variant), 12, 1f, act.getColor(R.color.mg_outline))
+                }
+                fun paint() { t.text = p.label + ": " + SocialBlur.siteLabel(SocialBlur.siteMode(act, p.id)) }
+                paint()
+                t.setOnClickListener { it.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK); SocialBlur.cycleSite(act, p.id); paint(); onDone() }
+                box.addView(t, LinearLayout.LayoutParams(MATCH, dp(48)).apply { bottomMargin = dp(6) })
+            }
+            MaterialAlertDialogBuilder(act)
+                .setTitle("Blur per site")
+                .setView(ScrollView(act).apply { addView(box) })
+                .setPositiveButton("Done", null)
+                .show()
         }
 
         /** 0.0.233 (P8b): AI picture check card = switch + Low / Normal / Strict + status + counter. Prefs: SocialNsfw. Pictures only, not video. */
@@ -595,6 +624,7 @@ object SocialScreen {
                 .append(", focus mode: ").append(yn(SocialFocus.on(act)))
                 .append(", data saver plus: ").append(yn(SocialSave2.on(act))).append(" (").append(SocialSave2.blocked).append(" videos blocked)")
                 .append(", muted words: ").append(SocialMute.count(act))
+                .append(", blur per site: ").append(SocialBlur.siteOverrides(act)).append(" own")
                 .append(", time limit: ").append(SocialTime.label(act)).append("\n\n")
             for (p in SocialProfiles.all) {
                 sb.append(p.label).append(": ").append(yn(SocialProfiles.siteOn(act, p.id)))
