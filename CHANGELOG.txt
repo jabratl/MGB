@@ -1,3 +1,9 @@
+0.0.241 (A3 BUILD: ask before closing a social tab)
+- Why: Back already goes back inside a site first; at the first page it closed the tab at once. Now on a social tab the first Back shows "Press Back again to close" and the second Back (within 2 s) closes as before. Switch "Ask before closing a social tab" (Social sites page > Tabs and data, default ON, key sm_back).
+- Files: NEW SocialBack.kt, SocialMode.kt (sm_back), MainActivity.kt (1 branch in the back rule), SocialScreen.kt (switch row), SettingsScreen.kt (RESET + sm_back), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: nothing with Social sites OFF or the switch OFF (hold returns false). ON: one extra Back press on the first page of a social tab.
+- NOT tested: Gradle build (CI), device, 3-button vs gesture navigation.
+
 0.0.240 (A2 BUILD: phone bars take the site colour)
 - Why: a social tab should feel like an app. Switch "Match phone bars to the site" (Social sites page > Tabs and data, default ON, key sm_bars): on a social page the status bar and navigation bar get the colour of the site (its theme-color meta tag, read after the page loads; fallback = app background). Other pages, other tabs, Desktop-by-hand or switch OFF = original bar colours again.
 - Files: NEW SocialBars.kt, SocialMode.kt (sm_bars + 1 line in inject), MainActivity.kt (2 hook lines next to SocialFull.sync), SocialScreen.kt (switch row), SettingsScreen.kt (RESET + sm_bars), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.

@@ -151,6 +151,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
                     tabs.inFullscreen -> tabs.exitFullscreen() // S14
                     urlBar.hasFocus() -> leaveUrlBar()
                     t != null && tabs.canBack(t) -> tabs.back(t) // 0.0.130: Home counts as a page
+                    t != null && SocialBack.hold(this@MainActivity, t) -> Unit // 0.0.241 (A3): first page of a social tab: press Back again
                     t != null && tabs.count > 1 -> tabs.close(t)
                     else -> {
                         isEnabled = false

@@ -67,6 +67,9 @@ object SocialMode {
     private const val K_BARS = "sm_bars" // 0.0.240 (A2): phone bar colour follows the site (default ON)
     fun barsOn(c: Context): Boolean = sp(c).getBoolean(K_BARS, true)
     fun setBarsOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_BARS, v).apply() }
+    private const val K_BACK = "sm_back" // 0.0.241 (A3): first page of a social tab asks before closing (default ON)
+    fun backOn(c: Context): Boolean = sp(c).getBoolean(K_BACK, true)
+    fun setBackOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K_BACK, v).apply() }
 
     /** Per-site switch (0.0.228, P4): thin wrappers over SocialProfiles (key sm_s_<id>, not set = ON). */
     fun siteOn(c: Context, id: String): Boolean = SocialProfiles.siteOn(c, id)

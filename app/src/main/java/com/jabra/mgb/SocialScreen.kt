@@ -164,6 +164,8 @@ object SocialScreen {
                 null, { SocialMode.fullOn(act) }) { on -> SocialMode.setFullOn(act, on); if (!on) SocialFull.sync(act, BookmarksScreen.tabsRef?.active) }
             switchRow(extra, R.drawable.ic_screen, "Match phone bars to the site", "Status bar and navigation bar take the colour of the social site (back to normal on other pages)",
                 null, { SocialMode.barsOn(act) }) { on -> SocialMode.setBarsOn(act, on); SocialBars.sync(act, BookmarksScreen.tabsRef?.active) }
+            switchRow(extra, R.drawable.ic_shield, "Ask before closing a social tab", "On the first page of a social site, Back shows \"Press Back again to close\" so one slip does not close your feed",
+                null, { SocialMode.backOn(act) }) { on -> SocialMode.setBackOn(act, on) }
             col.addView(extra, LinearLayout.LayoutParams(MATCH, WRAP))
             siteRows.add(extra)
 
