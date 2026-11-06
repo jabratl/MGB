@@ -1,3 +1,13 @@
+0.0.218 (A8 FIX: Extract audio never overwrites or mis-names a file)
+- Root cause: AudioExtract used the video title + ".m4a" as is. Android 9 and lower: a file with the same name in Downloads/MGB was silently overwritten. Android 10+: MediaStore renamed the new file ("x (1).m4a") but the toast still said "Saved x.m4a".
+- AudioExtract.kt: new uniqueName() looks for the name in Downloads/MGB (MediaStore query on 10+, File.exists on 9-) and uses "name (2).m4a", "(3)" ... up to 99. The toast now shows the real name. Extraction logic unchanged.
+- Could break: nothing else; on a query error the old behaviour (plain name) is used.
+
+0.0.217 (A7 MODIFY: bar arrows step aside while typing)
+- Why: with both arrows ON on a 360 dp phone the address field is only ~100 dp wide while typing a URL.
+- MainActivity.kt: applyNavArrows() hides Back / Forward while the address field has focus (1 condition) and runs from the focus listener (1 line), same idea as the shield (S68). They come back when typing ends. Tap / hold behaviour unchanged; prefs unchanged.
+- Apply AFTER 0.0.216 (A6): this MainActivity.kt already contains the A6 hold-list lines.
+
 0.0.216 (A6 BUILD: hold Back / Forward for the page list)
 - NavHistory.kt (NEW): long-press on the bar Back or Forward arrow opens a small list (up to 12 pages, "title - site") of the pages behind / ahead of the current one; tap a row to jump straight there (WebView goBackOrForward). Nothing is stored. Home page and extension tabs: no list, the normal tap / tooltip stays.
 - MainActivity.kt: 2 lines (long-click listeners on btnBack / btnFwd). Tap behaviour unchanged.

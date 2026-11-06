@@ -68,7 +68,7 @@ object AudioExtract {
             try { mux?.release() } catch (e: Exception) { /* already released */ }
             ex.release()
         }
-        val name = title.substringBeforeLast('.', title).replace(Regex("[\\\\/:*?\"<>|]"), "_").trim().ifEmpty { "audio" } + ".m4a"
+        val name = uniqueName(ctx, title.substringBeforeLast('.', title).replace(Regex("[\\\\/:*?\"<>|]"), "_").trim().ifEmpty { "audio" })
         try {
             if (Build.VERSION.SDK_INT >= 29) {
                 val cr = ctx.contentResolver
@@ -88,5 +88,20 @@ object AudioExtract {
             }
         } finally { tmp.delete() }
         return name
+    }
+
+    /** A8: "name.m4a", or "name (2).m4a" when that file is already in Downloads/MGB (before: API 28- overwrote it, API 29+ showed the wrong name in the toast). */
+    private fun uniqueName(ctx: Context, base: String): String {
+        fun taken(n: String): Boolean = try {
+            if (Build.VERSION.SDK_INT >= 29) {
+                ctx.contentResolver.query(MediaStore.Downloads.EXTERNAL_CONTENT_URI, arrayOf(MediaStore.MediaColumns._ID),
+                    MediaStore.MediaColumns.DISPLAY_NAME + "=? AND " + MediaStore.MediaColumns.RELATIVE_PATH + " LIKE ?",
+                    arrayOf(n, Environment.DIRECTORY_DOWNLOADS + "/MGB%"), null)?.use { it.count > 0 } ?: false
+            } else File(File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MGB"), n).exists()
+        } catch (e: Exception) { false }
+        var n = "$base.m4a"
+        var i = 2
+        while (i < 100 && taken(n)) { n = "$base ($i).m4a"; i++ }
+        return n
     }
 }

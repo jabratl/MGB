@@ -38,6 +38,16 @@ RULES (every step): new logic in new file, 1-3 line hooks; new pref default = ol
 Checks available: node --check changed .js, brace balance, single-match patches, duplicate ids, JSON valid. NOT possible in sandbox: Gradle (CI), device render.
 
 LOG (newest first)
+A8 | 0.0.218 | Files: AudioExtract.kt (uniqueName() + 1 line), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+   Checked: Kotlin brace/paren balance; single-match patch; no new pref / UI.
+   NOT tested: Gradle build (CI); device; extracting the same file twice on Android 9 and Android 10+; MediaStore query with RELATIVE_PATH LIKE.
+   Reasoned only: RELATIVE_PATH is stored as "Download/MGB/", so LIKE "Download/MGB%" matches it.
+   NEXT (not touched): .m4a in the Downloads history list (needs the mgHist entry format); extract for several files.
+A7 | 0.0.217 | Files: MainActivity.kt (1 condition in applyNavArrows + 1 line in the url focus listener), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+   Checked: Kotlin brace/paren balance unchanged; single-match patches.
+   NOT tested: Gradle build (CI); device; focus in / out with both arrows ON at 360 dp; bar layout jump when arrows hide (no animation).
+   Reasoned only: urlBar is created before the first applyNavArrows() call (urlBar.minWidth is already used there). Hidden = GONE, so the field widens.
+   NEXT (not touched): reload / stop button in the bar (own switch); Home row inside the A6 list.
 A6 | 0.0.216 | Files: NavHistory.kt (NEW), MainActivity.kt (2 long-click lines), AppearanceScreen.kt (hint text), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
    Checked: Kotlin brace/paren balance (NavHistory 0/0, others unchanged); single-match patches; no new ids / prefs.
    NOT tested: Gradle build (CI) - NavHistory.kt never compiled; device; long-press with real history; dark/light dialog; 360/1280dp.
