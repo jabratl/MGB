@@ -177,6 +177,8 @@ object SocialScreen {
                 null, { SiteWindow.on(act) }) { on -> SiteWindow.setOn(act, on) }
             switchRow(extra, R.drawable.ic_shield, "Extra site fixes (Instagram, Reddit, X, LinkedIn)", "Hides more app prompts and sign-up layers on these sites (applies from the next page load; Site fix can add more)",
                 null, { SocialMode.dfixOn(act) }) { on -> SocialMode.setDfixOn(act, on) }
+            switchRow(extra, R.drawable.ic_info, "Warm up when opening a site", "Looks up the site address a moment earlier so the first page starts a little faster. Nothing is sent to the site",
+                null, { SocialPreload.on(act) }) { on -> SocialPreload.setOn(act, on) }
             col.addView(extra, LinearLayout.LayoutParams(MATCH, WRAP))
             siteRows.add(extra)
 

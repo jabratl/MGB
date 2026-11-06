@@ -299,6 +299,7 @@ object SocialMode {
     /** Command Center shortcut: switch Social mode ON (the person asked for a social page) and open it in a new tab. */
     fun open(ctx: Context, tabs: TabManager, url: String) {
         if (!on(ctx)) { setOn(ctx, true); Util.toast(ctx, "Social sites ON (Settings > General)") }
+        SocialPreload.warm(ctx, url) // 0.0.250 (A11): DNS warm-up (switch sm_pre)
         tabs.newTab(url)
     }
 }

@@ -1,3 +1,10 @@
+0.0.250 (A11 BUILD: warm-up when opening a social site)
+- Why: tiny speed gain for the first page. When a social site is opened from an Open button, a shortcut, a link from another app or a site window, its address (and one or two known asset hosts) is looked up on a background thread, at most once per host per 60 s. No page is loaded, nothing is sent to the site. Switch "Warm up when opening a site" (Social sites page > Tabs and data, default ON, key sm_pre).
+- Cache mode of the WebView was NOT changed on purpose (a cache-first mode would show old feeds). True TLS preconnect is not possible from a WebView, so only DNS is warmed: expect a small gain.
+- Files: NEW SocialPreload.kt, SocialMode.kt (1 line in open), SocialScreen.kt (switch row), SettingsScreen.kt (RESET + sm_pre), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: nothing (errors ignored, background thread, switch OFF = no lookup).
+- NOT tested: Gradle build (CI), device, any measured speed difference.
+
 0.0.249 (A10 BUILD: extra site fixes for Instagram, Reddit, X, LinkedIn)
 - Why: A10 notes = app prompts that come back on these sites. Built-in defaults now do what a person would type into Site fix: extra button texts whose small fixed bar is hidden (Not now on Instagram / Reddit / X / LinkedIn, Maybe later on Reddit, Skip on LinkedIn) and one CSS line each for X (logged-out bottom sign-up bar) and LinkedIn (guest sign-up layer). Switch "Extra site fixes (Instagram, Reddit, X, LinkedIn)" (Social sites page > Tabs and data, default ON, key sm_dfix). Applies from the next page load; the person's own Site fix still adds on top (last wins).
 - Files: SocialProfiles.kt (EXTRA_WORDS, EXTRA_CSS, extraWords, extraCss), SocialMode.kt (sm_dfix, 2 inject lines), SocialScreen.kt (switch row), SettingsScreen.kt (RESET + sm_dfix), HowToUse.kt, build.gradle.kts, CHANGELOG, HANDOFF.
