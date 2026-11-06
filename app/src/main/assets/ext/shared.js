@@ -835,8 +835,10 @@ if (typeof module !== 'undefined') module.exports = { mgHealthSettings, libraryP
 
 // ---------- recorded page headers: replay the headers the real player sent (Referer / Origin / Authorization / X-...) ----------
 function ruleHeaders(ent, minimal) {
+  let ref = ent.ref; // 0.0.221: Referer and Origin must come from the same frame; a Referer of the top page next to the player's Origin is refused by the CDN (403)
+  try { if (ref && ent.origin && /^https?:/i.test(ent.origin) && new URL(ref).origin !== ent.origin) ref = ent.origin.replace(/\/+$/, '') + '/'; } catch (e) { /* keep the recorded one */ }
   const out = [
-    ent.ref ? { header: 'referer', operation: 'set', value: ent.ref } : { header: 'referer', operation: 'remove' },
+    ref ? { header: 'referer', operation: 'set', value: ref } : { header: 'referer', operation: 'remove' },
     ent.origin ? { header: 'origin', operation: 'set', value: ent.origin } : { header: 'origin', operation: 'remove' }
   ];
   if (!minimal) for (const k of Object.keys(ent.extra || {})) out.push({ header: k, operation: 'set', value: String(ent.extra[k]).slice(0, 2000) });

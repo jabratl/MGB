@@ -148,7 +148,10 @@ object Sniffer {
         }
 
         val tabUrl = tab.url
-        val ref = rh.entries.firstOrNull { it.key.equals("Referer", true) }?.value ?: tabUrl
+        // 0.0.221: a request from a player iframe (kwik.cx) has no Referer here; the top page (animepahe.pw) is the WRONG one. A browser sends the frame's origin cross-site.
+        val ref = rh.entries.firstOrNull { it.key.equals("Referer", true) }?.value
+            ?: rh.entries.firstOrNull { it.key.equals("Origin", true) }?.value?.takeIf { it.startsWith("http") }?.let { it.trimEnd('/') + "/" }
+            ?: tabUrl
         if (host.isNotEmpty() && ref.isNotEmpty()) lastRef[host] = ref
         val headers = JSONArray()
         for ((k, v) in rh) if (k.lowercase() !in DROP_REQ) headers.put(JSONObject().put("name", k).put("value", v))

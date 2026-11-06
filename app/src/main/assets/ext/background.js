@@ -99,7 +99,7 @@ chrome.webRequest.onBeforeSendHeaders.addListener((d) => {
   const extra = {};
   for (const k of Object.keys(h)) if (!SKIP_H.has(k) && !k.startsWith('sec-')) extra[k] = h[k];
   hdrCache[host] = { ref: h.referer || '', origin: h.origin || '', extra, t: Date.now() };
-  if (!old) dbg('hdr', `${host}: referer=${h.referer ? 'yes' : 'none'} origin=${h.origin ? 'yes' : 'none'} extra=[${Object.keys(extra).join(',')}]`);
+  if (!old) dbg('hdr', `${host}: referer=${h.referer ? 'yes' : 'none'}${h.referer ? '(' + hostOf(h.referer) + ')' : ''} origin=${h.origin ? 'yes' : 'none'}${h.origin ? '(' + hostOf(h.origin) + ')' : ''} extra=[${Object.keys(extra).join(',')}]`);
   const ks = Object.keys(hdrCache);
   if (ks.length > 40) ks.sort((a, b) => hdrCache[a].t - hdrCache[b].t).slice(0, ks.length - 40).forEach((k) => delete hdrCache[k]);
   clearTimeout(hdrSaveT);

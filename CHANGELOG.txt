@@ -1,3 +1,11 @@
+0.0.221 (A11 FIX: HLS 403 on animepahe - Referer of the CDN request was the top page, not the kwik.cx player)
+- Root cause (reasoned from the diagnose log, not yet proven on device): Sniffer.kt records the headers the player sent per host. The WebView gives no Referer for the player iframe request, so Sniffer filled in the TOP page url (animepahe.pw) while the Origin header was the player's (kwik.cx). The recorded rule beats the generic header modes (priority 2 vs 1), so all 4 modes sent animepahe.pw + Origin kwik.cx -> owocdn 403 every time.
+- Sniffer.kt: Referer fallback is now the request's Origin (+ "/", what a browser sends cross-site) before the tab url.
+- shared.js ruleHeaders(): if the recorded Referer origin differs from the recorded Origin, the Referer becomes Origin + "/". This part works through the extension hot update (no APK).
+- background.js: the [hdr] log line now shows the Referer / Origin host, e.g. vault-99.owocdn.top: referer=yes(kwik.cx) origin=yes(kwik.cx). Please send the next diagnose report if 403 stays.
+- Could break: a site that really wants a full-page Referer next to an Origin of another site (very rare, browsers never send that pair).
+- Note: Sniffer.kt is native, so this needs the new APK (hot ext zip alone only carries the shared.js part).
+
 0.0.220 (A10 FIX: HLS 403 on animepahe / kwik player - the "ask the player frame" fallback never reached the player)
 - Root cause: when the CDN (vault-xx.owocdn.top) answers 403 to the engine in every header mode, V77 asks the video page to read the playlist / segment with its own origin. In MGB that never worked for this site: scripting.executeScript only runs in the MAIN frame (TabsApi.runScript), and content.js ignored every message in sub-frames (if !IS_TOP return). The player lives in the kwik.cx iframe, the main page (animepahe.pw) is refused by CORS ("Failed to fetch"), so the last-resort path always ended in HTTP 403.
 - content.js: sub-frames now answer 2 new message types, fetch-text-frame and fetch-bin-frame (fetch with that frame's own origin / cookies). A failed frame stays silent (answers empty), so another frame can still win. Main-frame handlers unchanged.

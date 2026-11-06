@@ -38,6 +38,13 @@ RULES (every step): new logic in new file, 1-3 line hooks; new pref default = ol
 Checks available: node --check changed .js, brace balance, single-match patches, duplicate ids, JSON valid. NOT possible in sandbox: Gradle (CI), device render.
 
 LOG (newest first)
+A11 | 0.0.221 | FIX (owner asked; Sniffer.kt is native but only the Referer line changed). Files: Sniffer.kt, assets/ext/shared.js, assets/ext/background.js, build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+   Root cause: recorded per-host rule for owocdn = Referer animepahe.pw (tab url fallback in Sniffer l151) + Origin kwik.cx; recorded rule (priority 2) beats the generic header modes, so rotating modes never helped.
+   Fix: Sniffer Referer fallback = Origin + "/" then tab url; ruleHeaders() makes Referer follow Origin when their origins differ; [hdr] log shows hosts.
+   Checked: node --check shared.js + background.js OK; ruleHeaders unit-run on 3 cases; Kotlin brace/paren balance unchanged; single-match patches.
+   NOT tested: Gradle build (CI); device; real animepahe download; whether WebView really gives no Referer for the iframe request (guess from the log: referer=yes + 403).
+   Update flow note: "Restart needed" / "Extension files (build N) ... Reset" dialogs are the hot-ext updater working (ExtUpdater.kt), not a bug. A native change needs the APK; ExtUpdater drops hot files when the native hash differs.
+   NEXT (not touched): header-mode rotation for hosts with a recorded rule; log which frame answered; if still 403 compare with the diagnose [hdr] hosts.
 A10 | 0.0.220 | FIX (owner asked; HANDOFF said extension bridge untouchable: not touched, only content.js + background.js of the V77 ext + TabsApi read). Files: assets/ext/content.js, assets/ext/background.js, build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
    Root cause: animepahe player = kwik.cx iframe; owocdn CDN gives 403 to the engine; fallback "page reads it" used executeScript(allFrames) = main frame only + content.js ignores sub-frames -> only animepahe.pw tried -> "Failed to fetch" -> 403.
    Fix: content.js sub-frame handler for fetch-text-frame / fetch-bin-frame; background.js pageFetchAll / pageFetchBin call old code first, then tabs.sendMessage to all frames (empty answers are skipped by TabsApi.fanOut).
