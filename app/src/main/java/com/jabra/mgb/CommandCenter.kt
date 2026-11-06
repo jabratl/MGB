@@ -196,6 +196,8 @@ object CommandCenter {
         reg(R.drawable.ic_desktop, "Messenger chat", "Facebook messages that fit the phone", "fb chat message social", { SocialMode.open(act, tabs, SocialMode.FB_CHAT) })
         reg(R.drawable.ic_desktop, "Instagram", "Feed in the browser", "ig insta social", { SocialMode.open(act, tabs, SocialMode.IG_HOME) })
         reg(R.drawable.ic_desktop, "Instagram messages", "Direct messages in the browser", "ig insta dm chat social", { SocialMode.open(act, tabs, SocialMode.IG_DM) })
+        reg(R.drawable.ic_desktop, "Reddit (old.reddit)", "Light classic layout, no app nag", "reddit old social", { SocialMode.open(act, tabs, "https://old.reddit.com/") }) // 0.0.226
+        for (sp in SocialProfiles.all) if (sp.sub.isNotEmpty()) reg(R.drawable.ic_desktop, sp.label, sp.sub, sp.kw, { SocialMode.open(act, tabs, sp.startUrl) }) // 0.0.226-227: one row per table entry
         if (cur != null) reg(R.drawable.ic_history, "Recently closed tabs", "Reopen a tab you closed", "undo restore reopen", { Backup.closedTabs(act, tabs) })
         if (canPage) {
             reg(R.drawable.ic_reload, "Reload page", Util.host(cur!!.url), "refresh", { cur.web.reload() })

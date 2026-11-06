@@ -22,7 +22,14 @@ object SocialProfiles {
         val schemes: Set<String>,
         /** Text inside an intent:// or market:// link that names the app (substring match). */
         val intentPkgs: List<String>,
-        val startUrl: String
+        val startUrl: String,
+        /** App names the "Open / Use / Get the app" banner button may contain (0.0.226). */
+        val appWords: List<String> = emptyList(),
+        /** Extra CSS for this site (hide a known promo element). Empty = none (0.0.226). */
+        val css: String = "",
+        /** Command Center row: sub line + search words. Empty sub = no automatic row (0.0.226). */
+        val sub: String = "",
+        val kw: String = ""
     ) {
         fun kindOf(path: String): SocialMode.Kind {
             for ((re, k) in pathRules) if (re.containsMatchIn(path)) return k
@@ -32,6 +39,9 @@ object SocialProfiles {
 
     private val CHAT_PATH = Regex("^/(messages|messenger|messenger_media)(/|$)")
 
+    /** Legacy banner words of Facebook / Messenger / Instagram (same regex as 0.0.224). */
+    private val LEGACY_WORDS = listOf("instagram", "facebook", "messenger")
+
     val all: List<Profile> = listOf(
         Profile(
             id = "facebook", label = "Facebook",
@@ -40,7 +50,8 @@ object SocialProfiles {
             defaultKind = SocialMode.Kind.FEED,
             schemes = setOf("fb", "fbapi", "fbauth2"),
             intentPkgs = listOf("com.facebook."),
-            startUrl = SocialMode.FB_HOME
+            startUrl = SocialMode.FB_HOME,
+            appWords = LEGACY_WORDS
         ),
         Profile(
             id = "messenger", label = "Messenger",
@@ -49,7 +60,8 @@ object SocialProfiles {
             defaultKind = SocialMode.Kind.CHAT,
             schemes = setOf("fb-messenger", "fb-messenger-public", "fb-messenger-share"),
             intentPkgs = listOf("com.facebook."),
-            startUrl = SocialMode.FB_CHAT
+            startUrl = SocialMode.FB_CHAT,
+            appWords = LEGACY_WORDS
         ),
         Profile(
             id = "instagram", label = "Instagram",
@@ -58,9 +70,62 @@ object SocialProfiles {
             defaultKind = SocialMode.Kind.INSTA,
             schemes = setOf("instagram"),
             intentPkgs = listOf("com.instagram."),
-            startUrl = SocialMode.IG_HOME
-        )
+            startUrl = SocialMode.IG_HOME,
+            appWords = LEGACY_WORDS
+        ),
+        // ---- 0.0.226 (P2): feed sites, mobile-clean user agent + banner script ----
+        feed("reddit", "Reddit", "(^|\\.)reddit\\.com$", setOf("reddit"), listOf("com.reddit."),
+            "https://www.reddit.com/", listOf("reddit"),
+            "Reddit feed without the app nag", "reddit social",
+            // assumption (live site, not tested): cross-promo elements are named xpromo-*
+            css = "xpromo-bottom-sheet,xpromo-app-selector,[id^=\"xpromo\"]{display:none!important}"),
+        feed("x", "X", "(^|\\.)(x|twitter)\\.com$", setOf("twitter", "x"), listOf("com.twitter."),
+            "https://x.com/", listOf("x", "twitter"),
+            "X (Twitter) in a normal tab", "twitter tweet x social"),
+        feed("pinterest", "Pinterest", "(^|\\.)pinterest\\.[a-z.]+$", setOf("pinterest"), listOf("com.pinterest"),
+            "https://www.pinterest.com/", listOf("pinterest"),
+            "Pins without the open-app layer", "pins social"),
+        feed("threads", "Threads", "(^|\\.)threads\\.(net|com)$", setOf("barcelona", "threads"), listOf("com.instagram.barcelona"),
+            "https://www.threads.net/", listOf("threads"),
+            "Threads in a normal tab", "social"),
+        feed("bluesky", "Bluesky", "^(.+\\.)?bsky\\.app$", setOf("bluesky", "bsky"), listOf("xyz.blueskyweb."),
+            "https://bsky.app/", listOf("bluesky"),
+            "Bluesky in a normal tab", "bsky social"),
+        feed("tiktok", "TikTok", "(^|\\.)tiktok\\.com$", setOf("tiktok", "snssdk1233", "musically"), listOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill"),
+            "https://www.tiktok.com/", listOf("tiktok"),
+            "TikTok web without the app nag", "tik tok social"),
+        feed("linkedin", "LinkedIn", "(^|\\.)linkedin\\.com$", setOf("linkedin"), listOf("com.linkedin."),
+            "https://www.linkedin.com/", listOf("linkedin"),
+            "LinkedIn in a normal tab", "jobs social"),
+        feed("tumblr", "Tumblr", "(^|\\.)tumblr\\.com$", setOf("tumblr"), listOf("com.tumblr"),
+            "https://www.tumblr.com/", listOf("tumblr"),
+            "Tumblr in a normal tab", "blog social"),
+        // ---- 0.0.227 (P3): desktop-fit group = desktop user agent + phone-width viewport (same as Messenger chat) ----
+        chat("discord", "Discord", "(^|\\.)(discord\\.com|discordapp\\.com)$", setOf("discord"), listOf("com.discord"),
+            "https://discord.com/app",
+            "Web chat that fits the phone (voice may not work)", "voice server social"),
+        chat("whatsapp", "WhatsApp Web", "^web\\.whatsapp\\.com$", setOf("whatsapp"), listOf("com.whatsapp"),
+            "https://web.whatsapp.com/",
+            "Needs WhatsApp on a phone to link", "wa chat social"),
+        chat("telegram", "Telegram Web", "^web\\.telegram\\.org$", setOf("tg", "telegram"), listOf("org.telegram."),
+            "https://web.telegram.org/k/",
+            "Telegram chat in the browser", "tg chat social"),
+        chat("snapchat", "Snapchat Web", "^web\\.snapchat\\.com$", setOf("snapchat"), listOf("com.snapchat."),
+            "https://web.snapchat.com/",
+            "Limited by Snapchat web", "snap chat social")
     )
+
+    private fun feed(id: String, label: String, host: String, schemes: Set<String>, pkgs: List<String>,
+                     start: String, words: List<String>, sub: String, kw: String, css: String = ""): Profile =
+        Profile(id = id, label = label, host = Regex(host), pathRules = emptyList(), defaultKind = SocialMode.Kind.FEED,
+            schemes = schemes, intentPkgs = pkgs, startUrl = start, appWords = words, css = css, sub = sub, kw = kw)
+
+    private fun chat(id: String, label: String, host: String, schemes: Set<String>, pkgs: List<String>,
+                     start: String, sub: String, kw: String): Profile =
+        Profile(id = id, label = label, host = Regex(host), pathRules = emptyList(), defaultKind = SocialMode.Kind.CHAT,
+            schemes = schemes, intentPkgs = pkgs, startUrl = start, sub = sub, kw = kw)
+
+    fun byId(id: String): Profile? = all.firstOrNull { it.id == id }
 
     /** Profile of this address (https pages only), or null. Ignores the per-site switch. */
     fun of(url: String?): Profile? {

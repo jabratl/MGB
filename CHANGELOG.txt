@@ -1,3 +1,20 @@
+0.0.227 (P3 BUILD: Discord, WhatsApp Web, Telegram Web, Snapchat Web in a phone-fitting tab)
+- Why: these web clients need a desktop page; a plain desktop tab is tiny on a phone. Same recipe as Messenger chat (desktop user agent + width=device-width viewport).
+- SocialProfiles.kt: 4 rows (Kind.CHAT): discord (discord.com/app), whatsapp (web.whatsapp.com), telegram (web.telegram.org/k/), snapchat (web.snapchat.com). Their app links (discord:// whatsapp:// tg:// snapchat:// + intent of those apps) stay in the browser.
+- CommandCenter: rows come from the table (new Profile fields sub + kw), so P3 sites need no extra code. HowToUse line: voice may not work, WhatsApp Web needs the phone app, Google login is often blocked.
+- Mic / camera for Discord voice goes through the existing site permission path (TabManager onPermissionRequest / SitePerms), unchanged.
+- Could break: nothing while Social sites is OFF. ON: a first load may load twice (user agent change); these sites may show a captcha / security check.
+- NOT tested: Gradle build (CI), device, live sites, Discord voice, Snapchat web layout.
+
+0.0.226 (P2 BUILD: Reddit, X, Pinterest, Threads, Bluesky, TikTok, LinkedIn, Tumblr)
+- Why: more social sites usable like an app: mobile user agent without "; wv", app links blocked, "Open / Use app" bars hidden.
+- SocialProfiles.kt: 8 feed rows (Kind.FEED) + Profile fields appWords (names in the banner button text), css (extra CSS), sub / kw (Command Center row). The 3 old rows get appWords = facebook / instagram / messenger (same banner regex as 0.0.224).
+- SocialMode.kt: BANNER_JS is now built per site (bannerJs(appWords), cached); site css is added as one guarded <style> (cssJs). Reddit css hides xpromo-* elements (assumption about live site).
+- CommandCenter: row "Reddit (old.reddit)" (https://old.reddit.com/) + one row per table entry that has a sub line. HowToUse: one line.
+- Not touched: TabManager (hooks unchanged), SettingsScreen (no new pref; per-site switch UI = P4).
+- Could break: nothing while Social sites is OFF. ON: "x" scheme and "twitter" scheme are blocked on any social page (union rule from 0.0.225). TikTok / Pinterest may show their own login wall.
+- NOT tested: Gradle build (CI), device, live-site banner scripts / selectors.
+
 0.0.225 (P1 MODIFY: Social sites now come from a table, SocialProfiles.kt)
 - Why: so the next steps (Reddit, X, Pinterest, Discord ...) are one new row each, not new code.
 - New SocialProfiles.kt: rows Facebook, Messenger, Instagram (host, page kind by path, app schemes, app packages, start page) + per-site switch key sm_s_<id> in mgb_ui (not set = ON, follows Social sites sm_on).

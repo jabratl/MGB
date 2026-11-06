@@ -7,7 +7,7 @@ import android.webkit.WebView
 import java.util.WeakHashMap
 
 /**
- * SOCIAL MODE (0.0.224; 0.0.225: sites come from SocialProfiles.kt, per-site switch sm_s_<id>): Facebook, Messenger chat and Instagram in a normal tab, without the Desktop site switch.
+ * SOCIAL MODE (0.0.224; 0.0.225: sites come from SocialProfiles.kt, per-site switch sm_s_<id>; 0.0.226-227: banner words + CSS per site, more rows): Facebook, Messenger chat and Instagram in a normal tab, without the Desktop site switch.
  *
  * Why it is needed: Facebook's mobile site has no chat (it sends you to the Messenger app), and Facebook / Instagram show
  * "Open app" banners and app redirects. The real chat only opens for a desktop user agent, but a desktop page is tiny on a phone.
@@ -109,23 +109,41 @@ object SocialMode {
         "setTimeout(function(){o.disconnect();},8000);}catch(e){}})();"
 
     // "Open app" banner: a button or link with that text inside a small fixed / sticky bar. Looks for 40 s, then stops.
-    private const val BANNER_JS = "(function(){try{if(window.__mgSb)return;window.__mgSb=1;" +
-        "var re=/^(open|use|get|install|continue in|open in)( the)?( instagram| facebook| messenger)?( app)?$/i;var n=0;" +
-        "var scan=function(){var l=document.querySelectorAll('a,button,[role=button]');" +
-        "for(var i=0;i<l.length;i++){var e=l[i];var t=(e.textContent||'').trim();if(t.length>40||!re.test(t))continue;" +
-        "var p=e;for(var d=0;d<8&&p&&p!==document.body;d++,p=p.parentElement){var cs=getComputedStyle(p);" +
-        "if(cs.position==='fixed'||cs.position==='sticky'){var r=p.getBoundingClientRect();" +
-        "if(r.height<window.innerHeight*0.4&&(p.innerText||'').length<200){p.style.setProperty('display','none','important');}break;}}}};" +
-        "scan();var iv=setInterval(function(){scan();if(++n>40)clearInterval(iv);},1000);}catch(e){}})();"
+    // 0.0.226: the app names in the text come from the site row (SocialProfiles.Profile.appWords).
+    private val bannerCache = HashMap<String, String>()
+    private fun bannerJs(words: List<String>): String {
+        val w = words.filter { it.matches(Regex("[a-z0-9]+")) }
+        val key = w.joinToString("|")
+        return bannerCache.getOrPut(key) {
+            val names = if (w.isEmpty()) "" else "( " + w.joinToString("| ") + ")?"
+            "(function(){try{if(window.__mgSb)return;window.__mgSb=1;" +
+            "var re=/^(open|use|get|install|continue in|open in)( the)?" + names + "( app)?$/i;var n=0;" +
+            "var scan=function(){var l=document.querySelectorAll('a,button,[role=button]');" +
+            "for(var i=0;i<l.length;i++){var e=l[i];var t=(e.textContent||'').trim();if(t.length>40||!re.test(t))continue;" +
+            "var p=e;for(var d=0;d<8&&p&&p!==document.body;d++,p=p.parentElement){var cs=getComputedStyle(p);" +
+            "if(cs.position==='fixed'||cs.position==='sticky'){var r=p.getBoundingClientRect();" +
+            "if(r.height<window.innerHeight*0.4&&(p.innerText||'').length<200){p.style.setProperty('display','none','important');}break;}}}};" +
+            "scan();var iv=setInterval(function(){scan();if(++n>40)clearInterval(iv);},1000);}catch(e){}})();"
+        }
+    }
+
+    // Site CSS (0.0.226): one <style> element, guarded by its id, no loop.
+    private fun cssJs(css: String): String {
+        val q = css.replace("\\", "\\\\").replace("'", "\\'")
+        return "(function(){try{if(document.getElementById('__mgSc'))return;var s=document.createElement('style');s.id='__mgSc';" +
+            "s.textContent='" + q + "';(document.head||document.documentElement).appendChild(s);}catch(e){}})();"
+    }
 
     /** Runs the page scripts for this address (each one guards itself, so calling it many times is fine). */
     fun inject(ctx: Context, view: WebView?, url: String?, handDesktop: Boolean) {
         if (view == null || handDesktop || !on(ctx)) return
+        val p = SocialProfiles.of(url)
         when (kindFor(ctx, url)) {
             Kind.CHAT -> view.evaluateJavascript(VIEWPORT_JS, null)
-            Kind.FEED, Kind.INSTA -> view.evaluateJavascript(BANNER_JS, null)
-            Kind.NONE -> {}
+            Kind.FEED, Kind.INSTA -> view.evaluateJavascript(bannerJs(p?.appWords ?: emptyList()), null)
+            Kind.NONE -> return
         }
+        if (p != null && p.css.isNotEmpty()) view.evaluateJavascript(cssJs(p.css), null)
     }
 
     /** Command Center shortcut: switch Social mode ON (the person asked for a social page) and open it in a new tab. */
