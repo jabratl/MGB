@@ -38,6 +38,11 @@ RULES (every step): new logic in new file, 1-3 line hooks; new pref default = ol
 Checks available: node --check changed .js, brace balance, single-match patches, duplicate ids, JSON valid. NOT possible in sandbox: Gradle (CI), device render.
 
 LOG (newest first)
+A6 | 0.0.216 | Files: NavHistory.kt (NEW), MainActivity.kt (2 long-click lines), AppearanceScreen.kt (hint text), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+   Checked: Kotlin brace/paren balance (NavHistory 0/0, others unchanged); single-match patches; no new ids / prefs.
+   NOT tested: Gradle build (CI) - NavHistory.kt never compiled; device; long-press with real history; dark/light dialog; 360/1280dp.
+   Reasoned only: list = copyBackForwardList entries before / after currentIndex (max 12); Home counts as a page only for the Back tap (tabs.canBack), so a tab that came from Home shows the list without the Home row.
+   NEXT (not touched): reload arrow; Home row inside the list; "Close tab" on long-press of Back when no history.
 A5 | 0.0.215 | Files: AppearanceScreen.kt (1 toggleRow in root "Address bar" card), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
    Checked: Kotlin brace/paren balance 0/0; single-match patch; AppearanceScreen.kt / AppearancePrefs.kt are identical in the D1-D6 line and in Thazir-main 0.0.209, so no other step is overwritten.
    NOT tested: Gradle build (CI); device; dark/light; 360/1280dp; live bar update while Appearance is open.

@@ -1,3 +1,9 @@
+0.0.216 (A6 BUILD: hold Back / Forward for the page list)
+- NavHistory.kt (NEW): long-press on the bar Back or Forward arrow opens a small list (up to 12 pages, "title - site") of the pages behind / ahead of the current one; tap a row to jump straight there (WebView goBackOrForward). Nothing is stored. Home page and extension tabs: no list, the normal tap / tooltip stays.
+- MainActivity.kt: 2 lines (long-click listeners on btnBack / btnFwd). Tap behaviour unchanged.
+- AppearanceScreen.kt: hint of "Back and Forward buttons" mentions the hold.
+- No new pref, no layout change. Not touched: TabManager, Downloader, Vault*, CI, extension bridge.
+
 0.0.215 (A5 MODIFY: Back / Forward buttons as their own Appearance option)
 - Root cause of the request: the Back / Forward arrows (A1) were already separate from the Home button, but hidden 3 levels deep (Appearance > Customize address bar > Navigation arrows) as two switches.
 - AppearanceScreen.kt: Appearance > Address bar now has a top row "Back and Forward buttons" with ONE switch (ON = both arrows in the address bar, OFF = both removed). The Home button is not touched. Fine control (Back only, Forward only, Hide when not available) stays in Customize address bar. Live update through AppearanceScreen.onChange, same as the other bar options.

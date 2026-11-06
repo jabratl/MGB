@@ -117,6 +117,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         btnHome.setOnClickListener { homeClick() } // S22, 0.0.130: Home opens in the same tab; APPEARANCE A3: action from Appearance (default = Home)
         btnBack.setOnClickListener { tabs.active?.let { if (tabs.canBack(it)) tabs.back(it) } } // A1
         btnFwd.setOnClickListener { tabs.active?.let { if (tabs.canFwd(it)) tabs.fwd(it) } } // A1
+        btnBack.setOnLongClickListener { NavHistory.show(this, tabs, false) } // A6: hold = page list
+        btnFwd.setOnLongClickListener { NavHistory.show(this, tabs, true) } // A6
         applyHomeIcon() // A3
         applyNavArrows() // A1
         AppearanceScreen.onChange = { applyHomeIcon(); applyNavArrows(); refreshUrlField(); refreshShield() } // A3: live update while the Appearance screen is open
