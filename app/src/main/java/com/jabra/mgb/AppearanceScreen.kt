@@ -209,6 +209,12 @@ object AppearanceScreen {
 
             col.addView(sectionLabel("Address bar"))
             val barCard = card()
+            toggleRow(barCard, R.drawable.ic_back, "Back and Forward buttons", "Arrows inside the address bar. Home button stays as it is", // A5
+                { AppearancePrefs.navBack(act) || AppearancePrefs.navFwd(act) }) { on ->
+                AppearancePrefs.setNavBack(act, on)
+                AppearancePrefs.setNavFwd(act, on)
+                AppearanceScreen.onChange?.invoke()
+            }
             navRow(barCard, R.drawable.ic_screen, "Customize address bar",
                 AppearancePrefs.homeIconAndLabel(AppearancePrefs.homeAction(act)).second) { openPage("bar", "Address bar") }
             col.addView(barCard, LinearLayout.LayoutParams(MATCH, WRAP))

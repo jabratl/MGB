@@ -38,6 +38,11 @@ RULES (every step): new logic in new file, 1-3 line hooks; new pref default = ol
 Checks available: node --check changed .js, brace balance, single-match patches, duplicate ids, JSON valid. NOT possible in sandbox: Gradle (CI), device render.
 
 LOG (newest first)
+A5 | 0.0.215 | Files: AppearanceScreen.kt (1 toggleRow in root "Address bar" card), build.gradle.kts, CHANGELOG.txt, HANDOFF.txt.
+   Checked: Kotlin brace/paren balance 0/0; single-match patch; AppearanceScreen.kt / AppearancePrefs.kt are identical in the D1-D6 line and in Thazir-main 0.0.209, so no other step is overwritten.
+   NOT tested: Gradle build (CI); device; dark/light; 360/1280dp; live bar update while Appearance is open.
+   Reasoned only: master switch reads ON when Back OR Forward is on; switching it ON sets both, OFF clears both.
+   NEXT (not touched): long-press history list on the arrows; reload arrow.
 D6 | 0.0.214 | Files: DlControl.kt (NEW), DownloadsScreen.kt (bulk bar block + "New link" button), downloader.js (gate in 2 merge callbacks, 3 catch lines rethrow Cancelled), background.js (job-cancel drops a queued job), HowToUse.kt, build.gradle.kts, CHANGELOG.txt, HANDOFF.
    Checked: node --check downloader.js + background.js OK; Kotlin brace/paren balance unchanged (DlControl 0/0); single-match patches (merge callback + catch patches matched exactly 2 / 2 / 1).
    NOT tested: Gradle build (CI) - DlControl.kt never compiled; device; Pause all / Stop all with real jobs; pause and cancel during a real video+audio join; "New link" on a real expired link; dark/light; 360/1280dp.

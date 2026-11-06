@@ -1,3 +1,8 @@
+0.0.215 (A5 MODIFY: Back / Forward buttons as their own Appearance option)
+- Root cause of the request: the Back / Forward arrows (A1) were already separate from the Home button, but hidden 3 levels deep (Appearance > Customize address bar > Navigation arrows) as two switches.
+- AppearanceScreen.kt: Appearance > Address bar now has a top row "Back and Forward buttons" with ONE switch (ON = both arrows in the address bar, OFF = both removed). The Home button is not touched. Fine control (Back only, Forward only, Hide when not available) stays in Customize address bar. Live update through AppearanceScreen.onChange, same as the other bar options.
+- No new pref key (uses ap_nav_back + ap_nav_fwd, already in the Reset list). Default OFF. Not touched: MainActivity, layout, SettingsScreen.
+
 0.0.214 (D6 MODIFY: control all + new link after a failure)
 - Grep first: per-job Pause / Resume / Cancel, DownloadsApi.pauseAll / resumeAll (browser downloads) and the batch Stop already existed; the job list in Downloads had no "all" buttons.
 - DlControl.kt (NEW): Pause all / Resume all / Stop all for the running jobs (same job-pause / job-cancel messages, plus batch-stop per page so a batch stops queuing episodes). Buttons appear above "Downloading" when 2 or more jobs run (DownloadsScreen, 1 block). Failed jobs with an episode page or source page get "New link": batch-episodes again for an episode (the engine looks for a fresh link), else the source page opens in a new tab.
