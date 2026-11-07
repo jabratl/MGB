@@ -62,7 +62,7 @@ object DevicePerms {
     private fun items(a: Activity): List<Item> {
         val dec = declared(a)
         val out = ArrayList<Item>()
-        if (Build.VERSION.SDK_INT >= 33) out.add(runtime(a, "Notifications", "Download progress, finished downloads, music controls", Manifest.permission.POST_NOTIFICATIONS, dec))
+        if (Build.VERSION.SDK_INT >= 33) out.add(runtime(a, "Notifications", "Download progress, finished downloads, music controls, and website notifications you allowed (only while Thazir is open)", Manifest.permission.POST_NOTIFICATIONS, dec))
         out.add(runtime(a, "Camera", "Video calls and taking a photo for a post on websites", Manifest.permission.CAMERA, dec))
         out.add(runtime(a, "Microphone", "Voice calls and voice messages on websites", Manifest.permission.RECORD_AUDIO, dec))
         out.add(runtime(a, "Location", "Maps and \"near me\" on websites (each site still asks once)", Manifest.permission.ACCESS_FINE_LOCATION, dec))

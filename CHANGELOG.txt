@@ -1,3 +1,12 @@
+0.0.284 (BUILD: website notifications + Notifications in Site permissions)
+- Why: Android WebView has no Notification API, so sites could never show a notification. Brave has it.
+- How: NEW WebNotify.kt. A small script (page start + page finished, normal tabs, not saved pages) gives pages window.Notification: permission = saved site answer; requestPermission() asks once (Allow / Block, "Remember for this site"; a page can only ask for its own address); new Notification(title, {body, tag}) posts an Android notification (channel "Website notifications", tap opens Thazir, max 1 per second per site). Android 13+: Allow also asks Android for the notification permission.
+- Site permissions sheet: NEW card "Notifications" (default Ask first / Blocked works as for the others). Device permissions text mentions it.
+- Limits: only while Thazir is running (no background push, no service workers), private tabs get nothing (no bridge), notification actions / icons / images are ignored.
+- Files: WebNotify.kt (new), TabManager.kt (3 lines), SitePermsUi.kt (1 row), DevicePerms.kt (hint text), build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: a site that tests "Notification" now finds it and may show its own "enable notifications" banner; if a site misbehaves, set Notifications default to Blocked (then permission reads "denied").
+- NOT tested: Gradle build (CI; watch the local fun reply + return@post in WebNotify.request, NotificationCompat imports), device (Android 13+ and older, a real site that asks, Allow / Block / remember, tap on the notification, private tab, rotation while the question is open).
+
 0.0.283 (MODIFY: Site permissions "All sites" view)
 - Why: Brave also lets you see permissions per site, not only per type.
 - NEW card "All sites" in Settings > Privacy > Site permissions: one card per site with each saved permission (chip flips Allowed / Blocked) and "Forget site".

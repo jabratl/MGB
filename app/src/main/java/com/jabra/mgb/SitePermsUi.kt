@@ -25,7 +25,8 @@ object SitePermsUi {
     private val CATS = listOf(
         Triple("camera", "Camera", R.drawable.ic_perm_camera),
         Triple("microphone", "Microphone", R.drawable.ic_perm_mic),
-        Triple("location", "Location", R.drawable.ic_perm_location)
+        Triple("location", "Location", R.drawable.ic_perm_location),
+        Triple("notifications", "Notifications", R.drawable.ic_perm_bell) // 0.0.284
     )
 
     fun show(act: FragmentActivity, done: () -> Unit) {

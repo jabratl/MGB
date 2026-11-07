@@ -464,6 +464,7 @@ class TabManager(
         Userscripts.attach(ctx, w, priv) // T7: userscripts (before first load; also for a WebView made again after suspend)
         if (!priv) w.addJavascriptInterface(PasswordStore.Bridge(this), "MGBPW") // S30: save-login hook (before first load)
         if (!priv) w.addJavascriptInterface(WebVideo.Bridge(this), "MGBVID") // S45: in-page video button
+        if (!priv) w.addJavascriptInterface(WebNotify.Bridge(this, w), "MGBNOT") // 0.0.284: website notifications
         // S14: plain download links (and blob:/data: links) in a tab go to the native downloader
         w.setDownloadListener { url, ua, disp, mime, _ ->
             try {
@@ -588,6 +589,7 @@ class TabManager(
                 if (SiteConfig.has(url, SiteConfig.DESKTOP) && !tab.desktop) container.post { setDesktop(tab, true) }
             }
             if (!tab.isExt && view != null) YtAds.flag(view, url) // 0.0.105
+            if (!tab.isExt && !tab.savedPage && view != null) WebNotify.inject(view) // 0.0.284
             if (!tab.isExt && !tab.savedPage && view != null && url != null && SocialMode.ensure(ctx, view, url, tab.desktop)) container.post { view.stopLoading(); view.loadUrl(url) } // 0.0.224
             TabsApi.onUpdated(tab, JSONObject().put("status", "loading").put("url", tab.url)) // S6
             listener.onPageInfo(tab)
@@ -597,6 +599,7 @@ class TabManager(
             tab.url = url ?: tab.url
             tab.progress = 100
             tab.popup = false // 0.0.106: the pop-up passed the check
+            if (!tab.isExt && !tab.savedPage && view != null) WebNotify.inject(view) // 0.0.284
             if (tab.desktop && !tab.isExt) view?.evaluateJavascript(BrowserExtras.DESKTOP_JS, null) // S14
             if (tab.extWide && tab.isExt) view?.evaluateJavascript(BrowserExtras.DESKTOP_JS, null) // 0.0.109
             if (!tab.isExt && view != null) EngineHost.noteUa(url ?: tab.url, view.settings.userAgentString) // 0.0.110: extension requests to this site use this user agent
