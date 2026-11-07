@@ -12,6 +12,7 @@
 ||youtube.com/pagead/
 ||youtube.com/ptracking
 ||youtube.com/get_midroll_
+||youtube.com/youtubei/v1/player/ad_break
 ||googleads.g.doubleclick.net^
 ||static.doubleclick.net^
 /adserver/*$script,third-party

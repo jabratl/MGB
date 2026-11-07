@@ -1,3 +1,19 @@
+0.0.300 (MODIFY: YouTube ad blocking, Brave / uBlock strength: shim/yt-adblock.js v2)
+- Why: asked for YouTube ads to be blocked as strongly as Brave does. Before: only ytInitialPlayerResponse + JSON.parse + Response.json, depth 3, feed ads only hidden with CSS.
+- Same idea as Brave (uBO scriptlets json-prune / set-constant): the ad data is cut out of what YouTube reads; no ad request is blocked by the script, so YouTube sees no failed request (the network rules in filters/seed.txt stay as before).
+- 1. First page data: ytInitialPlayerResponse AND ytInitialData are pruned when the page assigns them (home feed, search, watch page, Shorts).
+- 2. fetch(): every answer of /youtubei/v1/* (player, next, browse, search, reel...) is read, pruned and handed on as a new Response (text and json readers both see the clean data). XMLHttpRequest response / responseText of /youtubei/v1/* too (older and some mobile paths). JSON.parse as before.
+- 3. What is removed (any depth up to 14, 60000 nodes max): keys adPlacements / adSlots / playerAds; list items that are ads (adSlotRenderer, promoted sparkles / promoted video / search PYV, in-feed ad, display ad, banner promo, statement banner, brand video, masthead ad, primetime promo, companion ad), also inside richItemRenderer / richSectionRenderer wrappers; the ads engagement panel. Videos, comments, chapters are never touched.
+- 4. Ad that plays anyway (server side inserted): checked on every video event + every 200 ms (was 250 ms, timer only): mute, 16x, jump to the end, press Skip, restore sound + speed after.
+- 5. NEW: "Ad blockers violate YouTube's Terms" popup (ytd-enforcement-message-view-model) is removed, page scroll and the paused video are given back.
+- 6. CSS: + Shorts ads (reel :has), player ad overlays, .video-ads, brand / masthead / primetime / search PYV, YouTube Premium mealbar upsell, ads engagement panel.
+- 7. Embeds: the script also runs on https://www.youtube-nocookie.com (YT_ORIGINS in ContentInjector); youtube.com/embed on other sites was already covered.
+- 8. Filter rule added: ||youtube.com/youtubei/v1/player/ad_break (mid-roll break request). Existing: api/stats/ads, pagead, ptracking, get_midroll_, doubleclick, googlesyndication.
+- Still depends on: Settings > Ad blocker ON and "allow ads" OFF for the site (window.__mgbYtOff, YtAds.flag, unchanged). Test hook: window.__mgbYtStat = {pruned, skipped, popups} (read it in the page console / Diag).
+- Honest limit: no blocker can win for ever; ads cut into the video stream itself (server side) can only be skipped (step 4), and YouTube changes names now and then (the script is one file: assets/shim/yt-adblock.js, and an ext-only hot update is not needed, a new build is).
+- Tested here: Node run of the prune logic (feed ad items, wrapper items, player keys, engagement panel, setter, JSON.parse, OFF switch) = OK. NOT tested: Gradle build (CI), device (YouTube home feed, a watch page with pre-roll + mid-roll, Shorts, m.youtube.com, music.youtube.com, embed on another site, the popup, Background play + Media switches still work, blocker OFF = ads come back).
+- Files: assets/shim/yt-adblock.js, ContentInjector.kt (1 line), assets/filters/seed.txt (1 line), build.gradle.kts, CHANGELOG, HANDOFF.
+
 0.0.299 (BUILD: Install app, Chrome style = home screen icon that opens the site in its OWN window)
 - Why: 0.0.298 only made a shortcut that opens a tab. Chrome's "Install app" gives an own window (own Recent apps card), site name + icon, optionally no browser bar.
 - Where: page menu > "Install app" (after Add to home screen) and tab card menu > "Install app". Shown for every http / https page (not private tabs / Home / extension pages). Customise menu can hide the row (key "Install app").

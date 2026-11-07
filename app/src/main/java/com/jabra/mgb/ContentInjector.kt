@@ -44,7 +44,7 @@ object ContentInjector {
     private var extScript = ""
     private var ytScript = "" // 0.0.105: YouTube ad blocker (shim/yt-adblock.js)
     private var ymScript = "" // 0.0.296: Settings > Media for YouTube (shim/yt-media.js)
-    private val YT_ORIGINS = setOf("https://www.youtube.com", "https://m.youtube.com", "https://music.youtube.com")
+    private val YT_ORIGINS = setOf("https://www.youtube.com", "https://m.youtube.com", "https://music.youtube.com", "https://www.youtube-nocookie.com") // 0.0.300: + embeds
     private var v77Cfg = "" // S4: cfg of the built-in extension pages (dispatcher in extPageScript)
 
     // S2: content scripts of installed extensions (files/exts/<id>/), cached per extension
