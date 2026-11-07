@@ -134,6 +134,21 @@
             android:textColorHint="@color/mg_text_dim"
             android:textSize="15sp" />
 
+        <!-- 0.0.286: Social chip (letter badge), shown on social sites only -->
+        <TextView
+            android:id="@+id/btn_social"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_marginEnd="6dp"
+            android:clickable="true"
+            android:contentDescription="Social tools"
+            android:focusable="true"
+            android:gravity="center"
+            android:textColor="@color/mg_primary"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_tabs"
             style="@style/Widget.Material3.Button.OutlinedButton"

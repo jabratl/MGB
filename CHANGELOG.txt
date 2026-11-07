@@ -1,3 +1,11 @@
+0.0.286 (BUILD: Social chip in the address bar)
+- Why: the social features (app mode, blur, dark page, link cleaner, focus mode) were only in Settings. On a social site they should be one tap away.
+- What: on a social site (Social mode ON, site found, not Home, not while typing) a small letter badge (violet ring = app mode ON for this site, faded = OFF) shows at the END of the address bar, next to the tabs button. Tap = bottom sheet: App mode for this site, Blur pictures (tap cycles), Dark page (tap cycles), Link cleaner, Focus mode, Muted words (opens Social settings), All social settings. Changes apply when the sheet closes (page reloads once).
+- Why this place: the left side of the bar already holds Home / arrows / shield / engine badge; the right side is where the thumb is, and the chip appears only when it is useful, so normal pages look exactly as before.
+- Files: SocialChip.kt (new), activity_main.xml (1 TextView id btn_social, GONE by default), MainActivity.kt (1 line in refreshShield), build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: the bar is 34 dp narrower on social sites (check 360 dp with both arrows ON; the address then shows less text); no defaults changed.
+- NOT tested: Gradle build (CI; watch SocialChip.update smart cast of t and the pick() lambda), device (Facebook / Reddit / X, 360 + 1280 dp, dark + light, rotation with the sheet open, chip while typing, Social mode OFF).
+
 0.0.285 (MODIFY: Settings feels smoother and more defined)
 - Why: Settings should feel like a professional browser: calm entrance, clear cards, smooth scroll.
 - Enter: NEW staggered entrance: cards glide up 14 dp and fade in one after another (first 8, 35 ms steps) when Settings opens. A category you open gets its rows following one after another (first 10, 22 ms steps) on top of the existing fade / glide. Reduce motion = none.

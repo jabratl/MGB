@@ -429,6 +429,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         val eng = (tabs.active?.home == true || urlBar.hasFocus()) && !navTight() // A1: no badge when both arrows squeeze the bar
         btnEngine.visibility = if (eng) View.VISIBLE else View.GONE
         if (eng) EnginePicker.styleBadge(this, btnEngine)
+        SocialChip.update(this, tabs, urlBar.hasFocus()) // 0.0.286: social chip at the end of the address bar
     }
 
     // ---------- TabManager.Listener ----------
