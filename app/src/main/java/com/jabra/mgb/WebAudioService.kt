@@ -19,6 +19,7 @@ import androidx.core.app.ServiceCompat
  */
 class WebAudioService : Service() {
     private val h = Handler(Looper.getMainLooper())
+    private var wl: android.os.PowerManager.WakeLock? = null // 0.0.302: CPU stays awake while the screen is off
     private var quiet = 0
     private val tick = object : Runnable {
         override fun run() {
@@ -44,11 +45,12 @@ class WebAudioService : Service() {
         try {
             ServiceCompat.startForeground(this, NOTE_ID, n, if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0)
         } catch (e: Exception) { stopSelf(); return START_NOT_STICKY }
+        try { if (wl == null) wl = (getSystemService(POWER_SERVICE) as android.os.PowerManager).newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "mgb:webaudio").apply { setReferenceCounted(false) }; wl?.acquire(4 * 60 * 60 * 1000L) } catch (_: Exception) { }
         h.removeCallbacks(tick); quiet = 0; h.postDelayed(tick, 6000)
         return START_NOT_STICKY
     }
 
-    override fun onDestroy() { h.removeCallbacks(tick); super.onDestroy() }
+    override fun onDestroy() { h.removeCallbacks(tick); try { if (wl?.isHeld == true) wl?.release() } catch (_: Exception) { }; super.onDestroy() }
 
     companion object { private const val CH = "mgb_webaudio"; private const val NOTE_ID = 7003; private const val ACT_STOP = "com.jabra.mgb.WEBAUDIO_STOP" }
 }

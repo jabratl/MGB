@@ -538,6 +538,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         AutoDiag.stop() // S87.2
         AdBlock.flushTotal() // S68
         super.onStop()
+        MediaPrefs.onStop(this, tabs.active?.web) // 0.0.302: background play keeps the page running after the window is hidden
     }
 
     override fun onNewIntent(intent: Intent) { // D1: Share while the browser is already open
@@ -558,7 +559,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         backCb.isEnabled = true
         if (siteWin || SiteWindow.used) bindWindow() // 0.0.248 (A7b): the window in front owns the shared helpers
         tabs.active?.web?.onResume()
-        MediaPrefs.onResume(this) // 0.0.296: background play service ends when Thazir is in front
+        MediaPrefs.onResume(this, tabs.active?.web) // 0.0.296: background play service ends when Thazir is in front
         floating.start() // S11
     }
 
@@ -576,6 +577,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         floating.stop() // S11
         if (!(MediaPrefs.bg(this) && MediaPrefs.audible(this))) tabs.active?.web?.onPause() // 0.0.296: Media > Background play: a playing page is not paused
         MediaPrefs.onPause(this)
+        if (MediaPrefs.away) tabs.active?.web?.let { w -> w.post { try { w.onResume(); w.resumeTimers() } catch (_: Exception) { } } } // 0.0.302
         if (!siteWin) tabs.saveSession() // 0.0.247 (A7): a site window never overwrites the saved tabs
         super.onPause()
     }

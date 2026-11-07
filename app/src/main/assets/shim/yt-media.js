@@ -17,6 +17,22 @@
       document.addEventListener(n, function (e) { if (cfg().bg) e.stopImmediatePropagation(); }, true);
     });
 
+    // 0.0.302: while Thazir is away (Home / other app / screen off) nobody can tap the page, so a pause is the system's or the page's: play again.
+    var lastPlay = null;
+    document.addEventListener('playing', function (e) { var m = e.target; if (m && m.tagName && /^(VIDEO|AUDIO)$/.test(m.tagName)) lastPlay = m; }, true);
+    function keep() {
+      try {
+        var c = cfg(); if (!c.bg || !c.away) return;
+        var m = lastPlay; if (!m || m.ended || !m.paused || !m.isConnected) return;
+        var p = m.play(); if (p && p.catch) p.catch(function () { });
+      } catch (e) { }
+    }
+    window.__mgbYmKeep = keep;
+    document.addEventListener('pause', function (e) {
+      try { var c = cfg(); if (c.bg && c.away && e.target === lastPlay && !e.target.ended) { setTimeout(keep, 50); setTimeout(keep, 600); } } catch (x) { }
+    }, true);
+    setInterval(keep, 2000);
+
     var REC = '.ytp-endscreen-content,.ytp-ce-element,.ytp-ce-covering-overlay,.ytp-suggestion-set,.ytp-videowall-still,.ytp-autonav-endscreen-countdown-overlay,' +
       'ytd-watch-next-secondary-results-renderer,#related,ytm-watch-next-secondary-results-renderer,.related-chips-slot-wrapper,ytm-autonav-toggle-button-renderer,ytd-compact-autoplay-renderer{display:none!important}' +
       'ytm-item-section-renderer[section-identifier="related-items"]{display:none!important}';

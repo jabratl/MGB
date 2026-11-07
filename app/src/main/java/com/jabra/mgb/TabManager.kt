@@ -302,13 +302,42 @@ class TabManager(
         return t
     }
 
+    // ---- 0.0.302: Background play when the user changes tab. A detached WebView is hidden by Android and its sound stops,
+    // so a tab that plays sound stays attached as a 1 px view (behind the new tab) until the sound ends or the tab is opened / closed.
+    private val bgHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val bgViews = HashSet<Tab>()
+    private val bgCheck = object : Runnable {
+        override fun run() {
+            val iter = bgViews.iterator()
+            val audible = MediaPrefs.audible(ctx)
+            while (iter.hasNext()) {
+                val t = iter.next()
+                if (t === active || !tabs.contains(t) || !audible) { if (t !== active) try { container.removeView(t.web) } catch (_: Exception) { }; iter.remove() }
+            }
+            if (bgViews.isNotEmpty()) bgHandler.postDelayed(this, 5000)
+        }
+    }
+    private fun keepPlaying(t: Tab): Boolean {
+        if (!MediaPrefs.bg(ctx) || t.priv || t.home || t.isExt || !MediaPrefs.audible(ctx)) return false
+        val h = SiteConfig.hostOf(t.web.url ?: t.url)
+        if (h != "youtube.com" && !h.endsWith(".youtube.com") && h != "youtu.be") return false
+        t.web.layoutParams = FrameLayout.LayoutParams(1, 1)
+        t.web.alpha = 0.01f
+        t.web.onResume(); t.web.resumeTimers()
+        bgViews.add(t)
+        bgHandler.removeCallbacks(bgCheck); bgHandler.postDelayed(bgCheck, 5000)
+        return true
+    }
+
     fun switchTo(tab: Tab) {
         if (active === tab) return
         exitFullscreen() // S14
-        active?.let { it.lastActive = System.currentTimeMillis(); TabSwitcher.snap(it); container.removeView(it.web); it.web.animate().cancel(); it.web.alpha = 1f; it.web.scaleX = 1f; it.web.scaleY = 1f } // S32: thumbnail of the tab we leave
+        active?.let { it.lastActive = System.currentTimeMillis(); TabSwitcher.snap(it); if (!keepPlaying(it)) container.removeView(it.web); it.web.animate().cancel(); it.web.alpha = 1f; it.web.scaleX = 1f; it.web.scaleY = 1f; it.web.alpha = if (bgViews.contains(it)) 0.01f else 1f } // S32: thumbnail of the tab we leave (0.0.302: a tab that plays sound stays attached, 1 px)
         active = tab
         tab.lastActive = System.currentTimeMillis() // STEP E
         if (tab.suspended) resume(tab) // STEP E: history comes back, or pending reloads the page below
+        (tab.web.parent as? ViewGroup)?.removeView(tab.web) // 0.0.302: it may still be attached as a 1 px background-play view
+        tab.web.alpha = 1f
         container.addView(tab.web, FrameLayout.LayoutParams(MATCH, MATCH))
         if (!TabPrefs.reduce(ctx)) { // S21f: not with Reduce motion
             tab.web.alpha = 0f // S21c: soft cross-fade when a tab becomes active
@@ -351,8 +380,11 @@ class TabManager(
         }
         tabs.removeAt(idx)
         TabsApi.onRemoved(tab) // S6
-        if (wasActive) {
+        bgViews.remove(tab)
+        if (wasActive || tab.web.parent === container) { // 0.0.302: also a 1 px background-play view
             container.removeView(tab.web)
+        }
+        if (wasActive) {
             active = null
         }
         tab.web.stopLoading()
