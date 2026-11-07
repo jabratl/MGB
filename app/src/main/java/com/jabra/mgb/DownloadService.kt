@@ -394,12 +394,25 @@ object Downloader {
         DownloadsApi.notifyDone(item)
     }
 
+    /**
+     * 0.0.279: Android (MediaStore and the folder picker) makes the file name agree with the given type and ADDS an extension when they
+     * disagree: Title.en.srt with type text/plain became Title.en.srt.txt. So the type is taken from the extension of the name
+     * (unknown extension = application/octet-stream = the name is kept as it is). A name without an extension keeps the given type.
+     */
+    internal fun safeMime(name: String, mime: String): String {
+        val fallback = mime.ifEmpty { "application/octet-stream" }
+        if (!name.contains('.')) return fallback
+        val e = name.substringAfterLast('.').lowercase()
+        if (e.isEmpty()) return fallback
+        return MimeTypeMap.getSingleton().getMimeTypeFromExtension(e) ?: "application/octet-stream"
+    }
+
     private fun publish(item: DlItem, part: File): Pub {
         val rel = item.rel.ifEmpty { "download" }
         val dir = rel.substringBeforeLast('/', "")
         val name = rel.substringAfterLast('/')
         val ext = name.substringAfterLast('.', "").lowercase()
-        val mime = item.mime.ifEmpty { MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "application/octet-stream" }
+        val mime = safeMime(name, item.mime.ifEmpty { MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "application/octet-stream" }) // 0.0.279: no more Title.en.srt.txt
         // S49: a folder picked by the user (Settings > Downloads > Download folder) comes first; if it fails, use Downloads
         DownloadFolder.treeUri(DownloadsApi.app)?.let { tree ->
             try {

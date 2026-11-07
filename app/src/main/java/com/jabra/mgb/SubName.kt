@@ -202,6 +202,19 @@ object SubName {
                 .setNegativeButton("Cancel", null).show()
         }
 
+        fun fixOld() { // 0.0.279: Title.en.srt.txt -> Title.en.srt
+            MaterialAlertDialogBuilder(act).setTitle("Fix old subtitle names")
+                .setMessage("Earlier versions saved some subtitles as Title.en.srt.txt. This renames them to Title.en.srt in the Downloads folder. Nothing else is touched and no file is overwritten.")
+                .setPositiveButton("Fix now") { _, _ ->
+                    Util.toast(act, "Working...")
+                    Thread {
+                        val r = SubFix.run(act)
+                        act.runOnUiThread { Util.toast(act, SubFix.message(act, r)) }
+                    }.start()
+                }
+                .setNegativeButton("Cancel", null).show()
+        }
+
         fill = {
             box.removeAllViews()
             // ---- example ----
@@ -237,6 +250,7 @@ object SubName {
             pick(sc, "If a wanted language is missing", if (fb == "none") "Save nothing" else "Save another one", null) {
                 single("If a wanted language is missing", arrayOf("Save the best other one", "Save nothing"), if (fb == "none") 1 else 0) { i -> put("subFallback", if (i == 1) "none" else "any") }
             }
+            pick(sc, "Fix old subtitle names", "Run", "Turns Title.en.srt.txt into Title.en.srt in Downloads") { fixOld() } // 0.0.279
             box.addView(sc, LinearLayout.LayoutParams(MATCH, WRAP))
 
             // ---- file names ----

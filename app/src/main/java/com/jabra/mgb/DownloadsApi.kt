@@ -241,10 +241,22 @@ object DownloadsApi {
      * Saved as Downloads/<name>; Referer, User-Agent and Cookie of the page are sent. src = the page WebView (needed for blob: urls).
      * Returns null when the url scheme is not supported.
      */
+    private val KEEP_EXT = setOf("srt", "vtt", "ass", "ssa", "ttml", "dfxp", "sub", "sbv", "lrc", "smi")
+
+    /**
+     * 0.0.279: URLUtil.guessFileName throws away the real extension when the server says text/plain for a subtitle (Title.en.srt became
+     * Title.txt). For subtitle extensions the name the site gave is kept; everything else = the old guess.
+     */
+    private fun plainName(url: String, disposition: String?, mime: String?): String {
+        val g = android.webkit.URLUtil.guessFileName(url, disposition, mime)
+        val raw = try { android.webkit.URLUtil.guessFileName(url, disposition, null) } catch (e: Exception) { g }
+        return if (raw.substringAfterLast('.', "").lowercase() in KEEP_EXT) raw else g
+    }
+
     fun startPlain(url: String, userAgent: String?, disposition: String?, mime: String?, referer: String?, src: WebView?): DlItem? {
         if (!listOf("http://", "https://", "data:", "blob:").any { url.startsWith(it, true) }) return null
         val item = newItem(url)
-        item.rel = cleanRel(android.webkit.URLUtil.guessFileName(url, disposition, mime))
+        item.rel = cleanRel(plainName(url, disposition, mime))
         if (!mime.isNullOrBlank()) item.mime = mime
         val http = url.startsWith("http", true)
         val h = JSONArray()

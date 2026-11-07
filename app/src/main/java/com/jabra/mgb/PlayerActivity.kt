@@ -112,6 +112,14 @@ class PlayerActivity : AppCompatActivity() {
             ctx.startActivity(i)
         }
 
+        /** 0.0.279: x.en.srt gives srt; old downloads called x.en.srt.txt give srt too. */
+        private fun subExtOf(n: String): String? {
+            var s = n.lowercase()
+            if (s.endsWith(".txt")) s = s.removeSuffix(".txt")
+            val e = s.substringAfterLast('.', "")
+            return if (e in SUB_EXT) e else null
+        }
+
         private fun subMime(ext: String): String? = when (ext) {
             "srt" -> MimeTypes.APPLICATION_SUBRIP
             "vtt" -> MimeTypes.TEXT_VTT
@@ -590,14 +598,26 @@ class PlayerActivity : AppCompatActivity() {
             val base = MediaStore.Downloads.EXTERNAL_CONTENT_URI
             contentResolver.query(base, arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME),
                 MediaStore.MediaColumns.RELATIVE_PATH + "=?", arrayOf(rel), null)?.use { c ->
-                while (c.moveToNext() && subs.size < 8) {
+                val found = ArrayList<Triple<Long, String, Boolean>>()
+                while (c.moveToNext()) {
                     val n = c.getString(1) ?: continue
                     if (!n.startsWith(stem)) continue
-                    val ext = n.substringAfterLast('.', "").lowercase()
-                    if (ext !in SUB_EXT) continue
+                    val rest = n.substring(stem.length)
+                    if (rest.isNotEmpty() && rest[0] !in ".-_ ") continue // 0.0.279: Episode 1 must not take the subtitle of Episode 10
+                    if (subExtOf(n) == null) continue
+                    found.add(Triple(c.getLong(0), n, n.lowercase().endsWith(".txt")))
+                }
+                val seen = HashSet<String>()
+                for ((id, n, legacy) in found.sortedBy { it.third }) { // proper names first, old .srt.txt copies only when nothing else has that language
+                    if (subs.size >= 8) break
+                    val ext = subExtOf(n) ?: continue
                     val mime = subMime(ext) ?: continue
-                    val lang = n.removePrefix(stem).removeSuffix(".$ext").trim('.', ' ', '_', '-')
-                    subs.add(subConfig(ContentUris.withAppendedId(base, c.getLong(0)), mime, lang, n))
+                    var tail = n.removePrefix(stem)
+                    if (legacy) tail = tail.dropLast(4)
+                    tail = tail.dropLast(ext.length + 1)
+                    val lang = tail.trim('.', ' ', '_', '-')
+                    if (!seen.add(lang.lowercase() + "|" + ext)) continue
+                    subs.add(subConfig(ContentUris.withAppendedId(base, id), mime, lang, n))
                 }
             }
         } catch (e: Exception) {
