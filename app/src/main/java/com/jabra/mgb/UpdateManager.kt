@@ -20,7 +20,6 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * S15: in-app update from GitHub Releases.
@@ -123,7 +122,8 @@ object UpdateManager {
     }
 
     private fun cleanCache(a: Activity, keep: String?) {
-        File(a.cacheDir, "updates").listFiles()?.forEach { if (it.name != keep) it.delete() }
+        if (UpdState.state == UpdState.RUN) return // 0.0.314: never touch files of a running download
+        File(a.cacheDir, "updates").listFiles()?.forEach { if (it.name != keep && it.name != "$keep.part") it.delete() }
     }
 
     private fun showDialog(a: Activity, i: Info) {
@@ -135,86 +135,67 @@ object UpdateManager {
                 if (i.size > 0) "  •  ${Util.fmtBytes(i.size)}" else ""
         v.findViewById<TextView>(R.id.upd_notes).text = i.notes.ifBlank { "New version available." }
 
-        val cancelled = AtomicBoolean(false)
+        var armed = false
+        var installed = false
         val dlg = MaterialAlertDialogBuilder(a)
             .setTitle("Update available")
             .setView(v)
             .setPositiveButton("Update", null)
             .setNegativeButton("Later", null)
+            .setNeutralButton("Cancel download", null)
             .create()
-        dlg.setOnDismissListener { cancelled.set(true) }
+        // 0.0.314: closing the dialog no longer stops the download; UpdateService keeps going in the background
+        dlg.setOnDismissListener { UpdState.listener = null }
         dlg.show()
 
         val pos = dlg.getButton(AlertDialog.BUTTON_POSITIVE)
-        pos.setOnClickListener {
-            pos.isEnabled = false
+        val neg = dlg.getButton(AlertDialog.BUTTON_NEGATIVE)
+        val neu = dlg.getButton(AlertDialog.BUTTON_NEUTRAL)
+        neu.visibility = View.GONE
+        fun bind() {
+            if (UpdState.name != i.name || UpdState.state == UpdState.IDLE) return
             progress.visibility = View.VISIBLE
             status.visibility = View.VISIBLE
-            status.text = "Starting…"
+            if (UpdState.total > 0) progress.progress = (UpdState.done * 100 / UpdState.total).toInt()
+            when (UpdState.state) {
+                UpdState.RUN -> {
+                    armed = true
+                    pos.isEnabled = false
+                    neg.text = "Hide"
+                    neu.visibility = View.VISIBLE
+                    status.text = UpdState.msg
+                }
+                UpdState.DONE -> {
+                    progress.progress = 100
+                    neu.visibility = View.GONE
+                    neg.text = "Later"
+                    pos.isEnabled = true
+                    pos.text = "Install"
+                    status.text = "Downloaded. Installing…"
+                    val f = UpdState.file
+                    if (armed && !installed && f != null) { installed = true; UpdateService.clearDone(a); install(a, f) }
+                }
+                UpdState.FAIL -> {
+                    neu.visibility = View.GONE
+                    neg.text = "Later"
+                    pos.isEnabled = true
+                    pos.text = "Retry"
+                    status.text = "Failed: ${UpdState.msg}"
+                }
+            }
+        }
+        UpdState.listener = { bind() }
+        neu.setOnClickListener { UpdateService.cancel(a); status.text = "Cancelling…" }
+        pos.setOnClickListener {
+            val f = UpdState.file
+            if (UpdState.state == UpdState.DONE && UpdState.name == i.name && f != null && f.exists()) { install(a, f); return@setOnClickListener }
+            armed = true
+            installed = false
             cleanCache(a, i.name)
-            val dest = File(File(a.cacheDir, "updates").apply { mkdirs() }, i.name)
-            io.execute {
-                try {
-                    val cached = dest.exists() && (i.size <= 0 || dest.length() == i.size)
-                    if (!cached) {
-                        download(i, dest, cancelled) { done, total ->
-                            main.post {
-                                if (total > 0) progress.progress = (done * 100 / total).toInt()
-                                status.text = "Downloading ${Util.fmtBytes(done)}" +
-                                    if (total > 0) " / ${Util.fmtBytes(total)}" else ""
-                            }
-                        }
-                    }
-                    main.post {
-                        if (cancelled.get()) return@post
-                        progress.progress = 100
-                        status.text = "Downloaded. Installing…"
-                        pos.isEnabled = true
-                        pos.text = "Install"
-                        install(a, dest)
-                    }
-                } catch (e: Exception) {
-                    main.post {
-                        if (cancelled.get()) return@post
-                        status.text = "Failed: ${e.message}"
-                        pos.isEnabled = true
-                        pos.text = "Retry"
-                    }
-                }
-            }
+            UpdateService.start(a, i.url, i.name, i.size)
+            bind()
         }
-    }
-
-    private fun download(i: Info, dest: File, cancelled: AtomicBoolean, onProgress: (Long, Long) -> Unit) {
-        val part = File(dest.parentFile, dest.name + ".part")
-        val c = http(i.url, "application/octet-stream")
-        try {
-            if (c.responseCode != 200) throw Exception("download HTTP ${c.responseCode}")
-            val total = if (c.contentLengthLong > 0) c.contentLengthLong else i.size
-            c.inputStream.use { inp ->
-                part.outputStream().use { out ->
-                    val buf = ByteArray(64 * 1024)
-                    var done = 0L
-                    var last = 0L
-                    while (true) {
-                        if (cancelled.get()) throw Exception("cancelled")
-                        val n = inp.read(buf)
-                        if (n < 0) break
-                        out.write(buf, 0, n)
-                        done += n
-                        val now = System.currentTimeMillis()
-                        if (now - last > 150) { last = now; onProgress(done, total) }
-                    }
-                }
-            }
-            if (i.size > 0 && part.length() != i.size) throw Exception("incomplete download")
-            if (!part.renameTo(dest)) throw Exception("could not save the file")
-        } catch (e: Exception) {
-            part.delete()
-            throw e
-        } finally {
-            c.disconnect()
-        }
+        bind() // reopened while a download is already running: show its progress
     }
 
     private fun install(a: Activity, f: File) {

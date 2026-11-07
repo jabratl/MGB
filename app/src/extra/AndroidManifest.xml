@@ -39,6 +39,10 @@
             android:name="com.jabra.mgb.DownloadService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <service
+            android:name="com.jabra.mgb.UpdateService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
         <receiver
             android:name="com.jabra.mgb.PrivNotify$Receiver"
             android:exported="false" />

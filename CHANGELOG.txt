@@ -1,3 +1,13 @@
+0.0.314 (FIX: app update keeps downloading in the background)
+- Why: the update download was tied to the update dialog. Touching outside the dialog, or the screen turning off, closed the dialog and that cancelled the download and deleted the partly downloaded file.
+- Now the download runs in a foreground service (UpdateService.kt, type dataSync) with a CPU + Wi-Fi lock. It goes on when the dialog is closed, the screen is off or Thazir is in the background.
+- Notification with progress and a Cancel button. When finished: "Update downloaded, tap to install". If Thazir is open with the update dialog, the installer opens by itself as before.
+- Lost connection: retries up to 8 times and continues from the same place (HTTP Range). A failed or killed download continues with Retry / Update.
+- Update dialog: while downloading the buttons are Hide and Cancel download. Opening the dialog again shows the running progress.
+- Files: UpdateService.kt (new), UpdateManager.kt (dialog watches UpdState, old download() removed, cleanCache keeps .part), extra/AndroidManifest.xml (service), build.gradle.kts (version).
+- Could break: if the server ignores Range the file restarts from 0 (handled). Extension zip update (ExtUpdater) is unchanged, still stops with its dialog.
+- NOT tested: Gradle build (CI), device.
+
 0.0.313 (MODIFY: Settings rows are soft tiles with coloured icons; Appearance has 3 tabs and a pinned bar preview)
 - Why: asked for a cleaner, easier to navigate Settings. No setting was removed or renamed; only the layout changed.
 - Settings: the long divider lines are gone. Every row is its own soft tile with a small gap, first / last tile of a group has big corners, the ones between small corners. Row icons sit in a small tile in the colour of their card.
