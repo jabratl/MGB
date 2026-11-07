@@ -217,6 +217,27 @@ object SettingsScreen {
         private val SUB_FOLD = 14 // S48: rows per category before sub groups fold
         /** 0.0.312: these two switches already sit in the quick row at the top, so the lists do not show them a second time. Searching still finds them. */
         private val DUP = setOf("Hide bar while scrolling", "Reduce motion")
+        private var rowTint: Int? = null // 0.0.313: colour of the icon tiles of the category being built
+
+        /** 0.0.313: one row = one soft tile. First / last tile of a group get big corners, the ones between small corners (Chrome Material 3 Expressive look). */
+        private fun tileBg(first: Boolean, last: Boolean): GradientDrawable {
+            val big = dp(18).toFloat()
+            val small = dp(6).toFloat()
+            val top = if (first) big else small
+            val bot = if (last) big else small
+            return GradientDrawable().apply {
+                setColor(ColorUtils.blendARGB(act.getColor(R.color.mg_surface), act.getColor(R.color.mg_text), 0.06f))
+                cornerRadii = floatArrayOf(top, top, top, top, bot, bot, bot, bot)
+            }
+        }
+
+        private fun tile(row: View, first: Boolean, last: Boolean): View = FrameLayout(act).apply {
+            background = tileBg(first, last)
+            clipToOutline = true
+            addView(row, FrameLayout.LayoutParams(MATCH, WRAP))
+        }
+
+        private fun tileLp() = LinearLayout.LayoutParams(MATCH, WRAP).apply { marginStart = dp(8); marginEnd = dp(8); topMargin = dp(2) }
 
         private fun dd(items: List<Any>): List<Any> {
             if (query.isNotBlank()) return items
@@ -405,7 +426,7 @@ object SettingsScreen {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 minimumHeight = dp(52)
-                setPadding(dp(18), dp(6), dp(16), dp(6))
+                setPadding(dp(12), dp(6), dp(14), dp(6)) // 0.0.313: tiles are inset 8 dp, so less padding inside
                 if (r.onClick != null) {
                     isClickable = true
                     isFocusable = true
@@ -424,10 +445,26 @@ object SettingsScreen {
                     }
                 }
             }
-            line.addView(ImageView(act).apply {
-                setImageResource(r.icon)
-                setColorFilter(act.getColor(R.color.mg_text_dim))
-            }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(16) })
+            val tn = rowTint
+            if (tn != null) { // 0.0.313: icon in a small tile of the category colour
+                val ib = FrameLayout(act).apply {
+                    background = GradientDrawable().apply {
+                        shape = GradientDrawable.RECTANGLE
+                        cornerRadius = dp(10).toFloat()
+                        setColor(ColorUtils.setAlphaComponent(tn, 0x26))
+                    }
+                }
+                ib.addView(ImageView(act).apply {
+                    setImageResource(r.icon)
+                    setColorFilter(tn)
+                }, FrameLayout.LayoutParams(dp(20), dp(20), Gravity.CENTER))
+                line.addView(ib, LinearLayout.LayoutParams(dp(34), dp(34)).apply { marginEnd = dp(14) })
+            } else {
+                line.addView(ImageView(act).apply {
+                    setImageResource(r.icon)
+                    setColorFilter(act.getColor(R.color.mg_text_dim))
+                }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(16) })
+            }
             val labelBox = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
             labelBox.addView(TextView(act).apply {
                 text = r.label
@@ -532,12 +569,13 @@ object SettingsScreen {
                 setPadding(0, 0, 0, dp(8))
                 visibility = if (isOpen) View.VISIBLE else View.GONE
             }
-            if (!sub) content.addView(View(act).apply { setBackgroundColor(act.getColor(R.color.mg_outline)) },
-                LinearLayout.LayoutParams(MATCH, dp(1)).apply { marginStart = dp(16); marginEnd = dp(16) })
+            val nightR = (act.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            rowTint = TabPrefs.tint(key, nightR) // 0.0.313: no long dividers any more, rows are tiles with gaps
             var box: LinearLayout? = null // S48: current folded sub group
             var firstSub = true
             var prevRow = false // 0.0.285: thin divider between two rows
-            for (item in (if (link) emptyList<Any>() else shown)) {
+            val list: List<Any> = if (link) emptyList() else shown
+            for ((idx, item) in list.withIndex()) {
                 when (item) {
                     is Sub -> {
                         prevRow = false
@@ -563,16 +601,16 @@ object SettingsScreen {
                         }
                     }
                     is Row -> {
-                        if (prevRow) (box ?: content).addView(View(act).apply { setBackgroundColor(ColorUtils.setAlphaComponent(act.getColor(R.color.mg_outline), 0x66)) },
-                            LinearLayout.LayoutParams(MATCH, dp(1)).apply { marginStart = dp(56); marginEnd = dp(16) })
+                        val first = idx == 0 || list[idx - 1] !is Row
+                        val last = idx == list.lastIndex || list[idx + 1] !is Row
                         prevRow = true
-                        (box ?: content).addView(rowView(item), LinearLayout.LayoutParams(MATCH, WRAP))
+                        (box ?: content).addView(tile(rowView(item), first, last), tileLp())
                     }
                 }
             }
             if (!link && !searching && RESET.containsKey(key)) { // Step C: Reset to default, last row of the card
-                content.addView(rowView(Row(R.drawable.ic_reload, "Reset to default", "", "Only the settings of this card") { resetCard(key, title) }),
-                    LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(6) })
+                content.addView(tile(rowView(Row(R.drawable.ic_reload, "Reset to default", "", "Only the settings of this card") { resetCard(key, title) }), true, true),
+                    tileLp().apply { topMargin = dp(8) })
             }
             val header = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -664,6 +702,7 @@ object SettingsScreen {
             val col = body ?: return
             val night = (act.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
             val tint = TabPrefs.tint("downloads", night)
+            rowTint = tint // 0.0.313
             val card = LinearLayout(act).apply {
                 orientation = LinearLayout.VERTICAL
                 background = round(act.getColor(R.color.mg_surface), 20).apply {
@@ -710,16 +749,14 @@ object SettingsScreen {
                 Row(R.drawable.ic_pl_speed, "Player", "", "Gestures, speed, defaults") { openPage("player") }
             )
             for (i in links.indices) {
-                if (i > 0) card.addView(View(act).apply { setBackgroundColor(ColorUtils.setAlphaComponent(act.getColor(R.color.mg_outline), 0x66)) },
-                    LinearLayout.LayoutParams(MATCH, dp(1)).apply { marginStart = dp(56); marginEnd = dp(16) })
                 val line = rowView(links[i]) as LinearLayout
                 line.addView(ImageView(act).apply {
                     setImageResource(R.drawable.ic_chevron)
                     setColorFilter(act.getColor(R.color.mg_text_dim))
                 }, LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginStart = dp(8) })
-                card.addView(line, LinearLayout.LayoutParams(MATCH, WRAP))
+                card.addView(tile(line, i == 0, i == links.lastIndex), tileLp())
             }
-            card.addView(View(act), LinearLayout.LayoutParams(MATCH, dp(6)))
+            card.addView(View(act), LinearLayout.LayoutParams(MATCH, dp(8)))
             SettingsFx.ring(card, tint, false, act)
             col.addView(card, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
         }

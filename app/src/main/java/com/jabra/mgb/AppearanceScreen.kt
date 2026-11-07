@@ -39,6 +39,7 @@ object AppearanceScreen {
     private const val TAG = "MGB.appearance"
     private var current: Screen? = null
     @Volatile private var reopen = false
+    private var lastTab = "look" // 0.0.313: the tab you were on comes back after a recreate (theme, accent, bar position)
 
     /** A3: set by MainActivity; called after a change that the main screen must show now (bar icon, full URL). */
     var onChange: (() -> Unit)? = null
@@ -83,7 +84,9 @@ object AppearanceScreen {
         private val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
         private var body: LinearLayout? = null
         private var titleTv: TextView? = null
-        private var page = "root"
+        private var page = lastTab // 0.0.313: "look" | "bars" | "home" are tabs, "wp" is the Wallpaper page
+        private var tabsBar: LinearLayout? = null
+        private var previewBox: LinearLayout? = null // 0.0.313: live address bar preview, stays on screen while the Bars tab scrolls
         private var prevUrl: TextView? = null // A3: live preview of the address bar
         private var prevHome: ImageView? = null
         private var prevBack: ImageView? = null // A1: arrows in the preview bar
@@ -134,6 +137,12 @@ object AppearanceScreen {
                 titleTv = this
             }, LinearLayout.LayoutParams(0, WRAP, 1f))
             root.addView(head, LinearLayout.LayoutParams(MATCH, dp(56)))
+            val tb = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(2), dp(16), dp(6)) }
+            tabsBar = tb
+            root.addView(tb, LinearLayout.LayoutParams(MATCH, WRAP))
+            val pb = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE; setPadding(dp(16), 0, dp(16), dp(4)) }
+            previewBox = pb
+            root.addView(pb, LinearLayout.LayoutParams(MATCH, WRAP))
 
             val col = LinearLayout(act).apply {
                 orientation = LinearLayout.VERTICAL
@@ -153,10 +162,11 @@ object AppearanceScreen {
             (body?.parent as? ScrollView)?.scrollTo(0, 0)
         }
 
-        /** Back order: sub-page -> root -> Settings. */
+        /** Back order: Wallpaper page -> Home and tabs tab -> Settings. */
         private fun goBack() {
-            if (page != "root") {
-                page = "root"
+            if (page == "wp") {
+                page = "home"
+                lastTab = "home"
                 titleTv?.text = "Appearance"
                 fill()
             } else {
@@ -172,15 +182,64 @@ object AppearanceScreen {
         private fun fill() {
             val col = body ?: return
             col.removeAllViews()
+            buildTabs(page != "wp")
+            previewBox?.removeAllViews()
+            previewBox?.visibility = View.GONE
             when (page) {
-                "bar" -> barPage(col)
+                "bars" -> barsTab(col)
+                "home" -> homeTab(col)
                 "wp" -> wallpaperPage(col)
-                "tabs" -> tabsPage(col)
-                else -> rootPage(col)
+                else -> lookTab(col)
             }
         }
 
-        private fun rootPage(col: LinearLayout) {
+        /** 0.0.313: three tabs instead of one long page. Same settings, grouped by what you want to change. */
+        private fun buildTabs(show: Boolean) {
+            val tb = tabsBar ?: return
+            tb.removeAllViews()
+            tb.visibility = if (show) View.VISIBLE else View.GONE
+            if (!show) return
+            val pill = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                background = round(act.getColor(R.color.mg_surface), 22, 1f, ColorUtils.setAlphaComponent(act.getColor(R.color.mg_outline), 0x99))
+                setPadding(dp(4), dp(4), dp(4), dp(4))
+            }
+            val tabs = listOf("look" to "Look", "bars" to "Bars", "home" to "Home and tabs")
+            for ((key, label) in tabs) {
+                val on = page == key
+                pill.addView(TextView(act).apply {
+                    text = label
+                    textSize = 13f
+                    gravity = Gravity.CENTER
+                    maxLines = 1
+                    typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                    setTextColor(act.getColor(if (on) R.color.mg_primary else R.color.mg_text_dim))
+                    if (on) background = round(ColorUtils.setAlphaComponent(act.getColor(R.color.mg_primary), 0x2A), 18)
+                    isClickable = true
+                    contentDescription = label + (if (on) ", selected" else "")
+                    setOnClickListener {
+                        if (page != key) {
+                            tick(this)
+                            page = key
+                            lastTab = key
+                            fill()
+                            (body?.parent as? ScrollView)?.scrollTo(0, 0)
+                        }
+                    }
+                }, LinearLayout.LayoutParams(0, dp(36), 1f))
+            }
+            tb.addView(pill, LinearLayout.LayoutParams(MATCH, WRAP))
+        }
+
+        /** Rebuilds the tab but keeps the scroll position (used when one switch changes the look of another). */
+        private fun refreshKeep() {
+            val sv = body?.parent as? ScrollView ?: return
+            val y = sv.scrollY
+            sv.post { fill(); sv.post { sv.scrollTo(0, y) } }
+        }
+
+        /** 0.0.313: Look = theme, dark pages, accent colour, accessibility. */
+        private fun lookTab(col: LinearLayout) {
             col.addView(sectionLabel("Theme"))
             val themeCard = card()
             val lightP = palette(false)
@@ -207,41 +266,26 @@ object AppearanceScreen {
             accentPicker(accentCard)
             col.addView(accentCard, LinearLayout.LayoutParams(MATCH, WRAP))
 
-            col.addView(sectionLabel("Home page")) // A7
-            val wpCard = card()
-            navRow(wpCard, R.drawable.ic_image, "Wallpaper", if (AppearancePrefs.hasWallpaper(act)) "Custom image" else "None") { openPage("wp", "Wallpaper") }
-            col.addView(wpCard, LinearLayout.LayoutParams(MATCH, WRAP))
-
-            col.addView(sectionLabel("Address bar"))
-            val barCard = card()
-            toggleRow(barCard, R.drawable.ic_back, "Back and Forward buttons", "Arrows in the address bar, hold one for the page list. Home button stays", // A5
-                { AppearancePrefs.navBack(act) || AppearancePrefs.navFwd(act) }) { on ->
-                AppearancePrefs.setNavBack(act, on)
-                AppearancePrefs.setNavFwd(act, on)
-                AppearanceScreen.onChange?.invoke()
-            }
-            navRow(barCard, R.drawable.ic_screen, "Customize address bar",
-                AppearancePrefs.homeIconAndLabel(AppearancePrefs.homeAction(act)).second) { openPage("bar", "Address bar") }
-            col.addView(barCard, LinearLayout.LayoutParams(MATCH, WRAP))
-
             col.addView(sectionLabel("Accessibility")) // A2
             val accCard = card()
             navRow(accCard, R.drawable.ic_edit, "Accessibility", AppearancePrefs.zoomDef(act).takeIf { it != 100 }?.let { "$it %" } ?: "") {
                 dismiss(); AccessScreen.open(act) { AppearanceScreen.open(act) }
             }
             col.addView(accCard, LinearLayout.LayoutParams(MATCH, WRAP))
+        }
+
+        /** 0.0.313: Home and tabs = wallpaper, menu, undo toast, start page (was: root page + "Tabs and start page" page). */
+        private fun homeTab(col: LinearLayout) {
+            col.addView(sectionLabel("Home page")) // A7
+            val wpCard = card()
+            navRow(wpCard, R.drawable.ic_image, "Wallpaper", if (AppearancePrefs.hasWallpaper(act)) "Custom image" else "None") { openPage("wp", "Wallpaper") }
+            col.addView(wpCard, LinearLayout.LayoutParams(MATCH, WRAP))
 
             col.addView(sectionLabel("Menu and tabs")) // A8
             val menuCard = card()
             val all = MenuCustom.QUICK + MenuCustom.GENERAL + MenuCustom.PAGE
             navRow(menuCard, R.drawable.ic_edit, "Customize menu", "${all.count { MenuCustom.on(act, it.key) }} of ${all.size} shown") { MenuCustom.open(act) }
-            navRow(menuCard, R.drawable.ic_list, "Tabs and start page",
-                if (AppearancePrefs.startPage(act)) "Start page on" else "") { openPage("tabs", "Tabs and start page") }
             col.addView(menuCard, LinearLayout.LayoutParams(MATCH, WRAP))
-        }
-
-        /** A8: Tabs and start page = undo toast + start page toggles. */
-        private fun tabsPage(col: LinearLayout) {
             col.addView(sectionLabel("Tabs"))
             val c = card()
             toggleRow(c, R.drawable.ic_list, "Show undo toast", "\"Closed ... Undo\" bar after closing or grouping tabs",
@@ -326,12 +370,11 @@ object AppearanceScreen {
             wpScrimV?.setBackgroundColor(if (has) ColorUtils.setAlphaComponent(act.getColor(R.color.mg_bg), AppearancePrefs.wpDim(act) * 255 / 100) else 0)
         }
 
-        /** A3: Customize address bar = live preview, home-button action, auto-hide, full URL. */
-        private fun barPage(col: LinearLayout) {
-            col.addView(sectionLabel("Preview"))
+        /** 0.0.313: Bars tab = live preview (pinned above the list), bar position, home button, arrows, behaviour. */
+        private fun barsTab(col: LinearLayout) {
             val prevCard = card()
             prevCard.addView(barPreview(), LinearLayout.LayoutParams(MATCH, WRAP))
-            col.addView(prevCard, LinearLayout.LayoutParams(MATCH, WRAP))
+            previewBox?.let { it.addView(prevCard, LinearLayout.LayoutParams(MATCH, WRAP)); it.visibility = View.VISIBLE }
 
             col.addView(sectionLabel("Bar position")) // A4
             val posCard = card()
@@ -364,17 +407,27 @@ object AppearanceScreen {
 
             col.addView(sectionLabel("Navigation arrows")) // A1
             val navCard = card()
+            toggleRow(navCard, R.drawable.ic_back, "Back and Forward buttons", "Arrows in the address bar, hold one for the page list. Home button stays", // A5, 0.0.313: was on the Appearance page
+                { AppearancePrefs.navBack(act) || AppearancePrefs.navFwd(act) }) { on ->
+                AppearancePrefs.setNavBack(act, on)
+                AppearancePrefs.setNavFwd(act, on)
+                AppearanceScreen.onChange?.invoke()
+                updatePreview()
+                refreshKeep()
+            }
             toggleRow(navCard, R.drawable.ic_back, "Back arrow", "Show Back inside the address bar",
                 { AppearancePrefs.navBack(act) }) { on ->
                 AppearancePrefs.setNavBack(act, on)
                 AppearanceScreen.onChange?.invoke()
                 updatePreview()
+                refreshKeep()
             }
             toggleRow(navCard, R.drawable.ic_forward, "Forward arrow", "Show Forward inside the address bar",
                 { AppearancePrefs.navFwd(act) }) { on ->
                 AppearancePrefs.setNavFwd(act, on)
                 AppearanceScreen.onChange?.invoke()
                 updatePreview()
+                refreshKeep()
             }
             toggleRow(navCard, R.drawable.ic_screen, "Hide when not available", "Hide an arrow instead of dimming it",
                 { AppearancePrefs.navHide(act) }) { on ->
