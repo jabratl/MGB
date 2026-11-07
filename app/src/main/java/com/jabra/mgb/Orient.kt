@@ -20,7 +20,7 @@ object Orient {
     private fun isPhone(act: Activity): Boolean = act.resources.configuration.smallestScreenWidthDp < 600
 
     fun rotateBrowser(ctx: Context): Boolean =
-        ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("rotate_browser", false)
+        ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("rotate_browser", true) // 0.0.280: default ON (was OFF = portrait lock; a locked app never gets the system rotate arrow)
 
     fun setRotateBrowser(ctx: Context, on: Boolean) {
         ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("rotate_browser", on).apply()

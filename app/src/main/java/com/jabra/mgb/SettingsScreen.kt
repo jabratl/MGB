@@ -102,6 +102,8 @@ object SettingsScreen {
         private val RESTART = setOf("Theme", "Rotate browser with phone", "Extra native download button") // Step C: restart icon
         private val RESTART_BAR = setOf("Rotate browser with phone", "Extra native download button") // Snackbar (Theme recreates itself)
         private var flashAt = 0L
+        private var valFlashLabel: String? = null // 0.0.280: row whose value text just changed (fades in once)
+        private var valFlashAt = 0L
         /** Step B: one short hint line for rows that have none (text only, kept under about 34 characters). */
         private val HINTS = mapOf(
             "Theme" to "Light, dark or follow phone",
@@ -367,6 +369,18 @@ object SettingsScreen {
 
         private fun hintOf(r: Row): String = r.hint.ifEmpty { HINTS[r.label] ?: "" } // Step B
 
+        /** 0.0.280: a finger on a row / header makes it 2 % smaller for a moment (ripple stays). Reduce motion = nothing. Never eats the touch. */
+        private fun pressFx(v: View) {
+            if (TabPrefs.reduce(act)) return
+            v.setOnTouchListener { view, ev ->
+                when (ev.actionMasked) {
+                    android.view.MotionEvent.ACTION_DOWN -> view.animate().scaleX(0.98f).scaleY(0.98f).setDuration(90).start()
+                    android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> view.animate().scaleX(1f).scaleY(1f).setDuration(140).start()
+                }
+                false
+            }
+        }
+
         private fun rowView(r: Row): View {
             val line = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -380,8 +394,10 @@ object SettingsScreen {
                     if (act.theme.resolveAttribute(android.R.attr.selectableItemBackground, out, true)) {
                         foreground = act.getDrawable(out.resourceId)
                     }
+                    pressFx(this) // 0.0.280
                     setOnClickListener {
                         if (r.value == "ON" || r.value == "OFF") it.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK) // S21f
+                        if (r.value.isNotEmpty() && r.value != "ON" && r.value != "OFF") { valFlashLabel = r.label; valFlashAt = android.os.SystemClock.uptimeMillis() } // 0.0.280
                         if (r.value.isNotEmpty() && r.label !in NO_RECENT) noteRecent(r.label) // Step A
                         if (r.value == "ON" || r.value == "OFF") { flashLabel = r.label; flashAt = android.os.SystemClock.uptimeMillis() } // Step B
                         r.onClick.invoke()
@@ -434,12 +450,20 @@ object SettingsScreen {
                     sw.post { sw.isChecked = on }
                 }
             } else if (r.value.isNotEmpty()) {
-                line.addView(TextView(act).apply {
+                val vt = TextView(act).apply {
                     text = r.value
                     textSize = 13f
                     setPadding(dp(8), 0, 0, 0)
                     setTextColor(act.getColor(if (r.value.startsWith("ON")) R.color.mg_primary else R.color.mg_text_dim))
-                })
+                }
+                line.addView(vt)
+                // 0.0.280: the value that just changed slides up 6 dp and fades in (180 ms), once. Reduce motion = nothing.
+                if (valFlashLabel == r.label && android.os.SystemClock.uptimeMillis() - valFlashAt < 1500 && !TabPrefs.reduce(act)) {
+                    valFlashLabel = null
+                    vt.alpha = 0f
+                    vt.translationY = dp(6).toFloat()
+                    vt.animate().alpha(1f).translationY(0f).setDuration(180).start()
+                }
             }
             return line
         }
@@ -535,6 +559,7 @@ object SettingsScreen {
                 if (act.theme.resolveAttribute(android.R.attr.selectableItemBackground, out, true)) {
                     foreground = act.getDrawable(out.resourceId)
                 }
+                pressFx(this) // 0.0.280
                 setOnClickListener { if (link) openPage(key) else toggle(key, card) }
             }
             val night = (act.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
