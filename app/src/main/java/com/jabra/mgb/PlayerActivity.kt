@@ -181,6 +181,7 @@ class PlayerActivity : AppCompatActivity() {
     private var speedBeforeBoost = 1f
     private var holdCur = 2f // P8: speed while holding (slide changes it)
     private var holdLastY = 0f
+    private var touchX = 0f // latest finger X on the touch layer (the long press event only has the DOWN position)
     private var holdAcc = 0f
     private lateinit var holdChip: TextView // P8
     private lateinit var zoomChip: TextView // P8: "Reset zoom" while zoom != 100%
@@ -1415,7 +1416,7 @@ class PlayerActivity : AppCompatActivity() {
                 boost = true
                 speedBeforeBoost = p.playbackParameters.speed
                 holdCur = PlayerGestures.holdSpeed(this@PlayerActivity)
-                holdLastY = e.x // 0.0.281: holdLastY = start X, holdAcc = start speed of the horizontal slide (PlayerGestures.slideHold)
+                holdLastY = touchX // 0.0.282: slide starts where the finger is NOW, not at the DOWN point. 0.0.281: holdLastY = start X, holdAcc = start speed of the horizontal slide (PlayerGestures.slideHold)
                 holdAcc = holdCur
                 p.playbackParameters = PlaybackParameters(holdCur, 1f)
                 hud.visibility = View.GONE // the chip and the level bar never show together
@@ -1473,13 +1474,14 @@ class PlayerActivity : AppCompatActivity() {
             }
         })
         touch.setOnTouchListener { _, ev ->
+            touchX = ev.x
             sgd.onTouchEvent(ev)
             if (sgd.isInProgress || ev.pointerCount > 1) return@setOnTouchListener true
             gd.onTouchEvent(ev)
             if (boost && ev.actionMasked == MotionEvent.ACTION_MOVE && PlayerGestures.holdSlide(this)) {
                 // P8: after a long press the GestureDetector sends no scroll events: slide left / right here
-                // 0.0.281: slide RIGHT = faster, LEFT = slower; full range in about 200 dp (min 120 dp room), 28 dp dead zone at the edges
-                val nv = PlayerGestures.slideHold(holdAcc, holdLastY, ev.x, touch.width.toFloat(), dp(120).toFloat(), dp(200).toFloat(), dp(28).toFloat())
+                // 0.0.281: slide RIGHT = faster, LEFT = slower; full range in about 200 dp; near a screen edge the room shrinks so the full range is still reachable (min 40 dp, 16 dp edge margin)
+                val nv = PlayerGestures.slideHold(holdAcc, holdLastY, ev.x, touch.width.toFloat(), dp(40).toFloat(), dp(200).toFloat(), dp(16).toFloat())
                 if (abs(nv - holdCur) > 0.001f) {
                     holdCur = nv
                     player?.playbackParameters = PlaybackParameters(holdCur, 1f)
@@ -1499,6 +1501,10 @@ class PlayerActivity : AppCompatActivity() {
                 swipe = 0
             }
             true
+        }
+        // 0.0.282: keep the system back gesture from stealing a slide that ends at the screen edge (it sent ACTION_CANCEL = speed dropped back)
+        touch.addOnLayoutChangeListener { v, l, t, r, b, _, _, _, _ ->
+            if (android.os.Build.VERSION.SDK_INT >= 29) v.systemGestureExclusionRects = listOf(android.graphics.Rect(0, 0, r - l, b - t))
         }
         rootView.addView(touch, FrameLayout.LayoutParams(MATCH, MATCH))
         aoCard = PlayerAudioOnly(this) { applyAudioOnly(false) } // P10: above the touch layer, below the controls

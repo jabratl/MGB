@@ -34,6 +34,7 @@ object PlayerGestures {
      */
     fun slideHold(startSpeed: Float, startX: Float, x: Float, w: Float, minRoom: Float, maxRoom: Float, edge: Float): Float {
         val faster = x > startX
+        // room = real space left on that side (so max / min speed is reachable even when the hold starts near an edge), capped at maxRoom
         val room = Math.min((if (faster) w - startX else startX) - edge, maxRoom)
         val t = (Math.abs(x - startX) / Math.max(room, minRoom)).coerceIn(0f, 1f)
         val target = if (faster) HOLD_MAX else HOLD_MIN
@@ -43,11 +44,11 @@ object PlayerGestures {
         return ((v / step).roundToInt() * step).coerceIn(HOLD_MIN, HOLD_MAX)
     }
 
-    /** "2.0x  >>", "0.25x  >>". */
+    /** "2.0x  >>", "0.25x  <<" (arrows show faster / slower than normal). */
     fun chipText(s: Float): String {
         var t = String.format(java.util.Locale.US, "%.2f", s).trimEnd('0')
         if (t.endsWith(".")) t += "0"
-        return t + "x  >>"
+        return t + (if (s < 0.995f) "x  <<" else "x  >>")
     }
 
     fun zoomText(z: Float): String = Math.round(z * 100f).toString() + "%"
