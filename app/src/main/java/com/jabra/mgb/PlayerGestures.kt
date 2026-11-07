@@ -28,17 +28,16 @@ object PlayerGestures {
     fun nextHold(cur: Float, steps: Int): Float = (((cur + steps * 0.1f) * 10f).roundToInt() / 10f).coerceIn(HOLD_MIN, HOLD_MAX)
 
     /**
-     * 0.0.280: smart slide. The speed follows how far the finger is from where the long press started, measured against the room
-     * that is left on that side of the screen: top edge = HOLD_MAX, bottom edge = HOLD_MIN, back at the start = the start speed.
-     * Log scale (2x -> 4x feels the same as 1x -> 2x). 0.05 steps under 1x, 0.1 above.
-     * startY / y in px inside the touch layer, h = its height, edge = dead zone at the screen edge so the finger need not touch it.
+     * 0.0.281: smart HORIZONTAL slide after a long press. Finger to the right = faster (up to HOLD_MAX), to the left = slower (down to HOLD_MIN),
+     * back at the start point = the start speed. Full range needs only [maxRoom] px of travel (not the whole screen), log scale,
+     * 0.05 steps under 1x and 0.1 above. startX / x / w in px inside the touch layer, edge = dead zone at the screen edge.
      */
-    fun slideHold(startSpeed: Float, startY: Float, y: Float, h: Float, minRoom: Float, edge: Float): Float {
-        val up = y < startY
-        val room = (if (up) startY else h - startY) - edge
-        val t = (Math.abs(y - startY) / Math.max(room, minRoom)).coerceIn(0f, 1f)
-        if (t >= 0.985f) return if (up) HOLD_MAX else HOLD_MIN
-        val target = if (up) HOLD_MAX else HOLD_MIN
+    fun slideHold(startSpeed: Float, startX: Float, x: Float, w: Float, minRoom: Float, maxRoom: Float, edge: Float): Float {
+        val faster = x > startX
+        val room = Math.min((if (faster) w - startX else startX) - edge, maxRoom)
+        val t = (Math.abs(x - startX) / Math.max(room, minRoom)).coerceIn(0f, 1f)
+        val target = if (faster) HOLD_MAX else HOLD_MIN
+        if (t >= 0.985f) return target
         val v = startSpeed * Math.pow((target / startSpeed).toDouble(), t.toDouble()).toFloat()
         val step = if (v < 1f) 0.05f else 0.1f
         return ((v / step).roundToInt() * step).coerceIn(HOLD_MIN, HOLD_MAX)

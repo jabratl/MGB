@@ -168,7 +168,6 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var prefs: android.content.SharedPreferences
 
     private val subs = ArrayList<MediaItem.SubtitleConfiguration>()
-    internal var subDelayMs = 0L // 0.0.280: subtitle delay of this video (SubDelay), 0 = original files
     private val sibs = ArrayList<Pair<Uri, String>>() // S37: other media files of the same folder (previous / next episode)
     private var sibIdx = -1
     private var zoom = 1f
@@ -520,7 +519,6 @@ class PlayerActivity : AppCompatActivity() {
         title = sibs[idx].second.substringBeforeLast('.')
         titleTv.text = title
         subs.clear()
-        subDelayMs = 0L; SubDelay.reset() // 0.0.280
         findSidecars()
         wantAutoSub = subs.isNotEmpty()
         autoSubDone = false
@@ -706,43 +704,6 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     internal fun addSubFile() { openSub.launch(arrayOf("*/*")) }
-
-    private var subDelayWant = 0L
-    private val subDelayRun = Runnable { applySubDelay(subDelayWant) }
-
-    /** 0.0.280: slider / +- buttons call this; the reload waits 0.7 s so several taps cost one reload. */
-    internal fun queueSubDelay(ms: Long) {
-        subDelayMs = ms.coerceIn(-30000L, 30000L) // the slider shows this value at once
-        subDelayWant = subDelayMs
-        main.removeCallbacks(subDelayRun)
-        main.postDelayed(subDelayRun, 700)
-    }
-
-    /** 0.0.280: subtitle delay. Rewrites the subtitle FILES with shifted times (SubDelay) and prepares the same video again at the same spot. */
-    internal fun applySubDelay(ms: Long) {
-        val p = player ?: return
-        if (subs.none { SubDelay.supported(it.mimeType) }) { subDelayMs = 0L; Util.toast(this, "Only works for subtitle files (.srt .vtt .ass), not for tracks inside the video"); return }
-        val d = ms.coerceIn(-30000L, 30000L)
-        val keepOn = !subOff()
-        val pos = p.currentPosition
-        val was = p.playWhenReady
-        var changed = false
-        for (i in subs.indices) {
-            val c = subs[i]
-            if (!SubDelay.supported(c.mimeType)) continue
-            val nu = SubDelay.shifted(this, SubDelay.origOf(c.uri), c.mimeType, d) ?: continue
-            subs[i] = c.buildUpon().setUri(nu).build()
-            changed = true
-        }
-        if (!changed) { subDelayMs = 0L; Util.toast(this, "This subtitle file cannot be shifted"); return }
-        subDelayMs = d
-        wantAutoSub = keepOn // the shifted file is switched on again by itself when a subtitle was on
-        autoSubDone = false
-        setItem(pos)
-        p.prepare()
-        p.playWhenReady = was
-    }
-
 
     private fun updateCcLabel() {
         val p = player ?: return
@@ -1454,8 +1415,8 @@ class PlayerActivity : AppCompatActivity() {
                 boost = true
                 speedBeforeBoost = p.playbackParameters.speed
                 holdCur = PlayerGestures.holdSpeed(this@PlayerActivity)
-                holdLastY = e.y
-                holdAcc = holdCur // 0.0.280: holdLastY = start Y, holdAcc = start speed of the slide (PlayerGestures.slideHold)
+                holdLastY = e.x // 0.0.281: holdLastY = start X, holdAcc = start speed of the horizontal slide (PlayerGestures.slideHold)
+                holdAcc = holdCur
                 p.playbackParameters = PlaybackParameters(holdCur, 1f)
                 hud.visibility = View.GONE // the chip and the level bar never show together
                 holdChip.text = PlayerGestures.chipText(holdCur)
@@ -1516,9 +1477,9 @@ class PlayerActivity : AppCompatActivity() {
             if (sgd.isInProgress || ev.pointerCount > 1) return@setOnTouchListener true
             gd.onTouchEvent(ev)
             if (boost && ev.actionMasked == MotionEvent.ACTION_MOVE && PlayerGestures.holdSlide(this)) {
-                // P8: after a long press the GestureDetector sends no scroll events: slide up / down here
-                // 0.0.280: smart slide = distance from the start point against the room left on that side (full range in one swipe)
-                val nv = PlayerGestures.slideHold(holdAcc, holdLastY, ev.y, touch.height.toFloat(), dp(120).toFloat(), dp(28).toFloat())
+                // P8: after a long press the GestureDetector sends no scroll events: slide left / right here
+                // 0.0.281: slide RIGHT = faster, LEFT = slower; full range in about 200 dp (min 120 dp room), 28 dp dead zone at the edges
+                val nv = PlayerGestures.slideHold(holdAcc, holdLastY, ev.x, touch.width.toFloat(), dp(120).toFloat(), dp(200).toFloat(), dp(28).toFloat())
                 if (abs(nv - holdCur) > 0.001f) {
                     holdCur = nv
                     player?.playbackParameters = PlaybackParameters(holdCur, 1f)
