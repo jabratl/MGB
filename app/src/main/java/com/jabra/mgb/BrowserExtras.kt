@@ -327,12 +327,13 @@ object BrowserExtras {
                 PermissionRequest.RESOURCE_AUDIO_CAPTURE -> { needed.add(Manifest.permission.RECORD_AUDIO); names.add("microphone"); web.add(r) }
             }
         }
-        if (web.isEmpty()) { req.deny(); return }
+        val drm = MediaPrefs.drm(a) && req.resources.contains(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID) // 0.0.296: Widevine, no prompt (it is not camera / mic); the downloader skips DRM items by itself
+        if (web.isEmpty()) { if (drm) req.grant(arrayOf(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)) else req.deny(); return }
         val what = names.joinToString(" and ")
         ask(a, origin, what) { ok ->
             if (!ok) req.deny()
             else withAndroidPermission(a, needed) { granted ->
-                if (granted) req.grant(web.toTypedArray()) else req.deny()
+                if (granted) req.grant((if (drm) web + PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID else web).toTypedArray()) else req.deny()
             }
         }
     }

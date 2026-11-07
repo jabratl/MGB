@@ -31,6 +31,10 @@
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
         <service
+            android:name="com.jabra.mgb.WebAudioService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+        <service
             android:name="com.jabra.mgb.DownloadService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />

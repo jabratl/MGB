@@ -10,6 +10,6 @@ object YtAds {
         val h = SiteConfig.hostOf(url)
         if (h != "youtube.com" && !h.endsWith(".youtube.com")) return
         val off = !AdBlock.enabled || SiteConfig.has(url, SiteConfig.ADS_OK)
-        try { view.evaluateJavascript("window.__mgbYtOff=" + (if (off) 1 else 0), null) } catch (_: Exception) { }
+        try { view.evaluateJavascript("window.__mgbYtOff=" + (if (off) 1 else 0) + ";" + MediaPrefs.ytJs(view.context), null) } catch (_: Exception) { } // 0.0.296: + Settings > Media flags
     }
 }

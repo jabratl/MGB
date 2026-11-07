@@ -511,6 +511,7 @@ class TabManager(
             // 0.0.224: Social mode: user agent follows the page (chat = desktop, feed / Instagram = mobile); app links stay in the browser
             if (!tab.isExt && request.isForMainFrame && u.scheme == "https" && view != null && SocialMode.ensure(ctx, view, u.toString(), tab.desktop)) { view.loadUrl(u.toString()); return true }
             if (!tab.isExt && request.isForMainFrame && SocialMode.blockApp(ctx, tab.url, u)) { Util.toast(ctx, "Staying in the browser"); return true }
+            if (!tab.isExt && request.isForMainFrame && MediaPrefs.blockYtApp(ctx, u)) { Util.toast(ctx, "Staying in the browser"); return true } // 0.0.296: Media > Open YouTube links in Thazir
             // 0.0.271 (D4): a tapped link that leaves a social site asks: new tab / here / cancel (pref OFF = false)
             if (!tab.isExt && !tab.popup && request.isForMainFrame && view != null && SocialExt.intercept(ctx, tab.url, u, request.hasGesture(), view) { s -> newTab(s, tab.id, true) }) return true
             // S41: HTTPS-only mode

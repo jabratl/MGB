@@ -43,6 +43,7 @@ object ContentInjector {
     private val entries = ArrayList<Entry>()
     private var extScript = ""
     private var ytScript = "" // 0.0.105: YouTube ad blocker (shim/yt-adblock.js)
+    private var ymScript = "" // 0.0.296: Settings > Media for YouTube (shim/yt-media.js)
     private val YT_ORIGINS = setOf("https://www.youtube.com", "https://m.youtube.com", "https://music.youtube.com")
     private var v77Cfg = "" // S4: cfg of the built-in extension pages (dispatcher in extPageScript)
 
@@ -65,6 +66,7 @@ object ContentInjector {
         token = b.joinToString("") { "%02x".format(it) }
         shim = read(app, "shim/chrome-shim.js").trim().trimEnd(';')
         try { ytScript = app.assets.open("shim/yt-adblock.js").bufferedReader().use { it.readText() } } catch (ex: Exception) { Log.e(TAG, "yt-adblock.js missing", ex) }
+        try { ymScript = app.assets.open("shim/yt-media.js").bufferedReader().use { it.readText() } } catch (ex: Exception) { Log.e(TAG, "yt-media.js missing", ex) }
         val manifest = JSONObject(read(app, "ext/manifest.json"))
 
         fun cfg(kind: String) = JSONObject()
@@ -596,6 +598,7 @@ object ContentInjector {
         try {
             ChromeBridge.install(web, setOf("*"))
             if (ytScript.isNotEmpty()) try { WebViewCompat.addDocumentStartJavaScript(web, ytScript, YT_ORIGINS) } catch (ex: Exception) { Log.e(TAG, "yt script failed", ex) }
+            if (ymScript.isNotEmpty()) try { WebViewCompat.addDocumentStartJavaScript(web, ymScript, YT_ORIGINS) } catch (ex: Exception) { Log.e(TAG, "yt media script failed", ex) } // 0.0.296
             for (e in entries) WebViewCompat.addDocumentStartJavaScript(web, e.script, e.origins)
             addExtScripts(ctx, web)
         } catch (e: Exception) {

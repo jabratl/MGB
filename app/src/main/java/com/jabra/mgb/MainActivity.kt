@@ -554,6 +554,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         backCb.isEnabled = true
         if (siteWin || SiteWindow.used) bindWindow() // 0.0.248 (A7b): the window in front owns the shared helpers
         tabs.active?.web?.onResume()
+        MediaPrefs.onResume(this) // 0.0.296: background play service ends when Thazir is in front
         floating.start() // S11
     }
 
@@ -569,7 +570,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     override fun onPause() {
         floating.stop() // S11
-        tabs.active?.web?.onPause()
+        if (!(MediaPrefs.bg(this) && MediaPrefs.audible(this))) tabs.active?.web?.onPause() // 0.0.296: Media > Background play: a playing page is not paused
+        MediaPrefs.onPause(this)
         if (!siteWin) tabs.saveSession() // 0.0.247 (A7): a site window never overwrites the saved tabs
         super.onPause()
     }
