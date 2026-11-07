@@ -1,3 +1,10 @@
+0.0.288 (MODIFY: address bar long-press quick menu)
+- Why: idea #5. Copy / paste / share the address without opening the tab menu.
+- What: long-press the address (web page, not Home, not while typing) = bottom sheet with Copy link, Paste & go (greyed when the clipboard is empty), Share. Reuses MenuSheet.showLink and TabManager.copyText / shareText (link cleaner applies as before). While typing, long-press still selects text. (#3 private bar tint was already done in 0.0.287.)
+- Files: MainActivity.kt (1 long-click listener), build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: nothing else; the long-click is only consumed when not typing on a web page.
+- NOT tested: Gradle build (CI), device (360 + 1280 dp, dark + light, long-press on https page / Home / while typing, Paste & go with a URL and with plain text, lock tap still opens the site sheet).
+
 0.0.287 (MODIFY: lock tap = site sheet, Close duplicates, plum private address bar)
 - Why: three small pocket features from the idea list (#4, #1, #3): the lock in the address bar did nothing, duplicate tabs piled up, a private tab looked like a normal one in the bar.
 - #4 Lock tap: tap the lock at the start of the address bar (not while typing, http / https pages only) = bottom sheet for THIS site: Camera / Microphone / Location / Notifications, tap a chip to cycle Ask first > Allowed > Blocked (uses SitePerms, nothing new stored; a saved "camera and microphone" answer is split so the other half is kept). "All site permissions" opens the existing sheet. The page reloads once when the sheet closes if something changed.

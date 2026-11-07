@@ -1,3 +1,4 @@
+STATUS 0.0.288 = 0.0.287 + MODIFY address bar long-press menu (Copy link / Paste & go / Share). Side track. NEXT = device test round T1-T15 (add: long-press address, lock tap, Close duplicates, private bar tint). Idea list left: #2 social chip unread dot + long-press, #6 Settings search highlight + Recently changed.
 STATUS 0.0.287 = 0.0.286 + MODIFY lock tap site sheet (SiteSheet.kt) + Close duplicates (tab menu) + plum private address bar. Side track. NEXT = device test round T1-T15 (add: lock tap on https/http, sheet chips, Close duplicates + Undo, private bar tint, bar swipe still works). Idea list left: #2 social chip unread dot + long-press, #5 address bar long-press menu (Copy / Paste & go / Share), #6 Settings search highlight + Recently changed.
 STATUS 0.0.286 = 0.0.285 + BUILD Social chip (SocialChip.kt, btn_social in the address bar, quick sheet). Side track. NEXT = device test round T1-T15 (add: social chip on 3 sites, sheet toggles, chip hidden on other pages).
 STATUS 0.0.285 = 0.0.284 + MODIFY Settings polish (SettingsFx.kt: staggered entrance, open-card colour ring, row dividers, scroll hairline). Side track. NEXT = device test round T1-T15 (add: Settings entrance, open / close category, Reduce motion, scroll hairline).
@@ -146,6 +147,8 @@ Page scripts: each script guards itself (window.__mgS<x>), stops after <= 40 s, 
 
 ================================================================================
 7. PROGRESS / RESULT LOG (newest on top)
+
+0.0.288 (MODIFY, see CHANGELOG): MainActivity urlBar.setOnLongClickListener -> MenuSheet.showLink rows Copy link / Paste & go / Share.
 
 0.0.287 (MODIFY, see CHANGELOG): lock tap -> SiteSheet (touch hook BarGestures l ~35, SitePerms keys camera/microphone/location/notifications), TabSwitcher.menu "Close duplicates (N)" via dupTabs()+doCloseList, MainActivity.tintUrlBar (plum = blend mg_primary+mg_error). Repo root note: zip root is Thazir-main/.
 ================================================================================

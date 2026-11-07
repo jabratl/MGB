@@ -149,6 +149,19 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             refreshShield() // S68: shield hides while typing
         }
 
+        urlBar.setOnLongClickListener { // 0.0.287 (#5): long-press the address (not while typing) = Copy link / Paste & go / Share
+            val t = tabs.active
+            val u = t?.let { it.web.url ?: it.url } ?: ""
+            if (urlBar.hasFocus() || t == null || t.home || !u.startsWith("http")) return@setOnLongClickListener false
+            val clip = try { (getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).primaryClip?.getItemAt(0)?.coerceToText(this)?.toString()?.trim() ?: "" } catch (_: Exception) { "" }
+            MenuSheet.showLink(this, Util.host(u), u, listOf(
+                MenuSheet.Item("Copy link", R.drawable.ic_copy) { tabs.copyText(u) },
+                MenuSheet.Item("Paste & go", R.drawable.ic_paste, clip.isNotEmpty()) { urlBar.setText(clip); submitUrl() },
+                MenuSheet.Item("Share", R.drawable.ic_share) { tabs.shareText(u) }
+            ))
+            true
+        }
+
         backCb = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 val t = tabs.active
