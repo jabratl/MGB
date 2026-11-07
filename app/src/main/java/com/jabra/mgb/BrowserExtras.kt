@@ -356,6 +356,7 @@ object BrowserExtras {
         val key = "$origin|$what"
         val host = Util.host(origin)
         SitePerms.get(a, host, what)?.let { answer(it); return } // S45: remembered for this site
+        if (SitePerms.blockedByDefault(a, what)) { answer(false); return } // 0.0.282: default = Blocked
         decided[key]?.let { answer(it); return }
         if (a.isFinishing || a.isDestroyed) { answer(false); return }
         var done = false

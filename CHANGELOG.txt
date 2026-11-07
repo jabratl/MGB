@@ -1,3 +1,13 @@
+0.0.282 (MODIFY: Brave-style permissions, site + device)
+- Why: the site permission list was a plain dialog; Brave groups it by type, shows counts and lets you set a default.
+- Site permissions (Settings > Privacy): NEW sheet with a card per type (Camera, Microphone, Location): "N allowed, M blocked", a default pill (Ask first / Blocked, tap to switch), tap the card for the sites; tap a status chip to flip Allowed / Blocked, x = forget the site, Reset all.
+- NEW default "Blocked": a site with no saved answer is refused without a question (prefs mgb_perm_def). Default stays "Ask first" = old behaviour byte for byte. Hook: 1 line in BrowserExtras.ask.
+- Device permissions (Settings > General): icon per row, card rows, "N of M allowed" with a bar, the green Allowed chip now opens Android settings (to turn it off).
+- Files: SitePermsUi.kt (new), SitePerms.kt (entries, default, screen delegates), BrowserExtras.kt (1 line), DevicePerms.kt, res/drawable ic_perm_camera / mic / location / bell (new), build.gradle.kts, CHANGELOG, HANDOFF.
+- Note: the repo comment in DevicePerms / SettingsScreen already said 0.0.281; the tab patch also used 0.0.281, so this one is 0.0.282.
+- Could break: with default Blocked a site that never asked before is refused silently (the person chose it); old list dialog code in SitePerms.screen is unreachable but kept.
+- NOT tested: Gradle build (CI; watch destructuring of Triple in SitePermsUi and the `if (true)` return in SitePerms.screen), device (360 + 1280 dp, dark + light, rotate, camera / mic / location question on a real site, default Blocked).
+
 0.0.281 (MODIFY: tab switcher upgrade + stronger address bar)
 - Why: the tab section needed a video-style list view and a look that is only Thazir; the address field was too quiet.
 - Tabs: NEW Grid / List toggle in the bottom bar (pref tab_list_view, default = cards as before). NEW list row (avatar, title, host + lock cue, "asleep" / age "3d"). Thazir signature on cards AND rows: a colour rail (group colour, or violet for the current tab) and, on cards, a host chip with a green lock (https) / red open lock (http). Same click, drag, long press, close, select and group behaviour as before.

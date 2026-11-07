@@ -118,7 +118,22 @@ object DevicePerms {
                 setTextColor(c(R.color.mg_text_dim))
                 setPadding(0, dp(2), 0, dp(10))
             })
-            for (it in items(act)) col.addView(row(it))
+            val list = items(act)
+            val real = list.filter { it.ok || it.action != null } // 0.0.282: summary counts what this build can use
+            val okN = real.count { it.ok }
+            col.addView(TextView(act).apply {
+                text = "$okN of ${real.size} allowed"
+                textSize = 13f
+                typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+                setTextColor(c(R.color.mg_text))
+            })
+            col.addView(LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                background = GradientDrawable().apply { setColor(c(R.color.mg_surface_variant)); cornerRadius = dp(3).toFloat() }
+                if (real.isNotEmpty() && okN > 0) addView(View(act).apply { background = GradientDrawable().apply { setColor(c(R.color.mg_success)); cornerRadius = dp(3).toFloat() } }, LinearLayout.LayoutParams(0, dp(6), okN.toFloat()))
+                if (real.size > okN) addView(View(act), LinearLayout.LayoutParams(0, dp(6), (real.size - okN).toFloat()))
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(6)).apply { topMargin = dp(6); bottomMargin = dp(10) })
+            for (it in list) col.addView(row(it))
             col.addView(TextView(act).apply {
                 text = "Open Android app settings"
                 textSize = 14f
@@ -145,11 +160,26 @@ object DevicePerms {
             val line = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                minimumHeight = dp(56)
-                setPadding(dp(4), dp(6), dp(4), dp(6))
+                minimumHeight = dp(64)
+                setPadding(dp(10), dp(8), dp(8), dp(8))
+                background = GradientDrawable().apply { setColor(c(R.color.mg_surface)); cornerRadius = dp(20).toFloat(); setStroke(dp(1), c(R.color.mg_outline)) } // 0.0.282: card rows
             }
+            val ic = when {
+                it.title.startsWith("Notif") -> R.drawable.ic_perm_bell
+                it.title == "Camera" -> R.drawable.ic_perm_camera
+                it.title == "Microphone" -> R.drawable.ic_perm_mic
+                it.title == "Location" -> R.drawable.ic_perm_location
+                it.title.startsWith("Battery") -> R.drawable.ic_clock
+                else -> R.drawable.ic_download
+            }
+            line.addView(android.widget.ImageView(act).apply {
+                setImageResource(ic)
+                setColorFilter(if (it.ok) c(R.color.mg_success) else c(R.color.mg_text_dim))
+                scaleType = android.widget.ImageView.ScaleType.CENTER
+                background = GradientDrawable().apply { setColor(androidx.core.graphics.ColorUtils.blendARGB(c(R.color.mg_surface), if (it.ok) c(R.color.mg_success) else c(R.color.mg_text_dim), 0.14f)); cornerRadius = dp(20).toFloat() }
+            }, LinearLayout.LayoutParams(dp(40), dp(40)).apply { marginEnd = dp(12) })
             val box = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
-            box.addView(TextView(act).apply { text = it.title; textSize = 15f; setTextColor(c(R.color.mg_text)) })
+            box.addView(TextView(act).apply { text = it.title; textSize = 15f; typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL); setTextColor(c(R.color.mg_text)) })
             box.addView(TextView(act).apply { text = it.hint; textSize = 12f; maxLines = 3; setTextColor(c(R.color.mg_text_dim)) })
             line.addView(box, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             if (it.ok) {
@@ -158,7 +188,12 @@ object DevicePerms {
                     textSize = 13f
                     typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
                     setTextColor(c(R.color.mg_success))
-                    setPadding(dp(10), 0, dp(6), 0)
+                    gravity = Gravity.CENTER
+                    background = GradientDrawable().apply { setColor(androidx.core.graphics.ColorUtils.blendARGB(c(R.color.mg_surface), c(R.color.mg_success), 0.16f)); cornerRadius = dp(16).toFloat() }
+                    minimumHeight = dp(32)
+                    setPadding(dp(12), 0, dp(12), 0)
+                    contentDescription = "${it.title} allowed. Tap to open Android settings" // 0.0.282: manage / turn off in Android settings
+                    setOnClickListener { _ -> appSettings(act) }
                 })
             } else if (it.action != null) {
                 line.addView(TextView(act).apply {

@@ -42,7 +42,23 @@ object SitePerms {
 
     fun count(c: Context) = all(c).size
 
+    /** 0.0.282: saved answers as (host, what, allowed) for the new sheet. */
+    fun entries(c: Context): List<Triple<String, String, Boolean>> = all(c).map { Triple(it.host, it.what, it.ok) }
+
+    /** 0.0.282: default for sites without a saved answer. false (default) = ask, as before; true = refuse without asking. */
+    fun blockedByDefault(c: Context, what: String): Boolean {
+        val p = c.getSharedPreferences("mgb_perm_def", Context.MODE_PRIVATE)
+        return what.split(" and ").any { p.getInt(it, 1) == 0 }
+    }
+
+    fun setDefaultBlock(c: Context, what: String, block: Boolean) {
+        val e = c.getSharedPreferences("mgb_perm_def", Context.MODE_PRIVATE).edit()
+        if (block) e.putInt(what, 0) else e.remove(what)
+        e.apply()
+    }
+
     fun screen(act: FragmentActivity, done: () -> Unit = {}) {
+        if (true) { SitePermsUi.show(act, done); return } // 0.0.282: Brave-style sheet; the old list below is kept as is
         val list = all(act)
         if (list.isEmpty()) {
             MaterialAlertDialogBuilder(act).setTitle("Site permissions")
