@@ -39,6 +39,9 @@
             android:name="com.jabra.mgb.DownloadService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <receiver
+            android:name="com.jabra.mgb.PrivNotify$Receiver"
+            android:exported="false" />
         <provider
             android:name="com.jabra.mgb.MgbFileProvider"
             android:authorities="${applicationId}.dlfiles"

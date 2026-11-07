@@ -488,6 +488,10 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         }
         GroupStrip.refresh() // S13
         SocialDock.refresh() // 0.0.272 (C1)
+        if (!siteWin) { // 0.0.302: "Close all private tabs" notification
+            PrivNotify.closer = { runOnUiThread { tabs.allTabs().filter { it.priv }.forEach { tabs.close(it) } } }
+            PrivNotify.update(this, tabs)
+        }
     }
 
     override fun onActiveChanged(tab: TabManager.Tab?) {
@@ -584,6 +588,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     override fun onDestroy() {
         if (!siteWin) SiteWindow.mainUp = false else SiteWindow.live-- // 0.0.247 (A7)
+        if (!siteWin && isFinishing) { PrivNotify.closer = null; PrivNotify.cancel(this) } // 0.0.302
         if (siteWin && !shared) { // site window while the main window lives: only its own things go
             floating.stop()
             BrowserExtras.release(this) // 0.0.248 (A7b)
