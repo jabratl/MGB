@@ -239,6 +239,10 @@ object TabSwitcher {
 
         init { setOnDismissListener { if (current === this) current = null; onChanged?.invoke() } } // S13: groups may have changed
 
+        /** 0.0.295 (Chrome look): card fill = quiet container tone; the open / picked tab = same tone mixed with the accent ("tonal"). */
+        private fun tonal(tint: Int = c(R.color.mg_primary), a: Float = 0.28f): Int =
+            androidx.core.graphics.ColorUtils.blendARGB(c(R.color.mg_surface_variant), tint, a)
+
         private fun round(color: Int, r: Int, stroke: Int = 0, strokeColor: Int = 0) = GradientDrawable().apply {
             setColor(color)
             cornerRadius = dp(r).toFloat()
@@ -1434,7 +1438,7 @@ object TabSwitcher {
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 val pd = dp(sizeDp) / 6
                 setPadding(pd, pd, pd, pd)
-                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.argb(235, 255, 255, 255)) }
+                background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = dp(sizeDp) / 4f; setColor(Color.argb(235, 255, 255, 255)) } // 0.0.295: rounded square
                 layoutParams = ViewGroup.LayoutParams(dp(sizeDp), dp(sizeDp))
             }
             return TextView(act).apply {
@@ -1459,7 +1463,7 @@ object TabSwitcher {
                 }
             }
             val f = FrameLayout(act)
-            f.setBackgroundColor(c(R.color.mg_surface_variant))
+            f.setBackgroundColor(c(R.color.mg_surface)) // 0.0.295: the card around it is the variant tone
             val s = if (bigLetter) 56 else 18
             f.addView(avatar(t, s, if (bigLetter) 26f else 9f), FrameLayout.LayoutParams(dp(s), dp(s), Gravity.CENTER))
             return f
@@ -1472,7 +1476,7 @@ object TabSwitcher {
             val hi = isCur && !selecting
             val on = selecting && t.id in picked
             val box = FrameLayout(act).apply {
-                background = if (on || hi) round(c(R.color.mg_surface), 20, 2, c(R.color.mg_primary)) else round(c(R.color.mg_surface), 20, 1, c(R.color.mg_outline)) // S4: current/picked = violet ring, others = quiet outline
+                background = if (on || hi) round(tonal(), 16, 3, c(R.color.mg_primary)) else round(c(R.color.mg_surface_variant), 16) // 0.0.295: Chrome look = open / picked tab tonal + accent ring, others plain card, no outline
                 clipToOutline = true
                 contentDescription = if (hi) "$title, current tab" else title // S4
                 setOnClickListener {
@@ -1482,18 +1486,19 @@ object TabSwitcher {
             }
             box.tag = t.id // S16: key for the glide animation
             dragTouch(box, t) // S44: long press = lift the card (drag into a group) or the menu
-            box.addView(previewOf(t, cardW, true), FrameLayout.LayoutParams(MATCH, MATCH).apply { topMargin = dp(HEAD_H) })
-            val fg = if (hi) c(R.color.mg_primary) else c(R.color.mg_text) // S4: current tab = violet title on the normal header (no heavy fill)
+            val pv = FrameLayout(act).apply { background = round(c(R.color.mg_surface), 12); clipToOutline = true } // 0.0.295: page picture inset 4 dp with round corners (Chrome)
+            pv.addView(previewOf(t, cardW - dp(8), true), FrameLayout.LayoutParams(MATCH, MATCH))
+            box.addView(pv, FrameLayout.LayoutParams(MATCH, MATCH).apply { setMargins(dp(4), dp(HEAD_H), dp(4), dp(4)) })
+            val fg = c(R.color.mg_text) // 0.0.295: same title colour on every card, the tonal fill shows which one is open
             val head = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setBackgroundColor(c(R.color.mg_surface))
-                setPadding(dp(8), 0, dp(4), 0)
+                setPadding(dp(10), 0, dp(4), 0) // 0.0.295: header is transparent, the card colour shows
             }
             head.addView(avatar(t, 18, 9f), LinearLayout.LayoutParams(dp(18), dp(18)).apply { marginEnd = dp(6) })
             head.addView(TextView(act).apply {
                 text = title
-                textSize = 12f
+                textSize = 13f
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END
                 setTextColor(fg)
@@ -1534,19 +1539,7 @@ object TabSwitcher {
                 }, LinearLayout.LayoutParams(dp(HEAD_H), dp(HEAD_H))) // S4: 36dp touch target (was 30)
             }
             box.addView(head, FrameLayout.LayoutParams(MATCH, dp(HEAD_H), Gravity.TOP))
-            val gN = groupOf(t) // 0.0.281: Thazir signature = rail on top (group colour, or violet for the current tab) + host chip with connection cue
-            val railC = if (gN != null) colorOf(gN) else if (hi) c(R.color.mg_primary) else 0
-            if (railC != 0) box.addView(View(act).apply { setBackgroundColor(railC) }, FrameLayout.LayoutParams(MATCH, dp(3), Gravity.TOP))
-            if (!t.home && host.isNotEmpty()) box.addView(TextView(act).apply {
-                text = host; textSize = 10f; maxLines = 1; ellipsize = TextUtils.TruncateAt.END
-                setTextColor(c(R.color.mg_text)); setPadding(dp(7), dp(2), dp(7), dp(2))
-                background = round((c(R.color.mg_surface) and 0x00FFFFFF) or 0xE6000000.toInt(), 10)
-                if (!t.priv && (t.url.startsWith("https://") || t.url.startsWith("http://"))) {
-                    val ok = t.url.startsWith("https://")
-                    val d = androidx.core.content.ContextCompat.getDrawable(act, if (ok) R.drawable.ic_lock else R.drawable.ic_pl_lock_open)?.mutate()
-                    if (d != null) { d.setBounds(0, 0, dp(10), dp(10)); d.setTint(c(if (ok) R.color.mg_success else R.color.mg_error)); setCompoundDrawablesRelative(d, null, null, null); compoundDrawablePadding = dp(4) }
-                }
-            }, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.START).apply { setMargins(dp(8), 0, dp(8), dp(8)) })
+            // 0.0.295: the Thazir rail + host chip on the picture are gone (Chrome has neither); group colour lives on the group card
             return box
         }
 
@@ -1556,9 +1549,9 @@ object TabSwitcher {
             val title = if (t.home) (if (t.priv) "Private home" else "Home") else t.title.ifBlank { host }.ifBlank { "New tab" }
             val hi = t === tm.active && !selecting
             val on = selecting && t.id in picked
-            val fill = if (on || hi) androidx.core.graphics.ColorUtils.blendARGB(c(R.color.mg_surface), c(R.color.mg_primary), 0.14f) else c(R.color.mg_surface)
+            val fill = if (on || hi) tonal() else c(R.color.mg_surface_variant) // 0.0.295
             val box = FrameLayout(act).apply {
-                background = if (on || hi) round(fill, 18, 2, c(R.color.mg_primary)) else round(fill, 18, 1, c(R.color.mg_outline))
+                background = if (on || hi) round(fill, 16, 3, c(R.color.mg_primary)) else round(fill, 16)
                 contentDescription = if (hi) "$title, current tab" else title
                 setOnClickListener {
                     if (selecting) { if (on) picked.remove(t.id) else picked.add(t.id); render() }
@@ -1568,14 +1561,11 @@ object TabSwitcher {
             box.tag = t.id
             dragTouch(box, t)
             val line = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), 0, dp(4), 0) }
-            val g = groupOf(t)
-            val railC = if (g != null) colorOf(g) else if (hi) c(R.color.mg_primary) else 0
-            line.addView(View(act).apply { if (railC != 0) background = round(railC, 2) }, LinearLayout.LayoutParams(dp(4), dp(30)).apply { marginEnd = dp(10) })
             line.addView(avatar(t, 32, 14f), LinearLayout.LayoutParams(dp(32), dp(32)).apply { marginEnd = dp(12) })
             val col = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
             col.addView(TextView(act).apply {
                 text = title; textSize = 14f; maxLines = 1; ellipsize = TextUtils.TruncateAt.END
-                setTextColor(if (hi) c(R.color.mg_primary) else c(R.color.mg_text))
+                setTextColor(c(R.color.mg_text))
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             })
             val days = ((System.currentTimeMillis() - t.lastActive) / 86400000L).toInt()
@@ -1611,7 +1601,7 @@ object TabSwitcher {
                 }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(10) })
             } else {
                 line.addView(ImageView(act).apply {
-                    setImageResource(R.drawable.ic_close); setColorFilter(if (hi) c(R.color.mg_primary) else c(R.color.mg_text))
+                    setImageResource(R.drawable.ic_close); setColorFilter(c(R.color.mg_text))
                     scaleType = ImageView.ScaleType.CENTER; contentDescription = "Close $title"
                     setOnClickListener { closeAnimated(box, t) }
                 }, LinearLayout.LayoutParams(dp(44), dp(44)))
@@ -1656,7 +1646,7 @@ object TabSwitcher {
             val ids = groups[name] ?: emptySet<Int>()
             val inside = tm.allTabs().filter { it.id in ids }
             val box = FrameLayout(act).apply {
-                background = round(c(R.color.mg_surface), 20, 1, c(R.color.mg_outline)) // S4
+                background = round(tonal(colorOf(name), 0.22f), 16) // 0.0.295: Chrome group card = container tinted with the group colour
                 clipToOutline = true
                 contentDescription = "Group $name, ${inside.size} tabs" // S4
                 setOnClickListener { v -> openGroupView(name, v) }
@@ -1693,7 +1683,7 @@ object TabSwitcher {
             val row = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                background = round(c(R.color.mg_surface), 20, 1, c(R.color.mg_outline)) // S4
+                background = round(tonal(colorOf(name), 0.22f), 16) // 0.0.295
                 setPadding(dp(10), dp(8), dp(4), dp(8))
                 setOnClickListener { v -> openGroupView(name, v) }
             }

@@ -1,3 +1,14 @@
+0.0.295 (MODIFY: Chrome look for every tab card, list row and group card in the tab switcher)
+- Why: asked for every tab's design to look like Chrome (reference = the Chrome tab switcher screen recording).
+- Tab card (grid): 16 dp corners, no outline; plain container colour for normal tabs; the OPEN or PICKED tab = same colour mixed with the accent + 3 dp accent ring (Chrome "selected" look); transparent header with rounded-square favicon, 13 sp title (same colour on every card) and the X; page picture inset 4 dp with 12 dp round corners.
+- List row: same fill / ring rules, 16 dp corners, no side rail; title and X use the normal text colour.
+- Group card + group row: 16 dp corners, container tinted with the group colour (Chrome), no outline.
+- Favicon: rounded square instead of a white circle (letter avatar stays round).
+- REMOVED (Chrome has neither): the 0.0.281 "Thazir rail" on top of cards / rows and the host + lock chip over the picture. The host + lock text stays in the list row's second line. Nothing else changed (click, drag into group, swipe to close, select, unread badge, menus).
+- Files: TabSwitcher.kt (tonal() helper, card, row, groupCard, groupRow, avatar, previewOf), build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: contrast of the picture placeholder (now surface on the variant card) in light mode; tonal fill when the group colour is very light.
+- NOT tested: Gradle build (CI), device (grid + list + group view + select mode, light + dark, 360 + 1280 dp, private tabs, Home card, drag into group).
+
 0.0.294 (BUILD: Chrome-style edge swipe = page Back / Forward)
 - Why: 0.0.293 only swiped between TABS. This is the other half of the ask: swipe to go to the previous / next PAGE of the same tab (history), like Chrome.
 - What: start at the LEFT screen edge and drag right = Back; start at the RIGHT edge and drag left = Forward. A round arrow slides in from the edge and follows the finger height; let go after 80 dp and the page goes. Dim arrow = nothing to go to. Not on the address bar, not in video fullscreen, not with 2 fingers, vertical scrolls near the edge are left alone. Uses the same canBack / back / canFwd / fwd as the bar arrows (Home entry rules stay).
