@@ -1,3 +1,12 @@
+0.0.285 (MODIFY: Settings feels smoother and more defined)
+- Why: Settings should feel like a professional browser: calm entrance, clear cards, smooth scroll.
+- Enter: NEW staggered entrance: cards glide up 14 dp and fade in one after another (first 8, 35 ms steps) when Settings opens. A category you open gets its rows following one after another (first 10, 22 ms steps) on top of the existing fade / glide. Reduce motion = none.
+- Definition: category cards have a clearer hairline (outline at 82 % instead of 60 %); the OPEN card gets a 2 dp ring in its own category colour; thin dividers between rows inside a card (inset 56 dp).
+- Scroll: a hairline under the search box fades in while the list is scrolled (0 -> 24 dp); the scroll bar is hidden. Scroll position handling is unchanged.
+- Files: SettingsFx.kt (new), SettingsScreen.kt (5 small hooks), build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: nothing in logic. If a row looks cramped, the dividers are the first suspect (they are plain Views between rows); a very long page animates only its first 8 cards.
+- NOT tested: Gradle build (CI), device (360 + 1280 dp, dark + light, Reduce motion ON, open / close categories quickly, search while a category is open, rotation).
+
 0.0.284 (BUILD: website notifications + Notifications in Site permissions)
 - Why: Android WebView has no Notification API, so sites could never show a notification. Brave has it.
 - How: NEW WebNotify.kt. A small script (page start + page finished, normal tabs, not saved pages) gives pages window.Notification: permission = saved site answer; requestPermission() asks once (Allow / Block, "Remember for this site"; a page can only ask for its own address); new Notification(title, {body, tag}) posts an Android notification (channel "Website notifications", tap opens Thazir, max 1 per second per site). Android 13+: Allow also asks Android for the notification permission.

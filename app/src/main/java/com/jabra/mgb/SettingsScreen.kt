@@ -343,9 +343,14 @@ object SettingsScreen {
             val sv = ScrollView(act)
             this.sv = sv
             sv.addView(col, ViewGroup.LayoutParams(MATCH, WRAP))
+            sv.isVerticalScrollBarEnabled = false // 0.0.285
+            val hair = View(act).apply { setBackgroundColor(act.getColor(R.color.mg_outline)) }
+            root.addView(hair, LinearLayout.LayoutParams(MATCH, dp(1))) // 0.0.285: fades in while the list is scrolled
+            SettingsFx.hairline(act, sv, hair)
             root.addView(sv, LinearLayout.LayoutParams(MATCH, 0, 1f))
             setContentView(root)
             fill()
+            SettingsFx.rise(act, col) // 0.0.285: cards glide in one after another
         }
 
         private class Row(val icon: Int, val label: String, val value: String = "", val hint: String = "", val onClick: (() -> Unit)? = null)
@@ -516,9 +521,11 @@ object SettingsScreen {
                 LinearLayout.LayoutParams(MATCH, dp(1)).apply { marginStart = dp(16); marginEnd = dp(16) })
             var box: LinearLayout? = null // S48: current folded sub group
             var firstSub = true
+            var prevRow = false // 0.0.285: thin divider between two rows
             for (item in (if (link) emptyList<Any>() else shown)) {
                 when (item) {
                     is Sub -> {
+                        prevRow = false
                         if (fold) {
                             val t = item.title.uppercase()
                             val b = LinearLayout(act).apply {
@@ -540,7 +547,12 @@ object SettingsScreen {
                             content.addView(subLabel(item.title), LinearLayout.LayoutParams(MATCH, WRAP))
                         }
                     }
-                    is Row -> (box ?: content).addView(rowView(item), LinearLayout.LayoutParams(MATCH, WRAP))
+                    is Row -> {
+                        if (prevRow) (box ?: content).addView(View(act).apply { setBackgroundColor(ColorUtils.setAlphaComponent(act.getColor(R.color.mg_outline), 0x66)) },
+                            LinearLayout.LayoutParams(MATCH, dp(1)).apply { marginStart = dp(56); marginEnd = dp(16) })
+                        prevRow = true
+                        (box ?: content).addView(rowView(item), LinearLayout.LayoutParams(MATCH, WRAP))
+                    }
                 }
             }
             if (!link && !searching && RESET.containsKey(key)) { // Step C: Reset to default, last row of the card
@@ -564,6 +576,7 @@ object SettingsScreen {
             }
             val night = (act.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
             val tint = TabPrefs.tint(key, night) // Step B: own soft tint per category
+            SettingsFx.ring(card, tint, isOpen && !link, act) // 0.0.285: open card = own colour ring, closed = clearer hairline
             val badge = FrameLayout(act).apply {
                 background = GradientDrawable().apply {
                     shape = GradientDrawable.RECTANGLE // 0.0.129: squircle badge
@@ -787,11 +800,13 @@ object SettingsScreen {
             openCat = if (opening) key else null
             for ((k, v) in cats) {
                 val show = k == openCat
+                SettingsFx.ring(v.first.parent as? View, SettingsFx.tintOf(act, k), show, act) // 0.0.285
                 v.first.visibility = if (show) View.VISIBLE else View.GONE
                 val deg = if (show) 90f else 0f
                 v.second.animate().cancel()
                 if (calm) v.second.rotation = deg else v.second.animate().rotation(deg).setDuration(260).setInterpolator(android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f)).start()
             }
+            if (opening) (cats[key]?.first as? ViewGroup)?.let { SettingsFx.rows(act, it) } // 0.0.285: rows follow one after another
             if (opening) card.postDelayed({
                 sv?.smoothScrollTo(0, (card.top - dp(8)).coerceAtLeast(0))
             }, if (calm) 0L else 300L)
