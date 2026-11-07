@@ -84,14 +84,13 @@ object SettingsScreen {
         private var titleTv: TextView? = null
         private var sboxView: View? = null
         private var searchEdit: EditText? = null
-        private val BIG = mapOf("downloads" to "Downloads", "grabber" to "Grabber and buttons")
+        private val BIG = mapOf("downloads" to "Downloads", "grabber" to "Grabber and buttons", "player" to "Player") // 0.0.312: Player is a page too (all three sit in one hub card)
         private val NO_RECENT = setOf("Forget removed links")
         private var flashLabel: String? = null // Step B: row that was just toggled
         /** Step C: the ONLY mgb_ui keys each card's "Reset to default" may remove. Nothing else is ever touched. */
         private val RESET = mapOf(
             "general" to listOf("night", "accent", "dark_pages", "engine", "tr_lang", "hide_bar", "pull_refresh", "rotate_browser",
-                "ap_bar_pos", "ap_home_action", "ap_full_url", "ap_swipe_fs", "ap_swipe_tabs", "ap_swipe_side", "ap_swipe_nav", "ap_wp_dim", "ap_undo_toast", "ap_start_page", "ap_bar_compact", "ap_nav_back", "ap_nav_fwd", "ap_nav_hide", "ap_zoom_def", "ap_force_zoom", "ap_touchpad", "ap_simple_hint", "sm_on", "sm_sep", "sm_int", "sm_full", "sm_bars", "sm_back", "sm_splash", "sm_cs", "sm_kb", "sm_big", "sm_links", "sm_win", "sm_dfix", "sm_pre", "sm_keep", "sm_dyn", "sm_touch", "sm_fbshare", "sm_clean", "sm_lock", "sm_lockd", "sm_err", "sm_focus", "sm_ext", "sm_pip", "sm_dock", "sm_save2", "sm_mute", "sm_tl", "sm_t_day", "sm_t_sec") + MediaPrefs.KEYS + Orbit.KEYS + SiteMute.KEY + SocialProfiles.all.map { "sm_s_" + it.id } + SocialProfiles.all.map { "sm_x_" + it.id } + SocialProfiles.all.map { "sm_ua_" + it.id } + SocialBlur.keys + SocialBadge.keys + SocialNsfw.keys + SocialDark.keys + SocialSlot.keys, // A9, A11, A1, A2: + Appearance keys
-            "tabs" to listOf("swipe_close", "close_confirm", "reduce_motion", "tab_suspend_min"),
+                "ap_bar_pos", "ap_home_action", "ap_full_url", "ap_swipe_fs", "ap_swipe_tabs", "ap_swipe_side", "ap_swipe_nav", "ap_wp_dim", "ap_undo_toast", "ap_start_page", "ap_bar_compact", "ap_nav_back", "ap_nav_fwd", "ap_nav_hide", "ap_zoom_def", "ap_force_zoom", "ap_touchpad", "ap_simple_hint", "sm_on", "sm_sep", "sm_int", "sm_full", "sm_bars", "sm_back", "sm_splash", "sm_cs", "sm_kb", "sm_big", "sm_links", "sm_win", "sm_dfix", "sm_pre", "sm_keep", "sm_dyn", "sm_touch", "sm_fbshare", "sm_clean", "sm_lock", "sm_lockd", "sm_err", "sm_focus", "sm_ext", "sm_pip", "sm_dock", "sm_save2", "sm_mute", "sm_tl", "sm_t_day", "sm_t_sec") + MediaPrefs.KEYS + Orbit.KEYS + SiteMute.KEY + SocialProfiles.all.map { "sm_s_" + it.id } + SocialProfiles.all.map { "sm_x_" + it.id } + SocialProfiles.all.map { "sm_ua_" + it.id } + SocialBlur.keys + SocialBadge.keys + SocialNsfw.keys + SocialDark.keys + SocialSlot.keys + listOf("swipe_close", "close_confirm", "reduce_motion", "tab_suspend_min"), // A9, A11, A1, A2: + Appearance keys; 0.0.312: + Tabs keys (Tabs card merged into Browser)
             "downloads" to listOf("auto_diag", "dr_wifi", "dr_metered", "dr_batt", "dr_store", "li_on"), // D1, D2: download rules
             "grabber" to listOf("web_play", "v77_backup", "v77_prev_mode", "dl_mode", "native_btn", "video_btn"),
             "player" to listOf("pl_gestures", "pl_hold_speed", "pl_hold_slide", "pl_dtap_sec", "pl_seek_sens", "pl_vol_boost", "pl_bright", "pl_fit_default",
@@ -216,6 +215,21 @@ object SettingsScreen {
         )
 
         private val SUB_FOLD = 14 // S48: rows per category before sub groups fold
+        /** 0.0.312: these two switches already sit in the quick row at the top, so the lists do not show them a second time. Searching still finds them. */
+        private val DUP = setOf("Hide bar while scrolling", "Reduce motion")
+
+        private fun dd(items: List<Any>): List<Any> {
+            if (query.isNotBlank()) return items
+            val kept = ArrayList<Any>()
+            for (x in items) if (!(x is Row && x.label in DUP)) kept.add(x)
+            val out = ArrayList<Any>()
+            for (i in kept.indices) {
+                val x = kept[i]
+                if (x is Sub && (i == kept.lastIndex || kept[i + 1] is Sub)) continue // no empty group label
+                out.add(x)
+            }
+            return out
+        }
         private val cats = LinkedHashMap<String, Pair<View, View>>() // key -> (content, chevron)
 
         private fun dp(v: Int) = Util.dp(act, v)
@@ -482,7 +496,8 @@ object SettingsScreen {
             val sub = !searching && subPage == key // Step A: this category is the open page
             if (!searching && subPage != null && !sub) return
             val link = !searching && !sub && BIG.containsKey(key) // Step A: big category = one row that opens a page
-            var shown = items
+            if (link) return // 0.0.312: the hub card (Downloads and player) draws these links
+            var shown = dd(items) // 0.0.312
             if (searching && !title.contains(q, true)) {
                 val out = ArrayList<Any>()
                 var pend: Sub? = null
@@ -644,21 +659,69 @@ object SettingsScreen {
             }
         }
 
-        /** Shortcut to the Data card actions: Export / Import. */
-        private fun backupCard(): View {
+        /** 0.0.312: Downloads, Grabber and Player in ONE card (each row opens its page, same pages as before). */
+        private fun hub() {
+            val col = body ?: return
+            val night = (act.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            val tint = TabPrefs.tint("downloads", night)
             val card = LinearLayout(act).apply {
                 orientation = LinearLayout.VERTICAL
                 background = round(act.getColor(R.color.mg_surface), 20).apply {
                     setStroke(dp(1), ColorUtils.setAlphaComponent(act.getColor(R.color.mg_outline), 0x99))
                 }
             }
-            card.addView(rowView(Row(R.drawable.ic_share, "Backup", "", "Export or import your data") {
-                MaterialAlertDialogBuilder(act).setTitle("Backup")
-                    .setItems(arrayOf("Export data", "Import data")) { _, i -> if (i == 0) Backup.exportData(act) else Backup.importData(act) }
-                    .setNegativeButton("Cancel", null)
-                    .show()
-            }), LinearLayout.LayoutParams(MATCH, WRAP))
-            return card
+            val header = LinearLayout(act).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(16), dp(12), dp(14), dp(8))
+                contentDescription = "Downloads and player"
+            }
+            val badge = FrameLayout(act).apply {
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = dp(13).toFloat()
+                    setColor(ColorUtils.setAlphaComponent(tint, 0x2B))
+                }
+            }
+            badge.addView(ImageView(act).apply {
+                setImageResource(R.drawable.ic_download)
+                setColorFilter(tint)
+            }, FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER))
+            header.addView(badge, LinearLayout.LayoutParams(dp(42), dp(42)).apply { marginEnd = dp(14) })
+            val texts = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+            texts.addView(TextView(act).apply {
+                text = "Downloads and player"
+                textSize = 16f
+                maxLines = 1
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                setTextColor(act.getColor(R.color.mg_text))
+            })
+            texts.addView(TextView(act).apply {
+                text = "Library, Grabber, video player"
+                textSize = 12f
+                maxLines = 1
+                setTextColor(act.getColor(R.color.mg_text_dim))
+            })
+            header.addView(texts, LinearLayout.LayoutParams(0, WRAP, 1f))
+            card.addView(header, LinearLayout.LayoutParams(MATCH, WRAP))
+            val links = listOf(
+                Row(R.drawable.ic_download, "Downloads", "", "Files, queue, quality, folder, rules") { openPage("downloads") },
+                Row(R.drawable.ic_settings, "Grabber and buttons", "", "Engine, download buttons, V77 backup") { openPage("grabber") },
+                Row(R.drawable.ic_pl_speed, "Player", "", "Gestures, speed, defaults") { openPage("player") }
+            )
+            for (i in links.indices) {
+                if (i > 0) card.addView(View(act).apply { setBackgroundColor(ColorUtils.setAlphaComponent(act.getColor(R.color.mg_outline), 0x66)) },
+                    LinearLayout.LayoutParams(MATCH, dp(1)).apply { marginStart = dp(56); marginEnd = dp(16) })
+                val line = rowView(links[i]) as LinearLayout
+                line.addView(ImageView(act).apply {
+                    setImageResource(R.drawable.ic_chevron)
+                    setColorFilter(act.getColor(R.color.mg_text_dim))
+                }, LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginStart = dp(8) })
+                card.addView(line, LinearLayout.LayoutParams(MATCH, WRAP))
+            }
+            card.addView(View(act), LinearLayout.LayoutParams(MATCH, dp(6)))
+            SettingsFx.ring(card, tint, false, act)
+            col.addView(card, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
         }
 
         private fun isDefaultBrowser(): Boolean = try {
@@ -897,15 +960,14 @@ object SettingsScreen {
 
             if (query.trim().isEmpty() && subPage == null) {
                 col.addView(Orbit.block(act) { fill() }, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(8) }) // 0.0.311: Your Orbit (Passport + Smart switches)
-                recentRow(prefs)?.let { col.addView(it, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(12) }) } // Step A
-                col.addView(quickRow(prefs), LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(12) }) // S21f
-                col.addView(backupCard(), LinearLayout.LayoutParams(MATCH, WRAP)) // Step C
+                val rec = recentRow(prefs) // Step A
+                col.addView(quickRow(prefs), LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = if (rec != null) dp(12) else 0 }) // S21f
+                rec?.let { col.addView(it, LinearLayout.LayoutParams(MATCH, WRAP)) } // 0.0.312: Backup card is gone (Passport > Back up now and Data and backup have it)
             }
-            category("general", R.drawable.ic_settings, "General", "Theme, search, pages, display", listOf(
-                Sub("Appearance"),
+            category("general", R.drawable.ic_settings, "Browser", "Look, search, tabs, pages", listOf( // 0.0.312: General + Tabs merged
+                Sub("Look and feel"),
                 Row(R.drawable.ic_theme, "Appearance", UiMode.label(act)) { AppearanceScreen.open(act) }, // APPEARANCE A2; V18: Settings stays underneath, Back returns to it
                 Row(R.drawable.ic_edit, "Accessibility", AppearancePrefs.zoomDef(act).takeIf { it != 100 }?.let { "$it %" } ?: "") { AccessScreen.open(act) }, // A2; V18: Settings stays underneath
-                Row(R.drawable.ic_play, "Media", "DRM, background play, YouTube") { MediaScreen.open(act) }, // 0.0.296
                 Sub("Browsing"),
                 Row(R.drawable.ic_search, "Search engine", Util.engineName(act)) {
                     val names = Util.ENGINES.map { it.first }
@@ -927,10 +989,8 @@ object SettingsScreen {
                     fill()
                 },
                 Row(R.drawable.ic_desktop, "Social sites", if (SocialMode.on(act)) "ON" else "OFF", "Facebook, Reddit, X, Discord and more fit the phone. Switch per site") { SocialScreen.open(act) { fill() } }, // 0.0.224
-                Row(R.drawable.ic_shield, "Device permissions", "", "Camera, microphone, notifications, location, install apps") { DevicePerms.open(act) }, // 0.0.281
-                Row(R.drawable.ic_screen, "Default browser", if (isDefaultBrowser()) "Default" else "", "Make MGB open web links") { openDefaultBrowser() } // Step C
-            ))
-            category("tabs", R.drawable.ic_list, "Tabs and motion", "Swipe, close, animations", listOf( // S21f
+                Row(R.drawable.ic_play, "Media", "DRM, background play, YouTube") { MediaScreen.open(act) }, // 0.0.296
+                Row(R.drawable.ic_screen, "Default browser", if (isDefaultBrowser()) "Default" else "", "Make MGB open web links") { openDefaultBrowser() }, // Step C
                 Sub("Tabs"),
                 Row(R.drawable.ic_list, "Swipe a tab card to close it", if (TabPrefs.swipeClose(act)) "ON" else "OFF") {
                     TabPrefs.set(act, "swipe_close", !TabPrefs.swipeClose(act))
@@ -953,6 +1013,7 @@ object SettingsScreen {
                     fill()
                 }
             ))
+            if (query.isBlank() && subPage == null) hub() // 0.0.312
             category("downloads", R.drawable.ic_download, "Downloads", "Library, quality, files", listOf( // S64: arranged by what you do
                 Sub("Library"),
                 Row(R.drawable.ic_download, "Downloads", "", "Files saved on this phone") { DownloadsScreen.open(act) }, // V18
@@ -1080,7 +1141,7 @@ object SettingsScreen {
                     fill()
                 },
             ))
-            category("privacy", R.drawable.ic_shield, "Privacy and security", "Lock, permissions, ads, HTTPS", listOf(
+            category("privacy", R.drawable.ic_shield, "Privacy and security", "Lock, passwords, ads, permissions", listOf( // 0.0.312: + Passwords and email
                 Sub("Security"),
                 Row(R.drawable.ic_lock, "App lock", if (AppLock.on(act)) "ON · ${AppLock.delayLabel(act)}" else "OFF") { // S45
                     fa?.let { AppLock.toggle(it) { fill() } }
@@ -1093,6 +1154,7 @@ object SettingsScreen {
                 Row(R.drawable.ic_list, "Site settings", "${SiteSettings.count(act)} sites") { // STEP D
                     SiteSettings.open(act) { fill() }
                 },
+                Row(R.drawable.ic_shield, "Device permissions", "", "Camera, microphone, notifications, location, install apps") { DevicePerms.open(act) }, // 0.0.281; 0.0.312: moved here from General
                 Row(R.drawable.ic_lock, "HTTPS-only mode", if (HttpsOnly.on(act)) "ON" else "OFF") { // S41
                     HttpsOnly.set(act, !HttpsOnly.on(act))
                     fill()
@@ -1115,7 +1177,16 @@ object SettingsScreen {
                     CosmeticFilter.setCookie(act, !CosmeticFilter.cookieOn(act))
                     Util.toast(act, "Reload the page")
                     fill()
-                }
+                },
+                Sub("Passwords"),
+                Row(R.drawable.ic_lock, "Saved passwords") { fa?.let { PasswordStore.screen(it) } },
+                Row(R.drawable.ic_download, "Import passwords (file or paste)") { fa?.let { PasswordStore.importChoice(it) } },
+                Row(R.drawable.ic_share, "Export passwords (CSV)") { fa?.let { PasswordStore.exportCsv(it) } },
+                Row(R.drawable.ic_lock, "Password generator") { fa?.let { PasswordStore.generatorDialog(it) } },
+                Sub("Email alias"),
+                Row(R.drawable.ic_share, "addy.io API key", if (EmailAlias.hasKey(act)) "set" else "not set") { EmailAlias.keyDialog(act) { fill() } },
+                Row(R.drawable.ic_add, "Create email alias") { EmailAlias.create(act, "") },
+                Row(R.drawable.ic_list, "My email aliases") { EmailAlias.manage(act) }
             ))
             category("data", R.drawable.ic_folder, "Data and backup", "Backup, history, cookies, cache", listOf(
                 Sub("Backup"),
@@ -1148,17 +1219,6 @@ object SettingsScreen {
                         Util.toast(act, "Cache cleared")
                     } catch (e: Exception) { Util.toast(act, "Could not clear") }
                 }
-            ))
-            category("passwords", R.drawable.ic_lock, "Passwords and email", "Saved logins, generator, aliases", listOf(
-                Sub("Passwords"),
-                Row(R.drawable.ic_lock, "Saved passwords") { fa?.let { PasswordStore.screen(it) } },
-                Row(R.drawable.ic_download, "Import passwords (file or paste)") { fa?.let { PasswordStore.importChoice(it) } },
-                Row(R.drawable.ic_share, "Export passwords (CSV)") { fa?.let { PasswordStore.exportCsv(it) } },
-                Row(R.drawable.ic_lock, "Password generator") { fa?.let { PasswordStore.generatorDialog(it) } },
-                Sub("Email alias"),
-                Row(R.drawable.ic_share, "addy.io API key", if (EmailAlias.hasKey(act)) "set" else "not set") { EmailAlias.keyDialog(act) { fill() } },
-                Row(R.drawable.ic_add, "Create email alias") { EmailAlias.create(act, "") },
-                Row(R.drawable.ic_list, "My email aliases") { EmailAlias.manage(act) }
             ))
             category("extensions", R.drawable.ic_folder, "Extensions", "Add, turn on or off, remove", listOf( // S1
                 Row(R.drawable.ic_folder, "Extensions", ExtListScreen.summary(act), "Add .zip or .crx files") { ExtListScreen.open(act) }, // V18

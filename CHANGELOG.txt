@@ -1,3 +1,16 @@
+0.0.312 (MODIFY: Settings is calmer: 10 cards became 6, top has only Your Orbit + quick switches)
+- Why: asked for less clutter and easier navigation. Nothing was removed; every row still exists and is found by search.
+- Browser card = old General + Tabs and motion (groups: Look and feel, Browsing, Tabs, Motion). Media moved next to Default browser.
+- Privacy and security card = old Privacy + Passwords and email (groups Security, Ads and cookies, Passwords, Email alias). Device permissions moved here next to Site permissions.
+- Downloads, Grabber and buttons, Player are now ONE card "Downloads and player" with three rows; each row opens the same page as before (Player is a page now like Downloads).
+- The separate Backup card at the top is gone: Passport > Back up now and Data and backup > Export / Import do the same.
+- Hide bar while scrolling and Reduce motion are shown only in the quick switches at the top (not twice); type their name in search and the row appears.
+- Reset to default of the Browser card also resets the Tabs switches (swipe close, ask before Close all, suspend, reduce motion).
+- Unverified on device (not compiled here).
+
+0.0.311 (ADD: Google sign-in + Google Drive backup in Passport (Your Orbit))
+- Orbit.kt (Your Orbit, Passport, Smart switches) and CloudSync.kt (Authorization API, Drive appData folder). Backup.kt, MainActivity.kt, SettingsScreen.kt wired to them. Needs play-services-auth and the Google Cloud Android client (package com.jabra.mgb + SHA-1).
+
 0.0.301 (MODIFY: Brave filter lists added as built-in lists, Settings > Ad blocker > Filter lists)
 - Why: asked to use github.com/brave/adblock-lists. What that repo is: only Brave's EXTRA lists (brave-unbreak.txt, brave-lists/brave-social.txt and a few more); Brave's main blocking comes from EasyList, EasyPrivacy and uBlock Origin lists (already supported here) plus its own engine.
 - Added (downloaded from raw.githubusercontent.com on update, nothing is bundled; lists are MPL-2.0): "Brave unbreak (Brave)" = default ON (mostly exceptions that stop EasyList / uBO from breaking sites, a few block rules), "Brave social trackers (Brave)" = default OFF (switch it on in the list screen; it can touch social widgets, so it stays off next to Social sites).
