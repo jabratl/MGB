@@ -86,6 +86,7 @@ object SocialChip {
             col.addView(pick("Blur pictures", SocialBlur.siteLabel(bm)) { SocialBlur.cycleSite(act, p.id) })
             val dk = SocialDark.siteMode(act, p.id)
             col.addView(pick("Dark page", SocialDark.siteLabel(dk)) { SocialDark.cycleSite(act, p.id) })
+            col.addView(pick("Pull to refresh here", SocialPull.siteNames[SocialPull.site(act, p.id)] + if (SocialPull.site(act, p.id) == 0) (if (SocialPull.isChat(tab.url)) " (off in chat)" else " (on)") else "", live = true) { SocialPull.setSite(act, p.id, (SocialPull.site(act, p.id) + 1) % 3) })
             col.addView(sw("Link cleaner", "All social sites", SocialClean.on(act)) { v -> SocialClean.setOn(act, v) })
             col.addView(sw("Focus mode", "All social sites: hide Reels / Shorts-like parts", SocialFocus.on(act)) { v -> SocialFocus.setOn(act, v) })
             val muted = SocialMute.count(act)
@@ -123,13 +124,13 @@ object SocialChip {
             return r
         }
 
-        private fun pick(label: String, value: String, opens: Boolean = false, next: () -> Unit): View {
+        private fun pick(label: String, value: String, opens: Boolean = false, live: Boolean = false, next: () -> Unit): View {
             val r = rowBox()
             r.addView(tv(label, 15f, c(R.color.mg_text)), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             val vt = tv(value, 13f, c(R.color.mg_primary), true)
             r.addView(vt)
             if (opens) r.setOnClickListener { dismiss(); try { SocialScreen.open(act) } catch (_: Exception) { } }
-            else r.setOnClickListener { next(); changed = true; render() }
+            else r.setOnClickListener { next(); if (!live) changed = true; render() } // live = applies at once, no page reload
             return r
         }
     }

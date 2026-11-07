@@ -189,6 +189,13 @@ object SocialScreen {
                 null, { SocialMode.touchOn(act) }) { on -> SocialMode.setTouchOn(act, on) }
             switchRow(extra, R.drawable.ic_info, "Instagram Reels viewer", "Tapping a reel opens the full screen reels viewer (swipe up for the next reel) like the app, not the single Post page. Pull-to-reload is also off on reel pages",
                 null, { SocialReels.on(act) }) { on -> SocialReels.setOn(act, on) }
+            lateinit var plTv: TextView // 0.0.304: pull-to-refresh in chats
+            fun plHint() = SocialPull.modeNames[SocialPull.mode(act)] + " (tap to change). Pull down to reload a page: Auto turns it off in Messenger / Instagram / other chats and in reels so scrolling to older messages does not reload. Each site can also be set from its chip (the letter in the address bar)"
+            val plRow = actionRow(extra, R.drawable.ic_info, "Pull to refresh on social sites", plHint()) {
+                SocialPull.setMode(act, (SocialPull.mode(act) + 1) % SocialPull.modeNames.size)
+                plTv.text = plHint()
+            }
+            plTv = ((plRow as LinearLayout).getChildAt(1) as LinearLayout).getChildAt(1) as TextView
             switchRow(extra, R.drawable.ic_info, "Keep social tabs alive", "Social tabs (up to 4) are not freed by Suspend old tabs, so you come back to the same page. Uses more memory",
                 null, { SocialKeep.on(act) }) { on -> SocialKeep.setOn(act, on) }
             switchRow(extra, R.drawable.ic_info, "Clean copied and shared links", "Removes tracking parts (fbclid, utm_, igsh, gclid ...) from a link when you copy or share it. The page itself is not changed",
@@ -710,6 +717,7 @@ object SocialScreen {
                 .append(", skip Use-the-app screens: ").append(yn(SocialMode.intOn(act)))
                 .append(", full screen: ").append(yn(SocialMode.fullOn(act)))
                 .append(", calmer touch: ").append(yn(SocialMode.touchOn(act)))
+                .append(", pull to refresh: ").append(SocialPull.modeNames[SocialPull.mode(act)])
                 .append(", keep tabs alive: ").append(yn(SocialKeep.on(act)))
                 .append(", clean links: ").append(yn(SocialClean.on(act)))
                 .append(", lock: ").append(yn(SocialLock.on(act))).append(" (").append(SocialLock.delayLabel(act)).append(")")
