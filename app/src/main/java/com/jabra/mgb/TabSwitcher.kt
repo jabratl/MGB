@@ -417,7 +417,7 @@ object TabSwitcher {
             val row = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER
-                setPadding(dp(14), 0, dp(14), 0)
+                setPadding(dp(10), 0, dp(10), 0) // 0.0.296: tighter so the + pill and the menu fit at 360 dp
                 background = if (sel) round(if (mode == 1) c(R.color.mg_primary) else c(R.color.mg_bg), 20) else null
                 setOnClickListener { on() }
             }
@@ -533,7 +533,15 @@ object TabSwitcher {
                 return
             }
             val all = tm.allTabs()
-            top.addView(icon(R.drawable.ic_search, "Search tabs") { startSearch() }, FrameLayout.LayoutParams(dp(48), dp(48), Gravity.START or Gravity.CENTER_VERTICAL).apply { marginStart = dp(8) })
+            top.addView(ImageView(act).apply { // 0.0.296: Chrome "+" pill, tonal, top left = New tab
+                setImageResource(R.drawable.ic_add)
+                setColorFilter(c(R.color.mg_primary))
+                scaleType = ImageView.ScaleType.CENTER
+                background = round(tonal(), 20)
+                contentDescription = "New tab"
+                setOnClickListener { it.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK); newTab(mode == 1) }
+                press(this)
+            }, FrameLayout.LayoutParams(dp(56), dp(40), Gravity.START or Gravity.CENTER_VERTICAL).apply { marginStart = dp(12) })
             val seg = LinearLayout(act).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER
@@ -560,19 +568,18 @@ object TabSwitcher {
             bar.addView(icon(R.drawable.ic_back, "Done") { dismiss() }, LinearLayout.LayoutParams(dp(56), dp(52)))
             val lv = TabPrefs.listView(act) // 0.0.281: grid <-> list, the icon shows what a tap switches to
             bar.addView(icon(if (lv) R.drawable.ic_tab_grid else R.drawable.ic_tab_rows, if (lv) "Show cards" else "Show list") { TabPrefs.set(act, "tab_list_view", !lv); animateNext = true; render() }, LinearLayout.LayoutParams(dp(56), dp(52)))
-            bar.addView(View(act), LinearLayout.LayoutParams(0, 1, 1f))
-            bar.addView(ImageView(act).apply {
-                setImageResource(R.drawable.ic_add)
-                setColorFilter(c(R.color.mg_on_primary))
-                scaleType = ImageView.ScaleType.CENTER
-                background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(c(R.color.mg_primary), androidx.core.graphics.ColorUtils.blendARGB(c(R.color.mg_primary), 0xFF7A3CFF.toInt(), 0.35f))).apply { cornerRadius = dp(22).toFloat() } // S72
-                contentDescription = "New tab"
-                setOnClickListener { it.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK); newTab(mode == 1) }
+            bar.addView(LinearLayout(act).apply { // 0.0.296: Chrome "Search your tabs" field in the bar (the + moved to the top left)
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                background = round(c(R.color.mg_surface_variant), 22)
+                setPadding(dp(14), 0, dp(14), 0)
+                contentDescription = "Search your tabs"
+                setOnClickListener { startSearch() }
                 press(this)
-            }, LinearLayout.LayoutParams(dp(96), dp(44)))
-            bar.addView(View(act), LinearLayout.LayoutParams(0, 1, 1f))
+                addView(ImageView(act).apply { setImageResource(R.drawable.ic_search); setColorFilter(c(R.color.mg_text_dim)) }, LinearLayout.LayoutParams(dp(18), dp(18)).apply { marginEnd = dp(8) })
+                addView(TextView(act).apply { text = "Search your tabs"; textSize = 14f; setTextColor(c(R.color.mg_text_dim)); maxLines = 1 })
+            }, LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginStart = dp(4); marginEnd = dp(4) })
             bar.addView(icon(R.drawable.ic_trash, "Close all") { closeAll() }, LinearLayout.LayoutParams(dp(56), dp(52)))
-            bar.addView(View(act), LinearLayout.LayoutParams(dp(56), dp(52))) // 0.0.281: balances Done + view toggle so + stays centred
         }
 
         private fun render() {
@@ -875,6 +882,10 @@ object TabSwitcher {
             })
             if (urlOf(t) != null) items.add(MI("Add Favorite", R.drawable.ic_bookmark_border) { addFav(listOf(t)) })
             if (urlOf(t) != null) items.add(MI("Share", R.drawable.ic_share) { shareTabs(listOf(t)) })
+            urlOf(t)?.let { u -> items.add(MI("Add to home screen", R.drawable.ic_home) { HomeShortcut.add(act, u, t.title) }) } // 0.0.298
+            if (!t.isExt && !t.priv) items.add(MI(if (t.pinned) "Unpin tab" else "Pin tab", R.drawable.ic_pin) { tm.setPinned(t, !t.pinned); animateNext = true; render() }) // 0.0.296
+            val mh = if (t.home || t.isExt) "" else Util.host(t.url)
+            if (mh.isNotBlank()) items.add(MI(if (SiteMute.isMuted(act, mh)) "Unmute site" else "Mute site", R.drawable.ic_mute) { SiteMute.toggle(act, tm, mh); render() }) // 0.0.296
             items.add(MI("Close tab", R.drawable.ic_close) { closeAnimated(anchor, t) })
             popup(anchor, items, -anchor.height + dp(44))
         }
@@ -1220,7 +1231,7 @@ object TabSwitcher {
                         if (swiping) {
                             swiping = false
                             val dx = e.rawX - downX
-                            if (abs(dx) > v.width * 0.35f) {
+                            if (abs(dx) > v.width * 0.35f && !t.pinned) { // 0.0.296: a pinned tab does not swipe away
                                 v.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                                 closeAnimated(v, t, if (dx > 0) 1f else -1f)
                             } else settle(v)
@@ -1504,6 +1515,7 @@ object TabSwitcher {
                 setTextColor(fg)
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             }, LinearLayout.LayoutParams(0, WRAP, 1f))
+            if (!t.home && !t.isExt && SiteMute.isMuted(act, host)) head.addView(ImageView(act).apply { setImageResource(R.drawable.ic_mute); setColorFilter(c(R.color.mg_text_dim)); contentDescription = "Muted" }, LinearLayout.LayoutParams(dp(16), dp(16)).apply { marginEnd = dp(4) }) // 0.0.296
             val unread = if (t.home) 0 else SocialBadge.count(act, t.url, t.title) // 0.0.231 (P7): unread number from the page title
             if (unread > 0) {
                 head.addView(TextView(act).apply {
@@ -1531,11 +1543,11 @@ object TabSwitcher {
                 }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(6) })
             } else {
                 head.addView(ImageView(act).apply {
-                    setImageResource(R.drawable.ic_close)
+                    setImageResource(if (t.pinned) R.drawable.ic_pin else R.drawable.ic_close) // 0.0.296: pinned = pin icon, no X
                     setColorFilter(fg)
                     scaleType = ImageView.ScaleType.CENTER
                     contentDescription = "Close $title" // S4
-                    setOnClickListener { closeAnimated(box, t) }
+                    if (!t.pinned) setOnClickListener { closeAnimated(box, t) }
                 }, LinearLayout.LayoutParams(dp(HEAD_H), dp(HEAD_H))) // S4: 36dp touch target (was 30)
             }
             box.addView(head, FrameLayout.LayoutParams(MATCH, dp(HEAD_H), Gravity.TOP))
@@ -1601,9 +1613,9 @@ object TabSwitcher {
                 }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(10) })
             } else {
                 line.addView(ImageView(act).apply {
-                    setImageResource(R.drawable.ic_close); setColorFilter(c(R.color.mg_text))
+                    setImageResource(if (t.pinned) R.drawable.ic_pin else R.drawable.ic_close); setColorFilter(c(R.color.mg_text)) // 0.0.296
                     scaleType = ImageView.ScaleType.CENTER; contentDescription = "Close $title"
-                    setOnClickListener { closeAnimated(box, t) }
+                    if (!t.pinned) setOnClickListener { closeAnimated(box, t) }
                 }, LinearLayout.LayoutParams(dp(44), dp(44)))
             }
             box.addView(line, FrameLayout.LayoutParams(MATCH, MATCH))

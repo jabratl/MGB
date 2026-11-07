@@ -89,6 +89,8 @@ class TabManager(
         var priv: Boolean = false
         /** T3: shows a saved page (.mht from our saved_pages folder): offline flags (PageSave.mark), no ad / https / per-site hooks. */
         var savedPage: Boolean = false
+        /** 0.0.296: pinned tab: first in the list, no close X, no swipe-away; saved in the session (key pn). */
+        var pinned: Boolean = false
         val loading: Boolean get() = progress < 100
         /** Extension page (downloader.html, player.html ...) served by EngineHost. */
         val isExt: Boolean get() = url.startsWith(ContentInjector.EXT_ORIGIN)
@@ -392,6 +394,7 @@ class TabManager(
         val idx = HashMap<Int, Int>() // S41: tab id -> position in the saved list (groups)
         val ts = JSONArray() // STEP E: last opened time of each saved tab (same order)
         val tp = JSONArray() // 0.0.276 (C5): login profile name of each saved tab (same order), "" = none
+        val pn = JSONArray() // 0.0.296: pinned flag of each saved tab (same order)
         var activeIdx = 0
         for (t in tabs) {
             if (t.priv) continue // S26: private tabs are never saved
@@ -402,11 +405,13 @@ class TabManager(
             arr.put(u)
             ts.put(t.lastActive)
             tp.put(t.socialProfile ?: "")
+            pn.put(if (t.pinned) 1 else 0)
         }
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString("tabs", arr.toString())
             .putString("ts", ts.toString())
             .putString("tp", tp.toString())
+            .putString("pn", pn.toString())
             .putString("groups", TabSwitcher.exportGroups(idx))
             .putInt("active", activeIdx)
             .apply()
@@ -421,6 +426,7 @@ class TabManager(
         val act = sp.getInt("active", 0).coerceIn(0, arr.length() - 1)
         val ts = try { JSONArray(sp.getString("ts", "[]") ?: "[]") } catch (_: Exception) { JSONArray() } // STEP E
         val tp = try { JSONArray(sp.getString("tp", "[]") ?: "[]") } catch (_: Exception) { JSONArray() } // 0.0.276 (C5)
+        val pn = try { JSONArray(sp.getString("pn", "[]") ?: "[]") } catch (_: Exception) { JSONArray() } // 0.0.296
         var target: Tab? = null
         val ids = ArrayList<Int>()
         for (i in 0 until arr.length()) {
@@ -429,6 +435,7 @@ class TabManager(
             val t = newTab(null, 0, false, false, false, keep ?: SocialMode.profileName(ctx, u)) ?: break // 0.0.234 (P9)
             ids.add(t.id)
             t.url = u
+            t.pinned = pn.optInt(i, 0) == 1 // 0.0.296
             ts.optLong(i, 0L).let { if (it > 0L) t.lastActive = it } // STEP E
             if (u == HOME_PAGE) t.home = true else t.pending = u // S13
             if (PageSave.isSaved(ctx, u)) PageSave.mark(t) // T3: a saved page reloads from its file with the offline flags
@@ -608,6 +615,7 @@ class TabManager(
                 if (SiteConfig.has(url, SiteConfig.DESKTOP) && !tab.desktop) container.post { setDesktop(tab, true) }
             }
             if (!tab.isExt && view != null) YtAds.flag(view, url) // 0.0.105
+            if (!tab.isExt && view != null) SiteMute.flag(view, url) // 0.0.296: Mute site
             if (!tab.isExt && !tab.savedPage && view != null) WebNotify.inject(view) // 0.0.284
             if (!tab.isExt && !tab.savedPage && view != null && url != null && SocialMode.ensure(ctx, view, url, tab.desktop)) container.post { view.stopLoading(); view.loadUrl(url) } // 0.0.224
             TabsApi.onUpdated(tab, JSONObject().put("status", "loading").put("url", tab.url)) // S6
@@ -625,6 +633,7 @@ class TabManager(
             if (!tab.isExt && !tab.priv && tab.url.startsWith("http")) view?.evaluateJavascript(PasswordStore.HOOK_JS, null) // S30
             if (!tab.isExt && !tab.priv && tab.url.startsWith("http") && WebVideo.onFor(ctx, tab.url)) view?.evaluateJavascript(WebVideo.JS, null) // S45
             if (!tab.isExt) YtAds.flag(view, tab.url) // 0.0.105
+            if (!tab.isExt) SiteMute.flag(view, tab.url) // 0.0.296
             if (!tab.isExt) CosmeticFilter.inject(ctx, view, tab.url) // S42
             if (!tab.isExt) SocialMode.inject(ctx, view, tab.url, tab.desktop) // 0.0.224
             // S13: browsing history (web pages only, not extension pages)
@@ -966,6 +975,15 @@ class TabManager(
     // ---------- tab switcher ----------
 
     fun allTabs(): List<Tab> = tabs.toList() // S31
+    /** 0.0.296: Pin tab / Unpin tab. Pinned tabs sit first (a new pin goes behind the older pins; an unpinned tab goes right behind the pins). */
+    fun setPinned(t: Tab, on: Boolean) {
+        if (t.pinned == on) return
+        t.pinned = on
+        moveTo(t, tabs.count { it.pinned && it !== t })
+        saveSession()
+        listener.onTabsChanged()
+    }
+
     fun moveTo(t: Tab, index: Int) { // S21b: Undo puts a reopened tab back at its old place
         val i = tabs.indexOf(t)
         if (i < 0) return

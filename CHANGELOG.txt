@@ -1,3 +1,23 @@
+0.0.298 (BUILD: Add to home screen, Chrome style, from the page menu and the tab card menu)
+- Why: Chrome's "Add to Home screen" (Create shortcut) was missing in Thazir.
+- How it works: page menu (3-dot) > "Add to home screen" (page group, after Save page) or tab switcher > tab card menu > "Add to home screen". A box asks for the name (page title filled in), then the launcher shows its own "Add" confirm. Tap on the new icon = Thazir opens that page in a NEW tab (if Thazir is already running it comes to the front, no second copy).
+- Icon: the site's saved favicon centred on a light rounded tile (Favicons.get(host)); no favicon saved yet = first letter of the name on the accent colour. Same id for the same URL, so adding twice does not make two.
+- Rules: only http / https, never from a private tab, not on Home or extension pages (row greyed / hidden). The row can be hidden in Customise menu (key "Add to home screen", Page group).
+- Not a PWA: no own window and no manifest install; it is a shortcut that opens a tab. (Social sites keep their own pin + Site window from 0.0.230 / 0.0.247, unchanged.)
+- Files: HomeShortcut.kt (new), MainActivity.kt (cold start + onNewIntent hook, page menu row), MenuCustom.kt (PAGE entry), TabSwitcher.kt (tab card menu row), build.gradle.kts, CHANGELOG, HANDOFF. Manifest: nothing to add (explicit intent to MainActivity).
+- Could break: launchers without pin support (toast "This launcher cannot pin shortcuts"); Android 7 and older need the old INSTALL_SHORTCUT route and may refuse; icon shape differs per launcher.
+- NOT tested: Gradle build (CI), device (add from page menu + from tab card, confirm on Pixel / Samsung / Xiaomi launcher, tap icon while Thazir closed / open / in background, rotate after tap = no second tab, private tab row hidden, Customise menu toggle).
+
+0.0.297 (MODIFY: Pin tab, Mute site, Chrome-style switcher top bar; drag-to-group checked)
+- Why: the three open items from the Chrome tab switcher video.
+- Pin tab / Unpin tab (tab card menu, normal tabs): pinned tabs sit first, show a pin icon instead of the X, do not swipe away; they are saved in the session (key pn) and come back pinned. "Close tab" in the menu still closes one on purpose.
+- Mute site / Unmute site (tab card menu, web tabs): mutes every <video> / <audio> of that site in all its tabs and keeps it muted on later pages and after restart (SiteMute.kt, key muted_sites, in Reset). Muted tabs show a small speaker-off icon on the card. Not covered: sound made only with Web Audio.
+- Switcher top bar: the Chrome "+" pill (tonal, top left) = New tab; the segment toggle (tabs / private / groups) is tighter so it fits at 360 dp; the old gradient + in the bottom bar is now a "Search your tabs" field (tap = search), same Done, list / grid toggle and Close all.
+- Drag-to-group: already complete from earlier steps (long press, drag onto a tab = new group, onto a group card = add, "Remove from group" zone inside a group, Undo bar). Nothing changed.
+- Files: SiteMute.kt (new), res/drawable/ic_pin.xml + ic_mute.xml (new), TabManager.kt (Tab.pinned, setPinned, session pn, mute hook x2), TabSwitcher.kt (menu items, pinned X / swipe, muted cue, top "+" pill, bottom search field), SettingsScreen.kt (RESET key), build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: tab order after pin / unpin (moveTo + saveSession); the new bottom search field width on 360 dp; the top bar on 360 dp (+ pill, 3 segments, menu).
+- NOT tested: Gradle build (CI), device (pin / unpin / restart, swipe a pinned card, mute on a YouTube and a plain video page, unmute, top bar + bottom bar at 360 and 1280 dp, dark + light, select mode, private mode).
+
 0.0.296 (BUILD: Settings > General > Media = Widevine DRM, Background play, YouTube switches)
 - Why: the Brave "Media" screen (screenshot) as a feature list. DRM only if it does not clash with the native downloader.
 - DRM CHECK (done before adding): the downloader never looks at DRM playback. DRM items are found from the manifest ("protected" flag in Sniffer / extension) and already end in "DRM protected: cannot be downloaded" (DetectedPanel, FloatingDl, NativeBatch skip them). The page's licence request is a POST: Sniffer ignores everything except GET, and shouldInterceptRequest returns null for it, so nothing is touched. Granting the protected-media permission only lets the page PLAY. => no conflict, so it is added.

@@ -188,6 +188,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         else if (AppearancePrefs.startPage(this)) tabs.newTab(TabManager.HOME_PAGE) // A8: restored tabs + a fresh home tab selected
         LinkInbox.fromIntent(this, tabs, intent) // D1
         if (savedInstanceState == null) SocialShortcuts.fromIntent(this, tabs, intent) // 0.0.230 (P6): home-screen shortcut
+        if (savedInstanceState == null) HomeShortcut.fromIntent(this, tabs, intent) // 0.0.298: "Add to home screen" icon of a page
         if (savedInstanceState == null) SocialShortcuts.syncDynamic(this) // 0.0.253 (D6): launcher long-press shortcuts (switch sm_dyn)
         if (savedInstanceState == null) { SocialLinks.sync(this); SocialLinks.fromIntent(this, tabs, intent) } // 0.0.246 (A6): link from another app
         UpdateManager.autoCheck(this)
@@ -303,6 +304,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             MenuSheet.Item("Page info", R.drawable.ic_info, canMark) { PageInfo.show(this, tabs) }, // S29
             MenuSheet.Item("View page source", R.drawable.ic_code, canMark) { tabs.active?.let { PageSource.open(this, it) } }, // T2
             MenuSheet.Item("Save page", R.drawable.ic_save, canMark && cur?.priv != true) { tabs.active?.let { PageSave.save(this, it) } }, // T3
+            MenuSheet.Item("Add to home screen", R.drawable.ic_home, canMark && cur?.priv != true) { tabs.active?.let { HomeShortcut.add(this, it.pending ?: it.url, it.title) } }, // 0.0.298
             MenuSheet.Item("Userscripts", R.drawable.ic_code, canMark, cur?.let { c -> Userscripts.matchingNow(this, c.url).count { it.on }.let { n -> if (n > 0) "$n active" else "" } } ?: "") { Userscripts.pageSheet(this, tabs.active?.url ?: "") }, // T8
             MenuSheet.Item("Fill password", R.drawable.ic_lock, canMark && cur?.priv != true) { PasswordStore.fill(this, tabs) }, // S30
             MenuSheet.Item("Email alias", R.drawable.ic_share, true) { EmailAlias.create(this, cur?.url?.takeIf { canMark }?.let { Util.host(it) } ?: "") }, // S30
@@ -541,6 +543,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         super.onNewIntent(intent)
         LinkInbox.fromIntent(this, tabs, intent)
         SocialShortcuts.fromIntent(this, tabs, intent) // 0.0.230 (P6)
+        HomeShortcut.fromIntent(this, tabs, intent) // 0.0.298
         SocialLinks.fromIntent(this, tabs, intent) // 0.0.246 (A6)
     }
 
