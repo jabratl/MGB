@@ -195,6 +195,12 @@ object SocialScreen {
                 null, { SocialApp.on(act, SocialApp.AWAKE) }) { on -> SocialApp.set(act, SocialApp.AWAKE, on) }
             switchRow(extra, R.drawable.ic_info, "Light vibration on Like / Save", "A small tick when you like, save or follow, or double-tap a picture, like the app",
                 null, { SocialApp.on(act, SocialApp.HAPTIC) }) { on -> SocialApp.set(act, SocialApp.HAPTIC, on) }
+            switchRow(extra, R.drawable.ic_info, "Reels with sound", "Reels / videos play with sound like the app instead of starting muted. If you mute one by hand, it stays muted until you unmute",
+                null, { SocialApp.on(act, SocialApp.SOUND) }) { on -> SocialApp.set(act, SocialApp.SOUND, on) } // 0.0.306
+            switchRow(extra, R.drawable.ic_info, "Auto next reel (experimental)", "When a reel ends, the viewer moves to the next reel by itself. Off by default; a site change can stop it working",
+                null, { SocialApp.on(act, SocialApp.NEXT) }) { on -> SocialApp.set(act, SocialApp.NEXT, on) }
+            switchRow(extra, R.drawable.ic_screen, "Pinch to zoom pictures", "Lets you pinch-zoom on social pages that lock zoom (not on chats). Applies from the next page load",
+                null, { SocialApp.on(act, SocialApp.ZOOM) }) { on -> SocialApp.set(act, SocialApp.ZOOM, on) }
             lateinit var plTv: TextView // 0.0.304: pull-to-refresh in chats
             fun plHint() = SocialPull.modeNames[SocialPull.mode(act)] + " (tap to change). Pull down to reload a page: Auto turns it off in Messenger / Instagram / other chats and in reels so scrolling to older messages does not reload. Each site can also be set from its chip (the letter in the address bar)"
             val plRow = actionRow(extra, R.drawable.ic_info, "Pull to refresh on social sites", plHint()) {

@@ -17,13 +17,19 @@ import android.webkit.WebView
  */
 object SocialApp {
     const val SHARE = "sm_share"; const val AWAKE = "sm_awake"; const val HAPTIC = "sm_haptic"
+    const val SOUND = "sm_sound"; const val NEXT = "sm_next"; const val ZOOM = "sm_zoom"
+    private val DEF_OFF = setOf(NEXT)
     private fun sp(c: Context) = c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
-    fun on(c: Context, k: String): Boolean = sp(c).getBoolean(k, true)
+    fun on(c: Context, k: String): Boolean = sp(c).getBoolean(k, k !in DEF_OFF)
     fun set(c: Context, k: String, v: Boolean) { sp(c).edit().putBoolean(k, v).apply() }
 
-    private fun js(c: Context): String {
+    private fun js(c: Context, chat: Boolean): String {
         val s = if (on(c, SHARE)) 1 else 0; val a = if (on(c, AWAKE)) 1 else 0; val h = if (on(c, HAPTIC)) 1 else 0
-        return "(function(){try{if(!window.MGBSOC)return;window.__mgSoc={s:$s,a:$a,h:$h};if(window.__mgSocOn)return;window.__mgSocOn=1;var C=function(){return window.__mgSoc||{}};" +
+        val u = if (on(c, SOUND)) 1 else 0; val n = if (on(c, NEXT)) 1 else 0; val z = if (on(c, ZOOM) && !chat) 1 else 0
+        return "(function(){try{if(!window.MGBSOC)return;window.__mgSoc={s:$s,a:$a,h:$h,u:$u,n:$n,z:$z};" +
+            // pinch zoom: the page may not lock the viewport (zoom a photo like in the app); not on chat pages
+            "if($z){try{var vm=document.querySelector('meta[name=viewport]');if(vm&&/maximum-scale|user-scalable/i.test(vm.content)){vm.content=vm.content.replace(/,?\\s*(maximum-scale|user-scalable|minimum-scale)\\s*=\\s*[^,]*/gi,'')+',user-scalable=yes,maximum-scale=5';}}catch(e){}}" +
+            "if(window.__mgSocOn)return;window.__mgSocOn=1;var C=function(){return window.__mgSoc||{}};" +
             // share sheet
             "try{var sh=function(d){d=d||{};if(!C().s)return Promise.reject(new DOMException('off','NotAllowedError'));" +
             "try{MGBSOC.share(String(d.title||''),String(d.text||''),String(d.url||location.href))}catch(e){return Promise.reject(e)}return Promise.resolve()};" +
@@ -35,6 +41,12 @@ object SocialApp {
             "['playing','pause','ended','emptied','abort'].forEach(function(n){document.addEventListener(n,function(){setTimeout(chk,50)},true)});" +
             "setInterval(chk,4000);document.addEventListener('visibilitychange',chk);" +
             // haptic tick
+            // reels sound on (like the app) + auto next reel
+            "var um=0;document.addEventListener('click',function(e){try{var b=e.target&&e.target.closest?e.target.closest('[aria-label]'):null;if(!b)return;if(/audio|mute|sound|volume/i.test(b.getAttribute('aria-label')||'')){setTimeout(function(){var v=document.querySelector('video');if(v)um=v.muted?1:0},250)}}catch(x){}},true);" +
+            "document.addEventListener('playing',function(e){try{var v=e.target;if(!C().u||um||!v||v.tagName!=='VIDEO'||!v.muted)return;if(!/^\\/(?:[^\\/]+\\/)?(reels?|stories|p|tv)\\//.test(location.pathname)&&location.pathname!=='/'&&location.pathname.indexOf('/reels')!==0)return;v.muted=false;if(v.volume===0)v.volume=1}catch(x){}},true);" +
+            "document.addEventListener('timeupdate',function(e){try{var v=e.target;if(!C().n||!v||v.tagName!=='VIDEO'||!(v.duration>2)||v.currentTime<v.duration-0.35||!/\\/reels?\\//.test(location.pathname))return;" +
+            "var n=Date.now();if(v.__mgN&&n-v.__mgN<4000)return;v.__mgN=n;var el=v.parentElement;while(el&&el!==document.body){var cs=getComputedStyle(el);if(/(auto|scroll)/.test(cs.overflowY)&&el.scrollHeight>el.clientHeight+10){el.scrollBy({top:el.clientHeight,behavior:'smooth'});return}el=el.parentElement}" +
+            "document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',code:'ArrowDown',keyCode:40,bubbles:true}))}catch(x){}},true);" +
             "var lt=0;function tick(){if(!C().h)return;var n=Date.now();if(n-lt<250)return;lt=n;try{MGBSOC.tick()}catch(e){}}" +
             "document.addEventListener('click',function(e){try{var b=e.target&&e.target.closest?e.target.closest('[aria-label],[role=button]'):null;if(!b)return;" +
             "var l=(b.getAttribute('aria-label')||'').toLowerCase();if(/^(like|unlike|save|remove|follow|following|upvote|repost|retweet|bookmark|heart|love)\\b/.test(l)||/^remove (like|save)/.test(l))tick();}catch(x){}},true);" +
@@ -43,7 +55,7 @@ object SocialApp {
             "}catch(e){}})();"
     }
 
-    fun inject(ctx: Context, view: WebView) { try { view.evaluateJavascript(js(ctx), null) } catch (_: Exception) { } }
+    fun inject(ctx: Context, view: WebView, url: String? = null) { try { view.evaluateJavascript(js(ctx, SocialPull.isChat(url)), null) } catch (_: Exception) { } }
 
     class Bridge(private val tm: TabManager, private val web: WebView) {
         private val ui = Handler(Looper.getMainLooper())
