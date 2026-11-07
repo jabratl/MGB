@@ -73,6 +73,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         lastNight = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         Orient.apply(this) // S35: phones keep the browser in portrait (setting: Rotate browser with phone)
         CrashLog.install(this) // FIX: save crash trace for the next start
+        CloudSync.init(this) // 0.0.311: Google sign-in launcher (before STARTED)
         BrowserExtras.init(this) // S14 (A7b: every window registers its own launchers, focus() picks the one in front): file chooser + permission launchers (before STARTED)
 
         Util.loadEngine(this) // S33

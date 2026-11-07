@@ -109,8 +109,9 @@ object Backup {
         if (!p.getBoolean("auto_backup", false)) return
         val now = System.currentTimeMillis()
         if (now - p.getLong("auto_backup_t", 0L) < 24L * 3600L * 1000L) return
-        val text = try { build(act, booleanArrayOf(true, true, true, true, true)) } catch (e: Exception) { return }
+        val text = try { build(act, Orbit.parts(act)) } catch (e: Exception) { return }
         p.edit().putLong("auto_backup_t", now).apply()
+        if (CloudSync.signedIn(act)) CloudSync.upload(act, text, false) { } // 0.0.311: also to Google Drive, never shows a Google screen
         val app = act.applicationContext
         Thread { try { writeAuto(app, text) } catch (e: Exception) { /* next start tries again after 24 h */ } }.start()
     }
@@ -135,7 +136,7 @@ object Backup {
     }
 
     fun exportData(act: Activity) {
-        val sel = booleanArrayOf(true, true, true, true, true)
+        val sel = Orbit.parts(act) // 0.0.311: Passport switches pre-select the parts
         MaterialAlertDialogBuilder(act)
             .setTitle("Export data")
             .setMultiChoiceItems(NAMES, sel) { _, i, on -> sel[i] = on }
@@ -173,6 +174,9 @@ object Backup {
         if (sel[4]) o.put("closed", ClosedTabs.toJson())
         return o.toString(2)
     }
+
+    /** 0.0.311: the parts switched on in Passport, as text (Google Drive save). */
+    fun passportJson(act: Activity): String = build(act, Orbit.parts(act))
 
     /** 0.0.290: the whole backup (all five parts) as text, for Cloud backup. */
     fun cloudJson(act: Activity): String = build(act, booleanArrayOf(true, true, true, true, true))
