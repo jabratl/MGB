@@ -521,6 +521,7 @@ class TabManager(
         Userscripts.attach(ctx, w, priv) // T7: userscripts (before first load; also for a WebView made again after suspend)
         if (!priv) w.addJavascriptInterface(PasswordStore.Bridge(this), "MGBPW") // S30: save-login hook (before first load)
         if (!priv) w.addJavascriptInterface(WebVideo.Bridge(this), "MGBVID") // S45: in-page video button
+        w.addJavascriptInterface(SocialApp.Bridge(this, w), "MGBSOC") // 0.0.305: share sheet / keep screen on / haptic tick (social pages only call it)
         if (!priv) w.addJavascriptInterface(WebNotify.Bridge(this, w), "MGBNOT") // 0.0.284: website notifications
         // S14: plain download links (and blob:/data: links) in a tab go to the native downloader
         w.setDownloadListener { url, ua, disp, mime, _ ->
