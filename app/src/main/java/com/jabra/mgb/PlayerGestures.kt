@@ -27,6 +27,23 @@ object PlayerGestures {
     /** cur plus steps of 0.1, kept in 0.25 .. 5.0 and on one decimal. */
     fun nextHold(cur: Float, steps: Int): Float = (((cur + steps * 0.1f) * 10f).roundToInt() / 10f).coerceIn(HOLD_MIN, HOLD_MAX)
 
+    /**
+     * 0.0.280: smart slide. The speed follows how far the finger is from where the long press started, measured against the room
+     * that is left on that side of the screen: top edge = HOLD_MAX, bottom edge = HOLD_MIN, back at the start = the start speed.
+     * Log scale (2x -> 4x feels the same as 1x -> 2x). 0.05 steps under 1x, 0.1 above.
+     * startY / y in px inside the touch layer, h = its height, edge = dead zone at the screen edge so the finger need not touch it.
+     */
+    fun slideHold(startSpeed: Float, startY: Float, y: Float, h: Float, minRoom: Float, edge: Float): Float {
+        val up = y < startY
+        val room = (if (up) startY else h - startY) - edge
+        val t = (Math.abs(y - startY) / Math.max(room, minRoom)).coerceIn(0f, 1f)
+        if (t >= 0.985f) return if (up) HOLD_MAX else HOLD_MIN
+        val target = if (up) HOLD_MAX else HOLD_MIN
+        val v = startSpeed * Math.pow((target / startSpeed).toDouble(), t.toDouble()).toFloat()
+        val step = if (v < 1f) 0.05f else 0.1f
+        return ((v / step).roundToInt() * step).coerceIn(HOLD_MIN, HOLD_MAX)
+    }
+
     /** "2.0x  >>", "0.25x  >>". */
     fun chipText(s: Float): String {
         var t = String.format(java.util.Locale.US, "%.2f", s).trimEnd('0')

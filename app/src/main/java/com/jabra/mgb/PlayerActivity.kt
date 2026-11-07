@@ -112,14 +112,6 @@ class PlayerActivity : AppCompatActivity() {
             ctx.startActivity(i)
         }
 
-        /** 0.0.279: x.en.srt gives srt; old downloads called x.en.srt.txt give srt too. */
-        private fun subExtOf(n: String): String? {
-            var s = n.lowercase()
-            if (s.endsWith(".txt")) s = s.removeSuffix(".txt")
-            val e = s.substringAfterLast('.', "")
-            return if (e in SUB_EXT) e else null
-        }
-
         private fun subMime(ext: String): String? = when (ext) {
             "srt" -> MimeTypes.APPLICATION_SUBRIP
             "vtt" -> MimeTypes.TEXT_VTT
@@ -598,26 +590,14 @@ class PlayerActivity : AppCompatActivity() {
             val base = MediaStore.Downloads.EXTERNAL_CONTENT_URI
             contentResolver.query(base, arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME),
                 MediaStore.MediaColumns.RELATIVE_PATH + "=?", arrayOf(rel), null)?.use { c ->
-                val found = ArrayList<Triple<Long, String, Boolean>>()
-                while (c.moveToNext()) {
+                while (c.moveToNext() && subs.size < 8) {
                     val n = c.getString(1) ?: continue
                     if (!n.startsWith(stem)) continue
-                    val rest = n.substring(stem.length)
-                    if (rest.isNotEmpty() && rest[0] !in ".-_ ") continue // 0.0.279: Episode 1 must not take the subtitle of Episode 10
-                    if (subExtOf(n) == null) continue
-                    found.add(Triple(c.getLong(0), n, n.lowercase().endsWith(".txt")))
-                }
-                val seen = HashSet<String>()
-                for ((id, n, legacy) in found.sortedBy { it.third }) { // proper names first, old .srt.txt copies only when nothing else has that language
-                    if (subs.size >= 8) break
-                    val ext = subExtOf(n) ?: continue
+                    val ext = n.substringAfterLast('.', "").lowercase()
+                    if (ext !in SUB_EXT) continue
                     val mime = subMime(ext) ?: continue
-                    var tail = n.removePrefix(stem)
-                    if (legacy) tail = tail.dropLast(4)
-                    tail = tail.dropLast(ext.length + 1)
-                    val lang = tail.trim('.', ' ', '_', '-')
-                    if (!seen.add(lang.lowercase() + "|" + ext)) continue
-                    subs.add(subConfig(ContentUris.withAppendedId(base, id), mime, lang, n))
+                    val lang = n.removePrefix(stem).removeSuffix(".$ext").trim('.', ' ', '_', '-')
+                    subs.add(subConfig(ContentUris.withAppendedId(base, c.getLong(0)), mime, lang, n))
                 }
             }
         } catch (e: Exception) {
@@ -1436,7 +1416,7 @@ class PlayerActivity : AppCompatActivity() {
                 speedBeforeBoost = p.playbackParameters.speed
                 holdCur = PlayerGestures.holdSpeed(this@PlayerActivity)
                 holdLastY = e.y
-                holdAcc = 0f
+                holdAcc = holdCur // 0.0.280: holdLastY = start Y, holdAcc = start speed of the slide (PlayerGestures.slideHold)
                 p.playbackParameters = PlaybackParameters(holdCur, 1f)
                 hud.visibility = View.GONE // the chip and the level bar never show together
                 holdChip.text = PlayerGestures.chipText(holdCur)
@@ -1497,13 +1477,11 @@ class PlayerActivity : AppCompatActivity() {
             if (sgd.isInProgress || ev.pointerCount > 1) return@setOnTouchListener true
             gd.onTouchEvent(ev)
             if (boost && ev.actionMasked == MotionEvent.ACTION_MOVE && PlayerGestures.holdSlide(this)) {
-                // P8: after a long press the GestureDetector sends no scroll events: slide up / down here, 0.1x per ~28 dp
-                holdAcc += holdLastY - ev.y
-                holdLastY = ev.y
-                val st = (holdAcc / dp(28)).toInt()
-                if (st != 0) {
-                    holdAcc -= st * dp(28)
-                    holdCur = PlayerGestures.nextHold(holdCur, st)
+                // P8: after a long press the GestureDetector sends no scroll events: slide up / down here
+                // 0.0.280: smart slide = distance from the start point against the room left on that side (full range in one swipe)
+                val nv = PlayerGestures.slideHold(holdAcc, holdLastY, ev.y, touch.height.toFloat(), dp(120).toFloat(), dp(28).toFloat())
+                if (abs(nv - holdCur) > 0.001f) {
+                    holdCur = nv
                     player?.playbackParameters = PlaybackParameters(holdCur, 1f)
                     holdChip.text = PlayerGestures.chipText(holdCur)
                 }
