@@ -882,6 +882,7 @@ object TabSwitcher {
             })
             if (urlOf(t) != null) items.add(MI("Add Favorite", R.drawable.ic_bookmark_border) { addFav(listOf(t)) })
             if (urlOf(t) != null) items.add(MI("Share", R.drawable.ic_share) { shareTabs(listOf(t)) })
+            urlOf(t)?.let { u -> items.add(MI("Install app", R.drawable.ic_add) { WebApp.install(act, if (t.suspended) null else t.web, u, t.title) }) } // 0.0.299
             urlOf(t)?.let { u -> items.add(MI("Add to home screen", R.drawable.ic_home) { HomeShortcut.add(act, u, t.title) }) } // 0.0.298
             if (!t.isExt && !t.priv) items.add(MI(if (t.pinned) "Unpin tab" else "Pin tab", R.drawable.ic_pin) { tm.setPinned(t, !t.pinned); animateNext = true; render() }) // 0.0.296
             val mh = if (t.home || t.isExt) "" else Util.host(t.url)

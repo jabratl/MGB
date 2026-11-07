@@ -44,6 +44,49 @@ object SiteWindow {
             .setData(Uri.parse("mgbsite://" + id))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT)
 
+    // ---- 0.0.299 "Install app": any web page as its own window (WebApp.kt makes the shortcut) ----
+    const val EXTRA_APP_URL = "mgb_app_url"
+    private const val EXTRA_APP_ID = "mgb_app_id"
+    private const val EXTRA_APP_NAME = "mgb_app_name"
+    private const val EXTRA_APP_BAR = "mgb_app_nobar"
+    private const val EXTRA_APP_THEME = "mgb_app_theme"
+
+    /** Own document task per app id (same app again = same window), like the social site windows. */
+    fun appIntent(ctx: Context, id: String, url: String, name: String, hideBar: Boolean, theme: Int): Intent =
+        Intent(ctx, MainActivity::class.java).setAction(ACTION)
+            .putExtra(EXTRA_APP_URL, url).putExtra(EXTRA_APP_ID, id).putExtra(EXTRA_APP_NAME, name)
+            .putExtra(EXTRA_APP_BAR, hideBar).putExtra(EXTRA_APP_THEME, theme)
+            .setData(Uri.parse("mgbapp://" + id))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT)
+
+    /** MainActivity.onCreate of an installed app window: one tab with the app address, own Recent apps card, bar hidden when chosen. Only the first start loads the page. */
+    private fun startApp(act: Activity, tabs: TabManager, intent: Intent) {
+        val url = intent.getStringExtra(EXTRA_APP_URL).orEmpty()
+        if (!(url.startsWith("http://") || url.startsWith("https://"))) { tabs.newTab(TabManager.HOME_PAGE); return }
+        val id = intent.getStringExtra(EXTRA_APP_ID).orEmpty()
+        val name = intent.getStringExtra(EXTRA_APP_NAME).orEmpty().ifBlank { Util.host(url) }
+        val icon = try { WebApp.iconFile(act, id).takeIf { it.exists() }?.let { android.graphics.BitmapFactory.decodeFile(it.absolutePath) } } catch (_: Exception) { null }
+            ?: Favicons.get(Util.host(url))
+        describeApp(act, name, icon, intent.getIntExtra(EXTRA_APP_THEME, 0))
+        if (intent.getBooleanExtra(EXTRA_APP_BAR, false)) act.findViewById<android.view.View>(R.id.bottom_bar)?.let { b ->
+            (b.layoutParams as? android.view.ViewGroup.MarginLayoutParams)?.apply { height = 0; topMargin = 0; bottomMargin = 0 } // clipped, so later "visible" calls show nothing
+            b.visibility = android.view.View.INVISIBLE; b.requestLayout()
+        }
+        tabs.newTab(url)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun describeApp(act: Activity, label: String, icon: Bitmap?, theme: Int) {
+        try {
+            val bmp = icon?.let { Bitmap.createScaledBitmap(it, 96, 96, true) } ?: Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888).also { b ->
+                val c = Canvas(b); c.drawColor(act.getColor(R.color.mg_primary))
+                val t = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = act.getColor(R.color.mg_on_primary); textSize = 44f; typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL); textAlign = Paint.Align.CENTER }
+                c.drawText(label.trim().take(1).uppercase(), 48f, 48f - (t.ascent() + t.descent()) / 2f, t)
+            }
+            act.setTaskDescription(ActivityManager.TaskDescription(label, bmp, if (theme != 0) theme else act.getColor(R.color.mg_primary)))
+        } catch (e: Exception) { android.util.Log.w("Thazir.win", "app description failed", e) }
+    }
+
     /** Start (or bring to front) the window of this site. False = could not start (caller falls back to a normal tab). */
     fun launch(act: Activity, p: SocialProfiles.Profile): Boolean = try {
         act.startActivity(intentFor(act, p.id)); true
@@ -53,6 +96,7 @@ object SiteWindow {
 
     /** MainActivity.onCreate of a site window: one tab with the site start page + Recent apps card name / icon. */
     fun start(act: Activity, tabs: TabManager, intent: Intent?, fresh: Boolean) {
+        if (intent != null && intent.hasExtra(EXTRA_APP_URL)) { startApp(act, tabs, intent); return } // 0.0.299 (installed app window)
         val p = siteId(intent)?.let { SocialProfiles.byId(it) }
         if (p == null) { tabs.newTab(TabManager.HOME_PAGE); return }
         if (!SocialProfiles.siteOn(act, p.id)) SocialProfiles.setSiteOn(act, p.id, true)

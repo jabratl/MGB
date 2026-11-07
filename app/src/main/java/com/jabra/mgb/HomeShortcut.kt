@@ -78,7 +78,7 @@ object HomeShortcut {
     }
 
     /** Adaptive icon bitmap (108 dp grid, the visible part is the middle 66%): favicon on a light tile, else first letter on the accent colour. */
-    private fun icon(ctx: Context, host: String, name: String): IconCompat {
+    fun icon(ctx: Context, host: String, name: String): IconCompat { // 0.0.299: also used by WebApp (Install app) as fallback
         val s = 432
         val bmp = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
