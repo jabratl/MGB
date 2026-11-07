@@ -1,3 +1,10 @@
+0.0.283 (MODIFY: Site permissions "All sites" view)
+- Why: Brave also lets you see permissions per site, not only per type.
+- NEW card "All sites" in Settings > Privacy > Site permissions: one card per site with each saved permission (chip flips Allowed / Blocked) and "Forget site".
+- Files: SitePermsUi.kt, build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: nothing outside the sheet.
+- NOT tested: Gradle build (CI), device (360 dp, dark + light, many sites).
+
 0.0.282 (MODIFY: Brave-style permissions, site + device)
 - Why: the site permission list was a plain dialog; Brave groups it by type, shows counts and lets you set a default.
 - Site permissions (Settings > Privacy): NEW sheet with a card per type (Camera, Microphone, Location): "N allowed, M blocked", a default pill (Ask first / Blocked, tap to switch), tap the card for the sites; tap a status chip to flip Allowed / Blocked, x = forget the site, Reset all.

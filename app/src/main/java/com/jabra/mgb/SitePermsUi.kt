@@ -106,6 +106,22 @@ object SitePermsUi {
                 }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(36)))
                 col.addView(card, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(8) })
             }
+            if (all.isNotEmpty()) { // 0.0.283: Brave "All sites": every site with all its permissions
+                val hosts = all.map { it.first }.distinct().size
+                col.addView(LinearLayout(act).apply {
+                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                    background = round(c(R.color.mg_surface), 20, 1, c(R.color.mg_outline))
+                    minimumHeight = dp(64); setPadding(dp(12), dp(8), dp(14), dp(8)); isClickable = true
+                    contentDescription = "All sites, $hosts"
+                    addView(ImageView(act).apply {
+                        setImageResource(R.drawable.ic_list); setColorFilter(c(R.color.mg_primary)); scaleType = ImageView.ScaleType.CENTER
+                        background = round(tint(R.color.mg_primary, 0.14f), 20)
+                    }, LinearLayout.LayoutParams(dp(40), dp(40)).apply { marginEnd = dp(12) })
+                    addView(text("All sites", 15f, c(R.color.mg_text), true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    addView(text("$hosts " + (if (hosts == 1) "site" else "sites"), 12f, c(R.color.mg_text_dim)))
+                    setOnClickListener { cat = "*"; render() }
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(8) })
+            }
             col.addView(text("Default: Ask first = the site asks you (as before). Blocked = never ask, always refuse, unless you allowed that site.", 11f, c(R.color.mg_text_dim)).apply { setPadding(dp(4), dp(2), dp(4), dp(8)) })
             if (all.isNotEmpty()) col.addView(text("Reset all saved answers", 14f, c(R.color.mg_error), true).apply {
                 gravity = Gravity.CENTER; minimumHeight = dp(48)
@@ -117,7 +133,47 @@ object SitePermsUi {
             })
         }
 
+        private fun allSites(col: LinearLayout) {
+            val head = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            head.addView(ImageView(act).apply {
+                setImageResource(R.drawable.ic_back); setColorFilter(c(R.color.mg_text)); scaleType = ImageView.ScaleType.CENTER
+                contentDescription = "Back"; setOnClickListener { cat = null; render() }
+            }, LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginEnd = dp(4) })
+            head.addView(text("All sites", 20f, c(R.color.mg_text), true))
+            col.addView(head)
+            val groups = SitePerms.entries(act).groupBy { it.first }
+            if (groups.isEmpty()) col.addView(text("No sites yet.", 13f, c(R.color.mg_text_dim)).apply { setPadding(dp(8), dp(16), dp(8), dp(16)) })
+            for ((host, rows) in groups) {
+                val card = LinearLayout(act).apply {
+                    orientation = LinearLayout.VERTICAL
+                    background = round(c(R.color.mg_surface), 20, 1, c(R.color.mg_outline))
+                    setPadding(dp(14), dp(10), dp(4), dp(6))
+                }
+                val top = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+                top.addView(text(host, 15f, c(R.color.mg_text), true).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                top.addView(text("Forget site", 12f, c(R.color.mg_error), true).apply {
+                    gravity = Gravity.CENTER; minimumHeight = dp(40); setPadding(dp(10), 0, dp(10), 0)
+                    setOnClickListener { rows.forEach { SitePerms.set(act, it.first, it.second, null) }; done(); render() }
+                })
+                card.addView(top)
+                for ((h, what, ok) in rows) {
+                    val line = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(44) }
+                    line.addView(text(what.replaceFirstChar { it.uppercase() }, 14f, c(R.color.mg_text_dim)), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    val tone = if (ok) R.color.mg_success else R.color.mg_error
+                    line.addView(text(if (ok) "Allowed" else "Blocked", 12f, c(tone), true).apply {
+                        gravity = Gravity.CENTER; background = round(tint(tone, 0.16f), 16)
+                        setPadding(dp(12), 0, dp(12), 0); minimumHeight = dp(34)
+                        contentDescription = "$h $what ${if (ok) "allowed" else "blocked"}. Tap to change"
+                        setOnClickListener { SitePerms.set(act, h, what, !ok); done(); render() }
+                    }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(34)).apply { marginEnd = dp(10) })
+                    card.addView(line)
+                }
+                col.addView(card, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
+            }
+        }
+
         private fun sites(col: LinearLayout, key: String) {
+            if (key == "*") { allSites(col); return }
             val info = CATS.first { it.first == key }
             val head = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
             head.addView(ImageView(act).apply {
