@@ -26,7 +26,7 @@
             android:indeterminate="false"
             android:max="100"
             android:visibility="gone"
-            app:indicatorColor="@color/mg_primary"
+            app:indicatorColor="?attr/colorPrimary"
             app:trackColor="@color/mg_surface_variant"
             app:trackThickness="2dp" />
     </FrameLayout>
@@ -95,7 +95,7 @@
             android:contentDescription="Search engine"
             android:focusable="true"
             android:gravity="center"
-            android:textColor="@color/mg_primary"
+            android:textColor="?attr/colorPrimary"
             android:textSize="13sp"
             android:textStyle="bold"
             android:visibility="gone" />
@@ -144,7 +144,7 @@
             android:contentDescription="Social tools"
             android:focusable="true"
             android:gravity="center"
-            android:textColor="@color/mg_primary"
+            android:textColor="?attr/colorPrimary"
             android:textSize="14sp"
             android:textStyle="bold"
             android:visibility="gone" />

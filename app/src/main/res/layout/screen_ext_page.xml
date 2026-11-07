@@ -86,7 +86,7 @@
             android:indeterminate="false"
             android:max="100"
             android:visibility="gone"
-            app:indicatorColor="@color/mg_primary"
+            app:indicatorColor="?attr/colorPrimary"
             app:trackColor="@color/mg_surface_variant"
             app:trackThickness="2dp" />
     </FrameLayout>

@@ -55,6 +55,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         SiteConfig.init(this) // S29
         ClosedTabs.init(this) // S29
         super.onCreate(savedInstanceState)
+        AccentTheme.apply(this) // 0.0.289: accent overlay (before the layout is inflated)
         setContentView(R.layout.activity_main)
         if (AppearancePrefs.compactBar(this)) findViewById<View>(R.id.bottom_bar)?.layoutParams?.height = Util.dp(this, 44) // A11: compact bar
         if (AppearancePrefs.barTop(this)) { // A4: bar position Top = move the pill to index 0, margins top 8 / bottom 6
@@ -430,6 +431,8 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         sl.addState(intArrayOf(), android.graphics.drawable.InsetDrawable(rest, 0, ink, 0, ink))
         urlBar.background = sl
     }
+
+    override fun getResources(): android.content.res.Resources = AccentTheme.res(this, super.getResources()) // 0.0.289: accent colours
 
     private fun refreshAll(tab: TabManager.Tab?) {
         val loading = tab?.loading == true

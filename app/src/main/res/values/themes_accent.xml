@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Accent overlays: applied over Theme.MGB at runtime. colorPrimary / colorOnPrimary only; surfaces stay neutral. -->
+    <style name="ThemeOverlay.MGB.Accent.Ocean" parent="">
+        <item name="colorPrimary">@color/acc_ocean</item>
+        <item name="colorOnPrimary">@color/acc_on</item>
+    </style>
+    <style name="ThemeOverlay.MGB.Accent.Emerald" parent="">
+        <item name="colorPrimary">@color/acc_emerald</item>
+        <item name="colorOnPrimary">@color/acc_on</item>
+    </style>
+    <style name="ThemeOverlay.MGB.Accent.Sunset" parent="">
+        <item name="colorPrimary">@color/acc_sunset</item>
+        <item name="colorOnPrimary">@color/acc_on</item>
+    </style>
+    <style name="ThemeOverlay.MGB.Accent.Rose" parent="">
+        <item name="colorPrimary">@color/acc_rose</item>
+        <item name="colorOnPrimary">@color/acc_on</item>
+    </style>
+    <style name="ThemeOverlay.MGB.Accent.Sapphire" parent="">
+        <item name="colorPrimary">@color/acc_sapphire</item>
+        <item name="colorOnPrimary">@color/acc_on</item>
+    </style>
+    <style name="ThemeOverlay.MGB.Accent.Amber" parent="">
+        <item name="colorPrimary">@color/acc_amber</item>
+        <item name="colorOnPrimary">@color/acc_on</item>
+    </style>
+    <style name="ThemeOverlay.MGB.Accent.Mocha" parent="">
+        <item name="colorPrimary">@color/acc_mocha</item>
+        <item name="colorOnPrimary">@color/acc_on</item>
+    </style>
+    <style name="ThemeOverlay.MGB.Accent.Slate" parent="">
+        <item name="colorPrimary">@color/acc_slate</item>
+        <item name="colorOnPrimary">@color/acc_on</item>
+    </style>
+    <style name="ThemeOverlay.MGB.Accent.Orchid" parent="">
+        <item name="colorPrimary">@color/acc_orchid</item>
+        <item name="colorOnPrimary">@color/acc_on</item>
+    </style>
+</resources>

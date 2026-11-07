@@ -1,3 +1,12 @@
+0.0.289 (BUILD: accent colour themes)
+- Why: the app had one accent (violet). Users can now choose their own: Settings > Appearance > Accent colour, 10 swatches: Violet (default), Ocean, Emerald, Sunset, Rose, Sapphire, Amber, Mocha, Slate, Orchid. Each has a light and a dark tone; white / dark text on it keeps good contrast.
+- How: only the accent family changes (mg_primary, mg_toggle_on, mg_on_primary + Material colorPrimary). Backgrounds, text, error and success stay as they were. AccentTheme.kt: theme overlay (ThemeOverlay.MGB.Accent.*) + a Resources wrapper returned by MainActivity.getResources(), so every native screen that uses getColor(R.color.mg_primary) follows. Violet = wrapper off = old behaviour byte for byte. Tap a swatch = saved + app recreates (same as the Theme tiles), Appearance reopens.
+- Layout: 5 places that used @color/mg_primary in XML now use ?attr/colorPrimary (progress bar x3, bar chip text x2, address focus ring) so they follow the accent too.
+- Files: AccentTheme.kt (new), res/values/colors_accent.xml + values-night/colors_accent.xml + values/themes_accent.xml (new), MainActivity.kt (getResources + apply), AppearanceScreen.kt (section + accentPicker), SettingsScreen.kt (RESET key "accent"), activity_main.xml, screen_ext_page.xml, dialog_update.xml, bg_url_field.xml, build.gradle.kts, CHANGELOG, HANDOFF.
+- Not covered (NEXT): Player screen (own theme), Backup of the accent key, the small icon on the launcher, web pages. Switching accent recreates the Activity (tabs come back from the saved session).
+- Could break: the Resources wrapper (deprecated 3-arg constructor, shared AssetManager). If a text / string looks wrong or a rotation glitch appears, the wrapper is the first suspect; choosing Violet turns it off completely.
+- NOT tested: Gradle build (CI; watch AccentTheme.Wrapper overrides getColor / getColorStateList and R.style.ThemeOverlay_MGB_Accent_* names), device (each accent in light + dark, 360 + 1280 dp, switches / buttons / progress / address ring, rotation, Reduce motion, Reset to default in Settings).
+
 0.0.288 (MODIFY: address bar long-press quick menu)
 - Why: idea #5. Copy / paste / share the address without opening the tab menu.
 - What: long-press the address (web page, not Home, not while typing) = bottom sheet with Copy link, Paste & go (greyed when the clipboard is empty), Share. Reuses MenuSheet.showLink and TabManager.copyText / shareText (link cleaner applies as before). While typing, long-press still selects text. (#3 private bar tint was already done in 0.0.287.)

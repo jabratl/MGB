@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 0.0.289: accent colours (Settings > Appearance > Accent colour). Same names in values and values-night. -->
+    <color name="acc_violet">#5947C7</color>
+    <color name="acc_ocean">#0B6E99</color>
+    <color name="acc_emerald">#1B7F5C</color>
+    <color name="acc_sunset">#C2571A</color>
+    <color name="acc_rose">#B8325F</color>
+    <color name="acc_sapphire">#2B5FD9</color>
+    <color name="acc_amber">#8A5A00</color>
+    <color name="acc_mocha">#7A4E2D</color>
+    <color name="acc_slate">#455A64</color>
+    <color name="acc_orchid">#8E2DA8</color>
+    <color name="acc_on">#FFFFFF</color>
+</resources>

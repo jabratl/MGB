@@ -202,6 +202,11 @@ object AppearanceScreen {
             }
             col.addView(themeCard, LinearLayout.LayoutParams(MATCH, WRAP))
 
+            col.addView(sectionLabel("Accent colour")) // 0.0.289
+            val accCard = card()
+            accentPicker(accCard)
+            col.addView(accCard, LinearLayout.LayoutParams(MATCH, WRAP))
+
             col.addView(sectionLabel("Home page")) // A7
             val wpCard = card()
             navRow(wpCard, R.drawable.ic_image, "Wallpaper", if (AppearancePrefs.hasWallpaper(act)) "Custom image" else "None") { openPage("wp", "Wallpaper") }
@@ -590,6 +595,64 @@ object AppearanceScreen {
                 rowV.addView(colV, LinearLayout.LayoutParams(0, WRAP, 1f))
             }
             parent.addView(rowV, LinearLayout.LayoutParams(MATCH, WRAP))
+        }
+
+        /** 0.0.289: swatches for the accent colour. Tap = save + recreate (same as the Theme tiles); Appearance reopens. */
+        private fun accentPicker(parent: LinearLayout) {
+            val flow = FlowLayout(act, dp(4)).apply { setPadding(dp(8), dp(4), dp(8), dp(8)) }
+            val curId = AccentTheme.id(act)
+            for (a in AccentTheme.ALL) {
+                val on = a.id == curId
+                val v = LinearLayout(act).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.CENTER_HORIZONTAL
+                    isClickable = true
+                    contentDescription = a.label + (if (on) ", selected" else "")
+                    setPadding(dp(4), dp(6), dp(4), dp(4))
+                    setOnClickListener {
+                        tick(this)
+                        if (!on) {
+                            AccentTheme.set(act, a.id)
+                            AppearanceScreen.markReopen()
+                            dismiss()
+                            act.recreate()
+                        }
+                    }
+                    pressFx(this)
+                }
+                val sw = FrameLayout(act).apply {
+                    background = GradientDrawable().apply {
+                        shape = GradientDrawable.OVAL; setColor(act.getColor(a.color))
+                        if (on) setStroke(dp(3), act.getColor(R.color.mg_surface))
+                    }
+                }
+                val ring = FrameLayout(act).apply {
+                    background = GradientDrawable().apply {
+                        shape = GradientDrawable.OVAL; setColor(0)
+                        setStroke(dp(2), if (on) act.getColor(a.color) else act.getColor(R.color.mg_outline))
+                    }
+                    setPadding(dp(3), dp(3), dp(3), dp(3))
+                }
+                ring.addView(sw, FrameLayout.LayoutParams(dp(38), dp(38)))
+                if (on) sw.addView(ImageView(act).apply {
+                    setImageResource(R.drawable.ic_check)
+                    setColorFilter(act.getColor(R.color.acc_on))
+                    setPadding(dp(8), dp(8), dp(8), dp(8))
+                }, FrameLayout.LayoutParams(dp(38), dp(38)))
+                v.addView(ring, LinearLayout.LayoutParams(dp(50), dp(50)))
+                v.addView(TextView(act).apply {
+                    text = a.label; textSize = 11f; gravity = Gravity.CENTER; maxLines = 1
+                    setTextColor(act.getColor(if (on) R.color.mg_text else R.color.mg_text_dim))
+                    if (on) typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                    setPadding(0, dp(4), 0, 0)
+                }, LinearLayout.LayoutParams(dp(56), WRAP))
+                flow.addView(v, ViewGroup.LayoutParams(WRAP, WRAP))
+            }
+            parent.addView(flow, LinearLayout.LayoutParams(MATCH, WRAP))
+            parent.addView(TextView(act).apply {
+                text = "Changes buttons, switches and highlights in light and dark. Violet is the default."
+                textSize = 11f; setTextColor(act.getColor(R.color.mg_text_dim)); setPadding(dp(12), 0, dp(12), dp(6))
+            }, LinearLayout.LayoutParams(MATCH, WRAP))
         }
 
         /** Single choice as a wrap of chips (icon + label, radius 20 dp, 44 dp high). Not used before A3. */
