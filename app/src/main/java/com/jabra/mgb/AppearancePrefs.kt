@@ -14,6 +14,7 @@ object AppearancePrefs {
     const val K_FULL_URL = "ap_full_url"
     const val K_SWIPE_FS = "ap_swipe_fs"
     const val K_SWIPE_TABS = "ap_swipe_tabs"
+    const val K_SWIPE_SIDE = "ap_swipe_side" // 0.0.293: swipe the bar left / right = previous / next tab (default ON)
     const val K_WP_DIM = "ap_wp_dim"
     const val K_UNDO_TOAST = "ap_undo_toast"
     const val K_START_PAGE = "ap_start_page"
@@ -57,6 +58,8 @@ object AppearancePrefs {
     fun setSwipeFs(c: Context, on: Boolean) { sp(c).edit().putBoolean(K_SWIPE_FS, on).apply() }
 
     fun swipeTabs(c: Context): Boolean = sp(c).getBoolean(K_SWIPE_TABS, false)
+    fun swipeSide(c: Context): Boolean = sp(c).getBoolean(K_SWIPE_SIDE, true)
+    fun setSwipeSide(c: Context, on: Boolean) { sp(c).edit().putBoolean(K_SWIPE_SIDE, on).apply() }
     fun setSwipeTabs(c: Context, on: Boolean) { sp(c).edit().putBoolean(K_SWIPE_TABS, on).apply() }
 
     /** Wallpaper dim 0..80 (default 35). */

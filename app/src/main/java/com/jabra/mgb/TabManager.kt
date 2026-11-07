@@ -320,6 +320,24 @@ class TabManager(
         listener.onActiveChanged(tab)
     }
 
+    /**
+     * 0.0.293: Chrome-style bar swipe. dir +1 = next tab, -1 = previous (same kind only: normal <-> normal, private <-> private; Home / extension tabs count).
+     * The page slides in from the side we are moving to. Returns false at the first / last tab (caller shows a small bounce).
+     */
+    fun switchRel(dir: Int): Boolean {
+        val cur = active ?: return false
+        val same = tabs.filter { it.priv == cur.priv }
+        val i = same.indexOf(cur)
+        val to = same.getOrNull(i + dir) ?: return false
+        cur.web.animate().cancel(); cur.web.translationX = 0f // a fast second swipe: the tab we leave is not left shifted
+        switchTo(to)
+        if (!TabPrefs.reduce(ctx)) {
+            to.web.translationX = container.width * 0.25f * dir
+            to.web.animate().translationX(0f) // joins the fade / grow animation that switchTo just started (no cancel)
+        }
+        return true
+    }
+
     fun close(tab: Tab) {
         val idx = tabs.indexOf(tab)
         if (idx < 0) return

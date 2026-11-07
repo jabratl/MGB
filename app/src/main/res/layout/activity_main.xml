@@ -161,8 +161,10 @@
             android:minHeight="0dp"
             android:padding="0dp"
             android:text="1"
-            android:textSize="14sp"
-            app:cornerRadius="10dp" />
+            android:textSize="13sp"
+            android:textStyle="bold"
+            app:cornerRadius="8dp"
+            app:strokeWidth="2dp" />
 
         <ImageView
             android:id="@+id/btn_menu"

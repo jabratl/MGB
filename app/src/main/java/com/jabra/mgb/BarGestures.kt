@@ -16,6 +16,7 @@ import kotlin.math.abs
  * APPEARANCE A6: swipe on the address bar.
  *  - away from the page edge's opposite side (bottom bar: swipe DOWN, top bar: swipe UP) = page fullscreen (bar + system bars hidden, small restore handle)
  *  - the other way = tab switcher.
+ * 0.0.293: swipe LEFT / RIGHT on the bar = next / previous tab (ap_swipe_side, default ON), not while typing.
  * Each one only works when its Appearance toggle is ON (ap_swipe_fs / ap_swipe_tabs). Taps are untouched: a swipe needs 60 dp vertical movement.
  * This is PAGE fullscreen, not the video fullscreen (TabManager.inFullscreen).
  */
@@ -29,6 +30,7 @@ object BarGestures {
         val bar = a.findViewById<ViewGroup>(R.id.bottom_bar) ?: return
         val top = AppearancePrefs.barTop(a)
         val need = Util.dp(a, 60)
+        val side = Util.dp(a, 56) // 0.0.293: horizontal distance for a tab swipe
         var downX = 0f
         var downY = 0f
         var fired = false
@@ -49,6 +51,16 @@ object BarGestures {
                                 if (fsDir) enter(a) else tm.showSwitcher()
                             }
                             fired
+                        } else if (abs(dx) > side && abs(dx) > abs(dy) * 1.5f && !typing(a) && !active && AppearancePrefs.swipeSide(a)) {
+                            // 0.0.293: swipe left = next tab, swipe right = previous tab (Chrome toolbar swipe)
+                            fired = true
+                            v.isPressed = false; v.cancelLongPress()
+                            if (!tm.switchRel(if (dx < 0) 1 else -1) && !TabPrefs.reduce(a)) { // first / last tab: small bounce
+                                bar.animate().cancel()
+                                bar.translationX = if (dx < 0) -Util.dp(a, 14).toFloat() else Util.dp(a, 14).toFloat()
+                                bar.animate().translationX(0f).setDuration(220).setInterpolator(android.view.animation.OvershootInterpolator(2f)).start()
+                            }
+                            true
                         } else false
                     }
                 }
@@ -59,6 +71,9 @@ object BarGestures {
         bar.setOnTouchListener(l)
         for (i in 0 until bar.childCount) bar.getChildAt(i).setOnTouchListener(l)
     }
+
+    /** true while the address field has the keyboard (a sideways drag there selects text, so no tab swipe). */
+    private fun typing(a: Activity): Boolean = a.findViewById<View>(R.id.url_bar)?.hasFocus() == true
 
     fun enter(a: Activity) {
         if (active) return

@@ -408,6 +408,8 @@ object AppearanceScreen {
                 { AppearancePrefs.swipeFs(act) }) { on -> AppearancePrefs.setSwipeFs(act, on) }
             toggleRow(behCard, R.drawable.ic_list, "Swipe to view tabs", "Swipe the bar " + (if (up) "down" else "up") + " to open the tab switcher",
                 { AppearancePrefs.swipeTabs(act) }) { on -> AppearancePrefs.setSwipeTabs(act, on) }
+            toggleRow(behCard, R.drawable.ic_tab_rows, "Swipe between tabs", "Swipe the bar left or right to go to the next or previous tab",
+                { AppearancePrefs.swipeSide(act) }) { on -> AppearancePrefs.setSwipeSide(act, on) }
             col.addView(behCard, LinearLayout.LayoutParams(MATCH, WRAP))
         }
 

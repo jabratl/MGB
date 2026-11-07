@@ -1,3 +1,12 @@
+0.0.293 (MODIFY: Chrome-style swipe between tabs + Chrome-style tab count button)
+- Why: asked for Chrome's bar swipe between pages and a more Chrome-like tab look. Reference = the Chrome tab switcher screen recording. Thazir's switcher already has the Chrome grid / list / groups / select / search, so this step adds the missing swipe and the tab button look only.
+- Swipe: drag the address bar LEFT = next tab, RIGHT = previous tab (needs 56 dp sideways, mostly horizontal). The page slides in from the side. Normal tabs swipe among normal tabs, private among private. At the first / last tab the bar gives a small bounce. Not while the address field has the keyboard (text selection) and not in bar-hidden fullscreen. Vertical swipes (fullscreen / tab switcher) are untouched.
+- Setting: Appearance > Behaviour > "Swipe between tabs", default ON, included in Reset.
+- Tab button: 2 dp outline, 8 dp corners, bold count (Chrome look). Count pop animation stays.
+- Files: BarGestures.kt (horizontal branch + typing()), TabManager.kt (switchRel), AppearancePrefs.kt, AppearanceScreen.kt (1 row), SettingsScreen.kt (RESET key), activity_main.xml (btn_tabs), build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: bar taps / long-press (the new branch only fires after 56 dp sideways); the slide uses the same animator as switchTo (if the page looks faded after a swipe, check switchRel first). Repo note: build.gradle.kts in the uploaded zip said 0.0.291 although HANDOFF had 0.0.292 (AppearanceScreen accCard fix IS in the code), so this is 0.0.293.
+- NOT tested: Gradle build (CI), device (swipe at 360 + 1280 dp, dark + light, bar on top and bottom, Reduce motion, 1 tab only, private tabs, Home tab, typing in the address field, social tabs / own-window tabs).
+
 0.0.291 (MODIFY: accent in the Player + accent comes back after a backup restore)
 - Why: the accent (0.0.289) only reached the browser screens; the Player stayed violet. And a restored backup wrote the accent pref but the running app did not read it again.
 - Player: PlayerActivity.getResources() returns the same accent wrapper and AccentTheme.apply runs after super.onCreate, so the rotation / speed / audio-only / lock icons, the progress bars and the play button follow the chosen accent. Violet = nothing changes.
