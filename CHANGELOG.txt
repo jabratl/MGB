@@ -1,3 +1,16 @@
+0.0.301 (MODIFY: Brave filter lists added as built-in lists, Settings > Ad blocker > Filter lists)
+- Why: asked to use github.com/brave/adblock-lists. What that repo is: only Brave's EXTRA lists (brave-unbreak.txt, brave-lists/brave-social.txt and a few more); Brave's main blocking comes from EasyList, EasyPrivacy and uBlock Origin lists (already supported here) plus its own engine.
+- Added (downloaded from raw.githubusercontent.com on update, nothing is bundled; lists are MPL-2.0): "Brave unbreak (Brave)" = default ON (mostly exceptions that stop EasyList / uBO from breaking sites, a few block rules), "Brave social trackers (Brave)" = default OFF (switch it on in the list screen; it can touch social widgets, so it stays off next to Social sites).
+- They are placed FIRST in the list order, so the 160 000 rule cap (MAX_NET) can never cut them; they are small.
+- Download: a list that is ON but was never downloaded is fetched at the next start (before: only after 7 days or by hand). One failed list never stops the others ("Updated N of M lists").
+- Existing phones: a saved on / off choice is kept; Brave social is switched OFF once for them (key fl_brave301), Brave unbreak comes ON.
+- Syntax: the engine already skips rules it cannot do (scriptlets +js, $redirect, $removeparam, $csp, $ghide, procedural :has-text / :xpath, regex), so these lists cannot break pages; those rules simply do nothing here. YouTube is covered by shim/yt-adblock.js (0.0.300) instead of scriptlets.
+- NOT added on purpose: coin-miners.txt, brave-specific / android-specific lists: could not verify the exact file path from here (GitHub raw was not reachable). Paste the https raw link in "Add filter list" if you want them.
+- Not done (honest): scriptlets / redirect resources, CNAME uncloaking, aggressive first-party blocking, Brave's regional list catalog. uBlock filters list is still default OFF (it can be switched on in the same screen; it uses more memory and start time).
+- Files: FilterList.kt (BUILTIN, DEFAULT_OFF, one-time migration in init, auto download when missing), build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: first start after the update downloads 1 more list (small); rule count near the cap (EasyList + EasyPrivacy + uBO ON together may cut the last rules).
+- NOT tested: Gradle build (CI), device (Settings > Ad blocker > Filter lists shows the 2 Brave rows, unbreak ON / social OFF, update says N of M, a page that EasyList broke before, Social sites with Brave social ON).
+
 0.0.300 (MODIFY: YouTube ad blocking, Brave / uBlock strength: shim/yt-adblock.js v2)
 - Why: asked for YouTube ads to be blocked as strongly as Brave does. Before: only ytInitialPlayerResponse + JSON.parse + Response.json, depth 3, feed ads only hidden with CSS.
 - Same idea as Brave (uBO scriptlets json-prune / set-constant): the ad data is cut out of what YouTube reads; no ad request is blocked by the script, so YouTube sees no failed request (the network rules in filters/seed.txt stay as before).

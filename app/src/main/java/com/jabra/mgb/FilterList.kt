@@ -26,12 +26,15 @@ object FilterList {
     class ListInfo(val name: String, val title: String, val url: String, val custom: Boolean, val on: Boolean)
     private class Src(val name: String, val title: String, val url: String)
     private val BUILTIN = listOf(
+        // 0.0.301: Brave's own lists first (small, so the rule cap below never cuts them): github.com/brave/adblock-lists (MPL-2.0, downloaded, not bundled)
+        Src("brave-unbreak.txt", "Brave unbreak (Brave)", "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-unbreak.txt"),
+        Src("brave-social.txt", "Brave social trackers (Brave)", "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-lists/brave-social.txt"),
         Src("easylist.txt", "EasyList", "https://easylist.to/easylist/easylist.txt"),
         Src("easyprivacy.txt", "EasyPrivacy", "https://easylist.to/easylist/easyprivacy.txt"),
         Src("ubo-filters.txt", "uBlock filters", "https://ublockorigin.github.io/uAssets/filters/filters.txt"),
         Src("cookie-notices.txt", "Cookie notices (Fanboy)", "https://secure.fanboy.co.nz/fanboy-cookiemonster.txt")
     )
-    private val DEFAULT_OFF = setOf("ubo-filters.txt", "cookie-notices.txt")
+    private val DEFAULT_OFF = setOf("ubo-filters.txt", "cookie-notices.txt", "brave-social.txt") // 0.0.301: social list OFF (it can clash with Social sites)
 
     private fun offSet(): Set<String> = prefs?.getStringSet("fl_off", null) ?: DEFAULT_OFF
     private fun customSrc(): List<Src> =
@@ -149,6 +152,13 @@ object FilterList {
     fun init(ctx: Context) {
         val app = ctx.applicationContext
         prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs?.let { p -> // 0.0.301: once, for a saved on / off choice: the new Brave social list starts OFF (Brave unbreak starts ON)
+            if (!p.getBoolean("fl_brave301", false)) {
+                val e = p.edit().putBoolean("fl_brave301", true)
+                p.getStringSet("fl_off", null)?.let { e.putStringSet("fl_off", it + "brave-social.txt") }
+                e.apply()
+            }
+        }
         load(app, true)
     }
 
@@ -170,7 +180,7 @@ object FilterList {
             } catch (_: Throwable) {
                 // keep the old index (or none): AdBlock still has its host list
             } finally { loading = false }
-            if (autoUpdate && System.currentTimeMillis() - updatedAt() > 7 * DAY) update(ctx) { }
+            if (autoUpdate && (System.currentTimeMillis() - updatedAt() > 7 * DAY || enabledSources().any { !File(dir(ctx), it.name).exists() })) update(ctx) { } // 0.0.301: also when a list that is ON was never downloaded
         }.start()
     }
 
