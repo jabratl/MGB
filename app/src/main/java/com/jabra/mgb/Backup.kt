@@ -174,12 +174,18 @@ object Backup {
         return o.toString(2)
     }
 
-    fun importData(act: Activity) {
-        BrowserExtras.loadBackup { text ->
+    /** 0.0.290: the whole backup (all five parts) as text, for Cloud backup. */
+    fun cloudJson(act: Activity): String = build(act, booleanArrayOf(true, true, true, true, true))
+
+    fun importData(act: Activity) { BrowserExtras.loadBackup { text -> importText(act, text) } }
+
+    /** 0.0.290: was the body of importData; also used by Cloud backup > Restore. */
+    fun importText(act: Activity, text: String?) {
+        run {
             val o = try { if (text == null) null else JSONObject(text) } catch (e: Exception) { null }
             if (o == null || o.optInt("mgb") != 1) {
                 Util.toast(act, "This is not a Thazir backup file")
-                return@loadBackup
+                return@run
             }
             val has = booleanArrayOf(
                 o.has("bookmarks") || o.has("folders"), o.has("home"), o.has("history"), o.has("settings"), o.has("closed")
@@ -187,7 +193,7 @@ object Backup {
             val idx = has.indices.filter { has[it] }
             if (idx.isEmpty()) {
                 Util.toast(act, "This backup is empty")
-                return@loadBackup
+                return@run
             }
             val labels = idx.map { NAMES[it] }.toTypedArray()
             val checked = BooleanArray(idx.size) { true }
@@ -211,6 +217,7 @@ object Backup {
         var recreate = false
         if (want[3]) {
             val before = UiMode.mode(act)
+            val accBefore = AccentTheme.id(act) // 0.0.291
             val all = o.optJSONObject("settings")
             if (all != null) {
                 for (name in SETTINGS) {
@@ -231,7 +238,8 @@ object Backup {
                 AdBlock.init(act)
                 SiteConfig.init(act)
                 parts.add("settings")
-                recreate = UiMode.mode(act) != before
+                AccentTheme.reload() // 0.0.291: the restored accent is read again
+                recreate = UiMode.mode(act) != before || AccentTheme.id(act) != accBefore
             }
         }
         BookmarksScreen.tabsRef?.syncHome()

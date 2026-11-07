@@ -206,8 +206,11 @@ class PlayerActivity : AppCompatActivity() {
 
     // ---------- lifecycle ----------
 
+    override fun getResources(): android.content.res.Resources = AccentTheme.res(this, super.getResources()) // 0.0.291: accent colours in the player
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AccentTheme.apply(this) // 0.0.291
         val u = intent?.data
         if (u == null) { finish(); return }
         uri = u

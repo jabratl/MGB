@@ -1,4 +1,3 @@
-STATUS 0.0.292 = 0.0.291 + FIX AppearanceScreen val accCard clash (CI error from 0.0.289). NEXT = CI build again, send the next error log if any; then device test round T1-T15.
 STATUS 0.0.291 = 0.0.290 + MODIFY accent in Player + accent re-read after backup restore. Side track. NEXT = CI build of 0.0.287-0.0.291 (none built yet), owner makes Google + Azure client IDs, device test round T1-T15 (add: Player accent, restore with another accent). Ideas left: AMOLED black, custom accent colour, lock sheet extra toggles, auto cloud upload, Keystore tokens, #2, #6.
 STATUS 0.0.290 = 0.0.289 + BUILD Cloud backup (CloudSync.kt: Google Drive appData + OneDrive approot, manual Back up / Restore, OAuth PKCE). Side track. NEXT = (1) owner makes Google + Azure client IDs and tests sign in, (2) device test round T1-T15 (add: Import data from file, accent themes, lock sheet, long-press menu). Later: auto daily cloud upload, merge sync, Keystore tokens. Yahoo = not possible for storage.
 STATUS 0.0.289 = 0.0.288 + BUILD accent colour themes (AccentTheme.kt, Appearance > Accent colour, 10 swatches). Side track. NEXT = device test round T1-T15 (add: each accent light + dark, switch / button / progress / address ring colours, Violet = old look, rotation). Later: accent in Player + Backup key. Idea list left: #2 social chip unread dot, #6 Settings search highlight.
@@ -151,8 +150,6 @@ Page scripts: each script guards itself (window.__mgS<x>), stops after <= 40 s, 
 
 ================================================================================
 7. PROGRESS / RESULT LOG (newest on top)
-
-0.0.292 (FIX, see CHANGELOG): accCard -> accentCard in AppearanceScreen.rootPage. LESSON: before adding a local val in a long function, grep the name in that file.
 
 0.0.291 (MODIFY, see CHANGELOG): PlayerActivity.getResources + AccentTheme.apply; AccentTheme.reload() called in Backup.applyBackup (accent key is already in mgb_ui backup).
 

@@ -40,6 +40,9 @@ object AccentTheme {
         return ok
     }
 
+    /** Forget the remembered choice (after a backup restore wrote the pref directly). */
+    fun reload() { cur = null }
+
     fun current(ctx: Context): Accent = ALL.first { it.id == id(ctx) }
 
     fun set(ctx: Context, id: String) {

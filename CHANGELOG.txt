@@ -1,10 +1,3 @@
-0.0.292 (FIX: build error in AppearanceScreen)
-- Error: "Conflicting declarations: val accCard" at AppearanceScreen.kt 206 and 228 (CI, 0.0.289).
-- Root cause: rootPage already had val accCard for the Accessibility card; the accent card added in 0.0.289 used the same name in the same function.
-- Fix: the accent card is now accentCard (3 lines, 206-208). Nothing else changed.
-- Could break: nothing; only a local variable name.
-- NOT tested: Gradle build (CI). Other compile errors, if any, will show in the next CI log.
-
 0.0.291 (MODIFY: accent in the Player + accent comes back after a backup restore)
 - Why: the accent (0.0.289) only reached the browser screens; the Player stayed violet. And a restored backup wrote the accent pref but the running app did not read it again.
 - Player: PlayerActivity.getResources() returns the same accent wrapper and AccentTheme.apply runs after super.onCreate, so the rotation / speed / audio-only / lock icons, the progress bars and the play button follow the chosen accent. Violet = nothing changes.
