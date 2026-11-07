@@ -1,3 +1,28 @@
+0.0.292 (FIX: build error in AppearanceScreen)
+- Error: "Conflicting declarations: val accCard" at AppearanceScreen.kt 206 and 228 (CI, 0.0.289).
+- Root cause: rootPage already had val accCard for the Accessibility card; the accent card added in 0.0.289 used the same name in the same function.
+- Fix: the accent card is now accentCard (3 lines, 206-208). Nothing else changed.
+- Could break: nothing; only a local variable name.
+- NOT tested: Gradle build (CI). Other compile errors, if any, will show in the next CI log.
+
+0.0.291 (MODIFY: accent in the Player + accent comes back after a backup restore)
+- Why: the accent (0.0.289) only reached the browser screens; the Player stayed violet. And a restored backup wrote the accent pref but the running app did not read it again.
+- Player: PlayerActivity.getResources() returns the same accent wrapper and AccentTheme.apply runs after super.onCreate, so the rotation / speed / audio-only / lock icons, the progress bars and the play button follow the chosen accent. Violet = nothing changes.
+- Backup: the accent key already lives in mgb_ui, which is inside the backup file (so it WAS saved). Fix: after Import data / Cloud restore the choice is read again (AccentTheme.reload) and the app recreates when the accent changed, like it does for the Light / Dark theme.
+- Files: AccentTheme.kt (reload), Backup.kt (2 small edits in applyBackup), PlayerActivity.kt (getResources + apply), build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: Player colours with a non-violet accent (check on a dark video: icons on black); restore of an old backup without the key keeps the current accent.
+- NOT tested: Gradle build (CI), device (Player with 2-3 accents, restore a backup made with another accent, rotation).
+
+0.0.290 (BUILD: Cloud backup with a Google or Microsoft account)
+- Why: ask was "sign in with Google / Microsoft / Yahoo and keep backup / sync data online". Done as far as it is possible without our own server.
+- What: Settings > Data and backup > Cloud backup. Sign in (opens the phone browser, OAuth + PKCE, no password is typed in Thazir), then Back up now / Restore / Sign out. The file is the same JSON as Export / Import data (bookmarks, home, history, settings, closed tabs; the Vault is NOT in it) and lives in the account's PRIVATE app folder: Google Drive appDataFolder or OneDrive App folder (only Thazir can see it). Restore uses the normal Import dialog (choose what to import).
+- Yahoo: not possible as a backup place (no app storage service). Yahoo as "Thazir account" login would need our own server: not built.
+- Setup needed ONCE by the owner (free): a Google OAuth client (type Android, package com.jabra.mgb + signing SHA-1, custom URI scheme enabled) and an Azure app registration (mobile / desktop, redirect com.jabra.mgb:/oauth2redirect). The client ID is pasted in the app (Cloud backup > Client ID), so no key is in the code. Redirect: com.jabra.mgb:/oauth2redirect (CloudAuthActivity).
+- Not built (NEXT): automatic daily cloud upload, real two-way sync (merge by time), tokens in Keystore-encrypted storage (now: app-private prefs mgb_cloud, never inside a backup file).
+- Files: CloudSync.kt + CloudAuthActivity.kt (new), Backup.kt (cloudJson + importText = old importData body, behaviour same), SettingsScreen.kt (1 row), AndroidManifest.xml (CloudAuthActivity + redirect filter), build.gradle.kts, CHANGELOG, HANDOFF. No new library (okhttp already there).
+- Could break: Backup.importData now calls importText (check Import data from a file still works). Manifest has a new exported activity with the com.jabra.mgb scheme only.
+- NOT tested: Gradle build (CI; watch the use{} returns and return@Thread in CloudSync), any sign in at all (needs the two client IDs), upload / restore on a real Google and Microsoft account, rotation with the sheet open, 360 + 1280 dp, dark + light.
+
 0.0.289 (BUILD: accent colour themes)
 - Why: the app had one accent (violet). Users can now choose their own: Settings > Appearance > Accent colour, 10 swatches: Violet (default), Ocean, Emerald, Sunset, Rose, Sapphire, Amber, Mocha, Slate, Orchid. Each has a light and a dark tone; white / dark text on it keeps good contrast.
 - How: only the accent family changes (mg_primary, mg_toggle_on, mg_on_primary + Material colorPrimary). Backgrounds, text, error and success stay as they were. AccentTheme.kt: theme overlay (ThemeOverlay.MGB.Accent.*) + a Resources wrapper returned by MainActivity.getResources(), so every native screen that uses getColor(R.color.mg_primary) follows. Violet = wrapper off = old behaviour byte for byte. Tap a swatch = saved + app recreates (same as the Theme tiles), Appearance reopens.

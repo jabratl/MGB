@@ -203,9 +203,9 @@ object AppearanceScreen {
             col.addView(themeCard, LinearLayout.LayoutParams(MATCH, WRAP))
 
             col.addView(sectionLabel("Accent colour")) // 0.0.289
-            val accCard = card()
-            accentPicker(accCard)
-            col.addView(accCard, LinearLayout.LayoutParams(MATCH, WRAP))
+            val accentCard = card()
+            accentPicker(accentCard)
+            col.addView(accentCard, LinearLayout.LayoutParams(MATCH, WRAP))
 
             col.addView(sectionLabel("Home page")) // A7
             val wpCard = card()
