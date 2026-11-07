@@ -325,6 +325,7 @@ object ExtScreen {
                     .setAction("Undo") { open(act, url) }
                 undoSnack = bar
                 bar.show()
+                SwipeAway.snack(bar, TabPrefs.reduce(act)) // 0.0.281: swipe the bar away
                 // S12: hard stop, so the bar can never stay (a11y services / queued bars can make Snackbar longer than asked)
                 root.postDelayed({ try { bar.dismiss() } catch (_: Exception) { } }, 3000)
             }

@@ -1346,7 +1346,7 @@ object TabSwitcher {
         private fun undo(msg: String, onUndo: () -> Unit) {
             hideUndo()
             if (!AppearancePrefs.undoToast(act)) return // A8: "Show undo toast" OFF = the close / group change already happened, just no bar
-            val b = LinearLayout(act).apply {
+            val b = SwipeAway.Bar(act, TabPrefs.reduce(act)).apply { // 0.0.281: swipe the bar away
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(16), 0, dp(4), 0)
@@ -1371,7 +1371,11 @@ object TabSwitcher {
             body.addView(b, FrameLayout.LayoutParams(MATCH, dp(52), Gravity.BOTTOM).apply { setMargins(dp(14), 0, dp(14), dp(12)) })
             b.animate().alpha(1f).translationY(0f).setInterpolator(android.view.animation.DecelerateInterpolator(1.6f)).setDuration(200).start()
             undoBar = b
-            b.postDelayed({ if (undoBar === b) hideUndo(true) }, 5000)
+            b.onGone = { if (undoBar === b) hideUndo() }
+            val autoHide = object : Runnable { // 0.0.281: not while a finger is dragging the bar
+                override fun run() { if (undoBar !== b) return; if (b.busy) b.postDelayed(this, 1500) else hideUndo(true) }
+            }
+            b.postDelayed(autoHide, 5000)
         }
 
         private fun hideUndo(anim: Boolean = false) {
