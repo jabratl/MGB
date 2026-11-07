@@ -102,6 +102,12 @@ object PlayerSubs {
         if (opts.isEmpty()) note("No subtitle in this video. Add a file, or put it next to the video with the same name.")
         row(R.drawable.ic_add, "Add subtitle file...", ".srt .vtt .ass") { a.addSubFile() }
 
+        section("Timing")
+        slider("Subtitle delay", -10000f, 10000f, 100f, a.subDelayMs.toFloat().coerceIn(-10000f, 10000f), { v -> SubDelay.fmtDelay(Math.round(v).toLong()) }, { _ -> }, { v ->
+            a.queueSubDelay(Math.round(v).toLong())
+        })
+        note("Positive = subtitle shows later, negative = earlier. Works for subtitle files, not for tracks inside the video. The video blinks once when it reloads.")
+
         section("Style")
         val sample = TextView(a).apply {
             text = "Sample subtitle text"

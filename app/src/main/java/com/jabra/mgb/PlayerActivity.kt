@@ -168,6 +168,7 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var prefs: android.content.SharedPreferences
 
     private val subs = ArrayList<MediaItem.SubtitleConfiguration>()
+    internal var subDelayMs = 0L // 0.0.280: subtitle delay of this video (SubDelay), 0 = original files
     private val sibs = ArrayList<Pair<Uri, String>>() // S37: other media files of the same folder (previous / next episode)
     private var sibIdx = -1
     private var zoom = 1f
@@ -519,6 +520,7 @@ class PlayerActivity : AppCompatActivity() {
         title = sibs[idx].second.substringBeforeLast('.')
         titleTv.text = title
         subs.clear()
+        subDelayMs = 0L; SubDelay.reset() // 0.0.280
         findSidecars()
         wantAutoSub = subs.isNotEmpty()
         autoSubDone = false
@@ -704,6 +706,43 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     internal fun addSubFile() { openSub.launch(arrayOf("*/*")) }
+
+    private var subDelayWant = 0L
+    private val subDelayRun = Runnable { applySubDelay(subDelayWant) }
+
+    /** 0.0.280: slider / +- buttons call this; the reload waits 0.7 s so several taps cost one reload. */
+    internal fun queueSubDelay(ms: Long) {
+        subDelayMs = ms.coerceIn(-30000L, 30000L) // the slider shows this value at once
+        subDelayWant = subDelayMs
+        main.removeCallbacks(subDelayRun)
+        main.postDelayed(subDelayRun, 700)
+    }
+
+    /** 0.0.280: subtitle delay. Rewrites the subtitle FILES with shifted times (SubDelay) and prepares the same video again at the same spot. */
+    internal fun applySubDelay(ms: Long) {
+        val p = player ?: return
+        if (subs.none { SubDelay.supported(it.mimeType) }) { subDelayMs = 0L; Util.toast(this, "Only works for subtitle files (.srt .vtt .ass), not for tracks inside the video"); return }
+        val d = ms.coerceIn(-30000L, 30000L)
+        val keepOn = !subOff()
+        val pos = p.currentPosition
+        val was = p.playWhenReady
+        var changed = false
+        for (i in subs.indices) {
+            val c = subs[i]
+            if (!SubDelay.supported(c.mimeType)) continue
+            val nu = SubDelay.shifted(this, SubDelay.origOf(c.uri), c.mimeType, d) ?: continue
+            subs[i] = c.buildUpon().setUri(nu).build()
+            changed = true
+        }
+        if (!changed) { subDelayMs = 0L; Util.toast(this, "This subtitle file cannot be shifted"); return }
+        subDelayMs = d
+        wantAutoSub = keepOn // the shifted file is switched on again by itself when a subtitle was on
+        autoSubDone = false
+        setItem(pos)
+        p.prepare()
+        p.playWhenReady = was
+    }
+
 
     private fun updateCcLabel() {
         val p = player ?: return
