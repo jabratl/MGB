@@ -16,6 +16,12 @@ object SocialReels {
     fun on(c: Context): Boolean = sp(c).getBoolean(K, true)
     fun setOn(c: Context, v: Boolean) { sp(c).edit().putBoolean(K, v).apply() }
 
+    /** 0.0.309: full screen (address bar + phone bars hidden) while a reel page is open, like the app. Switch sm_reelfull, default ON. Handle / Back shows the bars. */
+    fun fullOn(c: Context): Boolean = sp(c).getBoolean("sm_reelfull", true)
+    fun setFullOn(c: Context, v: Boolean) { sp(c).edit().putBoolean("sm_reelfull", v).apply() }
+    private val REEL = Regex("^https?://[^/]+/(?:[^/?#]+/)?(reels?)(/|\\?|#|$)", RegexOption.IGNORE_CASE)
+    fun isReelPage(url: String?): Boolean = url != null && REEL.containsMatchIn(url)
+
     private val NO_PULL = Regex("^https?://([^/]+\\.)?(instagram\\.com|facebook\\.com|tiktok\\.com|youtube\\.com)/(?:[^/?#]+/)?(reels?|stories|shorts|watch|video)(/|\\?|#|$)", RegexOption.IGNORE_CASE)
     /** true = this page scrolls inside itself (reels / shorts / stories): pull-to-refresh stays off. */
     fun noPull(url: String?): Boolean = url != null && NO_PULL.containsMatchIn(url)

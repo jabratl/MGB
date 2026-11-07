@@ -15,10 +15,10 @@ import androidx.core.content.ContextCompat
  *  md_ytrec / md_ytdist / md_ytshorts  hide up-next + end cards / sign-in, menu, comments, video info / Shorts (default OFF).
  */
 object MediaPrefs {
-    const val DRM = "md_drm"; const val BG = "md_bg"; const val YTLINKS = "md_ytlinks"
+    const val DRM = "md_drm"; const val BG = "md_bg"; const val YTLINKS = "md_ytlinks"; const val NOISY = "md_noisy"
     const val YTREC = "md_ytrec"; const val YTDIST = "md_ytdist"; const val YTSHORTS = "md_ytshorts"
-    val KEYS = listOf(DRM, BG, YTLINKS, YTREC, YTDIST, YTSHORTS)
-    private val DEF_ON = setOf(DRM, BG, YTLINKS)
+    val KEYS = listOf(DRM, BG, YTLINKS, NOISY, YTREC, YTDIST, YTSHORTS)
+    private val DEF_ON = setOf(DRM, BG, YTLINKS, NOISY)
 
     private fun sp(c: Context) = c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
     fun get(c: Context, k: String): Boolean = sp(c).getBoolean(k, k in DEF_ON)

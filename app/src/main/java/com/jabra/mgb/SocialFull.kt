@@ -15,14 +15,15 @@ object SocialFull {
     private var declined: String? = null
 
     fun sync(a: Activity, tab: TabManager.Tab?) {
-        if (!SocialMode.fullOn(a)) {
+        if (!SocialMode.fullOn(a) && !SocialReels.fullOn(a)) {
             if (byUs) { byUs = false; BarGestures.exit(a) }
             return
         }
         if (tab == null) return
         if (tab.id != lastTab) { lastTab = tab.id; byUs = false; declined = null } // new tab: MainActivity already left fullscreen
         val id = if (tab.isExt || tab.savedPage || tab.desktop || !SocialMode.on(a)) null else SocialProfiles.of(tab.url)?.id
-        val want = id != null && SocialProfiles.siteOn(a, id)
+        val site = id != null && SocialProfiles.siteOn(a, id)
+        val want = site && (SocialMode.fullOn(a) || SocialReels.fullOn(a) && SocialReels.isReelPage(tab.url)) // 0.0.309: reel pages go full screen on their own
         if (want) {
             if (BarGestures.active) return
             if (byUs) { byUs = false; declined = id; return } // the person showed the bars: leave them until this site is left

@@ -17,7 +17,7 @@ import android.webkit.WebView
  */
 object SocialApp {
     const val SHARE = "sm_share"; const val AWAKE = "sm_awake"; const val HAPTIC = "sm_haptic"
-    const val SOUND = "sm_sound"; const val NEXT = "sm_next"; const val ZOOM = "sm_zoom"
+    const val SOUND = "sm_sound"; const val NEXT = "sm_next"; const val ZOOM = "sm_zoom"; const val TOP = "sm_top"
     private val DEF_OFF = setOf(NEXT)
     private fun sp(c: Context) = c.getSharedPreferences("mgb_ui", Context.MODE_PRIVATE)
     fun on(c: Context, k: String): Boolean = sp(c).getBoolean(k, k !in DEF_OFF)
@@ -25,8 +25,8 @@ object SocialApp {
 
     private fun js(c: Context, chat: Boolean): String {
         val s = if (on(c, SHARE)) 1 else 0; val a = if (on(c, AWAKE)) 1 else 0; val h = if (on(c, HAPTIC)) 1 else 0
-        val u = if (on(c, SOUND)) 1 else 0; val n = if (on(c, NEXT)) 1 else 0; val z = if (on(c, ZOOM) && !chat) 1 else 0
-        return "(function(){try{if(!window.MGBSOC)return;window.__mgSoc={s:$s,a:$a,h:$h,u:$u,n:$n,z:$z};" +
+        val u = if (on(c, SOUND)) 1 else 0; val n = if (on(c, NEXT)) 1 else 0; val z = if (on(c, ZOOM) && !chat) 1 else 0; val tp = if (on(c, TOP)) 1 else 0
+        return "(function(){try{if(!window.MGBSOC)return;window.__mgSoc={s:$s,a:$a,h:$h,u:$u,n:$n,z:$z,t:$tp};" +
             // pinch zoom: the page may not lock the viewport (zoom a photo like in the app); not on chat pages
             "if($z){try{var vm=document.querySelector('meta[name=viewport]');if(vm&&/maximum-scale|user-scalable/i.test(vm.content)){vm.content=vm.content.replace(/,?\\s*(maximum-scale|user-scalable|minimum-scale)\\s*=\\s*[^,]*/gi,'')+',user-scalable=yes,maximum-scale=5';}}catch(e){}}" +
             "if(window.__mgSocOn)return;window.__mgSocOn=1;var C=function(){return window.__mgSoc||{}};" +
@@ -47,6 +47,11 @@ object SocialApp {
             "document.addEventListener('timeupdate',function(e){try{var v=e.target;if(!C().n||!v||v.tagName!=='VIDEO'||!(v.duration>2)||v.currentTime<v.duration-0.35||!/\\/reels?\\//.test(location.pathname))return;" +
             "var n=Date.now();if(v.__mgN&&n-v.__mgN<4000)return;v.__mgN=n;var el=v.parentElement;while(el&&el!==document.body){var cs=getComputedStyle(el);if(/(auto|scroll)/.test(cs.overflowY)&&el.scrollHeight>el.clientHeight+10){el.scrollBy({top:el.clientHeight,behavior:'smooth'});return}el=el.parentElement}" +
             "document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',code:'ArrowDown',keyCode:40,bubbles:true}))}catch(x){}},true);" +
+            // tap the Home icon again = back to the top (like the app)
+            "document.addEventListener('click',function(e){try{if(!C().t)return;var a=e.target&&e.target.closest?e.target.closest('a[href]'):null;if(!a)return;var u=new URL(a.href,location.href);if(u.host!==location.host||u.pathname!==location.pathname||u.search&&u.search!==location.search)return;" +
+            "var l=(a.getAttribute('aria-label')||a.textContent||'').trim().toLowerCase();if(!(location.pathname==='/'||l==='home'||l==='feed'))return;if(a.closest('article,main,[role=main]')&&l!=='home')return;" +
+            "var y=window.scrollY||document.documentElement.scrollTop||0;var st=null;var els=document.querySelectorAll('main,[role=main],div');for(var i=0;i<els.length&&i<400;i++){var el=els[i];if(el.scrollTop>200&&el.scrollHeight>el.clientHeight+10){st=el;break}}" +
+            "if(y<=4&&!st)return;e.preventDefault();e.stopPropagation();window.scrollTo({top:0,behavior:'smooth'});if(st)st.scrollTo({top:0,behavior:'smooth'})}catch(x){}},true);" +
             "var lt=0;function tick(){if(!C().h)return;var n=Date.now();if(n-lt<250)return;lt=n;try{MGBSOC.tick()}catch(e){}}" +
             "document.addEventListener('click',function(e){try{var b=e.target&&e.target.closest?e.target.closest('[aria-label],[role=button]'):null;if(!b)return;" +
             "var l=(b.getAttribute('aria-label')||'').toLowerCase();if(/^(like|unlike|save|remove|follow|following|upvote|repost|retweet|bookmark|heart|love)\\b/.test(l)||/^remove (like|save)/.test(l))tick();}catch(x){}},true);" +

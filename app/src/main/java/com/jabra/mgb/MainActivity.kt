@@ -55,6 +55,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         SiteConfig.init(this) // S29
         ClosedTabs.init(this) // S29
         super.onCreate(savedInstanceState)
+        noisyOn() // 0.0.310
         AccentTheme.apply(this) // 0.0.289: accent overlay (before the layout is inflated)
         setContentView(R.layout.activity_main)
         if (AppearancePrefs.compactBar(this)) findViewById<View>(R.id.bottom_bar)?.layoutParams?.height = Util.dp(this, 44) // A11: compact bar
@@ -529,6 +530,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         super.onStart()
         AppLock.onStart(this) // S45: lock again after the chosen delay
         SocialLock.onStart(this, tabs.active) // 0.0.260 (D7)
+        SocialQuick.onStart(this, tabs.active) // 0.0.307: refresh the feed when you come back
         SocialTime.start(this, tabs) // 0.0.261 (C3)
         VaultStore.onAppStart(this); VaultScreen.refresh() // V3: vault auto-lock
         AutoDiag.start(this, tabs) // S87.2
@@ -538,6 +540,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         VaultStore.onAppStop(this) // V3
         AppLock.onStop(this) // S45
         SocialLock.onStop() // 0.0.260 (D7)
+        SocialQuick.onStop() // 0.0.307
         SocialTime.stop() // 0.0.261 (C3)
         AutoDiag.stop() // S87.2
         AdBlock.flushTotal() // S68
@@ -586,7 +589,24 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         super.onPause()
     }
 
+    // 0.0.310: headphones unplugged / Bluetooth gone = pause the pages that play sound
+    private var noisyRx: android.content.BroadcastReceiver? = null
+    private fun noisyOn() {
+        if (noisyRx != null) return
+        val rx = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: android.content.Context?, i: Intent?) {
+                if (!MediaPrefs.get(this@MainActivity, MediaPrefs.NOISY)) return
+                MediaPrefs.away = false // background play must not start the page again
+                val js = "try{window.__mgbYm&&(window.__mgbYm.away=0);document.querySelectorAll('video,audio').forEach(function(v){try{v.pause()}catch(e){}})}catch(e){}"
+                for (t in tabs.allTabs()) { if (!t.suspended) try { t.web.evaluateJavascript(js, null) } catch (_: Exception) { } }
+            }
+        }
+        noisyRx = rx
+        try { androidx.core.content.ContextCompat.registerReceiver(this, rx, android.content.IntentFilter(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY), androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED) } catch (_: Exception) { noisyRx = null }
+    }
+
     override fun onDestroy() {
+        noisyRx?.let { try { unregisterReceiver(it) } catch (_: Exception) { } }; noisyRx = null // 0.0.310
         if (!siteWin) SiteWindow.mainUp = false else SiteWindow.live-- // 0.0.247 (A7)
         if (!siteWin && isFinishing) { PrivNotify.closer = null; PrivNotify.cancel(this) } // 0.0.302
         if (siteWin && !shared) { // site window while the main window lives: only its own things go

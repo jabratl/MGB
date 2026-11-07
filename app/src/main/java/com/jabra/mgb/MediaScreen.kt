@@ -43,6 +43,7 @@ object MediaScreen {
             BookmarksScreen.tabsRef?.active?.web?.reload() // a page that was refused before asks again
         }
         row(MediaPrefs.BG, "Background play", "YouTube keeps playing when you switch tabs or apps, or the screen is off. A small notification shows while it plays.")
+        row(MediaPrefs.NOISY, "Pause when headphones come out", "Videos and music on any page pause when you unplug wired headphones or a Bluetooth device disconnects, like the apps do.") // 0.0.310
         header("YouTube")
         row(MediaPrefs.YTLINKS, "Open YouTube links in Thazir", "YouTube pages stay in the tab instead of jumping to the YouTube app.")
         row(MediaPrefs.YTREC, "Block YouTube recommended content", "Hides the up next and end card elements on youtube.com.")

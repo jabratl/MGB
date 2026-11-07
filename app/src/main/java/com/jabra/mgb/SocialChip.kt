@@ -81,6 +81,19 @@ object SocialChip {
             head.addView(hb, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             col.addView(head, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(12) })
 
+            val ql = SocialQuick.links(p.id)
+            if (ql.isNotEmpty() && siteOn) { // 0.0.307: pages the app has as tabs
+                col.addView(tv("Go to", 12f, c(R.color.mg_text_dim)).apply { setPadding(dp(4), 0, dp(4), dp(4)) })
+                val hs = android.widget.HorizontalScrollView(act).apply { isHorizontalScrollBarEnabled = false }
+                val ll = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL }
+                for (q in ql) ll.addView(tv(q.label, 13f, c(R.color.mg_primary), true).apply {
+                    gravity = Gravity.CENTER; minimumHeight = dp(40); setPadding(dp(14), 0, dp(14), 0)
+                    background = round(ColorUtils.setAlphaComponent(c(R.color.mg_primary), 0x1F), 20, 1, ColorUtils.setAlphaComponent(c(R.color.mg_primary), 0x66))
+                    setOnClickListener { dismiss(); try { tab.web.loadUrl(q.url) } catch (_: Exception) { } }
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(8) })
+                hs.addView(ll)
+                col.addView(hs, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(12) })
+            }
             col.addView(sw("App mode for ${p.label}", "Phone-style page, banners hidden", siteOn) { v -> SocialProfiles.setSiteOn(act, p.id, v) })
             val bm = SocialBlur.siteMode(act, p.id)
             col.addView(pick("Blur pictures", SocialBlur.siteLabel(bm)) { SocialBlur.cycleSite(act, p.id) })

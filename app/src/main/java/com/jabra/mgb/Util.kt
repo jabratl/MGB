@@ -67,6 +67,7 @@ object Util {
     fun toUrlOrSearch(input: String, searchBase: String = this.searchBase): String {
         val t = input.trim()
         if (t.isEmpty()) return "about:blank"
+        SocialQuick.shortcut(t)?.let { return it } // 0.0.308: ig:name, fb:name, r/name ...
         if (t.startsWith("localhost", true)) return "http://$t"
         if (SCHEME.matches(t) && !t.contains(' ')) return t
         val looksHost = !t.contains(' ') && t.contains('.')

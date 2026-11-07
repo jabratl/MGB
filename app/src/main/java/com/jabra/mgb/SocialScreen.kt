@@ -195,12 +195,25 @@ object SocialScreen {
                 null, { SocialApp.on(act, SocialApp.AWAKE) }) { on -> SocialApp.set(act, SocialApp.AWAKE, on) }
             switchRow(extra, R.drawable.ic_info, "Light vibration on Like / Save", "A small tick when you like, save or follow, or double-tap a picture, like the app",
                 null, { SocialApp.on(act, SocialApp.HAPTIC) }) { on -> SocialApp.set(act, SocialApp.HAPTIC, on) }
+            switchRow(extra, R.drawable.ic_screen, "Full screen on reels", "Address bar and phone bars hide while a reel page is open, like the app. Tap the small handle or press Back to show them",
+                null, { SocialReels.fullOn(act) }) { on -> SocialReels.setFullOn(act, on) } // 0.0.309
             switchRow(extra, R.drawable.ic_info, "Reels with sound", "Reels / videos play with sound like the app instead of starting muted. If you mute one by hand, it stays muted until you unmute",
                 null, { SocialApp.on(act, SocialApp.SOUND) }) { on -> SocialApp.set(act, SocialApp.SOUND, on) } // 0.0.306
             switchRow(extra, R.drawable.ic_info, "Auto next reel (experimental)", "When a reel ends, the viewer moves to the next reel by itself. Off by default; a site change can stop it working",
                 null, { SocialApp.on(act, SocialApp.NEXT) }) { on -> SocialApp.set(act, SocialApp.NEXT, on) }
             switchRow(extra, R.drawable.ic_screen, "Pinch to zoom pictures", "Lets you pinch-zoom on social pages that lock zoom (not on chats). Applies from the next page load",
                 null, { SocialApp.on(act, SocialApp.ZOOM) }) { on -> SocialApp.set(act, SocialApp.ZOOM, on) }
+            switchRow(extra, R.drawable.ic_info, "Home icon scrolls to top", "Tapping the Home icon of a social site while you are already on its home page scrolls back to the top, like the app",
+                null, { SocialApp.on(act, SocialApp.TOP) }) { on -> SocialApp.set(act, SocialApp.TOP, on) } // 0.0.308
+            lateinit var rsTv: TextView // 0.0.307: refresh the feed when you come back
+            fun rsHint() = (if (SocialQuick.resumeOn(act)) "ON, after " + SocialQuick.resumeMin(act) + " min away" else "OFF") + " (tap to change). Reloads the home feed of a social site when you return after a while, like the app. Never a chat, reel or post"
+            val rsRow = actionRow(extra, R.drawable.ic_reload, "Refresh feed when you come back", rsHint()) {
+                if (!SocialQuick.resumeOn(act)) SocialQuick.setResumeOn(act, true)
+                else if (SocialQuick.resumeMin(act) == SocialQuick.mins.last()) { SocialQuick.setResumeOn(act, false); SocialQuick.cycleMin(act) }
+                else SocialQuick.cycleMin(act)
+                rsTv.text = rsHint()
+            }
+            rsTv = ((rsRow as LinearLayout).getChildAt(1) as LinearLayout).getChildAt(1) as TextView
             lateinit var plTv: TextView // 0.0.304: pull-to-refresh in chats
             fun plHint() = SocialPull.modeNames[SocialPull.mode(act)] + " (tap to change). Pull down to reload a page: Auto turns it off in Messenger / Instagram / other chats and in reels so scrolling to older messages does not reload. Each site can also be set from its chip (the letter in the address bar)"
             val plRow = actionRow(extra, R.drawable.ic_info, "Pull to refresh on social sites", plHint()) {
