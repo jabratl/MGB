@@ -1,3 +1,12 @@
+0.0.294 (BUILD: Chrome-style edge swipe = page Back / Forward)
+- Why: 0.0.293 only swiped between TABS. This is the other half of the ask: swipe to go to the previous / next PAGE of the same tab (history), like Chrome.
+- What: start at the LEFT screen edge and drag right = Back; start at the RIGHT edge and drag left = Forward. A round arrow slides in from the edge and follows the finger height; let go after 80 dp and the page goes. Dim arrow = nothing to go to. Not on the address bar, not in video fullscreen, not with 2 fingers, vertical scrolls near the edge are left alone. Uses the same canBack / back / canFwd / fwd as the bar arrows (Home entry rules stay).
+- Gesture navigation phones: a 200 dp band on both edges (lower middle) is excluded from the system back gesture so the swipe works there (also gives Forward); the rest of the edge keeps the system back gesture. 3-button phones: works anywhere on the edge.
+- Setting: Appearance > Behaviour > "Swipe back / forward", default ON, in Reset.
+- Files: EdgeSwipe.kt (new), MainActivity.kt (dispatchTouchEvent + 1 attach call), AppearancePrefs.kt, AppearanceScreen.kt (1 row), SettingsScreen.kt (RESET key), build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: horizontal gestures that start at the very edge of a page (carousels, side menus, maps); turn the setting OFF to compare. The first MOVE sends ACTION_CANCEL to the page, so a page drag that begins at the edge is cut once it is clearly horizontal.
+- NOT tested: Gradle build (CI), device (3-button + gesture nav, left / right edge, Back + Forward, Home tab, 1 history entry, dark + light, 360 + 1280 dp, bar top and bottom, Reduce motion, tablet).
+
 0.0.293 (MODIFY: Chrome-style swipe between tabs + Chrome-style tab count button)
 - Why: asked for Chrome's bar swipe between pages and a more Chrome-like tab look. Reference = the Chrome tab switcher screen recording. Thazir's switcher already has the Chrome grid / list / groups / select / search, so this step adds the missing swipe and the tab button look only.
 - Swipe: drag the address bar LEFT = next tab, RIGHT = previous tab (needs 56 dp sideways, mostly horizontal). The page slides in from the side. Normal tabs swipe among normal tabs, private among private. At the first / last tab the bar gives a small bounce. Not while the address field has the keyboard (text selection) and not in bar-hidden fullscreen. Vertical swipes (fullscreen / tab switcher) are untouched.

@@ -135,6 +135,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         findViewById<ImageView>(R.id.btn_menu).setOnClickListener { showMenu() } // S22
         if (shared) DlFly.attach(this, findViewById(R.id.btn_menu)) // S21e
         BarGestures.attach(this, tabs) // A6
+        EdgeSwipe.attach(this) // 0.0.294
 
         urlBar.setOnEditorActionListener { _, actionId, event ->
             val go = actionId == EditorInfo.IME_ACTION_GO ||
@@ -602,6 +603,12 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
     // uiMode is in configChanges (no WebView reload on rotate); on light/dark switch we
     // recreate so the XML colours re-resolve. Tabs come back from the saved session.
+    /** 0.0.294: edge swipe = page back / forward. The pref check is the first line inside EdgeSwipe.handle, so nothing runs when OFF. */
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        if (::tabs.isInitialized && EdgeSwipe.handle(this, tabs, ev) { super.dispatchTouchEvent(it) }) return true
+        return super.dispatchTouchEvent(ev)
+    }
+
     /** A3: touchpad two-finger horizontal scroll = back / forward. The pref check comes first, so nothing runs when OFF. */
     override fun dispatchGenericMotionEvent(ev: android.view.MotionEvent): Boolean {
         if (::tabs.isInitialized && AppearancePrefs.touchpad(this) && ZoomTools.onScroll(ev, tabs)) return true

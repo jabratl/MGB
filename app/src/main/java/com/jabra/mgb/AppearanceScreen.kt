@@ -410,6 +410,8 @@ object AppearanceScreen {
                 { AppearancePrefs.swipeTabs(act) }) { on -> AppearancePrefs.setSwipeTabs(act, on) }
             toggleRow(behCard, R.drawable.ic_tab_rows, "Swipe between tabs", "Swipe the bar left or right to go to the next or previous tab",
                 { AppearancePrefs.swipeSide(act) }) { on -> AppearancePrefs.setSwipeSide(act, on) }
+            toggleRow(behCard, R.drawable.ic_back, "Swipe back / forward", "Swipe from the left screen edge to go back, from the right edge to go forward",
+                { AppearancePrefs.swipeNav(act) }) { on -> AppearancePrefs.setSwipeNav(act, on); EdgeSwipe.attach(act) }
             col.addView(behCard, LinearLayout.LayoutParams(MATCH, WRAP))
         }
 
