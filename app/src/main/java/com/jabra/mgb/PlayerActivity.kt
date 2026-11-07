@@ -168,6 +168,8 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var prefs: android.content.SharedPreferences
 
     private val subs = ArrayList<MediaItem.SubtitleConfiguration>()
+    internal var subDelayMs = 0L // 0.0.280: subtitle delay (ms) for subtitle files, shown by PlayerSubs
+    private val subDelayRun = Runnable { applySubDelay() }
     private val sibs = ArrayList<Pair<Uri, String>>() // S37: other media files of the same folder (previous / next episode)
     private var sibIdx = -1
     private var zoom = 1f
@@ -519,7 +521,7 @@ class PlayerActivity : AppCompatActivity() {
         uri = sibs[idx].first
         title = sibs[idx].second.substringBeforeLast('.')
         titleTv.text = title
-        subs.clear()
+        subs.clear(); SubDelay.reset(); subDelayMs = 0L
         findSidecars()
         wantAutoSub = subs.isNotEmpty()
         autoSubDone = false
@@ -613,6 +615,36 @@ class PlayerActivity : AppCompatActivity() {
         return b.build()
     }
 
+    /** Slider callback (PlayerSubs): remembers the value and rebuilds the subtitle files once the finger rests (debounced). */
+    internal fun queueSubDelay(ms: Long) {
+        subDelayMs = ms
+        main.removeCallbacks(subDelayRun)
+        main.postDelayed(subDelayRun, 400)
+    }
+
+    /** The shifted copy of one subtitle config (always computed from the original file); the config itself when it cannot be shifted. */
+    private fun shiftedSub(c: MediaItem.SubtitleConfiguration): MediaItem.SubtitleConfiguration {
+        val src = SubDelay.origOf(c.uri)
+        val nu = SubDelay.shifted(this, src, c.mimeType, subDelayMs) ?: return c
+        return c.buildUpon().setUri(nu).build()
+    }
+
+    /** Rewrites every subtitle file with the current delay and prepares the player again at the same position. */
+    private fun applySubDelay() {
+        val p = player ?: return
+        if (subs.isEmpty()) { Util.toast(this, "No subtitle file to delay"); return }
+        val pos = p.currentPosition
+        val play = p.playWhenReady
+        val wasOn = !subOff()
+        val n = subs.size
+        for (i in 0 until n) subs[i] = shiftedSub(subs[i])
+        wantAutoSub = wasOn
+        autoSubDone = false
+        setItem(pos)
+        p.prepare()
+        p.playWhenReady = play
+    }
+
     private fun addSubtitleFile(u: Uri) {
         var name = ""
         try {
@@ -626,6 +658,7 @@ class PlayerActivity : AppCompatActivity() {
         if (mime == null) { Util.toast(this, "Use .srt, .vtt, .ass, .ssa or .ttml"); return }
         val pos = player?.currentPosition ?: 0L
         subs.add(0, subConfig(u, mime, "", name))
+        if (subDelayMs != 0L) subs[0] = shiftedSub(subs[0])
         wantAutoSub = true
         autoSubDone = false
         setItem(pos)
