@@ -1,0 +1,46 @@
+THAZIR 0.0.303 PATCH (Your Orbit + Google sign-in / Drive Passport)
+All paths are under app/src/main/java/com/jabra/mgb/ unless noted.
+
+A) COPY 2 NEW FILES (new_files/) into that folder:
+   Orbit.kt
+   CloudSync.kt
+
+B) EDIT 4 EXISTING FILES (small edits, search the text, do not replace the whole file)
+
+1) SettingsScreen.kt  (2 edits)
+   a. In RESET "general" list: find   + MediaPrefs.KEYS + SiteMute.KEY
+      change to                       + MediaPrefs.KEYS + Orbit.KEYS + SiteMute.KEY
+   b. In fill(): find
+          if (query.trim().isEmpty() && subPage == null) {
+              recentRow(prefs)...
+      add as the FIRST line inside that if block:
+          col.addView(Orbit.block(act) { fill() }, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(8) })
+
+2) Backup.kt  (4 edits)
+   a. In auto(): replace
+          val text = try { build(act, booleanArrayOf(true, true, true, true, true)) } catch (e: Exception) { return }
+      with
+          val text = try { build(act, Orbit.parts(act)) } catch (e: Exception) { return }
+   b. In auto(), right after the line   p.edit().putLong("auto_backup_t", now).apply()   add:
+          if (CloudSync.signedIn(act)) CloudSync.upload(act, text, false) { }
+   c. In exportData(): replace
+          val sel = booleanArrayOf(true, true, true, true, true)
+      with
+          val sel = Orbit.parts(act)
+   d. Above   fun cloudJson(act: Activity): String   (or anywhere in the object) add:
+          fun passportJson(act: Activity): String = build(act, Orbit.parts(act))
+
+3) MainActivity.kt  (1 edit)
+   In onCreate, on the line BEFORE   BrowserExtras.init(this)   add:
+          CloudSync.init(this)
+
+4) app/build.gradle.kts  (2 edits)
+   a. In dependencies { } add:
+          implementation("com.google.android.gms:play-services-auth:21.2.0")
+   b. (optional) bump  val appVersionName  to "0.0.303"
+
+C) edits.patch has the same edits as a diff (made against 0.0.301). Use only if your files still match:
+   git apply --3way edits.patch      (or: patch -p1 < edits.patch)
+   If it fails, do the manual steps above.
+
+D) CHANGELOG / HANDOFF: not included, you keep yours.
