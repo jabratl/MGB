@@ -396,6 +396,28 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         urlBar.setCompoundDrawablesRelative(d, null, null, null)
     }
 
+    private var urlBgNormal: android.graphics.drawable.Drawable.ConstantState? = null
+    private var urlBgPriv = false
+
+    /** 0.0.287: private tab = address field in a plum tone (violet + rose mixed from theme tokens), so it is never taken for a normal tab. */
+    private fun tintUrlBar(priv: Boolean) {
+        if (priv == urlBgPriv) return
+        if (urlBgNormal == null) urlBgNormal = urlBar.background?.constantState
+        urlBgPriv = priv
+        if (!priv) { urlBgNormal?.let { urlBar.background = it.newDrawable().mutate() }; return }
+        val plum = androidx.core.graphics.ColorUtils.blendARGB(getColor(R.color.mg_primary), getColor(R.color.mg_error), 0.5f)
+        fun shape(fill: Int, w: Int, stroke: Int) = android.graphics.drawable.GradientDrawable().apply {
+            setColor(fill); cornerRadius = Util.dp(this@MainActivity, 19).toFloat(); setStroke(Util.dp(this@MainActivity, w), stroke)
+        }
+        val ink = Util.dp(this, 3)
+        val rest = shape(androidx.core.graphics.ColorUtils.blendARGB(getColor(R.color.mg_surface_variant), plum, 0.22f), 1, androidx.core.graphics.ColorUtils.blendARGB(getColor(R.color.mg_outline), plum, 0.8f))
+        val focus = shape(getColor(R.color.mg_surface), 2, plum)
+        val sl = android.graphics.drawable.StateListDrawable()
+        sl.addState(intArrayOf(android.R.attr.state_focused), android.graphics.drawable.InsetDrawable(focus, 0, ink, 0, ink))
+        sl.addState(intArrayOf(), android.graphics.drawable.InsetDrawable(rest, 0, ink, 0, ink))
+        urlBar.background = sl
+    }
+
     private fun refreshAll(tab: TabManager.Tab?) {
         val loading = tab?.loading == true
         if (loading) { // S21d: smooth line, fades out when the page is done
@@ -411,6 +433,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
             }.start()
         }
         btnTabs.setTextColor(getColor(if (tab?.priv == true) R.color.mg_primary else R.color.mg_text)) // S26
+        tintUrlBar(tab?.priv == true) // 0.0.287
         refreshUrlField()
         refreshShield()
         applyNavArrows() // A1: arrows follow tab switch, page load and history changes

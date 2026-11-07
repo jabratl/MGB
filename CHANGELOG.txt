@@ -1,3 +1,12 @@
+0.0.287 (MODIFY: lock tap = site sheet, Close duplicates, plum private address bar)
+- Why: three small pocket features from the idea list (#4, #1, #3): the lock in the address bar did nothing, duplicate tabs piled up, a private tab looked like a normal one in the bar.
+- #4 Lock tap: tap the lock at the start of the address bar (not while typing, http / https pages only) = bottom sheet for THIS site: Camera / Microphone / Location / Notifications, tap a chip to cycle Ask first > Allowed > Blocked (uses SitePerms, nothing new stored; a saved "camera and microphone" answer is split so the other half is kept). "All site permissions" opens the existing sheet. The page reloads once when the sheet closes if something changed.
+- #1 Tab switcher menu: new "Close duplicates (N)" (only shown when there are duplicates). Same address (# part and trailing / ignored) = duplicate; the first one stays, the open tab is always the one kept; Home / extension tabs ignored. Uses the existing close + Undo bar.
+- #3 Private tab: the address field gets a plum tone (violet + rose mixed from theme tokens, so no new colours) with a plum ring when focused; normal tabs keep the old drawable.
+- Files: SiteSheet.kt (new), BarGestures.kt (1 line: lock touch hook), TabSwitcher.kt (menu item + dupTabs()), MainActivity.kt (tintUrlBar + 1 call), build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: the url bar touch now goes through SiteSheet.touch first (only the lock zone is consumed; swipe gestures on the bar are unchanged); tintUrlBar swaps the field background once per private / normal change.
+- NOT tested: Gradle build (CI; watch SiteSheet.touch local fun hit() and the when(v) cycle), device (360 + 1280 dp, dark + light, tap lock on https + http, sheet chips, rotation with sheet open, Close duplicates + Undo, private tab bar tint + focus ring, swipe on bar still works).
+
 0.0.286 (BUILD: Social chip in the address bar)
 - Why: the social features (app mode, blur, dark page, link cleaner, focus mode) were only in Settings. On a social site they should be one tap away.
 - What: on a social site (Social mode ON, site found, not Home, not while typing) a small letter badge (violet ring = app mode ON for this site, faded = OFF) shows at the END of the address bar, next to the tabs button. Tap = bottom sheet: App mode for this site, Blur pictures (tap cycles), Dark page (tap cycles), Link cleaner, Focus mode, Muted words (opens Social settings), All social settings. Changes apply when the sheet closes (page reloads once).

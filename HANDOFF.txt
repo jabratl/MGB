@@ -1,3 +1,4 @@
+STATUS 0.0.287 = 0.0.286 + MODIFY lock tap site sheet (SiteSheet.kt) + Close duplicates (tab menu) + plum private address bar. Side track. NEXT = device test round T1-T15 (add: lock tap on https/http, sheet chips, Close duplicates + Undo, private bar tint, bar swipe still works). Idea list left: #2 social chip unread dot + long-press, #5 address bar long-press menu (Copy / Paste & go / Share), #6 Settings search highlight + Recently changed.
 STATUS 0.0.286 = 0.0.285 + BUILD Social chip (SocialChip.kt, btn_social in the address bar, quick sheet). Side track. NEXT = device test round T1-T15 (add: social chip on 3 sites, sheet toggles, chip hidden on other pages).
 STATUS 0.0.285 = 0.0.284 + MODIFY Settings polish (SettingsFx.kt: staggered entrance, open-card colour ring, row dividers, scroll hairline). Side track. NEXT = device test round T1-T15 (add: Settings entrance, open / close category, Reduce motion, scroll hairline).
 STATUS 0.0.284 = 0.0.283 + BUILD website notifications (WebNotify.kt polyfill, only while the app runs) + Notifications card in Site permissions. Side track. NEXT = device test round T1-T15 (tabs list, address bar, site permissions incl. All sites / default Blocked / Notifications, device permissions).
@@ -145,6 +146,8 @@ Page scripts: each script guards itself (window.__mgS<x>), stops after <= 40 s, 
 
 ================================================================================
 7. PROGRESS / RESULT LOG (newest on top)
+
+0.0.287 (MODIFY, see CHANGELOG): lock tap -> SiteSheet (touch hook BarGestures l ~35, SitePerms keys camera/microphone/location/notifications), TabSwitcher.menu "Close duplicates (N)" via dupTabs()+doCloseList, MainActivity.tintUrlBar (plum = blend mg_primary+mg_error). Repo root note: zip root is Thazir-main/.
 ================================================================================
 U5 PART 2 0.0.277 (patch Thazir_U5_v0_0_277.zip + kit Thazir_KIT_v0_0_277.zip): NEW SocialProbe.kt (memory only): note(id, kind, view) from SocialMode.inject, line(id) text, check(done) = read-only probe script on the last WebView of each site (flags window.__mgSv / __mgSb / __mgSi / __mgSk, style #__mgSc, phone / desktop, innerWidth, host), 1.5 s timeout. SocialScreen.summaryDialog: per-site counter + button "Check open pages" + result dialog with Copy.
   FIX: 0.0.275 added HowToUse text with unescaped double quotes ("This picture is fine") inside a Kotlin string = compile error; removed here. LESSON for every step: text added to HowToUse / any Kotlin string must not contain a raw double quote. Add to checks: scan changed Kotlin files for lines with an odd number of unescaped quotes (done in this step, clean).

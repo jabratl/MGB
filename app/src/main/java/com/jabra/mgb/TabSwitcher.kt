@@ -811,6 +811,7 @@ object TabSwitcher {
             if (onList) items.add(MI("Open links from clipboard", R.drawable.ic_paste) { // T1
                 TabBookmarks.fromClipboard(act, tm, mode == 1, if (mode == 2) openGroup else null, mode != 1 && openGroup == null) { render() }
             })
+            if (onList) dupTabs().let { d -> if (d.isNotEmpty()) items.add(MI("Close duplicates (" + d.size + ")", R.drawable.ic_close) { doCloseList(d) }) } // 0.0.287: Undo comes from doCloseList
             if (onList) items.add(MI(if (mode == 1) "Close all private tabs" else "Close all tabs", R.drawable.ic_trash) { closeAll() })
             items.add(MI("Delete browsing data", R.drawable.ic_trash) { deleteData() }) // S76
             items.add(MI("Settings", R.drawable.ic_settings) { dismiss(); SettingsScreen.open(act) }) // S76
@@ -1069,6 +1070,22 @@ object TabSwitcher {
                 pendingGlide = null
                 render()
             }
+        }
+
+        /** 0.0.287: extra tabs that show the same page as an earlier one (same address, # part and trailing / ignored). The open tab is the one kept. */
+        private fun dupTabs(): List<TabManager.Tab> {
+            fun norm(t: TabManager.Tab): String = (t.web.url ?: t.url).substringBefore('#').trimEnd('/')
+            val seen = HashMap<String, TabManager.Tab>()
+            val out = ArrayList<TabManager.Tab>()
+            val cur = tm.active
+            for (t in shown) {
+                if (t.home || t.isExt || !(t.web.url ?: t.url).startsWith("http")) continue
+                val k = norm(t)
+                val first = seen[k]
+                if (first == null) { seen[k] = t; continue }
+                if (t === cur) { out.add(first); seen[k] = t } else out.add(t)
+            }
+            return out
         }
 
         private fun closeAll() = closeList(shown)

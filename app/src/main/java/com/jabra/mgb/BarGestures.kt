@@ -33,6 +33,7 @@ object BarGestures {
         var downY = 0f
         var fired = false
         val l = View.OnTouchListener { v, e ->
+            if (SiteSheet.touch(a, tm, v, e)) return@OnTouchListener true // 0.0.287: lock tap
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> { downX = e.rawX; downY = e.rawY; fired = false; v === bar }
                 MotionEvent.ACTION_MOVE -> {
