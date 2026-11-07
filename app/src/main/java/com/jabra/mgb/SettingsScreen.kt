@@ -910,6 +910,7 @@ object SettingsScreen {
                     fill()
                 },
                 Row(R.drawable.ic_desktop, "Social sites", if (SocialMode.on(act)) "ON" else "OFF", "Facebook, Reddit, X, Discord and more fit the phone. Switch per site") { SocialScreen.open(act) { fill() } }, // 0.0.224
+                Row(R.drawable.ic_shield, "Device permissions", "", "Camera, microphone, notifications, location, install apps") { DevicePerms.open(act) }, // 0.0.281
                 Row(R.drawable.ic_screen, "Default browser", if (isDefaultBrowser()) "Default" else "", "Make MGB open web links") { openDefaultBrowser() } // Step C
             ))
             category("tabs", R.drawable.ic_list, "Tabs and motion", "Swipe, close, animations", listOf( // S21f
