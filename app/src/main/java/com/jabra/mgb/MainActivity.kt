@@ -75,6 +75,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
 
         Util.loadEngine(this) // S33
         urlBar = findViewById(R.id.url_bar)
+        urlBar.typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL) // 0.0.281: stronger address text
         btnHome = findViewById(R.id.btn_home)
         btnBack = findViewById(R.id.btn_back) // A1
         btnFwd = findViewById(R.id.btn_fwd) // A1
@@ -390,7 +391,7 @@ class MainActivity : AppCompatActivity(), TabManager.Listener {
         if (d != null) {
             val sz = Util.dp(this, 14)
             d.setBounds(0, 0, sz, sz)
-            d.setTint(getColor(if (secure == false) R.color.mg_error else R.color.mg_text_dim))
+            d.setTint(getColor(if (secure == false) R.color.mg_error else R.color.mg_success)) // 0.0.281: https lock = green
         }
         urlBar.setCompoundDrawablesRelative(d, null, null, null)
     }

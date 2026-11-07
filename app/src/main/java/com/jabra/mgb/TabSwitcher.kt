@@ -554,6 +554,8 @@ object TabSwitcher {
                 return
             }
             bar.addView(icon(R.drawable.ic_back, "Done") { dismiss() }, LinearLayout.LayoutParams(dp(56), dp(52)))
+            val lv = TabPrefs.listView(act) // 0.0.281: grid <-> list, the icon shows what a tap switches to
+            bar.addView(icon(if (lv) R.drawable.ic_tab_grid else R.drawable.ic_tab_rows, if (lv) "Show cards" else "Show list") { TabPrefs.set(act, "tab_list_view", !lv); animateNext = true; render() }, LinearLayout.LayoutParams(dp(56), dp(52)))
             bar.addView(View(act), LinearLayout.LayoutParams(0, 1, 1f))
             bar.addView(ImageView(act).apply {
                 setImageResource(R.drawable.ic_add)
@@ -566,6 +568,7 @@ object TabSwitcher {
             }, LinearLayout.LayoutParams(dp(96), dp(44)))
             bar.addView(View(act), LinearLayout.LayoutParams(0, 1, 1f))
             bar.addView(icon(R.drawable.ic_trash, "Close all") { closeAll() }, LinearLayout.LayoutParams(dp(56), dp(52)))
+            bar.addView(View(act), LinearLayout.LayoutParams(dp(56), dp(52))) // 0.0.281: balances Done + view toggle so + stays centred
         }
 
         private fun render() {
@@ -644,12 +647,13 @@ object TabSwitcher {
                 return
             }
             val cards = ArrayList<View>()
-            if (mode == 0 && query.isBlank() && !selecting) groupNames().forEach { n -> val v = groupCard(n); v.tag = "g:" + n; cards.add(v); targets.add(v to n) } // groups sit in the tab grid first
+            val listV = TabPrefs.listView(act) // 0.0.281
+            if (mode == 0 && query.isBlank() && !selecting) groupNames().forEach { n -> val v = if (listV) groupRow(n) else groupCard(n); v.tag = "g:" + n; cards.add(v); targets.add(v to n) } // groups sit in the tab grid first
             val olderOn = mode == 0 && query.isBlank() && !selecting // STEP E: "Older" = not opened for 7 days
             val older = if (olderOn) shown.filter { tm.isOld(it) } else emptyList()
             val oldCards = ArrayList<View>()
-            shown.forEach { t -> if (t in older) return@forEach; val v = card(t); cards.add(v); targets.add(v to t) } // S77: inside a group a tab card = reorder target
-            older.forEach { t -> val v = card(t); oldCards.add(v); targets.add(v to t) }
+            shown.forEach { t -> if (t in older) return@forEach; val v = if (listV) row(t) else card(t); cards.add(v); targets.add(v to t) } // S77: inside a group a tab card = reorder target
+            older.forEach { t -> val v = if (listV) row(t) else card(t); oldCards.add(v); targets.add(v to t) }
             empty.text = when {
                 query.isNotBlank() -> "No tab matches."
                 mode == 1 -> "No private tabs.\nTap + to open one."
@@ -725,6 +729,10 @@ object TabSwitcher {
         }
 
         private fun layoutCards(cards: List<View>) {
+            if (TabPrefs.listView(act)) { // 0.0.281: one column of rows
+                for (v in cards) grid.addView(v, LinearLayout.LayoutParams(MATCH, dp(if (v.tag is String) 76 else 64)).apply { setMargins(dp(4), dp(4), dp(4), dp(4)) })
+                return
+            }
             var i = 0
             while (i < cards.size) {
                 val line = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; clipChildren = false }
@@ -1509,6 +1517,89 @@ object TabSwitcher {
                 }, LinearLayout.LayoutParams(dp(HEAD_H), dp(HEAD_H))) // S4: 36dp touch target (was 30)
             }
             box.addView(head, FrameLayout.LayoutParams(MATCH, dp(HEAD_H), Gravity.TOP))
+            val gN = groupOf(t) // 0.0.281: Thazir signature = rail on top (group colour, or violet for the current tab) + host chip with connection cue
+            val railC = if (gN != null) colorOf(gN) else if (hi) c(R.color.mg_primary) else 0
+            if (railC != 0) box.addView(View(act).apply { setBackgroundColor(railC) }, FrameLayout.LayoutParams(MATCH, dp(3), Gravity.TOP))
+            if (!t.home && host.isNotEmpty()) box.addView(TextView(act).apply {
+                text = host; textSize = 10f; maxLines = 1; ellipsize = TextUtils.TruncateAt.END
+                setTextColor(c(R.color.mg_text)); setPadding(dp(7), dp(2), dp(7), dp(2))
+                background = round((c(R.color.mg_surface) and 0x00FFFFFF) or 0xE6000000.toInt(), 10)
+                if (!t.priv && (t.url.startsWith("https://") || t.url.startsWith("http://"))) {
+                    val ok = t.url.startsWith("https://")
+                    val d = androidx.core.content.ContextCompat.getDrawable(act, if (ok) R.drawable.ic_lock else R.drawable.ic_pl_lock_open)?.mutate()
+                    if (d != null) { d.setBounds(0, 0, dp(10), dp(10)); d.setTint(c(if (ok) R.color.mg_success else R.color.mg_error)); setCompoundDrawablesRelative(d, null, null, null); compoundDrawablePadding = dp(4) }
+                }
+            }, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.BOTTOM or Gravity.START).apply { setMargins(dp(8), 0, dp(8), dp(8)) })
+            return box
+        }
+
+        /** 0.0.281: list view row. Same click / drag / close behaviour as card(); adds the Thazir rail, host + lock cue, asleep / age text. */
+        private fun row(t: TabManager.Tab): View {
+            val host = if (t.home) "" else Util.host(t.url)
+            val title = if (t.home) (if (t.priv) "Private home" else "Home") else t.title.ifBlank { host }.ifBlank { "New tab" }
+            val hi = t === tm.active && !selecting
+            val on = selecting && t.id in picked
+            val fill = if (on || hi) androidx.core.graphics.ColorUtils.blendARGB(c(R.color.mg_surface), c(R.color.mg_primary), 0.14f) else c(R.color.mg_surface)
+            val box = FrameLayout(act).apply {
+                background = if (on || hi) round(fill, 18, 2, c(R.color.mg_primary)) else round(fill, 18, 1, c(R.color.mg_outline))
+                contentDescription = if (hi) "$title, current tab" else title
+                setOnClickListener {
+                    if (selecting) { if (on) picked.remove(t.id) else picked.add(t.id); render() }
+                    else { tm.switchTo(t); dismiss() }
+                }
+            }
+            box.tag = t.id
+            dragTouch(box, t)
+            val line = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), 0, dp(4), 0) }
+            val g = groupOf(t)
+            val railC = if (g != null) colorOf(g) else if (hi) c(R.color.mg_primary) else 0
+            line.addView(View(act).apply { if (railC != 0) background = round(railC, 2) }, LinearLayout.LayoutParams(dp(4), dp(30)).apply { marginEnd = dp(10) })
+            line.addView(avatar(t, 32, 14f), LinearLayout.LayoutParams(dp(32), dp(32)).apply { marginEnd = dp(12) })
+            val col = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+            col.addView(TextView(act).apply {
+                text = title; textSize = 14f; maxLines = 1; ellipsize = TextUtils.TruncateAt.END
+                setTextColor(if (hi) c(R.color.mg_primary) else c(R.color.mg_text))
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            })
+            val days = ((System.currentTimeMillis() - t.lastActive) / 86400000L).toInt()
+            val extra = (if (t.suspended) " · asleep" else "") + (if (days >= 1 && t !== tm.active) " · ${days}d" else "")
+            col.addView(TextView(act).apply {
+                text = (if (t.home) "Thazir home" else host) + extra
+                textSize = 12f; maxLines = 1; ellipsize = TextUtils.TruncateAt.END
+                setTextColor(c(R.color.mg_text_dim))
+                if (!t.home && !t.priv && (t.url.startsWith("https://") || t.url.startsWith("http://"))) {
+                    val ok = t.url.startsWith("https://")
+                    val d = androidx.core.content.ContextCompat.getDrawable(act, if (ok) R.drawable.ic_lock else R.drawable.ic_pl_lock_open)?.mutate()
+                    if (d != null) { d.setBounds(0, 0, dp(11), dp(11)); d.setTint(c(if (ok) R.color.mg_success else R.color.mg_error)); setCompoundDrawablesRelative(d, null, null, null); compoundDrawablePadding = dp(4) }
+                }
+            })
+            line.addView(col, LinearLayout.LayoutParams(0, WRAP, 1f))
+            val unread = if (t.home) 0 else SocialBadge.count(act, t.url, t.title)
+            if (unread > 0) {
+                line.addView(TextView(act).apply {
+                    gravity = Gravity.CENTER; text = SocialBadge.label(unread); textSize = 10f
+                    typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+                    setTextColor(c(R.color.mg_on_primary)); background = round(c(R.color.mg_primary), 9)
+                    minWidth = dp(18); setPadding(dp(5), 0, dp(5), 0); contentDescription = "$unread unread"
+                }, LinearLayout.LayoutParams(WRAP, dp(18)).apply { marginEnd = dp(4) })
+            }
+            if (selecting) {
+                line.addView(TextView(act).apply {
+                    gravity = Gravity.CENTER; text = if (on) "✓" else ""; textSize = 13f
+                    setTextColor(c(R.color.mg_on_primary))
+                    background = GradientDrawable().apply {
+                        shape = GradientDrawable.OVAL
+                        if (on) setColor(c(R.color.mg_primary)) else { setColor(0x33000000); setStroke(dp(2), c(R.color.mg_text_dim)) }
+                    }
+                }, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(10) })
+            } else {
+                line.addView(ImageView(act).apply {
+                    setImageResource(R.drawable.ic_close); setColorFilter(if (hi) c(R.color.mg_primary) else c(R.color.mg_text))
+                    scaleType = ImageView.ScaleType.CENTER; contentDescription = "Close $title"
+                    setOnClickListener { closeAnimated(box, t) }
+                }, LinearLayout.LayoutParams(dp(44), dp(44)))
+            }
+            box.addView(line, FrameLayout.LayoutParams(MATCH, MATCH))
             return box
         }
 

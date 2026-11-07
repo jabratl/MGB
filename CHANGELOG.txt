@@ -1,3 +1,18 @@
+0.0.281 (MODIFY: tab switcher upgrade + stronger address bar)
+- Why: the tab section needed a video-style list view and a look that is only Thazir; the address field was too quiet.
+- Tabs: NEW Grid / List toggle in the bottom bar (pref tab_list_view, default = cards as before). NEW list row (avatar, title, host + lock cue, "asleep" / age "3d"). Thazir signature on cards AND rows: a colour rail (group colour, or violet for the current tab) and, on cards, a host chip with a green lock (https) / red open lock (http). Same click, drag, long press, close, select and group behaviour as before.
+- Address bar: capsule now has a 1dp outline at rest and a 2dp violet ring when focused (38dp tall), medium-weight text, https lock is green (http stays red).
+- Files: TabSwitcher.kt, TabPrefs.kt, MainActivity.kt (2 lines), res/drawable/bg_url_field.xml, ic_tab_grid.xml (new), ic_tab_rows.xml (new), build.gradle.kts, CHANGELOG, HANDOFF.
+- Could break: Close all / + stay centred only because of a 56dp spacer on the right of the bar (check 360dp); drag-to-group in list mode (same code, rows instead of cards).
+- NOT tested: Gradle build (CI), device (360 + 1280 dp, dark + light, rotation, list view drag / group / swipe close).
+
+0.0.280 (FIX + MODIFY: browser rotates, Settings press feel)
+- FIX: the browser did not rotate on phones and Android showed no rotate arrow. Cause: the browser was locked to portrait by default. "Rotate browser with phone" is now ON by default (Orient.kt, 1 line). If you ever tapped that setting, switch it ON once.
+- NEW (Settings): a row / category header gets 2 % smaller while touched, and a value text that just changed slides up and fades in once. Reduce motion = none. Touch is never consumed. Files: SettingsScreen.kt.
+- NOT in this version yet (written, waiting for a merge into the real 0.0.279 player files): hold-speed smart slide, subtitle delay.
+- Could break: a phone that wants the browser portrait-only must switch Rotate browser with phone OFF; the 2 % scale could look odd on a row inside a clipped card (report it).
+- NOT tested: Gradle build (CI), device.
+
 0.0.278 (D8 PART: picture-in-picture for social video; leftovers triaged)
 - Why: watch a social video in a small floating window while using another app. While a social video is full screen, pressing Home puts it in a picture-in-picture window. Extras > switch "Video in a small window" (OFF by default, needs Android 8+).
 - How: NEW SocialPip.kt (pref sm_pip; enter() only when the switch is ON, the phone supports it, TabManager.inFullscreen is true, the active tab is a social site with its switch ON; any error = nothing happens). MainActivity: new onUserLeaveHint (1 line + super). AndroidManifest: android:supportsPictureInPicture="true" on MainActivity (configChanges already had screenSize / smallestScreenSize / screenLayout / orientation). SocialScreen switch row + summary line. SettingsScreen RESET + sm_pip. HowToUse phrase.

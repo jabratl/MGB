@@ -16,6 +16,8 @@ object TabPrefs {
     fun reduceSwitch(c: Context): Boolean = sp(c).getBoolean("reduce_motion", false)
     fun swipeClose(c: Context): Boolean = sp(c).getBoolean("swipe_close", true)
     fun confirmClose(c: Context): Boolean = sp(c).getBoolean("close_confirm", false)
+    /** 0.0.281: tab switcher shows rows (true) or 2-column cards (false, default). */
+    fun listView(c: Context): Boolean = sp(c).getBoolean("tab_list_view", false)
 
     fun set(c: Context, key: String, on: Boolean) { sp(c).edit().putBoolean(key, on).apply() }
 
