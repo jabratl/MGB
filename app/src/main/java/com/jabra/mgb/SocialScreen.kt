@@ -187,6 +187,8 @@ object SocialScreen {
                 null, { SocialPreload.on(act) }) { on -> SocialPreload.setOn(act, on) }
             switchRow(extra, R.drawable.ic_info, "Calmer touch on social pages", "No grey flash when you tap, and a page does not pull the whole screen when you scroll past its end. Applies from the next page load",
                 null, { SocialMode.touchOn(act) }) { on -> SocialMode.setTouchOn(act, on) }
+            switchRow(extra, R.drawable.ic_info, "Instagram Reels viewer", "Tapping a reel opens the full screen reels viewer (swipe up for the next reel) like the app, not the single Post page. Pull-to-reload is also off on reel pages",
+                null, { SocialReels.on(act) }) { on -> SocialReels.setOn(act, on) }
             switchRow(extra, R.drawable.ic_info, "Keep social tabs alive", "Social tabs (up to 4) are not freed by Suspend old tabs, so you come back to the same page. Uses more memory",
                 null, { SocialKeep.on(act) }) { on -> SocialKeep.setOn(act, on) }
             switchRow(extra, R.drawable.ic_info, "Clean copied and shared links", "Removes tracking parts (fbclid, utm_, igsh, gclid ...) from a link when you copy or share it. The page itself is not changed",

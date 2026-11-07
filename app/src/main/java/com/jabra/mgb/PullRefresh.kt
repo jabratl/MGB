@@ -62,7 +62,7 @@ object PullRefresh {
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downX = e.x; downY = e.y; pulling = false; dist = 0f
-                    armed = enabled(ctx) && web.scrollY == 0 && web.url?.startsWith(ContentInjector.EXT_ORIGIN) != true
+                    armed = enabled(ctx) && web.scrollY == 0 && web.url?.startsWith(ContentInjector.EXT_ORIGIN) != true && !SocialReels.noPull(web.url)
                 }
                 MotionEvent.ACTION_MOVE -> {
                     if (armed && e.pointerCount == 1) {
